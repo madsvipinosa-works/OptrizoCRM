@@ -2,40 +2,44 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Plus, Edit } from "lucide-react";
-import { db } from "@/db"; // db is now correctly typed
-import { posts } from "@/db/schema";
+import { db } from "@/db";
+import { projects } from "@/db/schema";
 import { desc } from "drizzle-orm";
-import { DeletePostButton } from "./delete-post-button";
+import { DeleteProjectButton } from "./delete-project-button";
 
-export default async function PostsPage() {
-    const allPosts = await db.query.posts.findMany({
-        orderBy: [desc(posts.createdAt)],
+export default async function ProjectsPage() {
+    const allProjects = await db.query.projects.findMany({
+        orderBy: [desc(projects.createdAt)],
     });
 
     return (
         <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Blog Posts</h1>
-                    <p className="text-muted-foreground">Manage your articles and announcements.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Projects (Portfolio)</h1>
+                    <p className="text-muted-foreground">Showcase your best work.</p>
                 </div>
                 <Button asChild className="bg-primary text-black font-bold">
-                    <Link href="/dashboard/posts/new">
-                        <Plus className="mr-2 h-4 w-4" /> New Post
+                    <Link href="/dashboard/projects/new">
+                        <Plus className="mr-2 h-4 w-4" /> New Project
                     </Link>
                 </Button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {allPosts.map((post) => (
-                    <Card key={post.id} className="bg-black/40 border-primary/20 flex flex-col justify-between">
+                {allProjects.map((project) => (
+                    <Card key={project.id} className="bg-black/40 border-primary/20 flex flex-col justify-between">
                         <CardHeader>
-                            <CardTitle className="line-clamp-2">{post.title}</CardTitle>
-                            <CardDescription className="line-clamp-1">{post.slug}</CardDescription>
+                            <CardTitle className="line-clamp-2">{project.title}</CardTitle>
+                            <div className="flex justify-between items-center mt-2">
+                                <CardDescription className="text-xs uppercase tracking-wider text-primary">
+                                    {project.clientName || "Unknown Client"}
+                                </CardDescription>
+                            </div>
                         </CardHeader>
                         <CardFooter className="flex justify-between border-t border-white/10 pt-4">
                             <div className="text-xs text-muted-foreground">
-                                {post.published ? (
+                                {project.status === 'published' ? (
                                     <span className="text-green-500 font-medium">Published</span>
                                 ) : (
                                     <span className="text-yellow-500 font-medium">Draft</span>
@@ -43,19 +47,19 @@ export default async function PostsPage() {
                             </div>
                             <div className="flex gap-2">
                                 <Button asChild size="icon" variant="ghost" className="h-8 w-8 hover:text-primary">
-                                    <Link href={`/dashboard/posts/${post.id}`}>
+                                    <Link href={`/dashboard/projects/${project.id}`}>
                                         <Edit className="h-4 w-4" />
                                     </Link>
                                 </Button>
-                                <DeletePostButton id={post.id} />
+                                <DeleteProjectButton id={project.id} />
                             </div>
                         </CardFooter>
                     </Card>
                 ))}
 
-                {allPosts.length === 0 && (
+                {allProjects.length === 0 && (
                     <div className="col-span-full py-20 text-center border border-dashed border-white/10 rounded-lg">
-                        <p className="text-muted-foreground">No posts yet. Write something amazing!</p>
+                        <p className="text-muted-foreground">No projects yet. Add your first case study!</p>
                     </div>
                 )}
             </div>

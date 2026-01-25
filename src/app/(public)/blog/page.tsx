@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +27,16 @@ export default async function BlogIndexPage() {
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                 {publishedPosts.map((post) => (
                     <Card key={post.id} className="bg-black/50 border-white/10 overflow-hidden hover:border-primary/50 transition-colors group">
-                        {/* Placeholder for cover image if we had one */}
-                        <div className="h-48 w-full bg-white/5 group-hover:bg-white/10 transition-colors" />
+                        <div className="relative h-48 w-full bg-white/5 group-hover:bg-white/10 transition-colors overflow-hidden">
+                            {post.coverImage && (
+                                <Image
+                                    src={post.coverImage}
+                                    alt={post.title}
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                            )}
+                        </div>
 
                         <CardHeader>
                             <div className="text-xs text-primary mb-2">

@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Code2, Layout, Rocket, Shield, Users, Database, Globe } from "lucide-react";
+import { ArrowRight, Code2, Globe, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 import { getSiteSettings } from "@/features/cms/actions";
+import { ServicesGrid } from "@/components/ServicesGrid";
+import { TestimonialsGrid } from "@/components/TestimonialsGrid";
+import { BlogTeaserGrid } from "@/components/BlogTeaserGrid";
 
 export default async function Home() {
     const settings = await getSiteSettings();
@@ -85,7 +87,7 @@ export default async function Home() {
             </section>
 
 
-            {/* Services Section (Bento Grid Style) */}
+            {/* Services Section (Dynamic) */}
             <section className="container px-4 mx-auto">
                 <div className="flex flex-col items-center mb-16 text-center">
                     <Badge variant="secondary" className="mb-4 text-primary">Our Expertise</Badge>
@@ -93,63 +95,7 @@ export default async function Home() {
                     <p className="text-muted-foreground max-w-2xl">We don&apos;t just write code; we build digital assets that drive growth.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card className="md:col-span-2 glass-card hover:border-primary/50 transition-colors group">
-                        <CardHeader>
-                            <Layout className="h-12 w-12 text-primary mb-2 group-hover:scale-110 transition-transform duration-300" />
-                            <CardTitle className="text-2xl">Custom Web Applications</CardTitle>
-                            <CardDescription className="text-base">
-                                This project involved a complete rebrand and a new high-performance website. We increased their conversion rate by 150% in the first month. Check out the case study to see how we did it. It&apos;s a great example of our work.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex gap-4 mt-4">
-                                <Badge variant="secondary">SaaS Platforms</Badge>
-                                <Badge variant="secondary">Internal Tools</Badge>
-                                <Badge variant="secondary">Customer Portals</Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="glass-card hover:border-primary/50 transition-colors group">
-                        <CardHeader>
-                            <Database className="h-12 w-12 text-primary mb-2 group-hover:scale-110 transition-transform duration-300" />
-                            <CardTitle>Cloud Infrastructure</CardTitle>
-                            <CardDescription>
-                                Serverless architectures, database design, and auto-scaling solutions on AWS/Vercel.
-                            </CardDescription>
-                        </CardHeader>
-                    </Card>
-
-                    <Card className="glass-card hover:border-primary/50 transition-colors group">
-                        <CardHeader>
-                            <Rocket className="h-12 w-12 text-primary mb-2 group-hover:scale-110 transition-transform duration-300" />
-                            <CardTitle>MVP Development</CardTitle>
-                            <CardDescription>
-                                Rapid prototyping to get your product to market in weeks, not months.
-                            </CardDescription>
-                        </CardHeader>
-                    </Card>
-
-                    <Card className="md:col-span-2 glass-card hover:border-primary/50 transition-colors group">
-                        <CardHeader>
-                            <Users className="h-12 w-12 text-primary mb-2 group-hover:scale-110 transition-transform duration-300" />
-                            <CardTitle className="text-2xl">Dedicated Teams</CardTitle>
-                            <CardDescription className="text-base">
-                                Hire a full squad of senior engineers, designers, and PMs deeply integrated
-                                into your workflow.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ul className="grid grid-cols-2 gap-2 mt-2 text-sm text-muted-foreground">
-                                <li className="flex items-center"><Shield className="h-4 w-4 text-primary mr-2" /> Top 1% Talent</li>
-                                <li className="flex items-center"><Shield className="h-4 w-4 text-primary mr-2" /> Full Time Focus</li>
-                                <li className="flex items-center"><Shield className="h-4 w-4 text-primary mr-2" /> Agile Methodology</li>
-                                <li className="flex items-center"><Shield className="h-4 w-4 text-primary mr-2" /> Timezone Aligned</li>
-                            </ul>
-                        </CardContent>
-                    </Card>
-                </div>
+                <ServicesGrid />
             </section>
 
             {/* Testimonials Section */}
@@ -166,22 +112,7 @@ export default async function Home() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {[
-                            { name: "Sarah Jenkins", role: "CTO, TechFlow", quote: "Optrizo transformed our legacy system into a sleek, modern web app. The speed is incredible." },
-                            { name: "Mark Davis", role: "Founder, StartUpX", quote: "Optrizo transformed our online presence. Their attention to detail and technical expertise is unmatched. We highly recommend them." },
-                            { name: "Elena Rodriguez", role: "Product Manager", quote: "Professional, timely, and technically brilliant. The best agency we've worked with." },
-                        ].map((t, i) => (
-                            <Card key={i} className="bg-black/40 border-white/10">
-                                <CardContent className="pt-6">
-                                    <div className="flex gap-1 text-primary mb-4">{"★".repeat(5)}</div>
-                                    <p className="text-gray-300 italic mb-6 text-lg leading-relaxed">&quot;{t.quote}&quot;</p>
-                                    <div>
-                                        <div className="font-bold text-white">{t.name}</div>
-                                        <div className="text-sm text-muted-foreground">{t.role}</div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        <TestimonialsGrid />
                     </div>
                 </div>
             </section>
@@ -197,22 +128,7 @@ export default async function Home() {
                         <Link href="/blog">View All Articles</Link>
                     </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {[
-                        { title: "The Future of Server Components in 2026", date: "Jan 15, 2026", cat: "Tech" },
-                        { title: "Why Design Systems Scale Better", date: "Jan 10, 2026", cat: "Design" },
-                        { title: "Optimizing Next.js for Performance", date: "Jan 05, 2026", cat: "Engineering" },
-                    ].map((post, i) => (
-                        <Link href={`/blog/${i}`} key={i} className="group block">
-                            <div className="relative h-48 bg-white/5 rounded-xl mb-4 overflow-hidden border border-white/10 group-hover:border-primary/50 transition-colors">
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                                <Badge className="absolute top-4 left-4 bg-primary text-black hover:bg-primary">{post.cat}</Badge>
-                            </div>
-                            <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{post.title}</h3>
-                            <p className="text-sm text-muted-foreground">{post.date}</p>
-                        </Link>
-                    ))}
-                </div>
+                <BlogTeaserGrid />
             </section>
 
             {/* CTA Section */}
