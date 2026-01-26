@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, FileText, Briefcase, Settings, Star, Layers } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, Settings, Star, Layers, Mail } from "lucide-react";
 
 const navItems = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -7,6 +7,7 @@ const navItems = [
     { href: "/dashboard/projects", label: "Projects", icon: Briefcase },
     { href: "/dashboard/services", label: "Services", icon: Layers },
     { href: "/dashboard/testimonials", label: "Testimonials", icon: Star },
+    { href: "/dashboard/messages", label: "Inbox", icon: Mail },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

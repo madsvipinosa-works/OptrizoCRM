@@ -5,7 +5,9 @@ import { db } from "@/db";
 import { siteSettings, posts, projects, services, testimonials } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { auth } from "@/auth"; // Need auth to get authorId
+import { auth } from "@/auth";
+
+// --- Helper Functions ---
 
 function sanitizeSlug(input: string): string {
     return input
@@ -14,6 +16,14 @@ function sanitizeSlug(input: string): string {
         .replace(/[^\w\s-]/g, "")
         .replace(/[\s_-]+/g, "-")
         .replace(/^-+|-+$/g, "");
+}
+
+async function requireAdmin() {
+    const session = await auth();
+    if (session?.user?.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
+    }
+    return session;
 }
 
 // --- Global Settings ---
@@ -29,15 +39,17 @@ export type ActionState = {
 };
 
 export async function updateSiteSettings(prevState: ActionState, formData: FormData) {
-    const rawData = {
-        heroTitle: formData.get("heroTitle") as string,
-        heroDescription: formData.get("heroDescription") as string,
-        aboutText: formData.get("aboutText") as string,
-        logoUrl: formData.get("logoUrl") as string,
-        contactEmail: formData.get("contactEmail") as string,
-    };
-
     try {
+        await requireAdmin();
+
+        const rawData = {
+            heroTitle: formData.get("heroTitle") as string,
+            heroDescription: formData.get("heroDescription") as string,
+            aboutText: formData.get("aboutText") as string,
+            logoUrl: formData.get("logoUrl") as string,
+            contactEmail: formData.get("contactEmail") as string,
+        };
+
         await db.insert(siteSettings)
             .values({ id: "1", ...rawData })
             .onConflictDoUpdate({
@@ -61,30 +73,25 @@ export type CreatePostState = {
 };
 
 export async function createPost(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const title = formData.get("title") as string;
-    let slug = formData.get("slug") as string;
-
-    // Auto-generate slug from title if empty
-    if (!slug) {
-        slug = title;
-    }
-
-    const sanitizedSlug = sanitizeSlug(slug);
-
-    const content = formData.get("content") as string; // HTML string from Tiptap
-    const coverImage = formData.get("coverImage") as string;
-
     try {
+        const session = await requireAdmin();
+
+        const title = formData.get("title") as string;
+        let slug = formData.get("slug") as string;
+
+        if (!slug) slug = title;
+        const sanitizedSlug = sanitizeSlug(slug);
+
+        const content = formData.get("content") as string;
+        const coverImage = formData.get("coverImage") as string;
+
         await db.insert(posts).values({
             title,
             slug: sanitizedSlug,
             content,
             coverImage,
-            authorId: session.user.id,
-            published: true, // Auto-publish for now
+            authorId: session.user.id!,
+            published: true,
         });
 
         revalidatePath("/dashboard/posts");
@@ -92,32 +99,30 @@ export async function createPost(prevState: ActionState, formData: FormData) {
         return { success: true, message: "Post created successfully!" };
     } catch (error) {
         console.error(error);
-        return { success: false, message: "Failed to create post. Slug might be taken." };
+        return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
 
 export async function deletePost(id: string) {
+    await requireAdmin();
     await db.delete(posts).where(eq(posts.id, id));
     revalidatePath("/dashboard/posts");
 }
 
 export async function updatePost(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const id = formData.get("id") as string;
-    const title = formData.get("title") as string;
-    let slug = formData.get("slug") as string;
-
-    if (!slug) slug = title;
-    const sanitizedSlug = sanitizeSlug(slug);
-
-
-
-    const content = formData.get("content") as string;
-    const coverImage = formData.get("coverImage") as string;
-
     try {
+        await requireAdmin();
+
+        const id = formData.get("id") as string;
+        const title = formData.get("title") as string;
+        let slug = formData.get("slug") as string;
+
+        if (!slug) slug = title;
+        const sanitizedSlug = sanitizeSlug(slug);
+
+        const content = formData.get("content") as string;
+        const coverImage = formData.get("coverImage") as string;
+
         await db.update(posts)
             .set({
                 title,
@@ -133,30 +138,27 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
         return { success: true, message: "Post updated successfully!" };
     } catch (error) {
         console.error(error);
-        return { success: false, message: "Failed. Slug might be taken." };
+        return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
 
 // --- Projects ---
 
 export async function createProject(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const title = formData.get("title") as string;
-    const clientName = formData.get("clientName") as string;
-    const description = formData.get("description") as string;
-    let slug = formData.get("slug") as string;
-
-    if (!slug) slug = title;
-    const sanitizedSlug = sanitizeSlug(slug);
-
-
-
-    const content = formData.get("content") as string;
-    const coverImage = formData.get("coverImage") as string;
-
     try {
+        await requireAdmin();
+
+        const title = formData.get("title") as string;
+        const clientName = formData.get("clientName") as string;
+        const description = formData.get("description") as string;
+        let slug = formData.get("slug") as string;
+
+        if (!slug) slug = title;
+        const sanitizedSlug = sanitizeSlug(slug);
+
+        const content = formData.get("content") as string;
+        const coverImage = formData.get("coverImage") as string;
+
         await db.insert(projects).values({
             title,
             slug: sanitizedSlug,
@@ -168,38 +170,35 @@ export async function createProject(prevState: ActionState, formData: FormData) 
         });
 
         revalidatePath("/dashboard/projects");
-        // revalidatePath("/projects"); // When we have the public page
         return { success: true, message: "Project created successfully!" };
     } catch (error) {
         console.error(error);
-        return { success: false, message: "Failed. Slug might be taken." };
+        return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
 
 export async function deleteProject(id: string) {
+    await requireAdmin();
     await db.delete(projects).where(eq(projects.id, id));
     revalidatePath("/dashboard/projects");
 }
 
 export async function updateProject(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const id = formData.get("id") as string;
-    const title = formData.get("title") as string;
-    const clientName = formData.get("clientName") as string;
-    const description = formData.get("description") as string;
-    let slug = formData.get("slug") as string;
-
-    if (!slug) slug = title;
-    const sanitizedSlug = sanitizeSlug(slug);
-
-
-
-    const content = formData.get("content") as string;
-    const coverImage = formData.get("coverImage") as string;
-
     try {
+        await requireAdmin();
+
+        const id = formData.get("id") as string;
+        const title = formData.get("title") as string;
+        const clientName = formData.get("clientName") as string;
+        const description = formData.get("description") as string;
+        let slug = formData.get("slug") as string;
+
+        if (!slug) slug = title;
+        const sanitizedSlug = sanitizeSlug(slug);
+
+        const content = formData.get("content") as string;
+        const coverImage = formData.get("coverImage") as string;
+
         await db.update(projects)
             .set({
                 title,
@@ -217,30 +216,29 @@ export async function updateProject(prevState: ActionState, formData: FormData) 
         return { success: true, message: "Project updated successfully!" };
     } catch (error) {
         console.error(error);
-        return { success: false, message: "Failed. Slug might be taken." };
+        return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
 
 // --- Services ---
 
 export async function createService(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const icon = formData.get("icon") as string;
-
     try {
+        await requireAdmin();
+
+        const title = formData.get("title") as string;
+        const description = formData.get("description") as string;
+        const icon = formData.get("icon") as string;
+
         await db.insert(services).values({
             title,
             description,
             icon,
-            order: 0, // Default order
+            order: 0,
         });
 
         revalidatePath("/dashboard/services");
-        revalidatePath("/"); // Update home page
+        revalidatePath("/");
         return { success: true, message: "Service created successfully!" };
     } catch (error) {
         console.error(error);
@@ -249,15 +247,14 @@ export async function createService(prevState: ActionState, formData: FormData) 
 }
 
 export async function updateService(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const id = formData.get("id") as string;
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const icon = formData.get("icon") as string;
-
     try {
+        await requireAdmin();
+
+        const id = formData.get("id") as string;
+        const title = formData.get("title") as string;
+        const description = formData.get("description") as string;
+        const icon = formData.get("icon") as string;
+
         await db.update(services)
             .set({
                 title,
@@ -276,6 +273,7 @@ export async function updateService(prevState: ActionState, formData: FormData) 
 }
 
 export async function deleteService(id: string) {
+    await requireAdmin();
     await db.delete(services).where(eq(services.id, id));
     revalidatePath("/dashboard/services");
     revalidatePath("/");
@@ -284,16 +282,15 @@ export async function deleteService(id: string) {
 // --- Testimonials ---
 
 export async function createTestimonial(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const name = formData.get("name") as string;
-    const role = formData.get("role") as string;
-    const company = formData.get("company") as string;
-    const content = formData.get("content") as string;
-    const rating = parseInt(formData.get("rating") as string || "5");
-
     try {
+        await requireAdmin();
+
+        const name = formData.get("name") as string;
+        const role = formData.get("role") as string;
+        const company = formData.get("company") as string;
+        const content = formData.get("content") as string;
+        const rating = parseInt(formData.get("rating") as string || "5");
+
         await db.insert(testimonials).values({
             name,
             role,
@@ -304,7 +301,7 @@ export async function createTestimonial(prevState: ActionState, formData: FormDa
         });
 
         revalidatePath("/dashboard/testimonials");
-        revalidatePath("/"); // Update home page
+        revalidatePath("/");
         return { success: true, message: "Testimonial added!" };
     } catch (error) {
         console.error(error);
@@ -313,17 +310,16 @@ export async function createTestimonial(prevState: ActionState, formData: FormDa
 }
 
 export async function updateTestimonial(prevState: ActionState, formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
-
-    const id = formData.get("id") as string;
-    const name = formData.get("name") as string;
-    const role = formData.get("role") as string;
-    const company = formData.get("company") as string;
-    const content = formData.get("content") as string;
-    const rating = parseInt(formData.get("rating") as string || "5");
-
     try {
+        await requireAdmin();
+
+        const id = formData.get("id") as string;
+        const name = formData.get("name") as string;
+        const role = formData.get("role") as string;
+        const company = formData.get("company") as string;
+        const content = formData.get("content") as string;
+        const rating = parseInt(formData.get("rating") as string || "5");
+
         await db.update(testimonials)
             .set({
                 name,
@@ -331,6 +327,7 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
                 company,
                 content,
                 rating,
+                active: true,
             })
             .where(eq(testimonials.id, id));
 
@@ -344,6 +341,7 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
 }
 
 export async function deleteTestimonial(id: string) {
+    await requireAdmin();
     await db.delete(testimonials).where(eq(testimonials.id, id));
     revalidatePath("/dashboard/testimonials");
     revalidatePath("/");

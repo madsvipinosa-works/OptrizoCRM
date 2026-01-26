@@ -6,6 +6,7 @@ import { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import DOMPurify from "isomorphic-dompurify";
 
 interface Props {
     params: Promise<{ slug: string }>;
@@ -68,7 +69,7 @@ export default async function ProjectDetailPage({ params }: Props) {
             {/* Render Tiptap HTML Content */}
             <div
                 className="prose prose-invert prose-lg max-w-none prose-headings:text-white prose-a:text-primary hover:prose-a:text-primary/80"
-                dangerouslySetInnerHTML={{ __html: project.content || "" }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(project.content || "") }}
             />
         </article>
     );

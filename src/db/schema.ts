@@ -143,3 +143,16 @@ export const siteSettings = pgTable("site_settings", {
     faviconUrl: text("faviconUrl"),
     contactEmail: text("contactEmail"),
 });
+
+// 11. Contact Messages (Lead Capture)
+export const messages = pgTable("message", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(), // Combined First + Last
+    email: text("email").notNull(),
+    subject: text("subject"),
+    message: text("content").notNull(), // 'message' is a reserved word in some contexts, safe to use 'content' or keep 'message' if quoted. letting use 'content' to align with other tables
+    read: boolean("read").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});

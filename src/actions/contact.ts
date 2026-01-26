@@ -1,6 +1,8 @@
 "use server";
 
 import { contactFormSchema } from "@/lib/schemas";
+import { db } from "@/db";
+import { messages } from "@/db/schema";
 
 
 export type ContactState = {
@@ -34,21 +36,33 @@ export async function submitContactForm(prevState: ContactState, formData: FormD
         };
     }
 
-    // 3. Simulate Database/Email Operation
-    const { firstName, email, subject, message } = validatedFields.data;
-    console.log("--- CONTACT FORM SUBMISSION ---");
-    console.log(`From: ${firstName} (${email})`);
-    console.log(`Subject: ${subject}`);
-    console.log(`Message: ${message}`);
-    console.log("-------------------------------");
+    // 3. Save to Database
+    const { firstName, lastName, email, subject, message } = validatedFields.data;
+    const name = `${firstName} ${lastName || ""}`.trim();
 
-    // Simulate delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+        await db.insert(messages).values({
+            name,
+            email,
+            subject,
+            message, // content alias in schema
+            read: false,
+        });
 
-    // 4. Return success
-    return {
-        message: "Message sent successfully! We'll be in touch soon.",
-        success: true,
-        errors: {},
-    };
+        console.log(`[Contact] Message saved from ${email}`);
+
+        // 4. Return success
+        return {
+            message: "Message sent successfully! We'll be in touch soon.",
+            success: true,
+            errors: {},
+        };
+    } catch (error) {
+        console.error("Failed to save contact message:", error);
+        return {
+            message: "Something went wrong. Please try again later.",
+            success: false,
+            errors: {},
+        };
+    }
 }
