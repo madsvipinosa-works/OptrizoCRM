@@ -1,7 +1,6 @@
 "use server";
 
-import fs from "node:fs/promises";
-import path from "node:path";
+import { put } from "@vercel/blob";
 
 export async function uploadImage(formData: FormData) {
     const file = formData.get("file") as File;
@@ -14,27 +13,15 @@ export async function uploadImage(formData: FormData) {
         return { success: false, message: "File size too large (max 5MB)." };
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const originalName = file.name.replace(/\s+/g, "-").toLowerCase();
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const filename = `${uniqueSuffix}-${originalName}`;
-
-    // Ensure uploads directory exists
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
     try {
-        await fs.mkdir(uploadsDir, { recursive: true });
-    } catch {
-        // Ignore if exists
-    }
+        // Upload to Vercel Blob
+        const blob = await put(file.name, file, {
+            access: "public",
+        });
 
-    const filePath = path.join(uploadsDir, filename);
-
-    try {
-        await fs.writeFile(filePath, buffer);
-        const url = `/uploads/${filename}`;
-        return { success: true, url };
+        return { success: true, url: blob.url };
     } catch (error) {
         console.error("Upload failed:", error);
-        return { success: false, message: "Server error uploading file." };
+        return { success: false, message: "Server error uploading file to Cloud." };
     }
 }

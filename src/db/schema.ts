@@ -145,14 +145,66 @@ export const siteSettings = pgTable("site_settings", {
 });
 
 // 11. Contact Messages (Lead Capture)
-export const messages = pgTable("message", {
+// 11. Leads (CRM Core)
+export const leadEnum = pgEnum("lead_status", ["New", "Contacted", "In Progress", "Completed", "Lost"]);
+
+export const leads = pgTable("lead", {
     id: text("id")
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
-    name: text("name").notNull(), // Combined First + Last
+    name: text("name").notNull(),
     email: text("email").notNull(),
     subject: text("subject"),
-    message: text("content").notNull(), // 'message' is a reserved word in some contexts, safe to use 'content' or keep 'message' if quoted. letting use 'content' to align with other tables
+    message: text("message").notNull(),
+    status: leadEnum("status").default("New").notNull(),
+    score: integer("score").default(0),
+    budget: text("budget"), // e.g., "$1k - $5k"
+    service: text("service"), // e.g., "Web Development"
+    source: text("source").default("Website Form"),
+    notes: text("notes"), // Legacy simple notes (keeping for backward compatibility)
+    assignedTo: text("assignedTo").references(() => users.id), // New: Assignment
     read: boolean("read").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// 12. Lead Notes (Audit Trail / Advanced Comments)
+export const leadNotes = pgTable("lead_note", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    leadId: text("leadId")
+        .notNull()
+        .references(() => leads.id, { onDelete: "cascade" }),
+    authorId: text("authorId")
+        .notNull()
+        .references(() => users.id, { onDelete: "set null" }), // Keep note even if user deleted
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --- RELATIONS ---
+import { relations } from "drizzle-orm";
+
+export const leadsRelations = relations(leads, ({ one, many }) => ({
+    notesList: many(leadNotes), // Changed name to avoid conflict with 'notes' column
+    assignee: one(users, {
+        fields: [leads.assignedTo],
+        references: [users.id],
+    }),
+}));
+
+export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
+    lead: one(leads, {
+        fields: [leadNotes.leadId],
+        references: [leads.id],
+    }),
+    author: one(users, {
+        fields: [leadNotes.authorId],
+        references: [users.id],
+    }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+    assignedLeads: many(leads),
+    authoredNotes: many(leadNotes),
+}));

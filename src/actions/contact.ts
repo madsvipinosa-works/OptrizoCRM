@@ -2,22 +2,17 @@
 
 import { contactFormSchema } from "@/lib/schemas";
 import { db } from "@/db";
-import { messages } from "@/db/schema";
+import { leads } from "@/db/schema";
+import { calculateLeadScore } from "@/lib/scoring";
 
 
 export type ContactState = {
-    errors?: {
-        firstName?: string[];
-        lastName?: string[];
-        email?: string[];
-        subject?: string[];
-        message?: string[];
-    };
-    message?: string;
-    success?: boolean;
+    message: string;
+    success: boolean;
+    errors: Record<string, string[]>;
 };
 
-export async function submitContactForm(prevState: ContactState, formData: FormData) {
+export async function submitContactForm(prevState: ContactState, formData: FormData): Promise<ContactState> {
     // 1. Validate fields using Zod
     const validatedFields = contactFormSchema.safeParse({
         firstName: formData.get("firstName"),
@@ -25,35 +20,43 @@ export async function submitContactForm(prevState: ContactState, formData: FormD
         email: formData.get("email"),
         subject: formData.get("subject"),
         message: formData.get("message"),
+        budget: formData.get("budget"),
+        service: formData.get("service"),
     });
 
     // 2. Return early if validation fails
     if (!validatedFields.success) {
         return {
-            errors: validatedFields.error.flatten().fieldErrors,
-            message: "Missing Fields. Failed to send message.",
+            message: "Please check your inputs.",
             success: false,
+            errors: validatedFields.error.flatten().fieldErrors,
         };
     }
 
     // 3. Save to Database
-    const { firstName, lastName, email, subject, message } = validatedFields.data;
+    const { firstName, lastName, email, subject, message, budget, service } = validatedFields.data;
     const name = `${firstName} ${lastName || ""}`.trim();
 
+    // Calculate Score
+    const score = calculateLeadScore({ budget, service, message });
+
     try {
-        await db.insert(messages).values({
+        await db.insert(leads).values({
             name,
             email,
             subject,
-            message, // content alias in schema
-            read: false,
+            message,
+            budget,
+            service,
+            score,
+            source: "Website Form",
         });
 
-        console.log(`[Contact] Message saved from ${email}`);
+        console.log(`[Contact] Lead saved from ${email}`);
 
         // 4. Return success
         return {
-            message: "Message sent successfully! We'll be in touch soon.",
+            message: "Message sent! We'll get back to you shortly.",
             success: true,
             errors: {},
         };
