@@ -5,7 +5,7 @@ import { Plus, Edit } from "lucide-react";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { desc } from "drizzle-orm";
-import { DeleteProjectButton } from "./delete-project-button";
+import { DeleteProjectButton } from "@/features/cms/components/DeleteProjectButton";
 
 export default async function ProjectsPage() {
     const allProjects = await db.query.projects.findMany({

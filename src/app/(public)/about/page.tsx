@@ -1,9 +1,16 @@
-export default function AboutPage() {
+import { getSiteSettings } from "@/features/cms/actions";
+
+export default async function AboutPage() {
+    const settings = await getSiteSettings();
+
     return (
         <div className="container mx-auto px-4 py-24">
             <h1 className="text-4xl font-bold mb-6">About Optrizo</h1>
-            <p className="text-xl text-muted-foreground">We are a team of passionate developers...</p>
-            {/* Content to be filled */}
+            <div className="prose prose-invert max-w-none">
+                <p className="text-xl text-muted-foreground whitespace-pre-wrap">
+                    {settings?.aboutText || "We are a team of passionate developers..."}
+                </p>
+            </div>
         </div>
     );
 }

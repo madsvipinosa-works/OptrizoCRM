@@ -142,6 +142,7 @@ export const siteSettings = pgTable("site_settings", {
     logoUrl: text("logoUrl"),
     faviconUrl: text("faviconUrl"),
     contactEmail: text("contactEmail"),
+    notificationEmails: text("notificationEmails"), // Comma-separated list of admin emails
 });
 
 // 11. Contact Messages (Lead Capture)

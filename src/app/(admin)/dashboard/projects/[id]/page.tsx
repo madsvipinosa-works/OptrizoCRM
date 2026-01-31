@@ -1,4 +1,4 @@
-import { ProjectForm } from "../new/ProjectForm";
+import { ProjectForm } from "@/features/cms/components/ProjectForm";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq } from "drizzle-orm";

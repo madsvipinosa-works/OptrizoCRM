@@ -1,4 +1,4 @@
-import { ServiceForm } from "./service-form";
+import { ServiceForm } from "@/features/cms/components/ServiceForm";
 
 export default function NewServicePage() {
     return (

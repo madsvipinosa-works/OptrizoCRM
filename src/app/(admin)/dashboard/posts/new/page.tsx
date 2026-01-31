@@ -1,4 +1,4 @@
-import { PostForm } from "./post-form";
+import { PostForm } from "@/features/cms/components/PostForm";
 
 export default function NewPostPage() {
     return (

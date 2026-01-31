@@ -1,4 +1,4 @@
-import { ProjectForm } from "./ProjectForm";
+import { ProjectForm } from "@/features/cms/components/ProjectForm";
 
 export default function NewProjectPage() {
     return (

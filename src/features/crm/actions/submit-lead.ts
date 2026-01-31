@@ -4,6 +4,7 @@ import { contactFormSchema } from "@/lib/schemas";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { calculateLeadScore } from "@/lib/scoring";
+import { sendLeadNotification } from "@/lib/notifications";
 
 
 export type ContactState = {
@@ -54,7 +55,21 @@ export async function submitContactForm(prevState: ContactState, formData: FormD
 
         console.log(`[Contact] Lead saved from ${email}`);
 
-        // 4. Return success
+        // 4. Send Email Notification (Fire and forget)
+        try {
+            await sendLeadNotification({
+                name,
+                email,
+                message,
+                service: service ?? undefined,
+                budget: budget ?? undefined,
+                score,
+            });
+        } catch (emailError) {
+            console.error("Failed to send email notif:", emailError);
+        }
+
+        // 5. Return success
         return {
             message: "Message sent! We'll get back to you shortly.",
             success: true,

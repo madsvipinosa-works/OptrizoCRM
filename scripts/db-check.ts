@@ -15,8 +15,12 @@ async function testConnection(port: number) {
         console.log(`✅ SUCCESS: Connected to port ${port}!`);
         await client.end();
         return true;
-    } catch (err: any) {
-        console.log(`❌ FAILED on port ${port}: ${err.message}`);
+    } catch (err) {
+        if (err instanceof Error) {
+            console.log(`❌ FAILED on port ${port}: ${err.message}`);
+        } else {
+            console.log(`❌ FAILED on port ${port}: Unknown error`);
+        }
         return false;
     }
 }

@@ -5,7 +5,7 @@ import { Plus, Edit } from "lucide-react";
 import { db } from "@/db";
 import { testimonials } from "@/db/schema";
 import { desc } from "drizzle-orm";
-import { DeleteTestimonialButton } from "./delete-testimonial-button";
+import { DeleteTestimonialButton } from "@/features/cms/components/DeleteTestimonialButton";
 
 export default async function TestimonialsPage() {
     const allTestimonials = await db.query.testimonials.findMany({

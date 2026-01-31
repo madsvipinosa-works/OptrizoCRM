@@ -9,7 +9,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { googleSignIn } from "@/actions/auth";
+import { googleSignIn } from "@/features/auth/actions";
 import { Chrome } from "lucide-react";
 
 export function LoginModal({ children }: { children: React.ReactNode }) {

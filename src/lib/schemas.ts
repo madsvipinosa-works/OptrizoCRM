@@ -17,6 +17,7 @@ export const leadStatusEnum = z.enum(["New", "Contacted", "In Progress", "Comple
 export const leadUpdateSchema = z.object({
     status: leadStatusEnum.optional(),
     notes: z.string().optional(),
+    assignedTo: z.string().nullable().optional(),
 });
 
 export type LeadUpdateValues = z.infer<typeof leadUpdateSchema>;

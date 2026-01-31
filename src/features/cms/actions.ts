@@ -48,6 +48,7 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
             aboutText: formData.get("aboutText") as string,
             logoUrl: formData.get("logoUrl") as string,
             contactEmail: formData.get("contactEmail") as string,
+            notificationEmails: formData.get("notificationEmails") as string,
         };
 
         await db.insert(siteSettings)

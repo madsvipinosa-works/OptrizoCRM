@@ -1,4 +1,4 @@
-import { TestimonialForm } from "./testimonial-form";
+import { TestimonialForm } from "@/features/cms/components/TestimonialForm";
 
 export default function NewTestimonialPage() {
     return (

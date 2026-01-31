@@ -1,4 +1,4 @@
-import { ServiceForm } from "../new/service-form";
+import { ServiceForm } from "@/features/cms/components/ServiceForm";
 import { db } from "@/db";
 import { services } from "@/db/schema";
 import { eq } from "drizzle-orm";

@@ -1,4 +1,4 @@
-import { TestimonialForm } from "../new/testimonial-form";
+import { TestimonialForm } from "@/features/cms/components/TestimonialForm";
 import { db } from "@/db";
 import { testimonials } from "@/db/schema";
 import { eq } from "drizzle-orm";

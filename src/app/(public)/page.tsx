@@ -53,8 +53,7 @@ export default async function Home() {
                         <div className="relative border border-white/10 bg-black/50 backdrop-blur-sm p-8 rounded-2xl">
                             <h3 className="text-2xl font-bold mb-4 text-white">Engineering Excellence</h3>
                             <p className="text-muted-foreground mb-6">
-                                At Optrizo, we don&apos;t just write code. We engineer solutions that solve complex business problems.
-                                We&apos;re a premium digital agency that builds high-converting websites and applications. We specialize in modern design, performance, and scalability.
+                                {settings?.aboutText || "At Optrizo, we don't just write code. We engineer solutions that solve complex business problems. We're a premium digital agency that builds high-converting websites and applications. We specialize in modern design, performance, and scalability."}
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-center gap-3 text-sm">

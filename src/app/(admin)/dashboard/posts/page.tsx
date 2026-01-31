@@ -5,7 +5,7 @@ import { Plus, Edit } from "lucide-react";
 import { db } from "@/db"; // db is now correctly typed
 import { posts } from "@/db/schema";
 import { desc } from "drizzle-orm";
-import { DeletePostButton } from "./delete-post-button";
+import { DeletePostButton } from "@/features/cms/components/DeletePostButton";
 
 export default async function PostsPage() {
     const allPosts = await db.query.posts.findMany({

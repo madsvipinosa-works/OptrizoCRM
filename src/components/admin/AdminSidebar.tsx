@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { LayoutDashboard, FileText, Briefcase, Settings, Star, Layers, Mail } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, Settings, Star, Layers, Mail, BarChart3, Users } from "lucide-react";
 
 const navItems = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/dashboard/leads", label: "Leads", icon: Mail },
     { href: "/dashboard/posts", label: "Posts", icon: FileText },
     { href: "/dashboard/projects", label: "Projects", icon: Briefcase },
     { href: "/dashboard/services", label: "Services", icon: Layers },
     { href: "/dashboard/testimonials", label: "Testimonials", icon: Star },
-    { href: "/dashboard/leads", label: "Leads", icon: Mail },
+    { href: "/dashboard/team", label: "Team", icon: Users },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

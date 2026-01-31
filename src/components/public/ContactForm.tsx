@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { submitContactForm, type ContactState } from "@/actions/contact";
+import { submitContactForm, type ContactState } from "@/features/crm/actions/submit-lead";
 
 const initialState: ContactState = {
     message: "",
@@ -65,9 +65,9 @@ export function ContactForm({ availableServices }: { availableServices: ServiceO
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="service">Service Type</Label>
-                            <select 
-                                id="service" 
-                                name="service" 
+                            <select
+                                id="service"
+                                name="service"
                                 className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="" className="bg-black">Select a service...</option>
@@ -84,9 +84,9 @@ export function ContactForm({ availableServices }: { availableServices: ServiceO
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="budget">Budget Range</Label>
-                            <select 
-                                id="budget" 
-                                name="budget" 
+                            <select
+                                id="budget"
+                                name="budget"
                                 className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="" className="bg-black">Select a budget...</option>

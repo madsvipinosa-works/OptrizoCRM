@@ -1,4 +1,4 @@
-import { PostForm } from "../new/post-form";
+import { PostForm } from "@/features/cms/components/PostForm";
 import { db } from "@/db";
 import { posts } from "@/db/schema";
 import { eq } from "drizzle-orm";

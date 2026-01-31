@@ -1,8 +1,9 @@
 import { db } from "@/db";
-import { leads } from "@/db/schema";
-import { desc, like, eq, and, or } from "drizzle-orm";
-import { LeadCard } from "@/components/admin/LeadCard";
-import { LeadsFilter } from "@/components/admin/LeadsFilter";
+import { leads, users } from "@/db/schema";
+import { desc, like, eq, and, or, inArray } from "drizzle-orm";
+import { LeadCard } from "@/features/crm/components/LeadCard";
+import { LeadsFilter } from "@/features/crm/components/LeadsFilter";
+import { Suspense } from "react";
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +21,7 @@ export default async function LeadsPage({
 
     // Build Where Clause
     const whereClause = and(
-        status && status !== "all" ? eq(leads.status, status as any) : undefined,
+        status && status !== "all" ? eq(leads.status, status as "New" | "Contacted" | "In Progress" | "Completed" | "Lost") : undefined,
         query
             ? or(
                 like(leads.name, `%${query}%`),
@@ -40,8 +41,15 @@ export default async function LeadsPage({
                 },
                 orderBy: (notes, { desc }) => [desc(notes.createdAt)],
             },
+            assignee: true, // Fetch current assignee
         },
         orderBy: [desc(leads.createdAt)],
+    });
+
+    // Fetch potential assignees (Admins/Editors)
+    const assignableUsers = await db.query.users.findMany({
+        columns: { id: true, name: true, image: true },
+        where: inArray(users.role, ["admin", "editor"]),
     });
 
     return (
@@ -53,7 +61,9 @@ export default async function LeadsPage({
                 </p>
             </div>
 
-            <LeadsFilter />
+            <Suspense fallback={<div className="h-10 w-full bg-white/5 animate-pulse rounded-md" />}>
+                <LeadsFilter />
+            </Suspense>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {leadsList.length === 0 ? (
@@ -68,6 +78,7 @@ export default async function LeadsPage({
                                 ...lead,
                                 createdAt: lead.createdAt.toISOString()
                             }}
+                            assignableUsers={assignableUsers}
                         />
                     ))
                 )}

@@ -5,7 +5,7 @@ import { Plus, Edit, Cuboid } from "lucide-react"; // Default icon
 import { db } from "@/db";
 import { services } from "@/db/schema";
 import { asc } from "drizzle-orm";
-import { DeleteServiceButton } from "./delete-service-button";
+import { DeleteServiceButton } from "@/features/cms/components/DeleteServiceButton";
 
 export default async function ServicesPage() {
     const allServices = await db.query.services.findMany({

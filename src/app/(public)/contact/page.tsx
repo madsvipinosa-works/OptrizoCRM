@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { services } from "@/db/schema";
+
 import { Mail, MapPin, Phone } from "lucide-react";
 import { ContactForm } from "@/components/public/ContactForm";
 

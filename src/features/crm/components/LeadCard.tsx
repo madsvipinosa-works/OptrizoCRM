@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, User } from "lucide-react";
+import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,13 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateLead, addLeadNote } from "@/actions/leads";
+import { updateLead, addLeadNote } from "@/features/crm/actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Define the shape of our Lead based on the schema
@@ -35,6 +34,7 @@ type Lead = {
     notes: string | null;
     createdAt: Date | string;
     read: boolean;
+    assignee: { id: string; name: string | null; image: string | null } | null;
     notesList?: {
         id: string;
         content: string;
@@ -52,10 +52,11 @@ const statusColors: Record<string, string> = {
     "Lost": "bg-gray-500 text-white hover:bg-gray-600",
 };
 
-export function LeadCard({ lead }: { lead: Lead }) {
+export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUsers: { id: string; name: string | null; image: string | null }[] }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(lead.status);
+    const [assignedTo, setAssignedTo] = useState(lead.assignee?.id || "");
     const [newNote, setNewNote] = useState("");
 
     const handleSaveStatus = async () => {
@@ -64,6 +65,22 @@ export function LeadCard({ lead }: { lead: Lead }) {
             const result = await updateLead(lead.id, { status });
             if (result.success) {
                 // Keep dialog open, just update UI feedback
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleAssign = async (userId: string) => {
+        setIsLoading(true);
+        try {
+            const result = await updateLead(lead.id, { assignedTo: userId || null });
+            if (result.success) {
+                setAssignedTo(userId);
             } else {
                 alert(result.message);
             }
@@ -107,9 +124,16 @@ export function LeadCard({ lead }: { lead: Lead }) {
                             <Mail className="h-3 w-3" /> {lead.email}
                         </CardDescription>
                     </div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(lead.createdAt), "MMM d")}
+                    <div className="text-xs text-muted-foreground flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {format(new Date(lead.createdAt), "MMM d")}
+                        </div>
+                        {lead.assignee && (
+                            <Badge variant="outline" className="text-[10px] h-5 px-1 border-white/20">
+                                {lead.assignee.name || "Assigned"}
+                            </Badge>
+                        )}
                     </div>
                 </div>
             </CardHeader>
@@ -148,7 +172,7 @@ export function LeadCard({ lead }: { lead: Lead }) {
                 {lead.notesList && lead.notesList.length > 0 && (
                     <div className="bg-white/5 p-2 rounded-md border-l-2 border-yellow-500/50">
                         <p className="text-xs text-muted-foreground line-clamp-2 italic">
-                            "{lead.notesList[0].content}"
+                            &quot;{lead.notesList[0].content}&quot;
                         </p>
                         <div className="mt-1 text-[10px] text-gray-500 flex justify-end">
                             - {lead.notesList[0].author?.name || "Admin"}
@@ -171,7 +195,7 @@ export function LeadCard({ lead }: { lead: Lead }) {
                         <DialogHeader>
                             <DialogTitle>Manage Lead: {lead.name}</DialogTitle>
                             <DialogDescription>
-                                Update pipeline status and view interaction history.
+                                Update pipeline status and assign tasks.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -184,8 +208,7 @@ export function LeadCard({ lead }: { lead: Lead }) {
                                         id="status"
                                         value={status}
                                         onChange={async (e) => {
-                                            setStatus(e.target.value as any);
-                                            // Auto-save on change for better UX logic could go here, but kept button for safety
+                                            setStatus(e.target.value as Lead['status']);
                                         }}
                                         className="flex h-10 w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     >
@@ -195,9 +218,27 @@ export function LeadCard({ lead }: { lead: Lead }) {
                                         <option value="Completed">Completed</option>
                                         <option value="Lost">Lost</option>
                                     </select>
-                                    <Button onClick={handleSaveStatus} disabled={isLoading} size="sm" className="w-full bg-white/5 hover:bg-white/10">
+                                    <Button onClick={handleSaveStatus} disabled={isLoading} size="sm" className="w-full bg-primary text-black hover:bg-primary/90">
                                         Update Status
                                     </Button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="assignee">Assign To</Label>
+                                    <select
+                                        id="assignee"
+                                        value={assignedTo}
+                                        onChange={(e) => handleAssign(e.target.value)}
+                                        className="flex h-10 w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        disabled={isLoading}
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {assignableUsers.map(user => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.name || "User"}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div className="space-y-2">

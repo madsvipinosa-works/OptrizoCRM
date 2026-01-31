@@ -1,5 +1,5 @@
 import { getSiteSettings } from "@/features/cms/actions";
-import { SettingsForm } from "./settings-form";
+import { SettingsForm } from "@/features/cms/components/SettingsForm";
 
 export default async function SettingsPage() {
     const settings = await getSiteSettings();
