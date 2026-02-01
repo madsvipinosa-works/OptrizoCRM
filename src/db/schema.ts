@@ -166,6 +166,7 @@ export const leads = pgTable("lead", {
     assignedTo: text("assignedTo").references(() => users.id), // New: Assignment
     read: boolean("read").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // 12. Lead Notes (Audit Trail / Advanced Comments)

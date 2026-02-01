@@ -1,49 +1,29 @@
 import Link from "next/link";
-import { ArrowRight, Code2, Globe, Shield } from "lucide-react";
+import { ArrowRight, Code2, Shield, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 import { getSiteSettings } from "@/features/cms/actions";
+import { HeroSection } from "@/components/public/HeroSection";
 import { ServicesGrid } from "@/components/ServicesGrid";
 import { TestimonialsGrid } from "@/components/TestimonialsGrid";
 import { BlogTeaserGrid } from "@/components/BlogTeaserGrid";
 
+export const revalidate = 3600; // Revalidate every hour
+
 export default async function Home() {
     const settings = await getSiteSettings();
 
+    // Fetch only what's needed or nothing if static
+    // (Removed unused parallel fetch)
+
     return (
-        <div className="flex flex-col gap-24 pb-24">
-            {/* Hero Section */}
-            <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
-                {/* Background Elements */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-primary/10 blur-[130px] rounded-full pointer-events-none opacity-40 mix-blend-screen" />
-                <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
-
-                <div className="container px-4 mx-auto text-center relative z-10">
-                    <Badge variant="outline" className="mb-6 px-4 py-1.5 border-primary/20 bg-primary/5 text-primary animate-in fade-in zoom-in duration-500">
-                        <span className="mr-2">🚀</span> Accelerate Your Digital Transformation
-                    </Badge>
-
-                    <h1 className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 bg-gradient-to-b from-white to-white/50 bg-clip-text text-transparent animate-in slide-in-from-bottom-4 duration-700">
-                        {settings?.heroTitle || "Build the Future"}
-                    </h1>
-
-                    <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed animate-in slide-in-from-bottom-5 duration-700 delay-150">
-                        {settings?.heroDescription || "Premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions."}
-                    </p>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in slide-in-from-bottom-6 duration-700 delay-300">
-                        <Button asChild size="lg" className="h-14 px-8 text-lg bg-primary text-black hover:bg-primary/90 hover:box-glow transition-all">
-                            <Link href="/contact">
-                                Start Your Project <ArrowRight className="ml-2 h-5 w-5" />
-                            </Link>
-                        </Button>
-                        <Button asChild variant="outline" size="lg" className="h-14 px-8 text-lg border-white/20 hover:bg-white/5">
-                            <Link href="/projects">View Our Work</Link>
-                        </Button>
-                    </div>
-                </div>
-            </section>
+        <div className="flex flex-col min-h-screen">
+            {/* Animated Hero Section */}
+            <HeroSection
+                title={settings?.heroTitle || "Build Your Digital Future"}
+                description={settings?.heroDescription || "Optrizo is a premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions."}
+            />
 
             {/* About / Mission Section */}
             <section className="container px-4 mx-auto">
@@ -53,7 +33,7 @@ export default async function Home() {
                         <div className="relative border border-white/10 bg-black/50 backdrop-blur-sm p-8 rounded-2xl">
                             <h3 className="text-2xl font-bold mb-4 text-white">Engineering Excellence</h3>
                             <p className="text-muted-foreground mb-6">
-                                {settings?.aboutText || "At Optrizo, we don't just write code. We engineer solutions that solve complex business problems. We're a premium digital agency that builds high-converting websites and applications. We specialize in modern design, performance, and scalability."}
+                                At Optrizo, we don&apos;t just write code. We engineer solutions that solve complex business problems. We&apos;re a premium digital agency that builds high-converting websites and applications. We specialize in modern design, performance, and scalability.
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-center gap-3 text-sm">

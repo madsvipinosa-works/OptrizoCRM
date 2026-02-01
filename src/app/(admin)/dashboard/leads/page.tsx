@@ -1,9 +1,10 @@
 import { db } from "@/db";
 import { leads, users } from "@/db/schema";
 import { desc, like, eq, and, or, inArray } from "drizzle-orm";
-import { LeadCard } from "@/features/crm/components/LeadCard";
 import { LeadsFilter } from "@/features/crm/components/LeadsFilter";
+import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; // Import the new board
 import { Suspense } from "react";
+import { auth } from "@/auth"; // Need auth for current user ID
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,9 @@ export default async function LeadsPage({
         status?: string;
     }>;
 }) {
+    const session = await auth();
+    const currentUserId = session?.user?.id || "";
+
     const params = await searchParams;
     const query = params?.query || "";
     const status = params?.status || "";
@@ -52,6 +56,13 @@ export default async function LeadsPage({
         where: inArray(users.role, ["admin", "editor"]),
     });
 
+    // Serialize dates for Client Component
+    const serializedLeads = leadsList.map(lead => ({
+        ...lead,
+        createdAt: lead.createdAt.toISOString(),
+        updatedAt: lead.updatedAt.toISOString(), // Ensure this exists from our schema update
+    }));
+
     return (
         <div className="space-y-6">
             <div>
@@ -65,24 +76,13 @@ export default async function LeadsPage({
                 <LeadsFilter />
             </Suspense>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {leadsList.length === 0 ? (
-                    <div className="col-span-full p-8 text-center border border-dashed rounded-lg text-muted-foreground">
-                        {query || status ? "No leads found matching your filters." : "No leads yet."}
-                    </div>
-                ) : (
-                    leadsList.map((lead) => (
-                        <LeadCard
-                            key={lead.id}
-                            lead={{
-                                ...lead,
-                                createdAt: lead.createdAt.toISOString()
-                            }}
-                            assignableUsers={assignableUsers}
-                        />
-                    ))
-                )}
-            </div>
+            <LeadsBoard
+                leads={serializedLeads}
+                assignableUsers={assignableUsers}
+                currentUserId={currentUserId}
+                query={query}
+                status={status}
+            />
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+// Force Recompile
 import { Menu, Code2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -6,9 +7,13 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { auth, signOut } from "@/auth";
 import { LoginModal } from "@/components/auth/LoginModal";
 
+import { getSiteSettings } from "@/features/cms/actions";
+import Image from "next/image";
+
 export async function Navbar() {
     const session = await auth();
     const isAdmin = session?.user?.role === "admin";
+    const settings = await getSiteSettings();
 
     const navLinks = [
         { href: "/services", label: "Services" },
@@ -23,12 +28,25 @@ export async function Navbar() {
                 {/* 1. Logo (Left) */}
                 <div className="flex-1 flex justify-start">
                     <Link href="/" className="flex items-center space-x-2 group">
-                        <div className="h-8 w-8 bg-primary rounded-sm flex items-center justify-center transition-transform group-hover:scale-110">
-                            <Code2 className="h-5 w-5 text-black" />
-                        </div>
-                        <span className="text-xl font-bold font-mono tracking-tighter decoration-primary decoration-2 underline-offset-4 group-hover:underline">
-                            OPTRIZO
-                        </span>
+                        {settings?.logoUrl ? (
+                            <div className="relative h-10 w-32">
+                                <Image
+                                    src={settings.logoUrl}
+                                    alt="Logo"
+                                    fill
+                                    className="object-contain object-left"
+                                />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="h-8 w-8 bg-primary rounded-sm flex items-center justify-center transition-transform group-hover:scale-110">
+                                    <Code2 className="h-5 w-5 text-black" />
+                                </div>
+                                <span className="text-xl font-bold font-mono tracking-tighter decoration-primary decoration-2 underline-offset-4 group-hover:underline">
+                                    OPTRIZO
+                                </span>
+                            </>
+                        )}
                     </Link>
                 </div>
 

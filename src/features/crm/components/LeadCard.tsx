@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
-import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus } from "lucide-react";
+import { format, differenceInDays, formatDistanceToNow } from "date-fns";
+import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateLead, addLeadNote } from "@/features/crm/actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 // Define the shape of our Lead based on the schema
 type Lead = {
@@ -33,6 +34,7 @@ type Lead = {
     source: string | null;
     notes: string | null;
     createdAt: Date | string;
+    updatedAt: Date | string;
     read: boolean;
     assignee: { id: string; name: string | null; image: string | null } | null;
     notesList?: {
@@ -58,6 +60,12 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
     const [status, setStatus] = useState(lead.status);
     const [assignedTo, setAssignedTo] = useState(lead.assignee?.id || "");
     const [newNote, setNewNote] = useState("");
+
+    // Stale Logic: older than 7 days and not in a terminal state
+    const daysSinceUpdate = differenceInDays(new Date(), new Date(lead.updatedAt));
+    const isStale = daysSinceUpdate > 7 && status !== "Completed" && status !== "Lost";
+
+    const lastUpdated = formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true });
 
     const handleSaveStatus = async () => {
         setIsLoading(true);
@@ -110,10 +118,25 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
     };
 
     return (
-        <Card className="glass-card border-white/5 transition-all hover:bg-white/5 flex flex-col justify-between h-full">
+        <Card className={cn(
+            "glass-card transition-all hover:bg-white/5 flex flex-col justify-between h-full relative",
+            isStale ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.1)]" : "border-white/5"
+        )}>
+            {isStale && (
+                <div className="absolute top-2 right-2 z-10">
+
+                </div>
+            )}
             <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                     <div className="space-y-1">
+                        <div className="flex items-center gap-2 mb-1">
+                            {isStale && (
+                                <Badge variant="destructive" className="h-5 text-[10px] px-1 flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" /> Action Needed
+                                </Badge>
+                            )}
+                        </div>
                         <CardTitle className="text-lg flex items-center gap-2">
                             {lead.name}
                             <Badge className={statusColors[lead.status] || "bg-secondary"}>
@@ -125,9 +148,9 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                         </CardDescription>
                     </div>
                     <div className="text-xs text-muted-foreground flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1" title={`Created: ${format(new Date(lead.createdAt), "PP")}`}>
                             <Clock className="h-3 w-3" />
-                            {format(new Date(lead.createdAt), "MMM d")}
+                            {lastUpdated}
                         </div>
                         {lead.assignee && (
                             <Badge variant="outline" className="text-[10px] h-5 px-1 border-white/20">

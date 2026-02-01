@@ -14,10 +14,10 @@ export type ActionState = {
 };
 
 export async function updateLead(id: string, data: LeadUpdateValues): Promise<ActionState> {
-    // 1. Auth Check (Admin Only)
+    // 1. Auth Check (Admin or Editor)
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
-        return { success: false, message: "Unauthorized: Admin access required." };
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized: Access required." };
     }
 
     // 2. Validate Input
@@ -35,6 +35,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
         await db.update(leads)
             .set({
                 ...validated.data,
+                updatedAt: new Date(),
             })
             .where(eq(leads.id, id));
 
@@ -48,7 +49,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
 export async function addLeadNote(leadId: string, content: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
         return { success: false, message: "Unauthorized" };
     }
 

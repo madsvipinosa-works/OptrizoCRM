@@ -26,6 +26,14 @@ async function requireAdmin() {
     return session;
 }
 
+async function requireEditor() {
+    const session = await auth();
+    if (session?.user?.role !== "admin" && session?.user?.role !== "editor") {
+        throw new Error("Unauthorized: Editor access required");
+    }
+    return session;
+}
+
 // --- Global Settings ---
 
 export async function getSiteSettings() {
@@ -47,6 +55,7 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
             heroDescription: formData.get("heroDescription") as string,
             aboutText: formData.get("aboutText") as string,
             logoUrl: formData.get("logoUrl") as string,
+            faviconUrl: formData.get("faviconUrl") as string,
             contactEmail: formData.get("contactEmail") as string,
             notificationEmails: formData.get("notificationEmails") as string,
         };
@@ -75,7 +84,7 @@ export type CreatePostState = {
 
 export async function createPost(prevState: ActionState, formData: FormData) {
     try {
-        const session = await requireAdmin();
+        const session = await requireEditor();
 
         const title = formData.get("title") as string;
         let slug = formData.get("slug") as string;
@@ -105,14 +114,14 @@ export async function createPost(prevState: ActionState, formData: FormData) {
 }
 
 export async function deletePost(id: string) {
-    await requireAdmin();
+    await requireEditor();
     await db.delete(posts).where(eq(posts.id, id));
     revalidatePath("/dashboard/posts");
 }
 
 export async function updatePost(prevState: ActionState, formData: FormData) {
     try {
-        await requireAdmin();
+        await requireEditor();
 
         const id = formData.get("id") as string;
         const title = formData.get("title") as string;
@@ -147,7 +156,7 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
 
 export async function createProject(prevState: ActionState, formData: FormData) {
     try {
-        await requireAdmin();
+        await requireEditor();
 
         const title = formData.get("title") as string;
         const clientName = formData.get("clientName") as string;
@@ -179,14 +188,14 @@ export async function createProject(prevState: ActionState, formData: FormData) 
 }
 
 export async function deleteProject(id: string) {
-    await requireAdmin();
+    await requireEditor();
     await db.delete(projects).where(eq(projects.id, id));
     revalidatePath("/dashboard/projects");
 }
 
 export async function updateProject(prevState: ActionState, formData: FormData) {
     try {
-        await requireAdmin();
+        await requireEditor();
 
         const id = formData.get("id") as string;
         const title = formData.get("title") as string;
@@ -225,7 +234,7 @@ export async function updateProject(prevState: ActionState, formData: FormData) 
 
 export async function createService(prevState: ActionState, formData: FormData) {
     try {
-        await requireAdmin();
+        await requireEditor();
 
         const title = formData.get("title") as string;
         const description = formData.get("description") as string;
@@ -249,7 +258,7 @@ export async function createService(prevState: ActionState, formData: FormData) 
 
 export async function updateService(prevState: ActionState, formData: FormData) {
     try {
-        await requireAdmin();
+        await requireEditor();
 
         const id = formData.get("id") as string;
         const title = formData.get("title") as string;
@@ -274,7 +283,7 @@ export async function updateService(prevState: ActionState, formData: FormData) 
 }
 
 export async function deleteService(id: string) {
-    await requireAdmin();
+    await requireEditor();
     await db.delete(services).where(eq(services.id, id));
     revalidatePath("/dashboard/services");
     revalidatePath("/");
@@ -284,7 +293,7 @@ export async function deleteService(id: string) {
 
 export async function createTestimonial(prevState: ActionState, formData: FormData) {
     try {
-        await requireAdmin();
+        await requireEditor();
 
         const name = formData.get("name") as string;
         const role = formData.get("role") as string;
@@ -312,7 +321,7 @@ export async function createTestimonial(prevState: ActionState, formData: FormDa
 
 export async function updateTestimonial(prevState: ActionState, formData: FormData) {
     try {
-        await requireAdmin();
+        await requireEditor();
 
         const id = formData.get("id") as string;
         const name = formData.get("name") as string;
@@ -329,6 +338,7 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
                 content,
                 rating,
                 active: true,
+                image: formData.get("image") as string,
             })
             .where(eq(testimonials.id, id));
 
@@ -342,7 +352,7 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
 }
 
 export async function deleteTestimonial(id: string) {
-    await requireAdmin();
+    await requireEditor();
     await db.delete(testimonials).where(eq(testimonials.id, id));
     revalidatePath("/dashboard/testimonials");
     revalidatePath("/");
