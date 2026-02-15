@@ -11,6 +11,10 @@ import { BlogTeaserGrid } from "@/components/BlogTeaserGrid";
 
 export const revalidate = 3600; // Revalidate every hour
 
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
+
+// ... existing imports
+
 export default async function Home() {
     const settings = await getSiteSettings();
 
@@ -26,7 +30,7 @@ export default async function Home() {
             />
 
             {/* About / Mission Section */}
-            <section className="container px-4 mx-auto">
+            <ScrollReveal className="container px-4 mx-auto py-32">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="relative">
                         <div className="absolute -inset-4 bg-primary/20 blur-xl rounded-full opacity-20" />
@@ -63,24 +67,24 @@ export default async function Home() {
                         </Button>
                     </div>
                 </div>
-            </section>
+            </ScrollReveal>
 
 
             {/* Services Section (Dynamic) */}
-            <section className="container px-4 mx-auto">
-                <div className="flex flex-col items-center mb-16 text-center">
+            <section className="container px-4 mx-auto py-32">
+                <ScrollReveal className="flex flex-col items-center mb-16 text-center">
                     <Badge variant="secondary" className="mb-4 text-primary">Our Expertise</Badge>
                     <h2 className="text-4xl font-bold mb-4">End-to-End Digital Solutions</h2>
-                    <p className="text-muted-foreground max-w-2xl">We don&apos;t just write code; we build digital assets that drive growth.</p>
-                </div>
+                    <p className="text-muted-foreground max-w-2xl mx-auto">We don&apos;t just write code; we build digital assets that drive growth.</p>
+                </ScrollReveal>
 
                 <ServicesGrid />
             </section>
 
             {/* Testimonials Section */}
-            <section className="bg-white/5 py-24 border-y border-white/5">
+            <section className="bg-white/5 py-32 border-y border-white/5">
                 <div className="container px-4 mx-auto">
-                    <div className="flex flex-col md:flex-row justify-between items-end mb-12">
+                    <ScrollReveal className="flex flex-col md:flex-row justify-between items-end mb-12">
                         <div>
                             <h2 className="text-3xl font-bold mb-2">Trusted by Market Leaders</h2>
                             <p className="text-muted-foreground">See what our partners are achieving.</p>
@@ -88,17 +92,17 @@ export default async function Home() {
                         <Button variant="link" asChild className="text-primary p-0 h-auto font-semibold">
                             <Link href="/testimonials">View all case studies <ArrowRight className="ml-2 h-4 w-4" /></Link>
                         </Button>
-                    </div>
+                    </ScrollReveal>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="w-full">
                         <TestimonialsGrid />
                     </div>
                 </div>
             </section>
 
             {/* Blog Teaser Section */}
-            <section className="container px-4 mx-auto">
-                <div className="flex justify-between items-end mb-12">
+            <section className="container px-4 mx-auto py-32">
+                <ScrollReveal className="flex justify-between items-end mb-12">
                     <div>
                         <Badge variant="secondary" className="mb-4 text-primary">Latest Insights</Badge>
                         <h2 className="text-3xl font-bold">From The Blog</h2>
@@ -106,12 +110,12 @@ export default async function Home() {
                     <Button variant="outline" asChild>
                         <Link href="/blog">View All Articles</Link>
                     </Button>
-                </div>
+                </ScrollReveal>
                 <BlogTeaserGrid />
             </section>
 
             {/* CTA Section */}
-            <section className="container px-4 mx-auto text-center">
+            <ScrollReveal variant="zoom" className="container px-4 mx-auto text-center py-32">
                 <div className="relative bg-gradient-to-r from-primary/20 via-primary/5 to-transparent p-12 md:p-24 rounded-3xl border border-primary/20 overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
 
@@ -123,7 +127,7 @@ export default async function Home() {
                         <Link href="/contact">Get a Free Consultation</Link>
                     </Button>
                 </div>
-            </section>
+            </ScrollReveal>
         </div>
     );
 }

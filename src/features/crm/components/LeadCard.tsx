@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format, differenceInDays, formatDistanceToNow } from "date-fns";
-import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, AlertTriangle } from "lucide-react";
+import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, AlertTriangle, Upload, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateLead, addLeadNote } from "@/features/crm/actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // Define the shape of our Lead based on the schema
 type Lead = {
@@ -36,6 +37,7 @@ type Lead = {
     createdAt: Date | string;
     updatedAt: Date | string;
     read: boolean;
+    files: string[] | null;
     assignee: { id: string; name: string | null; image: string | null } | null;
     notesList?: {
         id: string;
@@ -231,14 +233,19 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                         id="status"
                                         value={status}
                                         onChange={async (e) => {
-                                            setStatus(e.target.value as Lead['status']);
+                                            const newStatus = e.target.value as Lead['status'];
+                                            setStatus(newStatus);
+                                            if (newStatus === "Completed") {
+                                                // Trigger "Won" Notification
+                                                alert("🎉 Lead marked as Won! (Project Workflow integration coming soon)");
+                                            }
                                         }}
                                         className="flex h-10 w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     >
                                         <option value="New">New</option>
                                         <option value="Contacted">Contacted</option>
                                         <option value="In Progress">In Progress</option>
-                                        <option value="Completed">Completed</option>
+                                        <option value="Completed">Completed (Won)</option>
                                         <option value="Lost">Lost</option>
                                     </select>
                                     <Button onClick={handleSaveStatus} disabled={isLoading} size="sm" className="w-full bg-primary text-black hover:bg-primary/90">
@@ -264,7 +271,79 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                     </select>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-2 border-t border-white/10 pt-4">
+                                    <Label>Proposal & Files</Label>
+                                    <div className="bg-white/5 rounded-md p-3 border border-dashed border-white/20">
+                                        <div className="space-y-2">
+                                            {lead.files && lead.files.length > 0 && (
+                                                <div className="space-y-1 mb-3">
+                                                    {lead.files.map((fileUrl, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between text-xs bg-black/40 p-2 rounded">
+                                                            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[150px]">
+                                                                {fileUrl.split('/').pop()}
+                                                            </a>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-4 w-4 text-muted-foreground hover:text-red-500"
+                                                                onClick={async () => {
+                                                                    if (!confirm("Remove file?")) return;
+                                                                    const newFiles = lead.files!.filter(f => f !== fileUrl);
+                                                                    await updateLead(lead.id, { files: newFiles });
+                                                                    toast.success("File removed");
+                                                                }}
+                                                            >
+                                                                <X className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    id={`file-upload-${lead.id}`}
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+
+                                                        const formData = new FormData();
+                                                        formData.append("file", file);
+
+                                                        const toastId = toast.loading("Uploading...");
+                                                        try {
+                                                            const { uploadImage } = await import("@/features/upload/actions");
+                                                            const res = await uploadImage(formData);
+
+                                                            if (res.success && res.url) {
+                                                                const currentFiles = lead.files || [];
+                                                                await updateLead(lead.id, { files: [...currentFiles, res.url] });
+                                                                toast.success("File uploaded!");
+                                                            } else {
+                                                                toast.error(res.message || "Upload failed");
+                                                            }
+                                                        } catch (err) {
+                                                            console.error(err);
+                                                            toast.error("Upload error");
+                                                        } finally {
+                                                            toast.dismiss(toastId);
+                                                            e.target.value = "";
+                                                        }
+                                                    }}
+                                                />
+                                                <Button size="sm" variant="outline" className="w-full h-8 text-xs" asChild>
+                                                    <label htmlFor={`file-upload-${lead.id}`} className="cursor-pointer flex items-center justify-center">
+                                                        <Upload className="h-3 w-3 mr-2" /> Upload Document
+                                                    </label>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 border-t border-white/10 pt-4">
                                     <Label>Add Internal Note</Label>
                                     <Textarea
                                         value={newNote}
@@ -283,7 +362,7 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                 <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                                     <Activity className="h-4 w-4 text-primary" /> Activity Log
                                 </h3>
-                                <ScrollArea className="h-[300px] pr-4">
+                                <ScrollArea className="h-[400px] pr-4">
                                     <div className="space-y-4">
                                         {lead.notesList?.map((note) => (
                                             <div key={note.id} className="text-sm relative pl-4 border-l border-white/10 pb-4 last:pb-0">

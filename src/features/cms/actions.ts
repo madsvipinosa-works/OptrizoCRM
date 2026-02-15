@@ -1,11 +1,19 @@
 "use server";
 
 import { db } from "@/db";
+import { deleteImage } from "@/features/upload/actions";
 
 import { siteSettings, posts, projects, services, testimonials } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import {
+    siteSettingsSchema,
+    postSchema,
+    projectSchema,
+    serviceSchema,
+    testimonialSchema
+} from "@/lib/schemas";
 
 // --- Helper Functions ---
 
@@ -31,7 +39,7 @@ async function requireEditor() {
     if (session?.user?.role !== "admin" && session?.user?.role !== "editor") {
         throw new Error("Unauthorized: Editor access required");
     }
-    return session;
+    return session; // Returning session to get user ID
 }
 
 // --- Global Settings ---
@@ -44,27 +52,28 @@ export async function getSiteSettings() {
 export type ActionState = {
     message: string;
     success: boolean;
+    errors?: Record<string, string[]>;
 };
-
 export async function updateSiteSettings(prevState: ActionState, formData: FormData) {
     try {
         await requireAdmin();
 
-        const rawData = {
-            heroTitle: formData.get("heroTitle") as string,
-            heroDescription: formData.get("heroDescription") as string,
-            aboutText: formData.get("aboutText") as string,
-            logoUrl: formData.get("logoUrl") as string,
-            faviconUrl: formData.get("faviconUrl") as string,
-            contactEmail: formData.get("contactEmail") as string,
-            notificationEmails: formData.get("notificationEmails") as string,
-        };
+        const rawData = Object.fromEntries(formData);
+        const validated = siteSettingsSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
 
         await db.insert(siteSettings)
-            .values({ id: "1", ...rawData })
+            .values({ id: "1", ...validated.data })
             .onConflictDoUpdate({
                 target: siteSettings.id,
-                set: rawData,
+                set: validated.data,
             });
 
         revalidatePath("/");
@@ -86,14 +95,22 @@ export async function createPost(prevState: ActionState, formData: FormData) {
     try {
         const session = await requireEditor();
 
-        const title = formData.get("title") as string;
-        let slug = formData.get("slug") as string;
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = postSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { title, content, coverImage } = validated.data;
+        let slug = validated.data.slug;
 
         if (!slug) slug = title;
-        const sanitizedSlug = sanitizeSlug(slug);
-
-        const content = formData.get("content") as string;
-        const coverImage = formData.get("coverImage") as string;
+        const sanitizedSlug = sanitizeSlug(slug!);
 
         await db.insert(posts).values({
             title,
@@ -115,6 +132,13 @@ export async function createPost(prevState: ActionState, formData: FormData) {
 
 export async function deletePost(id: string) {
     await requireEditor();
+
+    // Get image URL before deleting
+    const post = await db.query.posts.findFirst({ where: eq(posts.id, id) });
+    if (post?.coverImage) {
+        await deleteImage(post.coverImage);
+    }
+
     await db.delete(posts).where(eq(posts.id, id));
     revalidatePath("/dashboard/posts");
 }
@@ -123,15 +147,24 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
     try {
         await requireEditor();
 
-        const id = formData.get("id") as string;
-        const title = formData.get("title") as string;
-        let slug = formData.get("slug") as string;
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = postSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { id, title, content, coverImage } = validated.data;
+        let slug = validated.data.slug;
 
         if (!slug) slug = title;
-        const sanitizedSlug = sanitizeSlug(slug);
+        const sanitizedSlug = sanitizeSlug(slug!);
 
-        const content = formData.get("content") as string;
-        const coverImage = formData.get("coverImage") as string;
+        if (!id) return { success: false, message: "Missing Post ID" };
 
         await db.update(posts)
             .set({
@@ -158,16 +191,22 @@ export async function createProject(prevState: ActionState, formData: FormData) 
     try {
         await requireEditor();
 
-        const title = formData.get("title") as string;
-        const clientName = formData.get("clientName") as string;
-        const description = formData.get("description") as string;
-        let slug = formData.get("slug") as string;
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = projectSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { title, clientName, description, content, coverImage } = validated.data;
+        let slug = validated.data.slug;
 
         if (!slug) slug = title;
-        const sanitizedSlug = sanitizeSlug(slug);
-
-        const content = formData.get("content") as string;
-        const coverImage = formData.get("coverImage") as string;
+        const sanitizedSlug = sanitizeSlug(slug!);
 
         await db.insert(projects).values({
             title,
@@ -179,7 +218,7 @@ export async function createProject(prevState: ActionState, formData: FormData) 
             status: "published",
         });
 
-        revalidatePath("/dashboard/projects");
+        revalidatePath("/dashboard/portfolio");
         return { success: true, message: "Project created successfully!" };
     } catch (error) {
         console.error(error);
@@ -189,25 +228,39 @@ export async function createProject(prevState: ActionState, formData: FormData) 
 
 export async function deleteProject(id: string) {
     await requireEditor();
+
+    // Get image URL before deleting
+    const project = await db.query.projects.findFirst({ where: eq(projects.id, id) });
+    if (project?.coverImage) {
+        await deleteImage(project.coverImage);
+    }
+
     await db.delete(projects).where(eq(projects.id, id));
-    revalidatePath("/dashboard/projects");
+    revalidatePath("/dashboard/portfolio");
 }
 
 export async function updateProject(prevState: ActionState, formData: FormData) {
     try {
         await requireEditor();
 
-        const id = formData.get("id") as string;
-        const title = formData.get("title") as string;
-        const clientName = formData.get("clientName") as string;
-        const description = formData.get("description") as string;
-        let slug = formData.get("slug") as string;
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = projectSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { id, title, clientName, description, content, coverImage } = validated.data;
+        let slug = validated.data.slug;
 
         if (!slug) slug = title;
-        const sanitizedSlug = sanitizeSlug(slug);
+        const sanitizedSlug = sanitizeSlug(slug!);
 
-        const content = formData.get("content") as string;
-        const coverImage = formData.get("coverImage") as string;
+        if (!id) return { success: false, message: "Missing Project ID" };
 
         await db.update(projects)
             .set({
@@ -221,7 +274,7 @@ export async function updateProject(prevState: ActionState, formData: FormData) 
             })
             .where(eq(projects.id, id));
 
-        revalidatePath("/dashboard/projects");
+        revalidatePath("/dashboard/portfolio");
         revalidatePath(`/projects/${sanitizedSlug}`);
         return { success: true, message: "Project updated successfully!" };
     } catch (error) {
@@ -236,9 +289,18 @@ export async function createService(prevState: ActionState, formData: FormData) 
     try {
         await requireEditor();
 
-        const title = formData.get("title") as string;
-        const description = formData.get("description") as string;
-        const icon = formData.get("icon") as string;
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = serviceSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { title, description, icon } = validated.data;
 
         await db.insert(services).values({
             title,
@@ -260,10 +322,20 @@ export async function updateService(prevState: ActionState, formData: FormData) 
     try {
         await requireEditor();
 
-        const id = formData.get("id") as string;
-        const title = formData.get("title") as string;
-        const description = formData.get("description") as string;
-        const icon = formData.get("icon") as string;
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = serviceSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { id, title, description, icon } = validated.data;
+
+        if (!id) return { success: false, message: "Missing Service ID" };
 
         await db.update(services)
             .set({
@@ -295,11 +367,18 @@ export async function createTestimonial(prevState: ActionState, formData: FormDa
     try {
         await requireEditor();
 
-        const name = formData.get("name") as string;
-        const role = formData.get("role") as string;
-        const company = formData.get("company") as string;
-        const content = formData.get("content") as string;
-        const rating = parseInt(formData.get("rating") as string || "5");
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = testimonialSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { name, role, company, content, rating, image } = validated.data;
 
         await db.insert(testimonials).values({
             name,
@@ -307,6 +386,7 @@ export async function createTestimonial(prevState: ActionState, formData: FormDa
             company,
             content,
             rating,
+            image,
             active: true,
         });
 
@@ -323,12 +403,20 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
     try {
         await requireEditor();
 
-        const id = formData.get("id") as string;
-        const name = formData.get("name") as string;
-        const role = formData.get("role") as string;
-        const company = formData.get("company") as string;
-        const content = formData.get("content") as string;
-        const rating = parseInt(formData.get("rating") as string || "5");
+        const rawData = Object.fromEntries(formData.entries());
+        const validated = testimonialSchema.safeParse(rawData);
+
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const { id, name, role, company, content, rating, image } = validated.data;
+
+        if (!id) return { success: false, message: "Missing Testimonial ID" };
 
         await db.update(testimonials)
             .set({
@@ -338,7 +426,7 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
                 content,
                 rating,
                 active: true,
-                image: formData.get("image") as string,
+                image,
             })
             .where(eq(testimonials.id, id));
 
@@ -353,6 +441,13 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
 
 export async function deleteTestimonial(id: string) {
     await requireEditor();
+
+    // Get image URL before deleting
+    const testimonial = await db.query.testimonials.findFirst({ where: eq(testimonials.id, id) });
+    if (testimonial?.image) {
+        await deleteImage(testimonial.image);
+    }
+
     await db.delete(testimonials).where(eq(testimonials.id, id));
     revalidatePath("/dashboard/testimonials");
     revalidatePath("/");

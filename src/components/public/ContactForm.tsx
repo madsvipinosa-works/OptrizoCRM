@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { submitContactForm, type ContactState } from "@/features/crm/actions/submit-lead";
+import { BUDGET_OPTIONS } from "@/lib/constants";
 
 const initialState: ContactState = {
     message: "",
@@ -90,10 +91,11 @@ export function ContactForm({ availableServices }: { availableServices: ServiceO
                                 className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="" className="bg-black">Select a budget...</option>
-                                <option value="<$1k" className="bg-black">&lt; $1k</option>
-                                <option value="$1k - $5k" className="bg-black">$1k - $5k</option>
-                                <option value="$5k - $10k" className="bg-black">$5k - $10k</option>
-                                <option value="$10k+" className="bg-black">$10k+</option>
+                                {BUDGET_OPTIONS.map((option) => (
+                                    <option key={option} value={option} className="bg-black">
+                                        {option}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>

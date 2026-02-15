@@ -20,7 +20,7 @@ export default async function ProjectsPage() {
                     <p className="text-muted-foreground">Showcase your best work.</p>
                 </div>
                 <Button asChild className="bg-primary text-black font-bold">
-                    <Link href="/dashboard/projects/new">
+                    <Link href="/dashboard/portfolio/new">
                         <Plus className="mr-2 h-4 w-4" /> New Project
                     </Link>
                 </Button>
@@ -47,7 +47,7 @@ export default async function ProjectsPage() {
                             </div>
                             <div className="flex gap-2">
                                 <Button asChild size="icon" variant="ghost" className="h-8 w-8 hover:text-primary">
-                                    <Link href={`/dashboard/projects/${project.id}`}>
+                                    <Link href={`/dashboard/portfolio/${project.id}`}>
                                         <Edit className="h-4 w-4" />
                                     </Link>
                                 </Button>

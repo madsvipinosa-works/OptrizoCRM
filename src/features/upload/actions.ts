@@ -1,6 +1,37 @@
 "use server";
 
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
+
+export async function deleteImage(url: string) {
+    if (!url) return;
+
+    // 1. Local File Deletion
+    if (url.startsWith("/uploads/")) {
+        const fs = await import("fs/promises");
+        const path = await import("path");
+
+        // Remove "/uploads/" to get the filename
+        const filename = url.replace("/uploads/", "");
+        const filePath = path.join(process.cwd(), "public", "uploads", filename);
+
+        try {
+            await fs.unlink(filePath);
+            return { success: true };
+        } catch (error) {
+            console.error("Failed to delete local file:", error);
+            return { success: false, message: "Failed to delete local file" };
+        }
+    }
+
+    // 2. Vercel Blob Deletion
+    try {
+        await del(url);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete blob:", error);
+        return { success: false, message: "Failed to delete blob" };
+    }
+}
 
 export async function uploadImage(formData: FormData) {
     const file = formData.get("file") as File;

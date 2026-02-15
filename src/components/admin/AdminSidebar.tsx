@@ -10,7 +10,7 @@ const navItems = [
     { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/dashboard/leads", label: "Leads", icon: Mail },
     { href: "/dashboard/posts", label: "Posts", icon: FileText },
-    { href: "/dashboard/projects", label: "Projects", icon: Briefcase },
+    { href: "/dashboard/portfolio", label: "Portfolio", icon: Briefcase },
     { href: "/dashboard/services", label: "Services", icon: Layers },
     { href: "/dashboard/testimonials", label: "Testimonials", icon: Star },
     { href: "/dashboard/team", label: "Team", icon: Users },

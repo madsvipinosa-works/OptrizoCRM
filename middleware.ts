@@ -2,24 +2,18 @@ import { auth } from "@/auth";
 
 export default auth((req) => {
     const isLoggedIn = !!req.auth;
-    const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
-    const isPublicRoute =
-        req.nextUrl.pathname === "/" ||
-        req.nextUrl.pathname.startsWith("/about") ||
-        req.nextUrl.pathname.startsWith("/services") ||
-        req.nextUrl.pathname.startsWith("/contact") ||
-        req.nextUrl.pathname.startsWith("/projects") ||
-        req.nextUrl.pathname.startsWith("/blog");
+    const { nextUrl } = req;
 
-    // Allow all auth API routes
-    if (isAuthRoute) return;
+    const isProtectedRoute =
+        nextUrl.pathname.startsWith("/dashboard") ||
+        nextUrl.pathname.startsWith("/admin");
 
-    // Protect private routes (like /admin or /dashboard)
-    if (!isLoggedIn && !isPublicRoute) {
-        return Response.redirect(new URL("/api/auth/signin", req.nextUrl));
+    // 1. Redirect unauthenticated users trying to access protected routes
+    if (isProtectedRoute && !isLoggedIn) {
+        return Response.redirect(new URL("/api/auth/signin", nextUrl));
     }
 
-    // Allow public routes
+    // 2. Allow everything else (Public by default)
     return;
 });
 

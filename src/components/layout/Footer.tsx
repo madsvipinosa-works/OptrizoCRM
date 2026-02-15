@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { Github, Twitter, Linkedin, Mail } from "lucide-react";
 
-export function Footer() {
+import { getSiteSettings } from "@/features/cms/actions";
+
+export async function Footer() {
+    const settings = await getSiteSettings();
+
     return (
         <footer className="border-t border-white/10 bg-black py-16">
             <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-12">
@@ -41,7 +45,7 @@ export function Footer() {
                 <div>
                     <h3 className="font-semibold mb-4 text-white">Contact</h3>
                     <ul className="space-y-2 text-sm text-muted-foreground">
-                        <li className="flex items-center space-x-2"><Mail className="h-4 w-4" /> <span>hello@optrizo.com</span></li>
+                        <li className="flex items-center space-x-2"><Mail className="h-4 w-4" /> <span>{settings?.contactEmail || "hello@optrizo.com"}</span></li>
                         <li>123 Code Street, Tech City</li>
                     </ul>
                 </div>

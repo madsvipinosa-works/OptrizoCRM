@@ -164,6 +164,7 @@ export const leads = pgTable("lead", {
     source: text("source").default("Website Form"),
     notes: text("notes"), // Legacy simple notes (keeping for backward compatibility)
     assignedTo: text("assignedTo").references(() => users.id), // New: Assignment
+    files: text("files").array(), // Array of file URLs (e.g., Proposals)
     read: boolean("read").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

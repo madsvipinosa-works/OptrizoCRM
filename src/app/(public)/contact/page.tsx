@@ -2,6 +2,7 @@ import { db } from "@/db";
 
 import { Mail, MapPin, Phone } from "lucide-react";
 import { ContactForm } from "@/components/public/ContactForm";
+import { getSiteSettings } from "@/features/cms/actions";
 
 export default async function ContactPage() {
     // Fetch available services for the dropdown
@@ -17,6 +18,8 @@ export default async function ContactPage() {
         console.error("Failed to fetch services for contact form:", error);
         // Fallback or empty list
     }
+
+    const settings = await getSiteSettings();
 
     return (
         <div className="container mx-auto px-4 py-24">
@@ -36,7 +39,7 @@ export default async function ContactPage() {
                             </div>
                             <div>
                                 <h3 className="text-lg font-semibold mb-1">Email Us</h3>
-                                <p className="text-muted-foreground">hello@optrizo.com</p>
+                                <p className="text-muted-foreground">{settings?.contactEmail || "hello@optrizo.com"}</p>
                                 <p className="text-muted-foreground">careers@optrizo.com</p>
                             </div>
                         </div>

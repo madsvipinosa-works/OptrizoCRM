@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Editor } from "@/features/cms/components/Editor";
 import { useActionState, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
     // Image States
     const [logo, setLogo] = useState(initialData?.logoUrl || "");
     const [favicon, setFavicon] = useState(initialData?.faviconUrl || "");
+    const [aboutText, setAboutText] = useState(initialData?.aboutText || "<p>We are a team of passionate developers...</p>");
 
     // Email List States
     const [emails, setEmails] = useState<string[]>(
@@ -85,7 +87,8 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label>About Text</Label>
-                        <Textarea name="aboutText" defaultValue={initialData?.aboutText ?? ""} className="min-h-[150px] bg-white/5 border-white/10" />
+                        <Editor content={aboutText} onChange={setAboutText} />
+                        <input type="hidden" name="aboutText" value={aboutText} />
                     </div>
                 </CardContent>
             </Card>
