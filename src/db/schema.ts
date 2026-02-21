@@ -236,6 +236,7 @@ export const agencyProjects = pgTable("agency_project", {
     status: agencyProjectStatusEnum("status").default("Kickoff").notNull(),
     startDate: timestamp("start_date", { mode: "date" }),
     targetDate: timestamp("target_date", { mode: "date" }),
+    stagingUrls: text("staging_urls").array(), // For Figma/Live links
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
