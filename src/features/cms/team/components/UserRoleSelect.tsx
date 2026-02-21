@@ -9,7 +9,7 @@ export function UserRoleSelect({ userId, currentRole, currentUserId }: { userId:
     const [role, setRole] = useState(currentRole);
     const [loading, setLoading] = useState(false);
 
-    const handleRoleChange = async (newRole: "admin" | "editor" | "user") => {
+    const handleRoleChange = async (newRole: "admin" | "editor" | "user" | "client") => {
         setLoading(true);
         // Optimistic UI
         const prevRole = role;
@@ -40,6 +40,7 @@ export function UserRoleSelect({ userId, currentRole, currentUserId }: { userId:
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="user">User</SelectItem>
+                <SelectItem value="client">Client</SelectItem>
                 <SelectItem value="editor">Editor</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
             </SelectContent>

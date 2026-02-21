@@ -6,7 +6,8 @@ export default auth((req) => {
 
     const isProtectedRoute =
         nextUrl.pathname.startsWith("/dashboard") ||
-        nextUrl.pathname.startsWith("/admin");
+        nextUrl.pathname.startsWith("/admin") ||
+        nextUrl.pathname.startsWith("/portal");
 
     // 1. Redirect unauthenticated users trying to access protected routes
     if (isProtectedRoute && !isLoggedIn) {

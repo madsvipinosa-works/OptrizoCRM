@@ -14,6 +14,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }),
     ],
     callbacks: {
+        async signIn({ user, account, profile }) {
+            // Auto-link OAuth accounts to existing emails
+            if (account?.provider === "google" && user.email) {
+                const existingUser = await db.query.users.findFirst({
+                    where: eq(users.email, user.email),
+                });
+
+                if (existingUser) {
+                    // Update the user.id so the DrizzleAdapter links the account correctly
+                    user.id = existingUser.id;
+                }
+            }
+            return true;
+        },
         async session({ session, user }) {
             if (session.user && user) {
                 session.user.id = user.id;

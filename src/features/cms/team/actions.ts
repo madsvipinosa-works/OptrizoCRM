@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-export async function updateUserRole(userId: string, newRole: "admin" | "editor" | "user") {
+export async function updateUserRole(userId: string, newRole: "admin" | "editor" | "user" | "client") {
     // 1. Auth Check
     const session = await auth();
     if (!session?.user || session.user.role !== "admin") {
