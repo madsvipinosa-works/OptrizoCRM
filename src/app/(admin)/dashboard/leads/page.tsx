@@ -60,7 +60,8 @@ export default async function LeadsPage({
     const serializedLeads = leadsList.map(lead => ({
         ...lead,
         createdAt: lead.createdAt.toISOString(),
-        updatedAt: lead.updatedAt.toISOString(), // Ensure this exists from our schema update
+        updatedAt: lead.updatedAt.toISOString(),
+        nextActionDate: lead.nextActionDate ? lead.nextActionDate.toISOString() : null,
     }));
 
     return (

@@ -19,6 +19,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateLead, addLeadNote } from "@/features/crm/actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 
 // Define the shape of our Lead based on the schema
@@ -39,9 +42,11 @@ type Lead = {
     read: boolean;
     files: string[] | null;
     assignee: { id: string; name: string | null; image: string | null } | null;
+    nextActionDate: Date | string | null;
     notesList?: {
         id: string;
         content: string;
+        activityType: "Call" | "Email" | "Meeting" | "Note";
         createdAt: Date;
         author: { name: string | null; email: string } | null;
     }[];
@@ -62,6 +67,10 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
     const [status, setStatus] = useState(lead.status);
     const [assignedTo, setAssignedTo] = useState(lead.assignee?.id || "");
     const [newNote, setNewNote] = useState("");
+    const [activityType, setActivityType] = useState<"Call" | "Email" | "Meeting" | "Note">("Note");
+    const [nextActionDate, setNextActionDate] = useState<Date | undefined>(
+        lead.nextActionDate ? new Date(lead.nextActionDate) : undefined
+    );
 
     // Stale Logic: older than 7 days and not in a terminal state
     const daysSinceUpdate = differenceInDays(new Date(), new Date(lead.updatedAt));
@@ -72,14 +81,18 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
     const handleSaveStatus = async () => {
         setIsLoading(true);
         try {
-            const result = await updateLead(lead.id, { status });
+            const result = await updateLead(lead.id, {
+                status,
+                nextActionDate: nextActionDate || null
+            });
             if (result.success) {
-                // Keep dialog open, just update UI feedback
+                toast.success("Lead status updated");
             } else {
-                alert(result.message);
+                toast.error(result.message);
             }
         } catch (error) {
             console.error(error);
+            toast.error("An error occurred");
         } finally {
             setIsLoading(false);
         }
@@ -105,15 +118,16 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
         if (!newNote.trim()) return;
         setIsLoading(true);
         try {
-            const result = await addLeadNote(lead.id, newNote);
+            const result = await addLeadNote(lead.id, newNote, activityType);
             if (result.success) {
                 setNewNote("");
-                // Notes list updates via Server Action revalidation
+                toast.success(`${activityType} logged successfully`);
             } else {
-                alert(result.message);
+                toast.error(result.message);
             }
         } catch (error) {
             console.error(error);
+            toast.error("Failed to add note");
         } finally {
             setIsLoading(false);
         }
@@ -248,8 +262,36 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                         <option value="Completed">Completed (Won)</option>
                                         <option value="Lost">Lost</option>
                                     </select>
-                                    <Button onClick={handleSaveStatus} disabled={isLoading} size="sm" className="w-full bg-primary text-black hover:bg-primary/90">
-                                        Update Status
+
+                                    <div className="space-y-2 mt-4">
+                                        <Label>Next Action Date</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal bg-black/50 border-white/10 hover:bg-white/10 hover:text-white",
+                                                        !nextActionDate && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {nextActionDate ? format(nextActionDate, "PPP") : <span>Pick a date</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0 bg-black border-white/10" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={nextActionDate}
+                                                    onSelect={setNextActionDate}
+                                                    initialFocus
+                                                    className="bg-black text-white"
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+
+                                    <Button onClick={handleSaveStatus} disabled={isLoading || (status !== "Completed" && status !== "Lost" && !nextActionDate)} size="sm" className="w-full bg-primary text-black hover:bg-primary/90 mt-4">
+                                        Update Status & Schedule
                                     </Button>
                                 </div>
 
@@ -344,7 +386,19 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                 </div>
 
                                 <div className="space-y-2 border-t border-white/10 pt-4">
-                                    <Label>Add Internal Note</Label>
+                                    <Label>Log Activity</Label>
+                                    <div className="flex gap-2 mb-2">
+                                        <select
+                                            value={activityType}
+                                            onChange={(e) => setActivityType(e.target.value as "Note" | "Call" | "Email" | "Meeting")}
+                                            className="flex h-9 w-[120px] rounded-md border border-white/10 bg-black/50 px-3 py-1 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        >
+                                            <option value="Note">Note</option>
+                                            <option value="Call">Call</option>
+                                            <option value="Email">Email</option>
+                                            <option value="Meeting">Meeting</option>
+                                        </select>
+                                    </div>
                                     <Textarea
                                         value={newNote}
                                         onChange={(e) => setNewNote(e.target.value)}
@@ -352,7 +406,7 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                         className="bg-black/50 border-white/10 min-h-[100px]"
                                     />
                                     <Button onClick={handleAddNote} disabled={isLoading || !newNote.trim()} size="sm" className="w-full bg-primary text-black hover:bg-primary/90">
-                                        <Plus className="h-4 w-4 mr-2" /> Add Note
+                                        <Plus className="h-4 w-4 mr-2" /> Log {activityType}
                                     </Button>
                                 </div>
                             </div>
@@ -368,8 +422,11 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                             <div key={note.id} className="text-sm relative pl-4 border-l border-white/10 pb-4 last:pb-0">
                                                 <div className="absolute left-[-2.5px] top-1 h-1.5 w-1.5 rounded-full bg-primary" />
                                                 <div className="flex justify-between items-start text-xs text-muted-foreground mb-1">
-                                                    <span className="font-semibold text-white flex items-center gap-1">
+                                                    <span className="font-semibold text-white flex items-center gap-2">
                                                         {note.author?.name || "Unknown"}
+                                                        <Badge variant="outline" className="text-[10px] h-4 px-1 py-0 leading-none">
+                                                            {note.activityType || "Note"}
+                                                        </Badge>
                                                     </span>
                                                     <span>{format(new Date(note.createdAt), "MMM d, h:mm a")}</span>
                                                 </div>

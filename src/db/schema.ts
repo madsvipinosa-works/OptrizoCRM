@@ -148,6 +148,7 @@ export const siteSettings = pgTable("site_settings", {
 // 11. Contact Messages (Lead Capture)
 // 11. Leads (CRM Core)
 export const leadEnum = pgEnum("lead_status", ["New", "Contacted", "In Progress", "Completed", "Lost"]);
+export const activityEnum = pgEnum("activity_type", ["Call", "Email", "Meeting", "Note"]);
 
 export const leads = pgTable("lead", {
     id: text("id")
@@ -165,6 +166,7 @@ export const leads = pgTable("lead", {
     notes: text("notes"), // Legacy simple notes (keeping for backward compatibility)
     assignedTo: text("assignedTo").references(() => users.id), // New: Assignment
     files: text("files").array(), // Array of file URLs (e.g., Proposals)
+    nextActionDate: timestamp("next_action_date", { mode: "date" }), // Scheduled follow-up
     read: boolean("read").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -182,6 +184,7 @@ export const leadNotes = pgTable("lead_note", {
         .notNull()
         .references(() => users.id, { onDelete: "set null" }), // Keep note even if user deleted
     content: text("content").notNull(),
+    activityType: activityEnum("activity_type").default("Note").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

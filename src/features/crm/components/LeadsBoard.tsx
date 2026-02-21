@@ -20,12 +20,15 @@ type Lead = {
     source: string | null;
     notes: string | null;
     createdAt: Date | string;
-    updatedAt: Date | string; // Ensure this is handled
+    updatedAt: Date | string;
     read: boolean;
+    files: string[] | null;
+    nextActionDate: Date | string | null;
     assignee: { id: string; name: string | null; image: string | null } | null;
     notesList?: {
         id: string;
         content: string;
+        activityType: "Call" | "Email" | "Meeting" | "Note";
         createdAt: Date;
         author: { name: string | null; email: string } | null;
     }[];

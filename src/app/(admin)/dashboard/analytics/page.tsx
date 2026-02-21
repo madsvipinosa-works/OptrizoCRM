@@ -1,43 +1,37 @@
-
-import { db } from "@/db";
-import { leads } from "@/db/schema";
-import { sql } from "drizzle-orm";
-import { AnalyticsCharts } from "@/components/admin/AnalyticsCharts";
-
-export const dynamic = 'force-dynamic';
+import { getAnalyticsData } from "@/features/crm/actions";
+import { KPIStats } from "@/features/crm/components/KPIStats";
+import { PipelineChart, SourceChart, TrendChart } from "@/features/crm/components/AnalyticsCharts";
 
 export default async function AnalyticsPage() {
-    // 1. Fetch Key Metrics
-    const totalLeads = await db.select({ count: sql<number>`count(*)` }).from(leads);
+    const data = await getAnalyticsData();
 
-    // 2. Fetch Aggregated Data for Charts
-    // Note: Drizzle aggregation is powerful, but for MVP we fetch and map in JS or use raw SQL.
-    // For simplicity with SQLite/Postgres compatibility in this proto, we'll fetch all and aggregate.
-    // In production, use `groupBy` SQL.
-
-    const allLeads = await db.query.leads.findMany({
-        columns: {
-            status: true,
-            score: true,
-            budget: true,
-            createdAt: true,
-            service: true
-        }
-    });
+    if (!data) {
+        return (
+            <div className="p-8 text-center">
+                <p className="text-muted-foreground">Unable to load analytics data.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight text-glow">Analytics Dashboard</h2>
-                <p className="text-muted-foreground">
-                    Insights into lead performance and pipeline health.
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold tracking-tight text-white">Analytics</h1>
+                <p className="text-sm text-muted-foreground">
+                    Overview of your sales pipeline and performance.
                 </p>
             </div>
 
-            <AnalyticsCharts
-                totalLeads={Number(totalLeads[0].count)}
-                leadsData={allLeads}
-            />
+            <KPIStats data={data.kpi} />
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <PipelineChart data={data.charts.pipeline} />
+                <SourceChart data={data.charts.sources} />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+                <TrendChart data={data.charts.trend} />
+            </div>
         </div>
     );
 }
