@@ -7,11 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, GripVertical, AlertCircle, CheckCircle2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Plus, GripVertical, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const COLUMNS = [
     { id: "Todo", title: "To Do" },
@@ -26,6 +28,14 @@ interface KanbanTask {
     title: string;
     description: string | null;
     status: "Todo" | "In Progress" | "Blocked" | "Done";
+    assigneeId: string | null;
+    dueDate: Date | null;
+}
+
+interface KanbanTeamMember {
+    id: string;
+    name: string | null;
+    image: string | null;
 }
 
 interface KanbanMilestone {
@@ -41,22 +51,43 @@ interface KanbanProject {
     tasks: KanbanTask[];
 }
 
-export function KanbanBoard({ project }: { project: KanbanProject; teamMembers: unknown[] }) {
+export function KanbanBoard({ project, teamMembers }: { project: KanbanProject; teamMembers: KanbanTeamMember[] }) {
     const [optimisticTasks, setOptimisticTasks] = useState<KanbanTask[]>(project.tasks || []);
+    const [optimisticMilestones, setOptimisticMilestones] = useState<KanbanMilestone[]>(project.milestones?.sort((a, b) => a.order - b.order) || []);
     const [activeMilestoneId, setActiveMilestoneId] = useState<string>(project.milestones?.[0]?.id || "");
     const [isAddingTask, setIsAddingTask] = useState(false);
 
-    // Form state
+    // Edit Task State
+    const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
+    const [editTaskTitle, setEditTaskTitle] = useState("");
+    const [editTaskDesc, setEditTaskDesc] = useState("");
+    const [editAssigneeId, setEditAssigneeId] = useState<string>("unassigned");
+    const [editDueDate, setEditDueDate] = useState("");
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+    // Task Form state
     const [newTaskTitle, setNewTaskTitle] = useState("");
     const [newTaskDesc, setNewTaskDesc] = useState("");
+    const [newAssigneeId, setNewAssigneeId] = useState<string>("unassigned");
 
-    const activeMilestone = project.milestones?.find((m) => m.id === activeMilestoneId);
-    if (!activeMilestone) return <div>No milestones found.</div>;
+    // Milestone State
+    const [isAddingMilestone, setIsAddingMilestone] = useState(false);
+    const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
+    const [isSavingMilestone, setIsSavingMilestone] = useState(false);
+    const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+    const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
+    const [isEditingMilestone, setIsEditingMilestone] = useState(false);
 
+    const activeMilestone = optimisticMilestones?.find((m) => m.id === activeMilestoneId);
+    if (!activeMilestone && optimisticMilestones.length > 0) {
+        setActiveMilestoneId(optimisticMilestones[0].id);
+    }
     const tasksForMilestone = optimisticTasks.filter((t) => t.milestoneId === activeMilestoneId);
 
     const onDragEnd = async (result: DropResult) => {
         const { destination, source, draggableId } = result;
+
+        if (!activeMilestone) return;
 
         // Dropped outside a valid droppable
         if (!destination) return;
@@ -88,30 +119,150 @@ export function KanbanBoard({ project }: { project: KanbanProject; teamMembers: 
 
     const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!activeMilestone) return;
         setIsAddingTask(true);
-        const res = await createTask(project.id, activeMilestoneId, newTaskTitle, newTaskDesc);
-        if (res.success) {
+        const assigneeToSubmit = newAssigneeId === "unassigned" ? undefined : newAssigneeId;
+        const res = await createTask(project.id, activeMilestoneId, newTaskTitle, newTaskDesc, assigneeToSubmit);
+        if (res.success && res.task) {
             toast.success("Task added");
+            setOptimisticTasks([...optimisticTasks, res.task as unknown as KanbanTask]);
             setNewTaskTitle("");
             setNewTaskDesc("");
-            // In a real app we'd get the returned task, but for now parent page will revalidate
+            setNewAssigneeId("unassigned");
         } else {
             toast.error(res.message);
         }
         setIsAddingTask(false);
     };
 
-    const nextMilestoneStatus = (current: string) => {
-        if (current === "Pending") return "In Progress";
-        if (current === "In Progress") return "Client Approval";
-        if (current === "Client Approval") return "Completed";
-        return "Pending";
+    const openEditModal = (task: KanbanTask) => {
+        setEditingTask(task);
+        setEditTaskTitle(task.title);
+        setEditTaskDesc(task.description || "");
+        setEditAssigneeId(task.assigneeId || "unassigned");
+        setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : "");
     };
 
-    const cycleMilestoneStatus = async () => {
-        const newStatus = nextMilestoneStatus(activeMilestone.status);
+    const handleEditTaskSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingTask) return;
+        setIsSavingEdit(true);
+
+        const assigneeToSubmit = editAssigneeId === "unassigned" ? null : editAssigneeId;
+        const dueToSubmit = editDueDate ? new Date(editDueDate) : null;
+
+        // Optimistic UI Update
+        const updatedTasks = optimisticTasks.map(t =>
+            t.id === editingTask.id ? {
+                ...t,
+                title: editTaskTitle,
+                description: editTaskDesc,
+                assigneeId: assigneeToSubmit,
+                dueDate: dueToSubmit
+            } : t
+        );
+        setOptimisticTasks(updatedTasks);
+        setEditingTask(null);
+
+        // Dynamically import to avoid polluting the top scope if it's unused elsewhere
+        const { updateTaskDetails } = await import("@/features/pm/actions");
+        const res = await updateTaskDetails(editingTask.id, {
+            title: editTaskTitle,
+            description: editTaskDesc,
+            assigneeId: assigneeToSubmit,
+            dueDate: dueToSubmit
+        });
+
+        if (!res.success) {
+            toast.error(res.message);
+            // Revert on failure (simplified revert, ideally we'd store the specific old task)
+            setOptimisticTasks(optimisticTasks);
+        } else {
+            toast.success("Task updated");
+        }
+        setIsSavingEdit(false);
+    };
+
+    const handleDeleteTask = async (taskId: string) => {
+        if (!confirm("Are you sure you want to delete this task?")) return;
+
+        // Optimistic UI Delete
+        const updatedTasks = optimisticTasks.filter(t => t.id !== taskId);
+        setOptimisticTasks(updatedTasks);
+
+        const { deleteTask } = await import("@/features/pm/actions");
+        const res = await deleteTask(taskId);
+        if (!res.success) {
+            toast.error(res.message);
+            setOptimisticTasks(optimisticTasks); // Revert
+        } else {
+            toast.success("Task deleted");
+        }
+    };
+
+    const handleCreateMilestone = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSavingMilestone(true);
+        const { createMilestone } = await import("@/features/pm/actions");
+        const res = await createMilestone(project.id, newMilestoneTitle);
+        if (res.success && res.milestone) {
+            toast.success("Milestone created.");
+            const newM = res.milestone as unknown as KanbanMilestone;
+            setOptimisticMilestones(prev => [...prev, newM]);
+            setActiveMilestoneId(newM.id);
+            setNewMilestoneTitle("");
+            setIsAddingMilestone(false);
+        } else {
+            toast.error(res.message);
+        }
+        setIsSavingMilestone(false);
+    };
+
+    const handleEditMilestoneSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingMilestoneId) return;
+        setIsEditingMilestone(true);
+        const updated = optimisticMilestones.map(m => m.id === editingMilestoneId ? { ...m, title: editMilestoneTitle } : m);
+        setOptimisticMilestones(updated);
+
+        const { editMilestone } = await import("@/features/pm/actions");
+        const res = await editMilestone(editingMilestoneId, editMilestoneTitle);
+        if (!res.success) {
+            toast.error(res.message);
+            setOptimisticMilestones(optimisticMilestones);
+        } else {
+            toast.success("Milestone updated.");
+        }
+        setEditingMilestoneId(null);
+        setIsEditingMilestone(false);
+    };
+
+    const handleDeleteMilestone = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this Milestone? All tasks within will be deleted.")) return;
+
+        setOptimisticMilestones(optimisticMilestones.filter(m => m.id !== id));
+        if (activeMilestoneId === id) {
+            setActiveMilestoneId(optimisticMilestones.find(m => m.id !== id)?.id || "");
+        }
+
+        const { deleteMilestone } = await import("@/features/pm/actions");
+        const res = await deleteMilestone(id);
+        if (!res.success) {
+            toast.error(res.message);
+            setOptimisticMilestones(optimisticMilestones);
+        } else {
+            toast.success("Milestone deleted.");
+        }
+    };
+
+    const handleMilestoneStatusChange = async (newStatus: string) => {
+        if (!activeMilestone) return;
         const res = await updateMilestoneStatus(activeMilestoneId, newStatus as KanbanMilestone["status"]);
         if (res.success) {
+            // Update optimistic milestone
+            const updated = optimisticMilestones.map(m => m.id === activeMilestoneId ? { ...m, status: newStatus as KanbanMilestone["status"] } : m);
+            setOptimisticMilestones(updated);
+
             if (newStatus === "Client Approval") {
                 toast.warning("Milestone requires Client Approval. All active tasks inside are now Blocked.", { duration: 5000 });
                 // Optimistically block tasks
@@ -129,11 +280,39 @@ export function KanbanBoard({ project }: { project: KanbanProject; teamMembers: 
         }
     };
 
+    if (!activeMilestone) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-xl mt-4">
+                <h3 className="text-xl font-bold mb-2">No Milestones</h3>
+                <p className="text-muted-foreground mb-4">Create a milestone to start organizing your project tasks.</p>
+                <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
+                    <DialogTrigger asChild>
+                        <Button className="bg-primary text-black hover:bg-primary/90">
+                            <Plus className="h-4 w-4 mr-2" /> Add Milestone
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="glass-card border-white/10 text-white">
+                        <DialogHeader>
+                            <DialogTitle>Add New Milestone</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleCreateMilestone} className="space-y-4 pt-4">
+                            <div className="space-y-2">
+                                <Label>Milestone Title</Label>
+                                <Input required value={newMilestoneTitle} onChange={e => setNewMilestoneTitle(e.target.value)} className="bg-black/50 border-white/10" placeholder="e.g. Design Phase" />
+                            </div>
+                            <Button type="submit" disabled={isSavingMilestone} className="w-full bg-primary text-black hover:bg-primary/90">Create Milestone</Button>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+        );
+    }
+
     return (
         <div className="h-full flex flex-col pt-4">
             {/* Milestone Tabs */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 shrink-0">
-                {project.milestones.map((m) => (
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 shrink-0 items-center">
+                {optimisticMilestones.map((m) => (
                     <button
                         key={m.id}
                         onClick={() => setActiveMilestoneId(m.id)}
@@ -145,19 +324,66 @@ export function KanbanBoard({ project }: { project: KanbanProject; teamMembers: 
                         {m.order}. {m.title}
                     </button>
                 ))}
+
+                <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
+                    <DialogTrigger asChild>
+                        <button className="px-3 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/10 text-muted-foreground whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
+                            <Plus className="h-4 w-4" /> Add
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="glass-card border-white/10 text-white">
+                        <DialogHeader>
+                            <DialogTitle>Add New Milestone</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleCreateMilestone} className="space-y-4 pt-4">
+                            <div className="space-y-2">
+                                <Label>Milestone Title</Label>
+                                <Input required value={newMilestoneTitle} onChange={e => setNewMilestoneTitle(e.target.value)} className="bg-black/50 border-white/10" placeholder="e.g. Design Phase" />
+                            </div>
+                            <Button type="submit" disabled={isSavingMilestone} className="w-full bg-primary text-black hover:bg-primary/90">Create Milestone</Button>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             {/* Active Milestone Context Bar */}
             <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10 mb-6 shrink-0">
                 <div className="flex items-center gap-4">
-                    <h3 className="font-bold">{activeMilestone.title}</h3>
-                    <Badge variant="outline" className={`cursor-pointer transition-colors ${activeMilestone.status === "Completed" ? "border-green-500 text-green-500 hover:bg-green-500/10" :
-                        activeMilestone.status === "Client Approval" ? "border-yellow-500 text-yellow-500 hover:bg-yellow-500/10 animate-pulse" :
-                            activeMilestone.status === "In Progress" ? "border-primary text-primary hover:bg-primary/10" :
-                                "hover:bg-white/10"
-                        }`} onClick={cycleMilestoneStatus} title="Click to cycle status">
-                        {activeMilestone.status}
-                    </Badge>
+                    <h3 className="font-bold flex items-center gap-2">
+                        {activeMilestone.title}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-50 hover:opacity-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-more-vertical"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-40">
+                                <DropdownMenuItem onClick={() => {
+                                    setEditingMilestoneId(activeMilestone.id);
+                                    setEditMilestoneTitle(activeMilestone.title);
+                                }}>Edit Title</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-500" onClick={() => handleDeleteMilestone(activeMilestone.id)}>Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </h3>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Badge variant="outline" className={`cursor-pointer transition-colors px-3 py-1 flex items-center gap-1 ${activeMilestone.status === "Completed" ? "border-green-500 text-green-500 hover:bg-green-500/10" :
+                                activeMilestone.status === "Client Approval" ? "border-yellow-500 text-yellow-500 hover:bg-yellow-500/10 animate-pulse" :
+                                    activeMilestone.status === "In Progress" ? "border-primary text-primary hover:bg-primary/10" :
+                                        "hover:bg-white/10"
+                                }`} title="Click to change status">
+                                {activeMilestone.status}
+                                <ChevronDown className="h-3 w-3 opacity-70" />
+                            </Badge>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("Pending")}>Pending</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("In Progress")}>In Progress</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("Client Approval")}>Client Approval</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("Completed")}>Completed</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 <Dialog>
@@ -188,6 +414,20 @@ export function KanbanBoard({ project }: { project: KanbanProject; teamMembers: 
                                     value={newTaskDesc}
                                     onChange={e => setNewTaskDesc(e.target.value)}
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Assignee (Optional)</Label>
+                                <Select value={newAssigneeId} onValueChange={setNewAssigneeId}>
+                                    <SelectTrigger className="bg-black/50 border-white/10">
+                                        <SelectValue placeholder="Select team member" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                                        {teamMembers.map(member => (
+                                            <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <Button type="submit" disabled={isAddingTask} className="w-full bg-primary text-black hover:bg-primary/90">
                                 Create Task
@@ -237,18 +477,39 @@ export function KanbanBoard({ project }: { project: KanbanProject; teamMembers: 
                                                                     }`}
                                                             >
                                                                 <GripVertical className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
-                                                                <div>
-                                                                    <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
-                                                                    {task.description && (
-                                                                        <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
-                                                                    )}
+                                                                <div className="flex-1 flex justify-between items-start gap-2">
+                                                                    <div className="flex-1">
+                                                                        <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                                        {task.description && (
+                                                                            <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+                                                                        )}
+                                                                        {task.assigneeId && (
+                                                                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-2">
+                                                                                <div className="w-4 h-4 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+                                                                                    {teamMembers.find(m => m.id === task.assigneeId)?.name?.[0] || 'U'}
+                                                                                </div>
+                                                                                {teamMembers.find(m => m.id === task.assigneeId)?.name}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-50 hover:opacity-100">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-more-vertical h-3 w-3"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent align="end" className="w-40">
+                                                                            <DropdownMenuItem onClick={() => openEditModal(task)}>Edit Task</DropdownMenuItem>
+                                                                            <DropdownMenuItem className="text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={() => handleDeleteTask(task.id)}>Delete Task</DropdownMenuItem>
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
                                                                 </div>
                                                             </div>
                                                         )}
                                                     </Draggable>
                                                 ))}
+                                            {provided.placeholder}
                                         </div>
-                                        {provided.placeholder}
                                     </div>
                                 )}
                             </Droppable>
@@ -256,6 +517,93 @@ export function KanbanBoard({ project }: { project: KanbanProject; teamMembers: 
                     ))}
                 </div>
             </DragDropContext>
+
+            {/* Edit Task Dialog */}
+            <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+                <DialogContent className="glass-card border-white/10 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Task</DialogTitle>
+                    </DialogHeader>
+                    {editingTask && (
+                        <form onSubmit={handleEditTaskSubmit} className="space-y-4 pt-4">
+                            <div className="space-y-2">
+                                <Label>Task Title</Label>
+                                <Input
+                                    className="bg-black/50 border-white/10"
+                                    value={editTaskTitle}
+                                    onChange={e => setEditTaskTitle(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Description</Label>
+                                <Textarea
+                                    className="bg-black/50 border-white/10"
+                                    value={editTaskDesc}
+                                    onChange={e => setEditTaskDesc(e.target.value)}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Assignee</Label>
+                                    <Select value={editAssigneeId} onValueChange={setEditAssigneeId}>
+                                        <SelectTrigger className="bg-black/50 border-white/10">
+                                            <SelectValue placeholder="Unassigned" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                                            {teamMembers.map(member => (
+                                                <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Due Date</Label>
+                                    <Input
+                                        type="date"
+                                        className="bg-black/50 border-white/10"
+                                        value={editDueDate}
+                                        onChange={e => setEditDueDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="ghost" onClick={() => setEditingTask(null)}>Cancel</Button>
+                                <Button type="submit" disabled={isSavingEdit} className="bg-primary text-black hover:bg-primary/90">
+                                    Save Changes
+                                </Button>
+                            </div>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Milestone Dialog */}
+            <Dialog open={!!editingMilestoneId} onOpenChange={(open) => !open && setEditingMilestoneId(null)}>
+                <DialogContent className="glass-card border-white/10 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Milestone</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleEditMilestoneSubmit} className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label>Milestone Title</Label>
+                            <Input
+                                className="bg-black/50 border-white/10"
+                                value={editMilestoneTitle}
+                                onChange={e => setEditMilestoneTitle(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button type="button" variant="ghost" onClick={() => setEditingMilestoneId(null)}>Cancel</Button>
+                            <Button type="submit" disabled={isEditingMilestone} className="bg-primary text-black hover:bg-primary/90">
+                                Save Changes
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

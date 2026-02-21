@@ -20,6 +20,7 @@ export default async function ClientPortalPage() {
             milestones: {
                 orderBy: (milestones, { asc }) => [asc(milestones.order)]
             },
+            tasks: true,
             lead: true
         },
         orderBy: (agencyProjects, { desc }) => [desc(agencyProjects.createdAt)]
@@ -47,10 +48,10 @@ export default async function ClientPortalPage() {
             ) : (
                 <div className="space-y-12">
                     {projects.map((project) => {
-                        // Calculate Progress
-                        const totalMilestones = project.milestones.length;
-                        const completedMilestones = project.milestones.filter(m => m.status === "Completed").length;
-                        const progressPercent = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
+                        // Calculate Progress via Tasks
+                        const totalTasks = project.tasks.length;
+                        const completedTasks = project.tasks.filter(t => t.status === "Done").length;
+                        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
                         return (
                             <div key={project.id} className="space-y-6">
@@ -97,13 +98,13 @@ export default async function ClientPortalPage() {
                                         <div className="space-y-3">
                                             {project.milestones.map((milestone) => (
                                                 <div key={milestone.id} className={`flex items-center gap-4 p-4 rounded-lg border ${milestone.status === "Completed" ? "bg-white/5 border-green-500/30 text-white" :
-                                                        milestone.status === "In Progress" ? "bg-primary/10 border-primary/50 text-white" :
-                                                            milestone.status === "Client Approval" ? "bg-yellow-500/10 border-yellow-500/50 text-white animate-pulse" :
-                                                                "bg-black/50 border-white/5 text-muted-foreground"
+                                                    milestone.status === "In Progress" ? "bg-primary/10 border-primary/50 text-white" :
+                                                        milestone.status === "Client Approval" ? "bg-yellow-500/10 border-yellow-500/50 text-white animate-pulse" :
+                                                            "bg-black/50 border-white/5 text-muted-foreground"
                                                     }`}>
                                                     <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm ${milestone.status === "Completed" ? "bg-green-500 text-black" :
-                                                            milestone.status === "In Progress" ? "bg-primary text-black" :
-                                                                "bg-white/10"
+                                                        milestone.status === "In Progress" ? "bg-primary text-black" :
+                                                            "bg-white/10"
                                                         }`}>
                                                         {milestone.order}
                                                     </div>

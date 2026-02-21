@@ -60,8 +60,8 @@ export default async function PMEnginePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projects.map(project => {
                     const progress = {
-                        total: project.milestones.length,
-                        completed: project.milestones.filter(m => m.status === "Completed").length
+                        total: project.tasks.length,
+                        completed: project.tasks.filter(t => t.status === "Done").length
                     };
                     const percent = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
                     const hasBlocked = project.tasks.some(t => t.status === "Blocked");

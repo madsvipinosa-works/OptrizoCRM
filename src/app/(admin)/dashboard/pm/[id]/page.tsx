@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/features/pm/components/KanbanBoard";
+import { ProjectSettingsModal } from "@/features/pm/components/ProjectSettingsModal";
 
 export default async function KanbanBoardPage(props: { params: Promise<{ id: string }> }) {
     const session = await auth();
@@ -23,7 +24,8 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
             milestones: {
                 orderBy: (m, { asc }) => [asc(m.order)]
             },
-            tasks: true
+            tasks: true,
+            lead: true
         }
     });
 
@@ -36,18 +38,21 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
 
     return (
         <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild className="hover:bg-white/10">
-                    <Link href="/dashboard/pm">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                </Button>
-                <div>
-                    <h2 className="text-2xl font-bold text-glow-sm">{project.title}</h2>
-                    <p className="text-sm text-muted-foreground hidden sm:flex items-center gap-2">
-                        {project.client?.name} • Status: <span className="text-white">{project.status}</span>
-                    </p>
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" asChild className="hover:bg-white/10">
+                        <Link href="/dashboard/pm">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <div>
+                        <h2 className="text-2xl font-bold text-glow-sm">{project.title}</h2>
+                        <p className="text-sm text-muted-foreground hidden sm:flex items-center gap-2">
+                            {project.client?.name} • Status: <span className="text-white">{project.status}</span>
+                        </p>
+                    </div>
                 </div>
+                <ProjectSettingsModal project={project} />
             </div>
 
             {/* The Kanban Board gets the rest of the height */}

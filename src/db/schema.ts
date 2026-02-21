@@ -269,6 +269,7 @@ export const tasks = pgTable("task", {
     description: text("description"),
     assigneeId: text("assigneeId")
         .references(() => users.id, { onDelete: "set null" }), // Staff assigned
+    dueDate: timestamp("due_date", { mode: "date" }),
     status: taskStatusEnum("status").default("Todo").notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
