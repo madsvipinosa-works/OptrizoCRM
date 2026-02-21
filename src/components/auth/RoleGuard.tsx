@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 interface RoleGuardProps {
     children: React.ReactNode;
-    allowedRoles?: ("admin" | "editor" | "user")[];
+    allowedRoles?: ("admin" | "editor" | "user" | "client")[];
 }
 
 export async function RoleGuard({ children, allowedRoles = ["admin"] }: RoleGuardProps) {

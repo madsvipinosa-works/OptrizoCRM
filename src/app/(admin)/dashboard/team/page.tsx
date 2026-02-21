@@ -76,7 +76,7 @@ interface UserListItem {
     name: string | null;
     email: string;
     image: string | null;
-    role: "user" | "admin" | "editor";
+    role: "user" | "admin" | "editor" | "client";
 }
 
 const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title: string, currentUserId: string }) => (

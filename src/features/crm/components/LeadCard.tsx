@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateLead, addLeadNote } from "@/features/crm/actions";
+import { updateLead, addLeadNote, markLeadAsWon } from "@/features/crm/actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -81,14 +81,30 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
     const handleSaveStatus = async () => {
         setIsLoading(true);
         try {
-            const result = await updateLead(lead.id, {
-                status,
-                nextActionDate: nextActionDate || null
-            });
-            if (result.success) {
-                toast.success("Lead status updated");
+            if (status === "Completed" && lead.status !== "Completed") {
+                // If there's a next action date set, save it first
+                if (nextActionDate) {
+                    await updateLead(lead.id, { nextActionDate });
+                }
+                const result = await markLeadAsWon(lead.id);
+                if (result.success) {
+                    toast.success("Lead Won! Client and Project Provisioned.", {
+                        description: "Check terminal logs for mock credential emails."
+                    });
+                    setIsOpen(false);
+                } else {
+                    toast.error(result.message);
+                }
             } else {
-                toast.error(result.message);
+                const result = await updateLead(lead.id, {
+                    status,
+                    nextActionDate: nextActionDate || null
+                });
+                if (result.success) {
+                    toast.success("Lead status updated");
+                } else {
+                    toast.error(result.message);
+                }
             }
         } catch (error) {
             console.error(error);
@@ -249,9 +265,9 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                         onChange={async (e) => {
                                             const newStatus = e.target.value as Lead['status'];
                                             setStatus(newStatus);
-                                            if (newStatus === "Completed") {
+                                            if (newStatus === "Completed" && lead.status !== "Completed") {
                                                 // Trigger "Won" Notification
-                                                alert("🎉 Lead marked as Won! (Project Workflow integration coming soon)");
+                                                toast.info("Click 'Update Status' below to sequence the Project and Client Portal automation.");
                                             }
                                         }}
                                         className="flex h-10 w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

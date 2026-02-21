@@ -11,7 +11,7 @@ import {
 import type { AdapterAccount } from "next-auth/adapters";
 
 // 1. Enums (Single Source of Truth)
-export const roleEnum = pgEnum("role", ["user", "admin", "editor"]);
+export const roleEnum = pgEnum("role", ["user", "admin", "editor", "client"]);
 
 // 2. Users Table (Extended for RBAC)
 export const users = pgTable("user", {
@@ -213,4 +213,100 @@ export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
 export const usersRelations = relations(users, ({ many }) => ({
     assignedLeads: many(leads),
     authoredNotes: many(leadNotes),
+    agencyProjects: many(agencyProjects),
+    assignedTasks: many(tasks),
+}));
+
+// 13. Operational Project Management (PM Engine)
+export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff", "In Progress", "In Review", "Completed"]);
+export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Client Approval", "Completed"]);
+export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "Done"]);
+
+export const agencyProjects = pgTable("agency_project", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    title: text("title").notNull(),
+    description: text("description"),
+    clientId: text("clientId")
+        .notNull()
+        .references(() => users.id, { onDelete: "restrict" }),
+    leadId: text("leadId")
+        .references(() => leads.id, { onDelete: "set null" }), // Link back to originating lead
+    status: agencyProjectStatusEnum("status").default("Kickoff").notNull(),
+    startDate: timestamp("start_date", { mode: "date" }),
+    targetDate: timestamp("target_date", { mode: "date" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const milestones = pgTable("milestone", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("projectId")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    status: milestoneStatusEnum("status").default("Pending").notNull(),
+    order: integer("order").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const tasks = pgTable("task", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("projectId")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    milestoneId: text("milestoneId")
+        .notNull()
+        .references(() => milestones.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    assigneeId: text("assigneeId")
+        .references(() => users.id, { onDelete: "set null" }), // Staff assigned
+    status: taskStatusEnum("status").default("Todo").notNull(),
+    isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// PM Relations
+export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({
+    client: one(users, {
+        fields: [agencyProjects.clientId],
+        references: [users.id],
+    }),
+    lead: one(leads, {
+        fields: [agencyProjects.leadId],
+        references: [leads.id],
+    }),
+    milestones: many(milestones),
+    tasks: many(tasks),
+}));
+
+export const milestonesRelations = relations(milestones, ({ one, many }) => ({
+    project: one(agencyProjects, {
+        fields: [milestones.projectId],
+        references: [agencyProjects.id],
+    }),
+    tasks: many(tasks),
+}));
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+    project: one(agencyProjects, {
+        fields: [tasks.projectId],
+        references: [agencyProjects.id],
+    }),
+    milestone: one(milestones, {
+        fields: [tasks.milestoneId],
+        references: [milestones.id],
+    }),
+    assignee: one(users, {
+        fields: [tasks.assigneeId],
+        references: [users.id],
+    }),
 }));

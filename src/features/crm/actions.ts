@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, leadNotes } from "@/db/schema";
+import { leads, leadNotes, users, agencyProjects, milestones } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
@@ -203,5 +203,75 @@ export async function getAnalyticsData() {
     } catch (error) {
         console.error("Analytics Error:", error);
         return null;
+    }
+}
+
+export async function markLeadAsWon(leadId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        // 1. Fetch Lead
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId)
+        });
+
+        if (!lead) return { success: false, message: "Lead not found" };
+        if (lead.status === "Completed") return { success: false, message: "Lead is already won!" };
+
+        // 2. Ensure Client User Exists
+        let clientUserId = "";
+        const existingUser = await db.query.users.findFirst({
+            where: eq(users.email, lead.email)
+        });
+
+        if (!existingUser) {
+            const [newUser] = await db.insert(users).values({
+                name: lead.name,
+                email: lead.email,
+                role: "client",
+            }).returning({ id: users.id });
+            clientUserId = newUser.id;
+            console.log(`[SYS_LOG] 👤 Created new Client User account for ${lead.email}`);
+        } else {
+            clientUserId = existingUser.id;
+            console.log(`[SYS_LOG] 👤 Using existing User account for ${lead.email}`);
+        }
+
+        // 3. Create Operational Project (PM Engine)
+        const [newProject] = await db.insert(agencyProjects).values({
+            title: lead.service ? `${lead.name} - ${lead.service}` : `${lead.name} Project`,
+            description: lead.notes || lead.message,
+            clientId: clientUserId,
+            leadId: lead.id,
+            status: "Kickoff",
+        }).returning({ id: agencyProjects.id });
+        console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id}`);
+
+        // 4. Create Default Milestone Scaffolding
+        await db.insert(milestones).values([
+            { projectId: newProject.id, title: "Discovery", status: "Pending", order: 1 },
+            { projectId: newProject.id, title: "Design", status: "Pending", order: 2 },
+            { projectId: newProject.id, title: "Development", status: "Pending", order: 3 },
+            { projectId: newProject.id, title: "QA & Launch", status: "Pending", order: 4 },
+        ]);
+        console.log(`[SYS_LOG] 🗺️ Generated default project milestones.`);
+
+        // 5. Update Lead Status
+        await db.update(leads)
+            .set({ status: "Completed", updatedAt: new Date() })
+            .where(eq(leads.id, leadId));
+
+        // 6. Mock: Send Client Portal Credentials
+        console.log(`[SYS_LOG] 📧 Mock Email Sent: Welcome to the Optrizo Client Portal! Link: /portal/login`);
+
+        revalidatePath("/dashboard/leads");
+
+        return { success: true, message: "Success! Project Provisioned & Client Notified." };
+    } catch (error) {
+        console.error("Failed to mark lead as won:", error);
+        return { success: false, message: "Database Error: Could not execute Won workflow." };
     }
 }
