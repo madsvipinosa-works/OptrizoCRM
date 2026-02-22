@@ -67,12 +67,9 @@ export const verificationTokens = pgTable(
         token: text("token").notNull(),
         expires: timestamp("expires", { mode: "date" }).notNull(),
     },
-    (verificationToken) => [
-        primaryKey({
-            columns: [verificationToken.identifier, verificationToken.token],
-        }),
-    ]
+    (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
 );
+
 
 // 6. Blog Posts
 export const posts = pgTable("post", {
@@ -143,6 +140,10 @@ export const siteSettings = pgTable("site_settings", {
     faviconUrl: text("faviconUrl"),
     contactEmail: text("contactEmail"),
     notificationEmails: text("notificationEmails"), // Comma-separated list of admin emails
+
+    // Phase 5 Intelligence Settings
+    monthlyMarketingSpend: integer("monthly_marketing_spend").default(1000).notNull(),
+    adminHoursSavedPerProject: integer("admin_hours_saved_per_project").default(2).notNull(),
 });
 
 // 11. Contact Messages (Lead Capture)

@@ -21,6 +21,8 @@ interface SiteSettings {
     faviconUrl: string | null;
     contactEmail: string | null;
     notificationEmails: string | null;
+    monthlyMarketingSpend: number | null;
+    adminHoursSavedPerProject: number | null;
 }
 
 export function SettingsForm({ initialData }: { initialData: SiteSettings | undefined }) {
@@ -157,6 +159,37 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                             {emails.length === 0 && (
                                 <span className="text-sm text-muted-foreground italic">No recipients configured.</span>
                             )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-black/40 border-primary/20">
+                <CardHeader>
+                    <CardTitle>System Intelligence</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <p className="text-sm text-muted-foreground">Configure the variables used to accurately calculate your Return on Marketing (ROMI) and Automation ROI inside the CRM Analytics Dashboard.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label>Monthly Marketing Spend ($)</Label>
+                            <Input
+                                type="number"
+                                name="monthlyMarketingSpend"
+                                defaultValue={initialData?.monthlyMarketingSpend ?? 1000}
+                                className="bg-white/5 border-white/10"
+                                placeholder="1000"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Admin Hours Saved Per Project</Label>
+                            <Input
+                                type="number"
+                                name="adminHoursSavedPerProject"
+                                defaultValue={initialData?.adminHoursSavedPerProject ?? 2}
+                                className="bg-white/5 border-white/10"
+                                placeholder="2"
+                            />
                         </div>
                     </div>
                 </CardContent>

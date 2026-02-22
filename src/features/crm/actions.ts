@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, leadNotes, users, agencyProjects, milestones } from "@/db/schema";
+import { leads, users, leadNotes, agencyProjects, siteSettings, milestones } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
@@ -183,6 +183,15 @@ export async function getAnalyticsData() {
         const avgLeadAgeDays = agedLeadsCount > 0 ? (totalAgeDays / agedLeadsCount).toFixed(1) : "0";
         const responseRate = totalLeads > 0 ? ((actionedLeadsCount / totalLeads) * 100).toFixed(0) : "0";
 
+        // Advanced ROI & Intelligence Metrics
+        const settings = await db.query.siteSettings.findFirst();
+        const monthlyMarketingSpend = settings?.monthlyMarketingSpend || 1000;
+        const adminHoursPerProject = settings?.adminHoursSavedPerProject || 2;
+
+        const clv = wonLeads > 0 ? Math.round(pipelineValue / wonLeads).toLocaleString() : "0";
+        const romi = pipelineValue > 0 ? Math.round(((pipelineValue - monthlyMarketingSpend) / monthlyMarketingSpend) * 100) : 0;
+        const adminHoursSaved = wonLeads * adminHoursPerProject;
+
         return {
             kpi: {
                 totalLeads,
@@ -192,6 +201,9 @@ export async function getAnalyticsData() {
                 avgLeadAgeDays,
                 staleLeadsCount,
                 responseRate,
+                clv,
+                romi,
+                adminHoursSaved,
             },
             charts: {
                 pipeline: pipelineData,
