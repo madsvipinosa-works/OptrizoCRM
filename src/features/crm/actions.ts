@@ -250,7 +250,13 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
             console.log(`[SYS_LOG] 👤 Created new Client User account for ${lead.email}`);
         } else {
             clientUserId = existingUser.id;
-            console.log(`[SYS_LOG] 👤 Using existing User account for ${lead.email}`);
+            // Upgrade role to client if they were a standard user
+            if (existingUser.role === "user") {
+                await db.update(users).set({ role: "client" }).where(eq(users.id, existingUser.id));
+                console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.email}`);
+            } else {
+                console.log(`[SYS_LOG] 👤 Using existing User account for ${lead.email}`);
+            }
         }
 
         // 3. Create Operational Project (PM Engine)
