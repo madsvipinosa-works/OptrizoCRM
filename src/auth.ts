@@ -1,18 +1,14 @@
 import NextAuth from "next-auth"
-import Google from "next-auth/providers/google"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { db } from "@/db"
 import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
+import authConfig from "./auth.config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+    ...authConfig,
     adapter: DrizzleAdapter(db),
-    providers: [
-        Google({
-            clientId: process.env.AUTH_GOOGLE_ID,
-            clientSecret: process.env.AUTH_GOOGLE_SECRET,
-        }),
-    ],
+    session: { strategy: "jwt" },
     callbacks: {
         async signIn({ user, account, profile }) {
             // Auto-link OAuth accounts to existing emails
@@ -28,18 +24,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
             return true;
         },
-        async session({ session, user }) {
-            if (session.user && user) {
-                session.user.id = user.id;
+        async jwt({ token, user }) {
+            // User object is only available on initial sign-in
+            if (user) {
+                token.id = user.id;
+            }
+            return token;
+        },
+        async session({ session, token }) {
+            if (session.user && token?.id) {
+                session.user.id = token.id as string;
 
-                // Force fetch role from DB to avoid adapter issues
+                // Force fetch role from DB to avoid JWT staleness
                 const dbUser = await db.query.users.findFirst({
-                    where: eq(users.id, user.id),
+                    where: eq(users.id, session.user.id),
                 });
 
                 session.user.role = dbUser?.role || "user";
 
-                console.log(`[Auth] Session User: ${user.email}, Role from DB: ${session.user.role}`);
+                console.log(`[Auth] Session User: ${session.user.email}, Role from DB: ${session.user.role}`);
             }
             return session;
         },
