@@ -6,6 +6,10 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return new Response('Forbidden: Promotion disabled in production.', { status: 403 });
+    }
+
     try {
         // 1. Get the first user
         const allUsers = await db.select().from(users).limit(1);
