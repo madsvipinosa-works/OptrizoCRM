@@ -5,6 +5,7 @@ import { leads, users, leadNotes, agencyProjects, siteSettings, milestones } fro
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
+import { sendClientWelcomeEmail } from "@/lib/notifications";
 import { auth } from "@/auth";
 
 export type ActionState = {
@@ -259,7 +260,7 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
             clientId: clientUserId,
             leadId: lead.id,
             status: "Kickoff",
-        }).returning({ id: agencyProjects.id });
+        }).returning({ id: agencyProjects.id, title: agencyProjects.title });
         console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id}`);
 
         // 4. Create Default Milestone Scaffolding
@@ -276,8 +277,12 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
             .set({ status: "Completed", updatedAt: new Date() })
             .where(eq(leads.id, leadId));
 
-        // 6. Mock: Send Client Portal Credentials
-        console.log(`[SYS_LOG] 📧 Mock Email Sent: Welcome to the Optrizo Client Portal! Link: /portal/login`);
+        // 6. Send Client Portal Credentials via Email
+        await sendClientWelcomeEmail({
+            name: lead.name,
+            email: lead.email,
+            projectName: newProject.title
+        });
 
         revalidatePath("/dashboard/leads");
 

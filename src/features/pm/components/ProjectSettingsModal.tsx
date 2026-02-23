@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Plus, X } from "lucide-react";
+import { Settings, Plus, X, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -45,6 +45,29 @@ export function ProjectSettingsModal({ project }: { project: { id: string, stagi
                     <DialogTitle>Project Settings</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSave} className="space-y-6 pt-4">
+
+                    <div className="space-y-3">
+                        <Label>Client Portal Access</Label>
+                        <p className="text-xs text-muted-foreground">Share this link with your client so they can access their dashboard and documents.</p>
+                        <div className="flex gap-2">
+                            <Input
+                                className="bg-black/50 border-white/10 font-mono text-xs"
+                                readOnly
+                                value={typeof window !== "undefined" ? `${window.location.origin}/portal` : ""}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="border-white/10 hover:bg-white/10 shrink-0"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/portal`);
+                                    toast.success("Portal link copied to clipboard");
+                                }}
+                            >
+                                <Copy className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
 
                     <div className="space-y-3">
                         <Label>Staging & Preview URLs</Label>
