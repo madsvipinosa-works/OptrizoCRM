@@ -28,14 +28,31 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProjectDetailPage({ params }: Props) {
-    const { slug } = await params;
+    let project = null;
+    let systemError: Error | null = null;
 
-    // Decode slug to handle potential encoding issues
-    const decodedSlug = decodeURIComponent(slug);
+    try {
+        const { slug } = await params;
+        const decodedSlug = decodeURIComponent(slug);
 
-    const project = await db.query.projects.findFirst({
-        where: eq(projects.slug, decodedSlug),
-    });
+        project = await db.query.projects.findFirst({
+            where: eq(projects.slug, decodedSlug),
+        });
+    } catch (e) {
+        systemError = e as Error;
+    }
+
+    if (systemError) {
+        return (
+            <div className="container mx-auto px-4 py-24 max-w-3xl">
+                <div className="bg-red-950/50 border border-red-500 p-8 rounded-lg text-red-200">
+                    <h1 className="text-2xl font-bold mb-4 text-red-500">System Crash (Remote Debug)</h1>
+                    <p className="font-mono text-sm mb-4">{systemError.message}</p>
+                    <pre className="text-xs bg-black/50 p-4 rounded overflow-auto">{systemError.stack}</pre>
+                </div>
+            </div>
+        );
+    }
 
     if (!project) {
         notFound();

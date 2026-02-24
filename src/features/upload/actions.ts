@@ -78,7 +78,8 @@ export async function uploadImage(formData: FormData) {
 
         return { success: true, url: blob.url };
     } catch (error) {
-        console.error("Upload failed:", error);
-        return { success: false, message: "Server error uploading file to Cloud." };
+        const err = error as Error;
+        console.error("Upload failed:", err);
+        return { success: false, message: `Cloud upload failed: ${err.message || "Unknown error"}` };
     }
 }
