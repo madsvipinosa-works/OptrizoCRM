@@ -62,8 +62,11 @@ export async function uploadImage(formData: FormData) {
             await fs.writeFile(path.join(uploadDir, uniqueName), buffer);
             return { success: true, url: `/uploads/${uniqueName}` };
         } catch (err) {
-            console.error("Local upload failed:", err);
-            return { success: false, message: "Failed to save file locally." };
+            console.error("Local upload failed (likely read-only host):", err);
+            return {
+                success: false,
+                message: "Vercel Blob Storage is not configured. Please add BLOB_READ_WRITE_TOKEN to your Vercel Environment Variables to enable cloud uploads."
+            };
         }
     }
 
