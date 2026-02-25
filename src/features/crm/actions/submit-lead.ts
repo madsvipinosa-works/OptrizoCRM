@@ -5,7 +5,8 @@ import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { calculateLeadScore } from "@/lib/scoring";
 import { sendLeadNotification } from "@/lib/notifications";
-
+import { headers } from "next/headers";
+import { checkContactRateLimit } from "@/lib/rate-limit";
 
 export type ContactState = {
     message: string;
@@ -14,6 +15,20 @@ export type ContactState = {
 };
 
 export async function submitContactForm(prevState: ContactState, formData: FormData): Promise<ContactState> {
+    // 0. Rate Limiting Check against DDoS/Spam bots
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for") || "unknown-ip";
+
+    const rateLimitResult = await checkContactRateLimit(`contact_${ip}`);
+    if (!rateLimitResult.success) {
+        console.warn(`[Security] Blocked spam submission from IP: ${ip}`);
+        return {
+            message: "You have submitted too many requests. Please wait 10 minutes and try again.",
+            success: false,
+            errors: {},
+        };
+    }
+
     // 1. Validate fields using Zod
     const validatedFields = contactFormSchema.safeParse({
         firstName: formData.get("firstName"),
