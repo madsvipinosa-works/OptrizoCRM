@@ -75,8 +75,15 @@ export async function addLeadNote(leadId: string, content: string, activityType:
 }
 
 export async function getAnalyticsData() {
-    // 1. Auth Check
-    const session = await auth();
+    // 1. Auth Check - Wrapped in try/catch to handle NextAuth JWTSessionErrors gracefully
+    let session;
+    try {
+        session = await auth();
+    } catch (e) {
+        console.error("Auth Session Error in getAnalyticsData:", e);
+        return null; // Return null gracefully instead of crashing the page
+    }
+
     if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
         return null;
     }

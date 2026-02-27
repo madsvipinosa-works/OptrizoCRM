@@ -1,0 +1,100 @@
+# Optrizo Data Flow Diagrams (DFD)
+
+This document visualizes how data moves through the Optrizo Agency Operating System, identifying external entities, data processes, and data stores.
+
+## Level 0 Context Diagram
+This diagram shows the system as a single high-level process interacting with external entities.
+
+```mermaid
+graph TD
+    %% External Entities
+    PublicUser((Public User / Lead))
+    Client((Client))
+    Admin((Agency Admin / Editor))
+    OAuth((Google OAuth))
+    ResendEmail((Resend API))
+
+    %% Main System Process
+    System[Optrizo Agency OS]
+
+    %% Data Flows
+    PublicUser -- "Views Pages, Submits Contact Form" --> System
+    System -- "Sends Email Notifications" --> ResendEmail
+    
+    OAuth -- "Authenticates Identity & Profile Data" --> System
+    Client -- "Logs in via OAuth" --> OAuth
+    Client -- "Views Portal, Downloads Docs" --> System
+    
+    Admin -- "Logs in via OAuth" --> OAuth
+    Admin -- "Manages CMS, CRM, PM Data" --> System
+    System -- "Renders Dashboard UI" --> Admin
+```
+
+---
+
+## Level 1 Data Flow Diagram (Subsystems)
+This diagram drills down into the core modules of the Optrizo platform, detailing how form data, authentication, and internal workflows are processed and stored.
+
+```mermaid
+graph TD
+    %% External Entities
+    PublicUser((Public User))
+    Client((Client))
+    Admin((Admin/Editor))
+    GoogleOAuth((Google OAuth))
+
+    %% Data Stores
+    DB_Supabase[(Supabase PostgreSQL)]
+    Storage_Blob[(Vercel Blob Storage)]
+
+    %% Processes (Subsystems)
+    subgraph Frontend Subsystems
+        Proc_Auth[1. Authentication Engine]
+        Proc_CRM[2. CRM & Lead Capture]
+        Proc_CMS[3. CMS & Content Engine]
+        Proc_PM[4. Project Management]
+        Proc_Portal[5. Client Portal]
+    end
+
+    %% Auth Flows
+    Admin & Client -- "Login Request" --> Proc_Auth
+    Proc_Auth -- "Validate via NextAuth" --> GoogleOAuth
+    GoogleOAuth -- "User Profile Data" --> Proc_Auth
+    Proc_Auth -- "Create/Read User Session" --> DB_Supabase
+
+    %% CRM Flows
+    PublicUser -- "Submit Lead Data" --> Proc_CRM
+    Proc_CRM -- "Insert/Score Lead" --> DB_Supabase
+    Admin -- "Convert Lead to Client" --> Proc_CRM
+    Proc_CRM -- "Auto-Create Agency Project" --> DB_Supabase
+    Proc_CRM -- "Trigger Welcome Email" --> Resend[(Resend API)]
+
+    %% CMS Flows
+    Admin -- "Write Blog/Portfolio/Services" --> Proc_CMS
+    Proc_CMS -- "Insert Tiptap HTML" --> DB_Supabase
+    Proc_CMS -- "Upload Media" --> Storage_Blob
+    Storage_Blob -- "Return Public URL" --> Proc_CMS
+    PublicUser -- "Read Published Content" --> Proc_CMS
+    Proc_CMS -- "Fetch Published Data" --> DB_Supabase
+
+    %% PM Flows
+    Admin -- "Manage Kanban Tasks & Milestones" --> Proc_PM
+    Proc_PM -- "Read/Write Tasks" --> DB_Supabase
+
+    %% Portal Flows
+    Client -- "Access Protected Portal" --> Proc_Portal
+    Proc_Portal -- "Fetch Project Progress & Milestones" --> DB_Supabase
+```
+
+### Process Explanations
+
+1. **Authentication Engine:** Managed by NextAuth.js (Auth.js beta). When a user logs in via Google OAuth, the system verifies their identity and cross-references their email in the `users` table in Supabase. This process governs access to the `/dashboard` (Admin/Editor) and `/portal` (Client).
+2. **CRM & Lead Capture:** Public users submit data via the `/contact` form. The server-side action ([submitContactForm](file:///c:/Users/admin/Desktop/OptrizoProto/src/features/crm/actions/submit-lead.ts#17-102)) validates the data using Zod, calculates a lead score, saves the record to the `leads` table in Supabase, and triggers an external notification via Resend. When an Admin marks a lead as "Won", the CRM process automatically scaffolds a new `agencyProject` and upgrades the lead's associated user role to "client".
+3. **CMS & Content Engine:** Admins write content (Blogs, Portfolio, Services) using the Tiptap rich text editor. The raw HTML strings are saved to respective tables in Supabase. If an Admin uploads an image during content creation, the file buffer is sent to Vercel Blob Storage, which returns a public URL that is embedded into the database record.
+4. **Project Management:** Admins manipulate the internal execution of work. Modifying Kanban cards (Tasks) and Milestones interacts directly with the `tasks` and `milestones` tables in Supabase.
+5. **Client Portal:** Clients log in and hit the [RoleGuard](file:///c:/Users/admin/Desktop/OptrizoProto/src/components/auth/RoleGuard.tsx#9-24) middleware. Once authorized, the portal purely reads data from the `agencyProjects`, `milestones`, and `siteSettings` tables to render a real-time progress bar and document hub, providing transparency without write access.
+
+## Data Trust & Boundary Security
+- **Trust Boundary 1 (Client to Next.js Server):** All data submitted from the browser (forms, uploads) must pass through Zod schema validation before touching the database. Next.js Server Actions serve as the primary API gates.
+- **Trust Boundary 2 (Next.js Server to Supabase):** The system uses Drizzle ORM, ensuring all queries are parameterized automatically, completely nullifying SQL injection risks.
+- **Trust Boundary 3 (Public Uploads to Vercel Blob):** File uploads are sent to an isolated cloud bucket, preventing any malicious local file execution on the Vercel Node runtime.
