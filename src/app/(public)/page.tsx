@@ -1,17 +1,21 @@
 import Link from "next/link";
-import { ArrowRight, Code2, Shield, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 import { getSiteSettings } from "@/features/cms/actions";
 import { HeroSection } from "@/components/public/HeroSection";
-import { ServicesGrid } from "@/components/ServicesGrid";
-import { TestimonialsGrid } from "@/components/TestimonialsGrid";
-import { BlogTeaserGrid } from "@/components/BlogTeaserGrid";
+import { ServicesGrid } from "@/components/blocks/ServicesGrid";
+import GalleryHoverCarousel from "@/components/blocks/gallery-hover-carousel";
+import { TestimonialsSection } from "@/components/blocks/testimonials-with-marquee";
+import { db } from "@/db";
+import { posts, testimonials } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
 
 export const revalidate = 3600; // Revalidate every hour
 
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 
 // ... existing imports
 
@@ -21,6 +25,55 @@ export default async function Home() {
     // Fetch only what's needed or nothing if static
     // (Removed unused parallel fetch)
 
+    // Fetch latest blog posts for the carousel
+    const publishedPosts = await db.query.posts.findMany({
+        where: eq(posts.published, true),
+        orderBy: [desc(posts.createdAt)],
+        limit: 5,
+    });
+
+    // Fetch active testimonials for the marquee
+    const allTestimonials = await db.query.testimonials.findMany({
+        where: eq(testimonials.active, true),
+        orderBy: [desc(testimonials.id)],
+    });
+
+    const testimonialItems = allTestimonials.map((t) => ({
+        author: {
+            name: t.name,
+            handle: t.role ? `${t.role}${t.company ? ` @ ${t.company}` : ''}` : (t.company ?? ''),
+            avatar: t.image ?? undefined,
+        },
+        text: t.content,
+        rating: t.rating ?? 5,
+    }));
+
+    const carouselItems = publishedPosts.map((post) => ({
+        id: post.id.toString(),
+        title: post.title,
+        summary: post.slug, // Using slug as excerpt for now
+        url: `/blog/${post.slug}`,
+        image: post.coverImage || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2670&auto=format&fit=crop",
+    }));
+
+    // Helper: auto-convert YouTube watch/short URLs to embed URLs
+    const toEmbedUrl = (url: string) => {
+        try {
+            const u = new URL(url);
+            // https://www.youtube.com/watch?v=VIDEO_ID
+            if (u.hostname.includes("youtube.com") && u.searchParams.get("v")) {
+                return `https://www.youtube.com/embed/${u.searchParams.get("v")}`;
+            }
+            // https://youtu.be/VIDEO_ID
+            if (u.hostname === "youtu.be") {
+                return `https://www.youtube.com/embed${u.pathname}`;
+            }
+        } catch {
+            // Not a URL, return as-is
+        }
+        return url;
+    };
+
     return (
         <div className="flex flex-col min-h-screen">
             {/* Animated Hero Section */}
@@ -29,52 +82,50 @@ export default async function Home() {
                 description={settings?.heroDescription || "Optrizo is a premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions."}
             />
 
-            {/* About / Mission Section */}
-            <ScrollReveal className="container px-4 mx-auto py-32">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                    <div className="relative">
-                        <div className="absolute -inset-4 bg-primary/20 blur-xl rounded-full opacity-20" />
-                        <div className="relative border border-white/10 bg-black/50 backdrop-blur-sm p-8 rounded-2xl">
-                            <h3 className="text-2xl font-bold mb-4 text-white">Engineering Excellence</h3>
-                            <p className="text-muted-foreground mb-6">
-                                At Optrizo, we don&apos;t just write code. We engineer solutions that solve complex business problems. We&apos;re a premium digital agency that builds high-converting websites and applications. We specialize in modern design, performance, and scalability.
+            {/* Demo Video Scroll Section */}
+            {settings?.demoVideoUrl && (
+                <ContainerScroll
+                    titleComponent={
+                        <div className="mb-4">
+                            <SectionHeading
+                                text="See Optrizo in Action"
+                                className="text-3xl md:text-5xl mb-4"
+                            />
+                            <p className="text-muted-foreground text-lg mt-4">
+                                Watch how we transform ideas into high-performance digital products.
                             </p>
-                            <ul className="space-y-3">
-                                <li className="flex items-center gap-3 text-sm">
-                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><Code2 className="h-4 w-4" /></div>
-                                    <span>Clean, Maintainable Architecture</span>
-                                </li>
-                                <li className="flex items-center gap-3 text-sm">
-                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><Shield className="h-4 w-4" /></div>
-                                    <span>Enterprise-Grade Security</span>
-                                </li>
-                                <li className="flex items-center gap-3 text-sm">
-                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><Globe className="h-4 w-4" /></div>
-                                    <span>Global Scalability</span>
-                                </li>
-                            </ul>
                         </div>
+                    }
+                >
+                    <div className="relative w-full h-full">
+                        {settings.demoVideoUrl.endsWith(".mp4") ? (
+                            <video
+                                src={settings.demoVideoUrl}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                className="w-full h-full object-cover rounded-2xl"
+                            />
+                        ) : (
+                            <iframe
+                                src={toEmbedUrl(settings.demoVideoUrl)}
+                                className="w-full h-full rounded-2xl"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                title="Optrizo Demo Video"
+                            />
+                        )}
                     </div>
-                    <div>
-                        <Badge variant="secondary" className="mb-4 text-primary">Our Mission</Badge>
-                        <h2 className="text-4xl md:text-5xl font-bold mb-6">Bridging the Gap Between Vision and Reality</h2>
-                        <p className="text-lg text-muted-foreground mb-8">
-                            We believe that technology should be an enabler, not a bottleneck.
-                            Our mission is to empower businesses with digital tools that are as beautiful as they are functional.
-                        </p>
-                        <Button variant="link" asChild className="text-primary p-0 h-auto text-lg font-semibold group">
-                            <Link href="/about">Meet the Team <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" /></Link>
-                        </Button>
-                    </div>
-                </div>
-            </ScrollReveal>
+                </ContainerScroll>
+            )}
 
 
             {/* Services Section (Dynamic) */}
             <section className="container px-4 mx-auto py-32">
                 <ScrollReveal className="flex flex-col items-center mb-16 text-center">
                     <Badge variant="secondary" className="mb-4 text-primary">Our Expertise</Badge>
-                    <h2 className="text-4xl font-bold mb-4">End-to-End Digital Solutions</h2>
+                    <SectionHeading text="End-to-End Digital Solutions" className="text-4xl mb-4" />
                     <p className="text-muted-foreground max-w-2xl mx-auto">We don&apos;t just write code; we build digital assets that drive growth.</p>
                 </ScrollReveal>
 
@@ -82,36 +133,24 @@ export default async function Home() {
             </section>
 
             {/* Testimonials Section */}
-            <section className="bg-white/5 py-32 border-y border-white/5">
-                <div className="container px-4 mx-auto">
-                    <ScrollReveal className="flex flex-col md:flex-row justify-between items-end mb-12">
-                        <div>
-                            <h2 className="text-3xl font-bold mb-2">Trusted by Market Leaders</h2>
-                            <p className="text-muted-foreground">See what our partners are achieving.</p>
-                        </div>
-                        <Button variant="link" asChild className="text-primary p-0 h-auto font-semibold">
-                            <Link href="/testimonials">View all case studies <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                        </Button>
-                    </ScrollReveal>
-
-                    <div className="w-full">
-                        <TestimonialsGrid />
-                    </div>
-                </div>
-            </section>
+            <TestimonialsSection
+                title="Trusted by Market Leaders"
+                description="See what our partners are achieving with Optrizo."
+                testimonials={testimonialItems}
+            />
 
             {/* Blog Teaser Section */}
             <section className="container px-4 mx-auto py-32">
                 <ScrollReveal className="flex justify-between items-end mb-12">
                     <div>
                         <Badge variant="secondary" className="mb-4 text-primary">Latest Insights</Badge>
-                        <h2 className="text-3xl font-bold">From The Blog</h2>
+                        <SectionHeading text="From The Blog" className="text-3xl tracking-tight" />
                     </div>
                     <Button variant="outline" asChild>
                         <Link href="/blog">View All Articles</Link>
                     </Button>
                 </ScrollReveal>
-                <BlogTeaserGrid />
+                <GalleryHoverCarousel items={carouselItems} />
             </section>
 
             {/* CTA Section */}
@@ -119,7 +158,7 @@ export default async function Home() {
                 <div className="relative bg-gradient-to-r from-primary/20 via-primary/5 to-transparent p-12 md:p-24 rounded-3xl border border-primary/20 overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
 
-                    <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white relative z-10">Ready to Scale?</h2>
+                    <SectionHeading text="Ready to Scale?" className="text-4xl md:text-5xl mb-6" />
                     <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto relative z-10">
                         Join hundreds of satisfied clients who have built their digital future with Optrizo.
                     </p>

@@ -140,6 +140,7 @@ export const siteSettings = pgTable("site_settings", {
     faviconUrl: text("faviconUrl"),
     contactEmail: text("contactEmail"),
     notificationEmails: text("notificationEmails"), // Comma-separated list of admin emails
+    demoVideoUrl: text("demoVideoUrl"), // URL for the homepage demo video (YouTube/Vimeo embed or direct)
 
     // Phase 5 Intelligence Settings
     monthlyMarketingSpend: integer("monthly_marketing_spend").default(1000).notNull(),

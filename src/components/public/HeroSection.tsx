@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
+import IsoLevelWarp from "@/components/ui/isometric-wave-grid-background";
 
 interface HeroSectionProps {
     title: string;
@@ -20,8 +21,16 @@ export function HeroSection({ title, description }: HeroSectionProps) {
     }));
 
     return (
-        <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden min-h-[90vh] flex items-center justify-center">
-            {/* Dynamic Background */}
+        <section className="relative pt-32 pb-10 md:pt-48 md:pb-12 overflow-hidden min-h-[85vh] flex items-center justify-center">
+            {/* Isometric wave grid background */}
+            <IsoLevelWarp
+                color="57, 255, 20"
+                density={50}
+                speed={0.8}
+                className="opacity-40"
+            />
+
+            {/* Dynamic Background Glow */}
             <motion.div
                 animate={{
                     scale: [1, 1.1, 1],
@@ -54,7 +63,11 @@ export function HeroSection({ title, description }: HeroSectionProps) {
 
                 <div className="mb-8 min-h-[80px] md:min-h-[120px]">
                     <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter">
-                        <TypewriterEffect words={words} cursorClassName="bg-primary" />
+                        <TypewriterEffect
+                            words={words}
+                            cursorClassName="bg-primary"
+                            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter text-center"
+                        />
                     </h1>
                 </div>
 

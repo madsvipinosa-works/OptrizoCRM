@@ -23,6 +23,7 @@ interface SiteSettings {
     notificationEmails: string | null;
     monthlyMarketingSpend: number | null;
     adminHoursSavedPerProject: number | null;
+    demoVideoUrl: string | null;
 }
 
 export function SettingsForm({ initialData }: { initialData: SiteSettings | undefined }) {
@@ -78,6 +79,26 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                     <div className="space-y-2">
                         <Label>Hero Description</Label>
                         <Textarea name="heroDescription" defaultValue={initialData?.heroDescription ?? ""} className="bg-white/5 border-white/10" />
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-black/40 border-primary/20">
+                <CardHeader>
+                    <CardTitle>Homepage Demo Video</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Paste a video embed URL to display in the scroll animation section below the hero. Supports YouTube embed URLs (<code className="text-primary">https://www.youtube.com/embed/VIDEO_ID</code>), Vimeo embed URLs, or a direct <code className="text-primary">.mp4</code> link.
+                    </p>
+                    <div className="space-y-2">
+                        <Label>Video Embed URL</Label>
+                        <Input
+                            name="demoVideoUrl"
+                            defaultValue={initialData?.demoVideoUrl ?? ""}
+                            className="bg-white/5 border-white/10"
+                            placeholder="https://www.youtube.com/embed/..."
+                        />
                     </div>
                 </CardContent>
             </Card>

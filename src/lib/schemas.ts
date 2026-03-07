@@ -37,6 +37,7 @@ export const siteSettingsSchema = z.object({
     notificationEmails: z.string().optional(),
     monthlyMarketingSpend: z.coerce.number().optional().default(1000),
     adminHoursSavedPerProject: z.coerce.number().optional().default(2),
+    demoVideoUrl: z.string().optional(),
 });
 
 export const postSchema = z.object({
