@@ -2,11 +2,10 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
 import IsoLevelWarp from "@/components/ui/isometric-wave-grid-background";
+import SlideTextButton from "@/components/ui/slide-text-button";
 
 interface HeroSectionProps {
     title: string;
@@ -23,12 +22,17 @@ export function HeroSection({ title, description }: HeroSectionProps) {
     return (
         <section className="relative pt-32 pb-10 md:pt-48 md:pb-12 overflow-hidden min-h-[85vh] flex items-center justify-center">
             {/* Isometric wave grid background */}
-            <IsoLevelWarp
-                color="57, 255, 20"
-                density={50}
-                speed={0.8}
-                className="opacity-40"
-            />
+            <div className="absolute inset-0 pointer-events-none z-0">
+                <IsoLevelWarp
+                    color="57, 255, 20"
+                    density={50}
+                    speed={0.8}
+                    className="opacity-40"
+                />
+            </div>
+
+            {/* Bottom fade overlay — smoothly hides the hard cutoff edge of the glow and grid */}
+            <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black to-transparent pointer-events-none z-[1]" />
 
             {/* Dynamic Background Glow */}
             <motion.div
@@ -86,15 +90,18 @@ export function HeroSection({ title, description }: HeroSectionProps) {
                     transition={{ duration: 0.5, delay: 2 }}
                     className="flex flex-col sm:flex-row items-center justify-center gap-4"
                 >
-                    <Button asChild size="lg" className="h-14 px-8 text-lg bg-primary text-black hover:bg-primary/90 hover:shadow-[0_0_30px_-5px_var(--primary)] transition-all duration-300 group">
-                        <Link href="/contact">
-                            Start Your Project
-                            <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                    </Button>
-                    <Button asChild variant="outline" size="lg" className="h-14 px-8 text-lg border-white/10 hover:bg-white/5 backdrop-blur-sm">
-                        <Link href="/projects">View Our Work</Link>
-                    </Button>
+                    <SlideTextButton
+                        href="/contact"
+                        text="Start Your Project"
+                        hoverText="Let's Talk →"
+                        variant="default"
+                    />
+                    <SlideTextButton
+                        href="/projects"
+                        text="View Our Work"
+                        hoverText="See Projects"
+                        variant="ghost"
+                    />
                 </motion.div>
             </div>
         </section>

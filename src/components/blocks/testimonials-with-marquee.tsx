@@ -25,7 +25,7 @@ export function TestimonialsSection({
     return (
         <section
             className={cn(
-                "bg-background text-foreground",
+                "text-foreground",
                 "py-12 sm:py-24 md:py-32 px-0",
                 className
             )}
@@ -39,23 +39,27 @@ export function TestimonialsSection({
                 </div>
 
                 <div className="relative flex w-full flex-col items-center justify-center overflow-hidden">
-                    <div
-                        className="group flex overflow-hidden p-2 [--gap:1rem] [gap:var(--gap)] flex-row [--duration:40s]"
-                    >
-                        <div className="flex shrink-0 justify-around [gap:var(--gap)] animate-marquee flex-row group-hover:[animation-play-state:paused]">
+                    <div className="group flex overflow-hidden p-2 [--gap:1rem] [gap:var(--gap)] flex-row flex-nowrap [--duration:40s]">
+                        {/* Copy 1 */}
+                        <div className="flex shrink-0 items-center [gap:var(--gap)] animate-marquee flex-row flex-nowrap group-hover:[animation-play-state:paused]">
                             {[...Array(Math.max(2, Math.ceil(8 / testimonials.length)))].map((_, setIndex) =>
                                 testimonials.map((testimonial, i) => (
-                                    <TestimonialCard
-                                        key={`${setIndex}-${i}`}
-                                        {...testimonial}
-                                    />
+                                    <TestimonialCard key={`a-${setIndex}-${i}`} {...testimonial} className="shrink-0 w-[300px] sm:w-[320px] max-w-none" />
+                                ))
+                            )}
+                        </div>
+                        {/* Copy 2 — seamlessly fills behind copy 1 */}
+                        <div className="flex shrink-0 items-center [gap:var(--gap)] animate-marquee flex-row flex-nowrap group-hover:[animation-play-state:paused]" aria-hidden="true">
+                            {[...Array(Math.max(2, Math.ceil(8 / testimonials.length)))].map((_, setIndex) =>
+                                testimonials.map((testimonial, i) => (
+                                    <TestimonialCard key={`b-${setIndex}-${i}`} {...testimonial} className="shrink-0 w-[300px] sm:w-[320px] max-w-none" />
                                 ))
                             )}
                         </div>
                     </div>
 
-                    <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/3 bg-gradient-to-r from-background sm:block" />
-                    <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/3 bg-gradient-to-l from-background sm:block" />
+                    <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-1/3 bg-gradient-to-r from-black to-transparent sm:block z-10" />
+                    <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/3 bg-gradient-to-l from-black to-transparent sm:block z-10" />
                 </div>
 
                 <Link
