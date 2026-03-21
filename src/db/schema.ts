@@ -149,7 +149,7 @@ export const siteSettings = pgTable("site_settings", {
 
 // 11. Contact Messages (Lead Capture)
 // 11. Leads (CRM Core)
-export const leadEnum = pgEnum("lead_status", ["New", "Contacted", "In Progress", "Completed", "Lost"]);
+export const leadEnum = pgEnum("lead_status", ["New", "Contacted", "In Progress", "Completed", "Lost", "New Inquiry", "Qualified", "Proposal Sent", "Negotiation", "Won"]);
 export const activityEnum = pgEnum("activity_type", ["Call", "Email", "Meeting", "Note"]);
 
 export const leads = pgTable("lead", {
@@ -160,10 +160,12 @@ export const leads = pgTable("lead", {
     email: text("email").notNull(),
     subject: text("subject"),
     message: text("message").notNull(),
-    status: leadEnum("status").default("New").notNull(),
+    status: leadEnum("status").default("New Inquiry").notNull(),
     score: integer("score").default(0),
     budget: text("budget"), // e.g., "$1k - $5k"
     service: text("service"), // e.g., "Web Development"
+    industry: text("industry"),
+    scope: text("scope"),
     source: text("source").default("Website Form"),
     notes: text("notes"), // Legacy simple notes (keeping for backward compatibility)
     assignedTo: text("assignedTo").references(() => users.id), // New: Assignment
@@ -190,6 +192,42 @@ export const leadNotes = pgTable("lead_note", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 13. Notifications
+export const notifications = pgTable("notification", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    message: text("message").notNull(),
+    type: text("type"), // e.g., "lead", "feedback", "proposal", "milestone", "system"
+    read: boolean("read").default(false).notNull(),
+    link: text("link"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// 14. Proposals
+export const proposalStatusEnum = pgEnum("proposal_status", ["Draft", "Sent", "Approved", "Rejected"]);
+
+export const proposals = pgTable("proposal", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    leadId: text("leadId")
+        .notNull()
+        .references(() => leads.id, { onDelete: "cascade" }),
+    scope: text("scope"),
+    deliverables: text("deliverables"),
+    timeline: text("timeline"),
+    technicalApproach: text("technicalApproach"),
+    pricingStructure: text("pricingStructure"),
+    status: proposalStatusEnum("status").default("Draft").notNull(),
+    fileUrl: text("fileUrl"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
 import { relations } from "drizzle-orm";
 
@@ -199,6 +237,7 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
         fields: [leads.assignedTo],
         references: [users.id],
     }),
+    proposals: many(proposals),
 }));
 
 export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
@@ -217,6 +256,22 @@ export const usersRelations = relations(users, ({ many }) => ({
     authoredNotes: many(leadNotes),
     agencyProjects: many(agencyProjects),
     assignedTasks: many(tasks),
+    notifications: many(notifications),
+    clientFeedback: many(clientFeedback),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+    user: one(users, {
+        fields: [notifications.userId],
+        references: [users.id],
+    }),
+}));
+
+export const proposalsRelations = relations(proposals, ({ one }) => ({
+    lead: one(leads, {
+        fields: [proposals.leadId],
+        references: [leads.id],
+    }),
 }));
 
 // 13. Operational Project Management (PM Engine)
@@ -278,6 +333,24 @@ export const tasks = pgTable("task", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 14. Client Feedback
+export const feedbackStatusEnum = pgEnum("feedback_status", ["APPROVED", "REVISION_REQUESTED"]);
+
+export const clientFeedback = pgTable("client_feedback", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    milestoneId: text("milestoneId")
+        .notNull()
+        .references(() => milestones.id, { onDelete: "cascade" }),
+    clientId: text("clientId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    status: feedbackStatusEnum("status").notNull(),
+    commentText: text("comment_text"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // PM Relations
 export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({
     client: one(users, {
@@ -298,6 +371,18 @@ export const milestonesRelations = relations(milestones, ({ one, many }) => ({
         references: [agencyProjects.id],
     }),
     tasks: many(tasks),
+    feedback: many(clientFeedback),
+}));
+
+export const clientFeedbackRelations = relations(clientFeedback, ({ one }) => ({
+    milestone: one(milestones, {
+        fields: [clientFeedback.milestoneId],
+        references: [milestones.id],
+    }),
+    client: one(users, {
+        fields: [clientFeedback.clientId],
+        references: [users.id],
+    }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one }) => ({

@@ -7,6 +7,7 @@ import { calculateLeadScore } from "@/lib/scoring";
 import { sendLeadNotification } from "@/lib/notifications";
 import { headers } from "next/headers";
 import { checkContactRateLimit } from "@/lib/rate-limit";
+import { notifyAllAdmins } from "@/features/notifications/actions";
 
 export type ContactState = {
     message: string;
@@ -83,6 +84,8 @@ export async function submitContactForm(prevState: ContactState, formData: FormD
         } catch (emailError) {
             console.error("Failed to send email notif:", emailError);
         }
+
+        await notifyAllAdmins(`New website inquiry from ${name}`, "lead", "/dashboard/leads");
 
         // 5. Return success
         return {

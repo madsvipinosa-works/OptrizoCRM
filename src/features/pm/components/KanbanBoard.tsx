@@ -43,6 +43,7 @@ interface KanbanMilestone {
     order: number;
     title: string;
     status: "Pending" | "In Progress" | "Client Approval" | "Completed";
+    feedback?: { id: string; status: "APPROVED" | "REVISION_REQUESTED"; commentText: string | null; createdAt: Date }[];
 }
 
 interface KanbanProject {
@@ -385,6 +386,44 @@ export function KanbanBoard({ project, teamMembers }: { project: KanbanProject; 
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
+
+                {/* Feedback History Toggle/List */}
+                {activeMilestone.feedback && activeMilestone.feedback.length > 0 && (
+                    <div className="flex-1 max-w-md mx-4">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="w-full justify-between border-white/10 hover:bg-white/10">
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <div className={`h-2 w-2 rounded-full shrink-0 ${activeMilestone.feedback[0].status === "REVISION_REQUESTED" ? "bg-red-500 animate-pulse" : "bg-green-500"}`} />
+                                        <span className="truncate text-xs opacity-80">
+                                            {activeMilestone.feedback[0].status === "REVISION_REQUESTED" ? "Revision: " : "Approval: "}
+                                            {activeMilestone.feedback[0].commentText || "No comment"}
+                                        </span>
+                                    </div>
+                                    <ChevronDown className="h-3 w-3 opacity-50 shrink-0 ml-2" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="center" className="w-80 glass-card border-white/10 p-2">
+                                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1 mb-1 border-b border-white/5">Client Feedback History</h4>
+                                <div className="max-h-[300px] overflow-y-auto space-y-2 p-1">
+                                    {activeMilestone.feedback.map((fb) => (
+                                        <div key={fb.id} className="p-2 rounded bg-white/5 border border-white/5">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <Badge variant="outline" className={`text-[9px] h-4 ${fb.status === "REVISION_REQUESTED" ? "border-red-500/50 text-red-500 bg-red-500/5" : "border-green-500/50 text-green-500 bg-green-500/5"}`}>
+                                                    {fb.status === "REVISION_REQUESTED" ? "REVISION" : "APPROVED"}
+                                                </Badge>
+                                                <span className="text-[10px] opacity-40 italic">{new Date(fb.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <p className="text-xs text-white/90 leading-tight">
+                                                {fb.commentText || <span className="opacity-30 italic">No comment provided</span>}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                )}
 
                 <Dialog>
                     <DialogTrigger asChild>

@@ -5,6 +5,7 @@ import { agencyProjects, milestones, tasks } from "@/db/schema";
 import { auth } from "@/auth";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { notifyAllAdmins } from "@/features/notifications/actions";
 
 export type ActionState = {
     message?: string;
@@ -261,6 +262,47 @@ export async function deleteMilestone(milestoneId: string): Promise<ActionState>
         return { success: true, message: "Milestone deleted." };
     } catch (error) {
         console.error("Failed to delete milestone:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+// --- Client Feedback Actions ---
+export async function submitMilestoneFeedback(milestoneId: string, status: "APPROVED" | "REVISION_REQUESTED", commentText?: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    if (status === "REVISION_REQUESTED" && (!commentText || !commentText.trim())) {
+        return { success: false, message: "Comment is required for revision requests." };
+    }
+
+    try {
+        const { clientFeedback } = await import("@/db/schema");
+        await db.insert(clientFeedback).values({
+            milestoneId,
+            clientId: session.user.id,
+            status,
+            commentText: commentText?.trim() || null,
+        });
+
+        const milestone = await db.query.milestones.findFirst({ where: eq(milestones.id, milestoneId) });
+        
+        if (milestone) {
+            if (status === "REVISION_REQUESTED") {
+                await updateMilestoneStatus(milestoneId, "In Progress");
+                await notifyAllAdmins(`${session.user.name} requested a revision for: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
+            } else if (status === "APPROVED") {
+                await updateMilestoneStatus(milestoneId, "Completed");
+                await notifyAllAdmins(`${session.user.name} approved milestone: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
+            }
+        }
+
+        revalidatePath("/portal");
+        revalidatePath("/dashboard/pm/[id]");
+        return { success: true, message: "Feedback submitted successfully." };
+    } catch (error) {
+        console.error("Failed to submit feedback:", error);
         return { success: false, message: "Database Error" };
     }
 }

@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { leads, users } from "@/db/schema";
 import { desc, like, eq, and, or, inArray } from "drizzle-orm";
 import { LeadsFilter } from "@/features/crm/components/LeadsFilter";
-import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; // Import the new board
+import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
 import { Suspense } from "react";
 import { auth } from "@/auth"; // Need auth for current user ID
 
@@ -45,7 +45,10 @@ export default async function LeadsPage({
                 },
                 orderBy: (notes, { desc }) => [desc(notes.createdAt)],
             },
-            assignee: true, // Fetch current assignee
+            assignee: true,
+            proposals: {
+                orderBy: (p, { desc }) => [desc(p.createdAt)]
+            },
         },
         orderBy: [desc(leads.createdAt)],
     });
@@ -78,7 +81,7 @@ export default async function LeadsPage({
             </Suspense>
 
             <LeadsBoard
-                leads={serializedLeads}
+                leads={serializedLeads as any}
                 assignableUsers={assignableUsers}
                 currentUserId={currentUserId}
                 query={query}

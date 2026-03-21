@@ -12,7 +12,7 @@ export const contactFormSchema = z.object({
 
 export type ContactFormValues = z.infer<typeof contactFormSchema>;
 
-export const leadStatusEnum = z.enum(["New", "Contacted", "In Progress", "Completed", "Lost"]);
+export const leadStatusEnum = z.enum(["New", "Contacted", "In Progress", "Completed", "Lost", "New Inquiry", "Qualified", "Proposal Sent", "Negotiation", "Won"]);
 
 export const leadUpdateSchema = z.object({
     status: leadStatusEnum.optional(),

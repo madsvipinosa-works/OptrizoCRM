@@ -50,10 +50,11 @@ export function LeadsFilter() {
             <Tabs defaultValue={currentFilter} onValueChange={handleStatusChange} className="w-full">
                 <TabsList className="bg-white/5 border border-white/10">
                     <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="New">New</TabsTrigger>
-                    <TabsTrigger value="In Progress">In Progress</TabsTrigger>
-                    <TabsTrigger value="Contacted">Contacted</TabsTrigger>
-                    <TabsTrigger value="Completed">Completed</TabsTrigger>
+                    <TabsTrigger value="New Inquiry">Inquiry</TabsTrigger>
+                    <TabsTrigger value="Qualified">Qualified</TabsTrigger>
+                    <TabsTrigger value="Proposal Sent">Proposal</TabsTrigger>
+                    <TabsTrigger value="Negotiation">Negotiation</TabsTrigger>
+                    <TabsTrigger value="Won">Won</TabsTrigger>
                     <TabsTrigger value="Lost">Lost</TabsTrigger>
                 </TabsList>
             </Tabs>

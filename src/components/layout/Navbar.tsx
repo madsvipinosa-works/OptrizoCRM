@@ -23,7 +23,7 @@ export async function Navbar() {
         <Header
             session={session}
             isAdmin={isAdmin}
-            settings={settings}
+            settings={settings || null}
             navLinks={navLinks}
             onSignOut={handleSignOut}
         />

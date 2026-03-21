@@ -1,0 +1,1 @@
+ALTER TABLE "lead_note" ADD COLUMN "activity_type" "activity_type" DEFAULT 'Note' NOT NULL;

@@ -22,7 +22,12 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
         with: {
             client: true,
             milestones: {
-                orderBy: (m, { asc }) => [asc(m.order)]
+                orderBy: (m, { asc }) => [asc(m.order)],
+                with: {
+                    feedback: {
+                        orderBy: (f, { desc }) => [desc(f.createdAt)]
+                    }
+                }
             },
             tasks: true,
             lead: true

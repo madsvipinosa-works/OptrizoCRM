@@ -77,91 +77,86 @@ export default async function Home() {
     };
 
     return (
-        <div className="flex flex-col min-h-screen relative overflow-hidden bg-black text-white selection:bg-primary/30">
-            {/* Global Interactive Mouse Effect Background */}
-            <MouseEffectBackground className="fixed inset-0 z-0 opacity-40 pointer-events-auto" dotSize={1.5} dotSpacing={24} repulsionRadius={120} />
+        <div className="relative z-10 w-full max-w-[1400px] mx-auto">
+            {/* Animated Hero Section */}
+            <HeroSection
+                title={settings?.heroTitle || "Build Your Digital Future"}
+                description={settings?.heroDescription || "Optrizo is a premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions."}
+            />
 
-            <div className="relative z-10 w-full max-w-[1400px] mx-auto">
-                {/* Animated Hero Section */}
-                <HeroSection
-                    title={settings?.heroTitle || "Build Your Digital Future"}
-                    description={settings?.heroDescription || "Optrizo is a premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions."}
-                />
-
-                {/* Demo Video Scroll Section */}
-                {settings?.demoVideoUrl && (
-                    <ContainerScroll
-                        titleComponent={
-                            <div className="mb-4">
-                                <SectionHeading
-                                    text="See Optrizo in Action"
-                                    className="text-3xl md:text-5xl mb-4"
-                                />
-                                <p className="text-muted-foreground text-lg mt-4">
-                                    Watch how we transform ideas into high-performance digital products.
-                                </p>
-                            </div>
-                        }
-                    >
-                        <div className="relative w-full h-full">
-                            {settings.demoVideoUrl.endsWith(".mp4") ? (
-                                <video
-                                    src={settings.demoVideoUrl}
-                                    autoPlay
-                                    muted
-                                    loop
-                                    playsInline
-                                    className="w-full h-full object-cover rounded-2xl"
-                                />
-                            ) : (
-                                <iframe
-                                    src={toEmbedUrl(settings.demoVideoUrl)}
-                                    className="w-full h-full rounded-2xl"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    title="Optrizo Demo Video"
-                                />
-                            )}
+            {/* Demo Video Scroll Section */}
+            {settings?.demoVideoUrl && (
+                <ContainerScroll
+                    titleComponent={
+                        <div className="mb-4">
+                            <SectionHeading
+                                text="See Optrizo in Action"
+                                className="text-3xl md:text-5xl mb-4"
+                            />
+                            <p className="text-muted-foreground text-lg mt-4">
+                                Watch how we transform ideas into high-performance digital products.
+                            </p>
                         </div>
-                    </ContainerScroll>
-                )}
+                    }
+                >
+                    <div className="relative w-full h-full">
+                        {settings.demoVideoUrl.endsWith(".mp4") ? (
+                            <video
+                                src={settings.demoVideoUrl}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                className="w-full h-full object-cover rounded-2xl"
+                            />
+                        ) : (
+                            <iframe
+                                src={toEmbedUrl(settings.demoVideoUrl)}
+                                className="w-full h-full rounded-2xl"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                title="Optrizo Demo Video"
+                            />
+                        )}
+                    </div>
+                </ContainerScroll>
+            )}
 
 
-                {/* Services Section (Dynamic) */}
-                <section className="container px-4 mx-auto py-32">
-                    <ScrollReveal className="flex flex-col items-center mb-16 text-center">
-                        <Badge variant="secondary" className="mb-4 text-primary">Our Expertise</Badge>
-                        <SectionHeading text="End-to-End Digital Solutions" className="text-4xl mb-4" />
-                        <p className="text-muted-foreground max-w-2xl mx-auto">We don&apos;t just write code; we build digital assets that drive growth.</p>
-                    </ScrollReveal>
+            {/* Services Section (Dynamic) */}
+            <section className="container px-4 mx-auto py-32">
+                <ScrollReveal className="flex flex-col items-center mb-16 text-center">
+                    <Badge variant="secondary" className="mb-4 text-primary">Our Expertise</Badge>
+                    <SectionHeading text="End-to-End Digital Solutions" className="text-4xl mb-4" />
+                    <p className="text-muted-foreground max-w-2xl mx-auto">We don&apos;t just write code; we build digital assets that drive growth.</p>
+                </ScrollReveal>
 
-                    <ServicesGrid />
-                </section>
+                <ServicesGrid />
+            </section>
 
-                {/* Testimonials Section */}
-                <TestimonialsSection
-                    title="Trusted by Market Leaders"
-                    description="See what our partners are achieving with Optrizo."
-                    testimonials={testimonialItems}
-                />
+            {/* Testimonials Section */}
+            <TestimonialsSection
+                title="Trusted by Market Leaders"
+                description="See what our partners are achieving with Optrizo."
+                testimonials={testimonialItems}
+            />
 
-                {/* Blog Teaser Section */}
-                <section className="container px-4 mx-auto py-32">
-                    <ScrollReveal className="flex justify-between items-end mb-12">
-                        <div>
-                            <Badge variant="secondary" className="mb-4 text-primary">Latest Insights</Badge>
-                            <SectionHeading text="From The Blog" className="text-3xl tracking-tight" />
-                        </div>
-                        <Button variant="outline" asChild>
-                            <Link href="/blog">View All Articles</Link>
-                        </Button>
-                    </ScrollReveal>
-                    <GalleryHoverCarousel items={carouselItems} />
-                </section>
+            {/* Blog Teaser Section */}
+            <section className="container px-4 mx-auto py-32">
+                <ScrollReveal className="flex justify-between items-end mb-12">
+                    <div>
+                        <Badge variant="secondary" className="mb-4 text-primary">Latest Insights</Badge>
+                        <SectionHeading text="From The Blog" className="text-3xl tracking-tight" />
+                    </div>
+                    <Button variant="outline" asChild>
+                        <Link href="/blog">View All Articles</Link>
+                    </Button>
+                </ScrollReveal>
+                <GalleryHoverCarousel items={carouselItems} />
+            </section>
 
-                {/* CTA Section (Scroll Scaling) */}
-                <CTAScrollScale />
-            </div>
+            {/* CTA Section (Scroll Scaling) */}
+            <CTAScrollScale />
         </div>
     );
 }

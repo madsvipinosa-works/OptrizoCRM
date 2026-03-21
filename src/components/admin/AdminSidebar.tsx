@@ -7,6 +7,7 @@ import { LayoutDashboard, FileText, Briefcase, Settings, Star, Layers, Mail, Bar
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 const navItems = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -34,9 +35,14 @@ export function AdminSidebar({ userRole = "user" }: { userRole?: string }) {
 
     const renderNavContent = () => (
         <div className="px-4 py-2 h-full flex flex-col">
-            <div className="mb-8 px-4 mt-6 md:mt-0">
-                <h2 className="text-lg font-bold tracking-tight text-white mb-2">Optrizo Admin</h2>
-                <p className="text-xs text-muted-foreground">Manage your digital empire</p>
+            <div className="mb-8 px-4 mt-6 md:mt-0 flex items-start justify-between">
+                <div>
+                    <h2 className="text-lg font-bold tracking-tight text-white mb-2">Optrizo Admin</h2>
+                    <p className="text-xs text-muted-foreground">Manage your digital empire</p>
+                </div>
+                <div className="hidden md:block">
+                    <NotificationBell />
+                </div>
             </div>
             <nav className="space-y-1 flex-1 overflow-y-auto">
                 {filteredNavItems.map((item) => {
@@ -77,18 +83,21 @@ export function AdminSidebar({ userRole = "user" }: { userRole?: string }) {
                 <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold tracking-tight text-white">Optrizo Admin</h2>
                 </div>
-                <Sheet open={open} onOpenChange={setOpen}>
-                    <SheetTrigger asChild>
-                        <Button variant="ghost" size="icon" className="shrink-0 text-white hover:bg-white/10">
-                            <Menu className="h-5 w-5" />
-                            <span className="sr-only">Toggle navigation menu</span>
-                        </Button>
-                    </SheetTrigger>
+                <div className="flex items-center gap-2">
+                    <NotificationBell />
+                    <Sheet open={open} onOpenChange={setOpen}>
+                        <SheetTrigger asChild>
+                            <Button variant="ghost" size="icon" className="shrink-0 text-white hover:bg-white/10">
+                                <Menu className="h-5 w-5" />
+                                <span className="sr-only">Toggle navigation menu</span>
+                            </Button>
+                        </SheetTrigger>
                     <SheetContent side="left" className="w-64 p-0 bg-black/95 border-r border-white/10">
                         <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                         {renderNavContent()}
                     </SheetContent>
                 </Sheet>
+                </div>
             </div>
         </>
     );

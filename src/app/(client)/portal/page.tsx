@@ -4,7 +4,8 @@ import { agencyProjects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, LayoutTemplate, Clock, Link as LinkIcon } from "lucide-react";
+import { FileText, LayoutTemplate, Clock, Link as LinkIcon, MessageCircle } from "lucide-react";
+import { FeedbackActionModal } from "@/features/client-portal/components/FeedbackActionModal";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,12 @@ export default async function ClientPortalPage() {
         where: eq(agencyProjects.clientId, session.user.id),
         with: {
             milestones: {
-                orderBy: (milestones, { asc }) => [asc(milestones.order)]
+                orderBy: (milestones, { asc }) => [asc(milestones.order)],
+                with: {
+                    feedback: {
+                        orderBy: (clientFeedback, { desc }) => [desc(clientFeedback.createdAt)]
+                    }
+                }
             },
             tasks: true,
             lead: true
@@ -111,11 +117,38 @@ export default async function ClientPortalPage() {
                                                     <div className="flex-1">
                                                         <div className="font-semibold">{milestone.title}</div>
                                                         <div className="text-xs opacity-70">Status: {milestone.status}</div>
+                                                        {milestone.feedback && milestone.feedback.length > 0 && (
+                                                            <div className="mt-2 space-y-2">
+                                                                {milestone.feedback.map((fb, idx) => (
+                                                                    <div key={idx} className="bg-black/30 p-2 rounded text-xs border border-white/5">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <Badge variant="outline" className={`text-[10px] ${fb.status === "APPROVED" ? "text-green-500 border-green-500/30" : "text-red-500 border-red-500/30"}`}>
+                                                                                {fb.status.replace("_", " ")}
+                                                                            </Badge>
+                                                                            <span className="opacity-50">{new Date(fb.createdAt).toLocaleDateString()}</span>
+                                                                        </div>
+                                                                        {fb.commentText && (
+                                                                            <p className="text-muted-foreground flex gap-1 items-start mt-1">
+                                                                                <MessageCircle className="h-3 w-3 mt-0.5 shrink-0 opacity-50" />
+                                                                                <span>{fb.commentText}</span>
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     {milestone.status === "Client Approval" && (
-                                                        <Badge variant="outline" className="border-yellow-500 text-yellow-500 animate-none">
-                                                            Action Required
-                                                        </Badge>
+                                                        <div className="shrink-0 flex items-center gap-2">
+                                                            <Badge variant="outline" className="border-yellow-500 text-yellow-500 animate-none hidden md:inline-flex">
+                                                                Action Required
+                                                            </Badge>
+                                                            <FeedbackActionModal 
+                                                                milestoneId={milestone.id} 
+                                                                milestoneTitle={milestone.title} 
+                                                                tasks={project.tasks.filter(t => t.milestoneId === milestone.id)}
+                                                            />
+                                                        </div>
                                                     )}
                                                 </div>
                                             ))}

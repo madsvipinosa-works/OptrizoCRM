@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format, differenceInDays, formatDistanceToNow } from "date-fns";
-import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, AlertTriangle, Upload, X } from "lucide-react";
+import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, AlertTriangle, Upload, X, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,33 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { ProposalBuilderModal } from "@/features/proposals/components/ProposalBuilderModal";
+
+function CopyLinkButton({ proposalId }: { proposalId: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        const url = `${window.location.origin}/proposal/${proposalId}`;
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        toast.success("Link copied to clipboard!");
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 text-muted-foreground hover:text-primary"
+            onClick={handleCopy}
+            title="Copy Proposal Link"
+        >
+            {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+        </Button>
+    );
+}
 
 // Define the shape of our Lead based on the schema
 type Lead = {
@@ -31,7 +56,9 @@ type Lead = {
     email: string;
     subject: string | null;
     message: string;
-    status: "New" | "Contacted" | "In Progress" | "Completed" | "Lost";
+    status: "New Inquiry" | "Qualified" | "Proposal Sent" | "Negotiation" | "Won" | "Lost" | string;
+    industry?: string | null;
+    scope?: string | null;
     score: number | null;
     budget: string | null;
     service: string | null;
@@ -46,18 +73,28 @@ type Lead = {
     notesList?: {
         id: string;
         content: string;
-        activityType: "Call" | "Email" | "Meeting" | "Note";
+        activityType: string | null;
         createdAt: Date;
         author: { name: string | null; email: string } | null;
+    }[];
+    proposals?: {
+        id: string;
+        status: string;
+        createdAt: Date | string;
     }[];
 };
 
 // Colors for different statuses
 const statusColors: Record<string, string> = {
     "New": "bg-primary text-black hover:bg-primary/80",
+    "New Inquiry": "bg-primary text-black hover:bg-primary/80",
     "Contacted": "bg-blue-500 text-white hover:bg-blue-600",
+    "Qualified": "bg-blue-500 text-white hover:bg-blue-600",
     "In Progress": "bg-yellow-500 text-black hover:bg-yellow-600",
+    "Proposal Sent": "bg-yellow-500 text-black hover:bg-yellow-600",
+    "Negotiation": "bg-orange-500 text-white hover:bg-orange-600",
     "Completed": "bg-green-500 text-white hover:bg-green-600",
+    "Won": "bg-green-500 text-white hover:bg-green-600",
     "Lost": "bg-gray-500 text-white hover:bg-gray-600",
 };
 
@@ -97,7 +134,7 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                 }
             } else {
                 const result = await updateLead(lead.id, {
-                    status,
+                    status: status as any,
                     nextActionDate: nextActionDate || null
                 });
                 if (result.success) {
@@ -272,10 +309,11 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                         }}
                                         className="flex h-10 w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     >
-                                        <option value="New">New</option>
-                                        <option value="Contacted">Contacted</option>
-                                        <option value="In Progress">In Progress</option>
-                                        <option value="Completed">Completed (Won)</option>
+                                        <option value="New Inquiry">New Inquiry</option>
+                                        <option value="Qualified">Qualified</option>
+                                        <option value="Proposal Sent">Proposal Sent</option>
+                                        <option value="Negotiation">Negotiation</option>
+                                        <option value="Won">Won</option>
                                         <option value="Lost">Lost</option>
                                     </select>
 
@@ -332,6 +370,28 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                 <div className="space-y-2 border-t border-white/10 pt-4">
                                     <Label>Proposal & Files</Label>
                                     <div className="bg-white/5 rounded-md p-3 border border-dashed border-white/20">
+                                        <div className="mb-4">
+                                            <ProposalBuilderModal leadId={lead.id} leadName={lead.name} />
+                                        </div>
+                                        
+                                        {lead.proposals && lead.proposals.length > 0 && (
+                                            <div className="space-y-2 mb-4">
+                                                {lead.proposals.map(p => (
+                                                    <div key={p.id} className="flex flex-wrap gap-2 items-center justify-between text-xs bg-black/40 p-2 rounded border border-white/5">
+                                                        <a href={`/proposal/${p.id}`} target="_blank" className="font-semibold text-white hover:text-primary transition-colors flex items-center shrink-0">
+                                                            <FileText className="h-3 w-3 mr-2 text-primary" /> Web Proposal
+                                                        </a>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <CopyLinkButton proposalId={p.id} />
+                                                            <Badge variant="outline" className={`text-[10px] h-4 ${p.status === 'Approved' ? 'border-green-500 text-green-500' : p.status === 'Sent' ? 'border-yellow-500 text-yellow-500' : 'border-white/20'}`}>
+                                                                {p.status}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         <div className="space-y-2">
                                             {lead.files && lead.files.length > 0 && (
                                                 <div className="space-y-1 mb-3">

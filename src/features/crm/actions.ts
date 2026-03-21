@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
 import { sendClientWelcomeEmail } from "@/lib/notifications";
 import { auth } from "@/auth";
+import { notifyAllAdmins } from "@/features/notifications/actions";
 
 export type ActionState = {
     message?: string;
@@ -93,12 +94,12 @@ export async function getAnalyticsData() {
 
         // 2. KPI Calculations
         const totalLeads = allLeads.length;
-        const wonLeads = allLeads.filter(l => l.status === "Completed").length;
+        const wonLeads = allLeads.filter(l => l.status === "Won" || l.status === "Completed").length;
         const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : "0";
 
         // Estimate Revenue (naive parsing of budget string e.g. "$1k - $5k")
         const pipelineValue = allLeads
-            .filter(l => l.status !== "Lost" && l.status !== "New") // Only active/won deals
+            .filter(l => !["Lost", "New"].includes(l.status as any)) // Filter out terminal or raw states
             .reduce((acc, lead) => {
                 if (!lead.budget) return acc;
                 // Extract first number
@@ -113,11 +114,11 @@ export async function getAnalyticsData() {
 
         // Pipeline Distribution
         const pipelineData = [
-            { name: "New", value: allLeads.filter(l => l.status === "New").length, fill: "#3b82f6" }, // blue
-            { name: "Contacted", value: allLeads.filter(l => l.status === "Contacted").length, fill: "#a855f7" }, // purple
-            { name: "In Progress", value: allLeads.filter(l => l.status === "In Progress").length, fill: "#eab308" }, // yellow
-            { name: "Won", value: allLeads.filter(l => l.status === "Completed").length, fill: "#22c55e" }, // green
-            { name: "Lost", value: allLeads.filter(l => l.status === "Lost").length, fill: "#6b7280" }, // gray
+            { name: "New", value: allLeads.filter(l => l.status === "New Inquiry" || l.status === "New").length, fill: "#3b82f6" },
+            { name: "Qualified", value: allLeads.filter(l => l.status === "Qualified" || l.status === "Contacted").length, fill: "#a855f7" },
+            { name: "Proposal", value: allLeads.filter(l => l.status === "Proposal Sent" || l.status === "In Progress").length, fill: "#eab308" },
+            { name: "Won", value: allLeads.filter(l => l.status === "Won" || l.status === "Completed").length, fill: "#22c55e" },
+            { name: "Lost", value: allLeads.filter(l => l.status === "Lost").length, fill: "#6b7280" },
         ];
 
         // Lead Sources
@@ -171,19 +172,19 @@ export async function getAnalyticsData() {
             const daysSinceCreation = (now.getTime() - created.getTime()) / (1000 * 3600 * 24);
             const daysSinceUpdate = (now.getTime() - updated.getTime()) / (1000 * 3600 * 24);
 
-            // Lead Aging: How long a lead has been "New"
-            if (l.status === "New") {
+            // Lead Aging: How long a lead has been in raw inquiry state
+            if (l.status === "New Inquiry" || l.status === "New") {
                 totalAgeDays += daysSinceCreation;
                 agedLeadsCount++;
             }
 
             // Stale Leads: Not in terminal state AND untouched for > 2 days
-            if (l.status !== "Completed" && l.status !== "Lost" && daysSinceUpdate > 2) {
+            if (!["Won", "Completed", "Lost"].includes(l.status as any) && daysSinceUpdate > 2) {
                 staleLeadsCount++;
             }
 
-            // Response Rate: Leads moved out of "New"
-            if (l.status !== "New") {
+            // Response Rate: Leads moved out of initial inquiry
+            if (!["New Inquiry", "New"].includes(l.status as any)) {
                 actionedLeadsCount++;
             }
         });
@@ -287,7 +288,7 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
 
         // 5. Update Lead Status
         await db.update(leads)
-            .set({ status: "Completed", updatedAt: new Date() })
+            .set({ status: "Won", updatedAt: new Date() })
             .where(eq(leads.id, leadId));
 
         // 6. Send Client Portal Credentials via Email
@@ -297,6 +298,8 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
             projectName: newProject.title
         });
 
+        await notifyAllAdmins(`Lead ${lead.name} won! Project "${newProject.title}" provisioned.`, "deal_won", `/dashboard/pm/${newProject.id}`);
+
         revalidatePath("/dashboard/leads");
 
         return { success: true, message: "Success! Project Provisioned & Client Notified." };
@@ -305,3 +308,5 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
         return { success: false, message: "Database Error: Could not execute Won workflow." };
     }
 }
+
+
