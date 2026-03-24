@@ -122,3 +122,23 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body {
+    background-color: white !important;
+    background-image: none !important;
+  }
+  * {
+    color: black !important;
+    text-shadow: none !important;
+    border-color: #e5e5e5 !important;
+  }
+  .glass-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+}

@@ -283,7 +283,7 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                             Manage
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="glass-card border-white/10 text-white max-w-2xl">
+                    <DialogContent className="glass-card border-white/10 text-white w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
                         <DialogHeader>
                             <DialogTitle>Manage Lead: {lead.name}</DialogTitle>
                             <DialogDescription>
@@ -460,31 +460,6 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="space-y-2 border-t border-white/10 pt-4">
-                                    <Label>Log Activity</Label>
-                                    <div className="flex gap-2 mb-2">
-                                        <select
-                                            value={activityType}
-                                            onChange={(e) => setActivityType(e.target.value as "Note" | "Call" | "Email" | "Meeting")}
-                                            className="flex h-9 w-[120px] rounded-md border border-white/10 bg-black/50 px-3 py-1 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        >
-                                            <option value="Note">Note</option>
-                                            <option value="Call">Call</option>
-                                            <option value="Email">Email</option>
-                                            <option value="Meeting">Meeting</option>
-                                        </select>
-                                    </div>
-                                    <Textarea
-                                        value={newNote}
-                                        onChange={(e) => setNewNote(e.target.value)}
-                                        placeholder="Call summary, requirements, etc."
-                                        className="bg-black/50 border-white/10 min-h-[100px]"
-                                    />
-                                    <Button onClick={handleAddNote} disabled={isLoading || !newNote.trim()} size="sm" className="w-full bg-primary text-black hover:bg-primary/90">
-                                        <Plus className="h-4 w-4 mr-2" /> Log {activityType}
-                                    </Button>
-                                </div>
                             </div>
 
                             {/* Right Column: Timeline */}
@@ -518,6 +493,31 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                         )}
                                     </div>
                                 </ScrollArea>
+
+                                <div className="space-y-2 border-t border-white/10 pt-4 mt-2">
+                                    <Label>New Note / Log Activity</Label>
+                                    <div className="flex flex-col gap-2 mb-2">
+                                        <select
+                                            value={activityType}
+                                            onChange={(e) => setActivityType(e.target.value as "Note" | "Call" | "Email" | "Meeting")}
+                                            className="flex h-9 w-[120px] rounded-md border border-white/10 bg-black/50 px-3 py-1 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        >
+                                            <option value="Note">Note</option>
+                                            <option value="Call">Call</option>
+                                            <option value="Email">Email</option>
+                                            <option value="Meeting">Meeting</option>
+                                        </select>
+                                        <Textarea
+                                            value={newNote}
+                                            onChange={(e) => setNewNote(e.target.value)}
+                                            placeholder="Call summary, requirements, etc."
+                                            className="bg-black/50 border-white/10 min-h-[80px]"
+                                        />
+                                        <Button onClick={handleAddNote} disabled={isLoading || !newNote.trim()} size="sm" className="w-full bg-primary text-black hover:bg-primary/90 mt-1">
+                                            <Plus className="h-4 w-4 mr-2" /> Log {activityType}
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </DialogContent>

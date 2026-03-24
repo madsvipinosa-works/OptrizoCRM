@@ -40,6 +40,28 @@ export function ProposalClientView({ proposal, parsedDeliverables, parsedPricing
 
     return (
         <div className="space-y-12 pb-12">
+            {proposal.fileUrl && (
+                <section>
+                    <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 bg-primary/20 rounded-lg flex items-center justify-center text-primary shrink-0">
+                                <FileCheck className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-white">Attached Proposal Document</h3>
+                                <p className="text-sm text-muted-foreground">Please review the attached PDF for full proposal details.</p>
+                            </div>
+                        </div>
+                        <a href={proposal.fileUrl} target="_blank" rel="noreferrer" className="shrink-0 w-full md:w-auto">
+                            <Button variant="outline" className="w-full bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50 text-primary transition-colors">
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                View Full Document
+                            </Button>
+                        </a>
+                    </div>
+                </section>
+            )}
+
             {/* Scope */}
             {proposal.scope && (
                 <section>

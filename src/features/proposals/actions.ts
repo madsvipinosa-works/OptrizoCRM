@@ -14,6 +14,7 @@ export interface ProposalData {
     timeline?: string;
     technicalApproach?: string;
     pricingStructure?: string;
+    fileUrl?: string;
 }
 
 export async function createProposal(leadId: string, data: ProposalData) {
