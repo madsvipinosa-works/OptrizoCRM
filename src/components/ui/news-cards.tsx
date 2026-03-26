@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence, useReducedMotion, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion, LayoutGroup, Variants } from "framer-motion";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -59,12 +59,13 @@ export function NewsCards({
             const timer = setTimeout(() => setIsLoaded(true), 100);
             return () => clearTimeout(timer);
         } else {
-            setIsLoaded(true);
+            const timer = setTimeout(() => setIsLoaded(true), 0);
+            return () => clearTimeout(timer);
         }
     }, [shouldAnimate]);
 
     // Animation variants
-    const containerVariants: any = {
+    const containerVariants: Variants = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
@@ -75,7 +76,7 @@ export function NewsCards({
         }
     };
 
-    const headerVariants: any = {
+    const headerVariants: Variants = {
         hidden: {
             opacity: 0,
             y: -20,
@@ -96,7 +97,7 @@ export function NewsCards({
         }
     };
 
-    const statusBarContainerVariants: any = {
+    const statusBarContainerVariants: Variants = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
@@ -107,7 +108,7 @@ export function NewsCards({
         }
     };
 
-    const statusBarVariants: any = {
+    const statusBarVariants: Variants = {
         hidden: {
             opacity: 0,
             scaleX: 0,
@@ -126,7 +127,7 @@ export function NewsCards({
         }
     };
 
-    const cardContainerVariants: any = {
+    const cardContainerVariants: Variants = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
@@ -137,7 +138,7 @@ export function NewsCards({
         }
     };
 
-    const cardVariants: any = {
+    const cardVariants: Variants = {
         hidden: {
             opacity: 0,
             y: 30,

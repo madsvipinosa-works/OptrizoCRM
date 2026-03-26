@@ -42,7 +42,7 @@ export function ProposalBuilderModal({ leadId, leadName }: Props) {
 
     const addPricingItem = () => setPricingItems([...pricingItems, { name: "", price: 0 }]);
     const removePricingItem = (index: number) => setPricingItems(pricingItems.filter((_, i) => i !== index));
-    const updatePricingItem = (index: number, field: "name" | "price", val: any) => {
+    const updatePricingItem = (index: number, field: "name" | "price", val: string | number) => {
         const newArr = [...pricingItems];
         newArr[index] = { ...newArr[index], [field]: val };
         setPricingItems(newArr);

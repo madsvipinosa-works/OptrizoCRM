@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, users, leadNotes, agencyProjects, siteSettings, milestones } from "@/db/schema";
+import { leads, users, leadNotes, agencyProjects, milestones } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
@@ -99,7 +99,7 @@ export async function getAnalyticsData() {
 
         // Estimate Revenue (naive parsing of budget string e.g. "$1k - $5k")
         const pipelineValue = allLeads
-            .filter(l => !["Lost", "New"].includes(l.status as any)) // Filter out terminal or raw states
+            .filter(l => !(["Lost", "New"] as string[]).includes(l.status || "")) // Filter out terminal or raw states
             .reduce((acc, lead) => {
                 if (!lead.budget) return acc;
                 // Extract first number
@@ -179,12 +179,12 @@ export async function getAnalyticsData() {
             }
 
             // Stale Leads: Not in terminal state AND untouched for > 2 days
-            if (!["Won", "Completed", "Lost"].includes(l.status as any) && daysSinceUpdate > 2) {
+            if (!(["Won", "Completed", "Lost"] as string[]).includes(l.status || "") && daysSinceUpdate > 2) {
                 staleLeadsCount++;
             }
 
             // Response Rate: Leads moved out of initial inquiry
-            if (!["New Inquiry", "New"].includes(l.status as any)) {
+            if (!(["New Inquiry", "New"] as string[]).includes(l.status || "")) {
                 actionedLeadsCount++;
             }
         });

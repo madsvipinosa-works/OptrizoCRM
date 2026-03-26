@@ -329,6 +329,7 @@ export const tasks = pgTable("task", {
     dueDate: timestamp("due_date", { mode: "date" }),
     status: taskStatusEnum("status").default("Todo").notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
+    overdueNotified: boolean("overdue_notified").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

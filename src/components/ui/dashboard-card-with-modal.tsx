@@ -25,7 +25,7 @@ interface DashboardCardModalProps {
   qrCodeImage?: string;
   
   // Event handlers
-  onUpdatePolicy?: (data: any) => void;
+  onUpdatePolicy?: (data: { policyNumber: string; clientName: string; timestamp: string }) => void;
   onCopyId?: () => void;
   onCopyPolicy?: () => void;
   
@@ -58,7 +58,8 @@ export function DashboardCardModal({
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
-    setMounted(true);
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const shouldAnimate = enableAnimations && !shouldReduceMotion;
@@ -218,6 +219,7 @@ export function DashboardCardModal({
               </div>
             </div>
             <div className="w-12 h-12 bg-muted/50 border border-border/50 rounded-lg overflow-hidden p-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrCodeImage}
                 alt="Policy QR Code"

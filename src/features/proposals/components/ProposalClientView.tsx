@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
-import { CheckCircle2, ChevronRight, FileCheck, Loader2, Info, Paperclip, ExternalLink } from "lucide-react";
+import { CheckCircle2, ChevronRight, FileCheck, Loader2, Info, ExternalLink } from "lucide-react";
 import { acceptProposalByClient } from "@/features/proposals/actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface Props {
-    proposal: any;
+    proposal: { id: string; status: string; fileUrl?: string | null; scope?: string | null; timeline?: string | null; };
     parsedDeliverables: string[];
     parsedPricing: { items: { name: string; price: number }[]; total: number };
 }
@@ -31,7 +30,7 @@ export function ProposalClientView({ proposal, parsedDeliverables, parsedPricing
             } else {
                 toast.error(res.message || "Failed to accept proposal");
             }
-        } catch (e) {
+        } catch {
             toast.error("A system error occurred.");
         } finally {
             setIsLoading(false);

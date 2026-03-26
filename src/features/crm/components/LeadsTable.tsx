@@ -9,7 +9,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { User, Calendar, Briefcase, DollarSign, Building2 } from "lucide-react";
+import { Calendar, Briefcase, DollarSign, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import {
     Dialog,
@@ -38,7 +38,7 @@ interface Lead {
 
 interface LeadsTableProps {
     leads: Lead[];
-    assignableUsers: any[];
+    assignableUsers: { id: string; name: string | null; image: string | null }[];
 }
 
 export function LeadsTable({ leads, assignableUsers }: LeadsTableProps) {
@@ -130,7 +130,7 @@ export function LeadsTable({ leads, assignableUsers }: LeadsTableProps) {
                                         Detailed view of lead information and project scope.
                                     </DialogDescription>
                                 </DialogHeader>
-                                <LeadCard lead={lead as any} assignableUsers={assignableUsers} />
+                                <LeadCard lead={lead as unknown as React.ComponentProps<typeof LeadCard>['lead']} assignableUsers={assignableUsers} />
                             </DialogContent>
                         </Dialog>
                     ))}

@@ -49,6 +49,35 @@ function CopyLinkButton({ proposalId }: { proposalId: string }) {
     );
 }
 
+function SendEmailButton({ proposalId }: { proposalId: string }) {
+    const [sending, setSending] = useState(false);
+    
+    const handleSend = async () => {
+        setSending(true);
+        const { sendProposalEmail } = await import("@/features/proposals/actions");
+        const res = await sendProposalEmail(proposalId);
+        if (res.success) {
+            toast.success("Proposal sent via email!");
+        } else {
+            toast.error(res.message);
+        }
+        setSending(false);
+    };
+
+    return (
+        <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 text-muted-foreground hover:text-primary"
+            onClick={handleSend}
+            disabled={sending}
+            title="Send Proposal via Email"
+        >
+            <Mail className="h-3 w-3" />
+        </Button>
+    );
+}
+
 // Define the shape of our Lead based on the schema
 type Lead = {
     id: string;
@@ -134,7 +163,7 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                 }
             } else {
                 const result = await updateLead(lead.id, {
-                    status: status as any,
+                    status: status as "New Inquiry" | "Qualified" | "Proposal Sent" | "Negotiation" | "Won" | "Lost",
                     nextActionDate: nextActionDate || null
                 });
                 if (result.success) {
@@ -383,6 +412,7 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                                         </a>
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             <CopyLinkButton proposalId={p.id} />
+                                                            <SendEmailButton proposalId={p.id} />
                                                             <Badge variant="outline" className={`text-[10px] h-4 ${p.status === 'Approved' ? 'border-green-500 text-green-500' : p.status === 'Sent' ? 'border-yellow-500 text-yellow-500' : 'border-white/20'}`}>
                                                                 {p.status}
                                                             </Badge>

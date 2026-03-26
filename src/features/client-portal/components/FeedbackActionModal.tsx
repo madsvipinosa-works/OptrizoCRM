@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { submitMilestoneFeedback } from "@/features/pm/actions";

@@ -17,7 +17,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }),
     ],
     callbacks: {
-        async signIn({ user, account, profile }) {
+        async signIn({ user, account }) {
             // Auto-link OAuth accounts to existing emails
             if (account?.provider === "google" && user.email) {
                 const existingUser = await db.query.users.findFirst({

@@ -1,9 +1,7 @@
 "use client";
 
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
     Carousel,
     CarouselContent,
@@ -25,13 +23,6 @@ export default function GalleryHoverCarousel({
 }: {
     items?: GalleryHoverCarouselItem[];
 }) {
-    const [carouselIndex, setCarouselIndex] = useState(0);
-    const [itemsCount, setItemsCount] = useState(0);
-    // Carousel scroll tracking
-    useEffect(() => {
-        setItemsCount(items.length);
-    }, [items]);
-
     if (!items || items.length === 0) {
         return null;
     }

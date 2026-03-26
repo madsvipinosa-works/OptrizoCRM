@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { agencyProjects, milestones, tasks } from "@/db/schema";
 import { auth } from "@/auth";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 
@@ -249,8 +249,9 @@ export async function editMilestone(milestoneId: string, title: string, order?: 
 
 export async function deleteMilestone(milestoneId: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
-        return { success: false, message: "Unauthorized" };
+    // Restrict deletion to admin only
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized: Only Admins can delete milestones." };
     }
 
     try {
@@ -304,5 +305,80 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
     } catch (error) {
         console.error("Failed to submit feedback:", error);
         return { success: false, message: "Database Error" };
+    }
+}
+
+// --- Deadline Tracking ---
+export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; found: number }> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, found: 0 };
+    }
+
+    try {
+        const { lte, ne, isNotNull } = await import("drizzle-orm");
+        
+        // Find tasks that are:
+        // 1. Not Done
+        // 2. Have a due date
+        // 3. Due date is in the past
+        // 4. Have not been notified yet (overdueNotified === false)
+        const overdueTasks = await db.query.tasks.findMany({
+            where: and(
+                ne(tasks.status, "Done"),
+                isNotNull(tasks.dueDate),
+                lte(tasks.dueDate, new Date()),
+                eq(tasks.overdueNotified, false)
+            ),
+            with: {
+                milestone: {
+                    with: {
+                        project: true
+                    }
+                }
+            }
+        });
+
+        if (overdueTasks.length === 0) {
+            return { success: true, found: 0 };
+        }
+
+        const { notifyAllAdmins, createSystemNotification } = await import("@/features/notifications/actions");
+        let notifiedCount = 0;
+
+        for (const task of overdueTasks) {
+            const project = task.milestone?.project;
+            if (!project) continue;
+
+            // Notify Assignee if they exist
+            if (task.assigneeId) {
+                await createSystemNotification(
+                    task.assigneeId, 
+                    `OVERDUE: The task "${task.title}" is past its deadline.`, 
+                    "alert", 
+                    `/dashboard/pm/${project.id}`
+                );
+            }
+
+            // Also notify Admins
+            await notifyAllAdmins(
+                `Overdue Task: The task "${task.title}" in Project "${project.title}" is overdue.`,
+                "alert",
+                `/dashboard/pm/${project.id}`
+            );
+
+            // Mark as notified
+            await db.update(tasks)
+                .set({ overdueNotified: true })
+                .where(eq(tasks.id, task.id));
+                
+            notifiedCount++;
+        }
+
+        return { success: true, found: notifiedCount };
+
+    } catch (error) {
+        console.error("Failed to check overdue tasks:", error);
+        return { success: false, found: 0 };
     }
 }

@@ -16,7 +16,6 @@ export const revalidate = 3600; // Revalidate every hour
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
-import { MouseEffectBackground } from "@/components/ui/mouse-effect-background";
 import { CTAScrollScale } from "@/components/blocks/cta-scroll-scale";
 
 // ... existing imports

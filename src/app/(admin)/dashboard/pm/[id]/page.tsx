@@ -17,6 +17,10 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
 
     const { id } = await props.params;
 
+    // Trigger deadline checks on load
+    const { checkAndNotifyOverdueTasks } = await import("@/features/pm/actions");
+    await checkAndNotifyOverdueTasks();
+
     const project = await db.query.agencyProjects.findFirst({
         where: eq(agencyProjects.id, id),
         with: {
@@ -62,7 +66,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
 
             {/* The Kanban Board gets the rest of the height */}
             <div className="flex-1 min-h-0 overflow-hidden">
-                <KanbanBoard project={project} teamMembers={teamMembers} />
+                <KanbanBoard project={project as unknown as React.ComponentProps<typeof KanbanBoard>['project']} teamMembers={teamMembers as unknown as React.ComponentProps<typeof KanbanBoard>['teamMembers']} currentUserId={session.user.id} currentUserRole={session.user.role} />
             </div>
         </div>
     );

@@ -97,7 +97,7 @@ export function LeadsBoard({ leads, assignableUsers, currentUserId, query, statu
             </div>
 
             {layout === "table" ? (
-                <LeadsTable leads={displayedLeads as any} assignableUsers={assignableUsers} />
+                <LeadsTable leads={displayedLeads} assignableUsers={assignableUsers} />
             ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {displayedLeads.length === 0 ? (

@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
 import IsoLevelWarp from "@/components/ui/isometric-wave-grid-background";

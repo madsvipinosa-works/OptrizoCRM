@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { auth } from "@/auth";
 import { agencyProjects } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, LayoutTemplate, Clock, Link as LinkIcon, MessageCircle } from "lucide-react";
 import { FeedbackActionModal } from "@/features/client-portal/components/FeedbackActionModal";

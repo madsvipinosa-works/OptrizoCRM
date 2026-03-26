@@ -79,7 +79,7 @@ export async function acceptProposalByClient(id: string) {
         await db.update(proposals).set({ status: "Approved", updatedAt: new Date() }).where(eq(proposals.id, id));
 
         // Trigger Won Automation
-        const result = await markLeadAsWon(proposal.leadId);
+        await markLeadAsWon(proposal.leadId);
         
         if (proposal.lead) {
              await notifyAllAdmins(`Proposal accepted by ${proposal.lead.name}!`, "proposal", `/dashboard/leads/${proposal.lead.id}`);
@@ -91,5 +91,36 @@ export async function acceptProposalByClient(id: string) {
     } catch (error) {
         console.error("Failed to accept proposal:", error);
         return { success: false, message: "System error while accepting proposal." };
+    }
+}
+
+import { Resend } from "resend";
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function sendProposalEmail(proposalId: string) {
+    const p = await db.query.proposals.findFirst({
+        where: eq(proposals.id, proposalId),
+        with: { lead: true }
+    });
+    
+    if (!p || !p.lead) return { success: false, message: "Proposal or lead not found" };
+
+    try {
+        const url = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://'+process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000')}/proposal/${proposalId}`;
+        
+        await resend.emails.send({
+            from: "Optrizo <onboarding@resend.dev>",
+            to: p.lead.email,
+            subject: `Your Custom Proposal from Optrizo - ${p.lead.name}`,
+            html: `<p>Hi ${p.lead.name},</p><p>We have prepared a custom proposal for your project.</p><p>You can view and accept it here: <br/><a href="${url}">${url}</a></p><p>Looking forward to working with you!</p><p>The Optrizo Team</p>`,
+        });
+
+        // Mark as sent
+        await updateProposal(proposalId, {}, "Sent");
+
+        return { success: true };
+    } catch(e) {
+        console.error(e);
+        return { success: false, message: "Failed to send email." };
     }
 }

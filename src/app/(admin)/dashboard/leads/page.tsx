@@ -81,7 +81,7 @@ export default async function LeadsPage({
             </Suspense>
 
             <LeadsBoard
-                leads={serializedLeads as any}
+                leads={serializedLeads as unknown as React.ComponentProps<typeof LeadsBoard>['leads']}
                 assignableUsers={assignableUsers}
                 currentUserId={currentUserId}
                 query={query}

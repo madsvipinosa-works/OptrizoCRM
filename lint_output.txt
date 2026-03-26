@@ -1,0 +1,145 @@
+
+> optrizo@0.1.0 lint
+> eslint
+
+
+C:\Users\admin\Desktop\OptrizoProto\prettier.config.mjs
+  2:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+C:\Users\admin\Desktop\OptrizoProto\prompt-solver.js
+  1:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\admin\Desktop\OptrizoProto\push-solver.js
+  1:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\admin\Desktop\OptrizoProto\scripts\backfill-leads.ts
+  9:11  warning  'result' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\scripts\debug-settings.ts
+  3:10  warning  'siteSettings' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\scripts\promote.ts
+  4:10  warning  'eq' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\app\(admin)\dashboard\leads\page.tsx
+  84:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\app\(admin)\dashboard\pm\[id]\page.tsx
+  69:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:83  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\app\(client)\portal\page.tsx
+  5:69  warning  'CardFooter' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\app\(public)\page.tsx
+  19:10  warning  'MouseEffectBackground' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\auth.ts
+  20:39  warning  'profile' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\blocks\gallery-hover-carousel.tsx
+   3:22  warning  'ChevronLeft' is defined but never used                @typescript-eslint/no-unused-vars
+   3:35  warning  'ChevronRight' is defined but never used               @typescript-eslint/no-unused-vars
+   6:10  warning  'Button' is defined but never used                     @typescript-eslint/no-unused-vars
+  28:12  warning  'carouselIndex' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  28:27  warning  'setCarouselIndex' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  29:12  warning  'itemsCount' is assigned a value but never used        @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\public\HeroSection.tsx
+  4:8  warning  'Link' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\ui\dashboard-card-with-modal.tsx
+   28:27  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+   61:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\ui\dashboard-card-with-modal.tsx:61:5
+  59 |
+  60 |   useEffect(() => {
+> 61 |     setMounted(true);
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  62 |   }, []);
+  63 |
+  64 |   const shouldAnimate = enableAnimations && !shouldReduceMotion;  react-hooks/set-state-in-effect
+  221:15  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @next/next/no-img-element
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\ui\hover-border-gradient.tsx
+  57:8   warning  React Hook useEffect has missing dependencies: 'duration' and 'rotateDirection'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  61:28  warning  'event' is defined but never used                                                                                                    @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\ui\news-cards.tsx
+   62:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\ui\news-cards.tsx:62:13
+  60 |             return () => clearTimeout(timer);
+  61 |         } else {
+> 62 |             setIsLoaded(true);
+     |             ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  63 |         }
+  64 |     }, [shouldAnimate]);
+  65 |  react-hooks/set-state-in-effect
+   67:30  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+   78:27  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+   99:39  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  110:30  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  129:34  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  140:25  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\components\ui\stagger-testimonials.tsx
+  87:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\client-portal\components\FeedbackActionModal.tsx
+  7:10  warning  'Badge' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\crm\actions.ts
+    4:51  warning  'siteSettings' is defined but never used  @typescript-eslint/no-unused-vars
+  102:64  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  182:68  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  187:62  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\crm\components\LeadCard.tsx
+  137:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\crm\components\LeadsBoard.tsx
+  100:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\crm\components\LeadsTable.tsx
+   12:10  warning  'User' is defined but never used          @typescript-eslint/no-unused-vars
+   41:22  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:57  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\pm\actions.ts
+  6:19  warning  'asc' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\pm\components\KanbanBoard.tsx
+  6:10  warning  'Card' is defined but never used         @typescript-eslint/no-unused-vars
+  6:16  warning  'CardContent' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\proposals\actions.ts
+  82:15  warning  'result' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\proposals\components\ProposalBuilderModal.tsx
+  45:77  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\admin\Desktop\OptrizoProto\src\features\proposals\components\ProposalClientView.tsx
+   4:10  warning  'format' is defined but never used        @typescript-eslint/no-unused-vars
+   5:64  warning  'Paperclip' is defined but never used     @typescript-eslint/no-unused-vars
+  13:15  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\admin\Desktop\OptrizoProto\test-db.ts
+  2:10  warning  'siteSettings' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 52 problems (23 errors, 29 warnings)
+
