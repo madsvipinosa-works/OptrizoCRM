@@ -30,3 +30,47 @@ export async function updateUserRole(userId: string, newRole: "admin" | "editor"
         return { success: false, message: "Database error." };
     }
 }
+
+export async function updateUserJobTitle(userId: string, newTitle: string) {
+    // 1. Strict Auth Check
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized: Only admins can manage job titles." };
+    }
+
+    try {
+        await db.update(users)
+            .set({ jobTitle: newTitle || null })
+            .where(eq(users.id, userId));
+
+        revalidatePath("/dashboard/team");
+        return { success: true, message: "User job title updated." };
+    } catch (error) {
+        console.error("Failed to update job title:", error);
+        return { success: false, message: "Database error." };
+    }
+}
+
+export async function toggleUserActiveStatus(userId: string, currentStatus: boolean) {
+    // 1. Strict Auth Check
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized: Only admins can manage active status." };
+    }
+
+    if (userId === session.user.id) {
+        return { success: false, message: "You cannot deactivate your own account." };
+    }
+
+    try {
+        await db.update(users)
+            .set({ isActive: !currentStatus })
+            .where(eq(users.id, userId));
+
+        revalidatePath("/dashboard/team");
+        return { success: true, message: `User ${!currentStatus ? 'activated' : 'deactivated'}.` };
+    } catch (error) {
+        console.error("Failed to toggle active status:", error);
+        return { success: false, message: "Database error." };
+    }
+}

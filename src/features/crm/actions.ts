@@ -8,6 +8,7 @@ import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
 import { sendClientWelcomeEmail } from "@/lib/notifications";
 import { auth } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
+import { logAction } from "@/features/audit/actions";
 
 export type ActionState = {
     message?: string;
@@ -41,6 +42,8 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
             })
             .where(eq(leads.id, id));
 
+        await logAction("UPDATE", "Lead", `Lead ${id} properties updated.`);
+
         revalidatePath("/dashboard/leads");
         return { success: true, message: "Lead updated successfully" };
     } catch (error) {
@@ -66,6 +69,8 @@ export async function addLeadNote(leadId: string, content: string, activityType:
             content: content.trim(),
             activityType: activityType,
         });
+
+        await logAction("CREATE", "Lead Note", `Logged ${activityType} for Lead ${leadId}`);
 
         revalidatePath("/dashboard/leads");
         return { success: true, message: "Note added" };
@@ -300,12 +305,35 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
 
         await notifyAllAdmins(`Lead ${lead.name} won! Project "${newProject.title}" provisioned.`, "deal_won", `/dashboard/pm/${newProject.id}`);
 
+        await logAction("UPDATE", "Lead", `Lead ${lead.id} marked as Won and Project ${newProject.id} provisioned.`);
+
         revalidatePath("/dashboard/leads");
 
         return { success: true, message: "Success! Project Provisioned & Client Notified." };
     } catch (error) {
         console.error("Failed to mark lead as won:", error);
         return { success: false, message: "Database Error: Could not execute Won workflow." };
+    }
+}
+
+export async function archiveLead(leadId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized: Admins only." };
+    }
+
+    try {
+        await db.update(leads)
+            .set({ isArchived: true, updatedAt: new Date() })
+            .where(eq(leads.id, leadId));
+
+        await logAction("UPDATE", "Lead", `Lead ${leadId} archived.`);
+
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: "Lead securely archived." };
+    } catch (error) {
+        console.error("Failed to archive lead:", error);
+        return { success: false, message: "Database Error" };
     }
 }
 

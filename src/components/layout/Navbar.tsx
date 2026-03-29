@@ -16,7 +16,7 @@ export async function Navbar() {
 
     const handleSignOut = async () => {
         "use server";
-        await signOut();
+        await signOut({ redirectTo: "/" });
     };
 
     return (

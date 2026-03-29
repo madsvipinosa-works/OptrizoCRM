@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { markLeadAsWon } from "@/features/crm/actions";
+import { logAction } from "@/features/audit/actions";
 
 export interface ProposalData {
     scope?: string;
@@ -29,6 +30,8 @@ export async function createProposal(leadId: string, data: ProposalData) {
             ...data,
             status: "Draft",
         }).returning();
+
+        await logAction("CREATE", "Proposal", `Draft proposal generated for Lead ${leadId}`);
 
         revalidatePath(`/dashboard/leads/${leadId}`);
         return { success: true, proposal: newProposal };
@@ -59,6 +62,8 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
              await db.update(leads).set({ status: "Proposal Sent" }).where(eq(leads.id, updated.leadId));
         }
         
+        await logAction("UPDATE", "Proposal", `Proposal ${id} updated (Status: ${status || updated.status})`);
+        
         return { success: true, proposal: updated };
     } catch (error) {
         console.error("Failed to update proposal:", error);
@@ -84,6 +89,8 @@ export async function acceptProposalByClient(id: string) {
         if (proposal.lead) {
              await notifyAllAdmins(`Proposal accepted by ${proposal.lead.name}!`, "proposal", `/dashboard/leads/${proposal.lead.id}`);
         }
+        
+        await logAction("UPDATE", "Proposal", `Proposal ${id} accepted by client`);
         
         revalidatePath(`/proposal/${id}`);
         

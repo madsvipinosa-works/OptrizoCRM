@@ -43,9 +43,10 @@ interface LeadsBoardProps {
     currentUserId: string;
     query?: string;
     status?: string;
+    isAdmin?: boolean;
 }
 
-export function LeadsBoard({ leads, assignableUsers, currentUserId, query, status }: LeadsBoardProps) {
+export function LeadsBoard({ leads, assignableUsers, currentUserId, query, status, isAdmin }: LeadsBoardProps) {
     const [viewMode, setViewMode] = useState<"all" | "mine">("all");
     const [layout, setLayout] = useState<"table" | "grid">("table");
 
@@ -112,6 +113,7 @@ export function LeadsBoard({ leads, assignableUsers, currentUserId, query, statu
                                 key={lead.id}
                                 lead={lead}
                                 assignableUsers={assignableUsers}
+                                isAdmin={isAdmin}
                             />
                         ))
                     )}

@@ -144,3 +144,51 @@ export async function sendClientWelcomeEmail(clientData: {
         return { success: false, error: err };
     }
 }
+
+// Email Template for Password Reset
+export async function sendPasswordResetEmail(email: string, resetUrl: string) {
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            console.log(`[MOCK EMAIL] To: ${email} | Subject: Reset Your Password - Optrizo`);
+            console.log(`Link: ${resetUrl}`);
+            return { success: true, mock: true };
+        }
+
+        const { data, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: email,
+            subject: `Reset Your Password - Optrizo`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+                    <h2 style="color: #333;">Password Reset Request</h2>
+                    <p style="color: #555; line-height: 1.5;">
+                        We received a request to reset the password for your Optrizo account associated with this email address.
+                    </p>
+                    <p style="color: #555; line-height: 1.5;">
+                        If you made this request, please click the button below to securely set a new password. This link will safely expire in 1 hour.
+                    </p>
+                    
+                    <div style="margin: 30px 0; text-align: center;">
+                        <a href="${resetUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                            Reset Password
+                        </a>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                        <em>Note: If you did not request a password reset, you can safely ignore this email. Your dashboard password will remain unchanged.</em>
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending password reset email:", error);
+            return { success: false, error };
+        }
+
+        return { success: true, data };
+    } catch (err) {
+        console.error("Password Reset Email Failed:", err);
+        return { success: false, error: err };
+    }
+}

@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
 
 const COLUMNS = [
     { id: "Todo", title: "To Do" },
@@ -388,24 +389,10 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                             </DropdownMenu>
                         )}
                     </h3>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Badge variant="outline" className={`cursor-pointer transition-colors px-3 py-1 flex items-center gap-1 ${activeMilestone.status === "Completed" ? "border-green-500 text-green-500 hover:bg-green-500/10" :
-                                activeMilestone.status === "Client Approval" ? "border-yellow-500 text-yellow-500 hover:bg-yellow-500/10 animate-pulse" :
-                                    activeMilestone.status === "In Progress" ? "border-primary text-primary hover:bg-primary/10" :
-                                        "hover:bg-white/10"
-                                }`} title="Click to change status">
-                                {activeMilestone.status}
-                                <ChevronDown className="h-3 w-3 opacity-70" />
-                            </Badge>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("Pending")}>Pending</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("In Progress")}>In Progress</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("Client Approval")}>Client Approval</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleMilestoneStatusChange("Completed")}>Completed</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <MilestoneStatusDropdown 
+                        status={activeMilestone.status} 
+                        onStatusChange={handleMilestoneStatusChange} 
+                    />
                 </div>
 
                 {/* Feedback History Toggle/List */}

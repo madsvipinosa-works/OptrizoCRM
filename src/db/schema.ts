@@ -21,8 +21,11 @@ export const users = pgTable("user", {
     name: text("name"),
     email: text("email").notNull(),
     emailVerified: timestamp("emailVerified", { mode: "date" }),
+    password: text("password"),
     image: text("image"),
     role: roleEnum("role").default("user").notNull(),
+    jobTitle: text("job_title"),
+    isActive: boolean("is_active").default(true).notNull(),
 });
 
 // 3. Accounts (For Google/GitHub OAuth)
@@ -69,6 +72,16 @@ export const verificationTokens = pgTable(
     },
     (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
 );
+
+// 5b. Password Reset Tokens
+export const passwordResetTokens = pgTable("password_reset_token", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    email: text("email").notNull(),
+    token: text("token").unique().notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+});
 
 
 // 6. Blog Posts
@@ -172,6 +185,7 @@ export const leads = pgTable("lead", {
     files: text("files").array(), // Array of file URLs (e.g., Proposals)
     nextActionDate: timestamp("next_action_date", { mode: "date" }), // Scheduled follow-up
     read: boolean("read").default(false).notNull(),
+    isArchived: boolean("is_archived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -228,6 +242,22 @@ export const proposals = pgTable("proposal", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 15. Audit Logs
+export const auditActionEnum = pgEnum("audit_action", ["CREATE", "UPDATE", "DELETE", "LOGIN", "OTHER"]);
+
+export const auditLogs = pgTable("audit_log", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+        .references(() => users.id, { onDelete: "set null" }), // Keep log even if user is deleted
+    action: auditActionEnum("action").notNull(),
+    entity: text("entity").notNull(),
+    details: text("details"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+
 // --- RELATIONS ---
 import { relations } from "drizzle-orm";
 
@@ -258,6 +288,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     assignedTasks: many(tasks),
     notifications: many(notifications),
     clientFeedback: many(clientFeedback),
+    auditLogs: many(auditLogs),
 }));
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
@@ -271,6 +302,13 @@ export const proposalsRelations = relations(proposals, ({ one }) => ({
     lead: one(leads, {
         fields: [proposals.leadId],
         references: [leads.id],
+    }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+    user: one(users, {
+        fields: [auditLogs.userId],
+        references: [users.id],
     }),
 }));
 
@@ -294,6 +332,7 @@ export const agencyProjects = pgTable("agency_project", {
     startDate: timestamp("start_date", { mode: "date" }),
     targetDate: timestamp("target_date", { mode: "date" }),
     stagingUrls: text("staging_urls").array(), // For Figma/Live links
+    isArchived: boolean("is_archived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

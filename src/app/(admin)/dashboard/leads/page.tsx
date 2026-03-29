@@ -18,6 +18,7 @@ export default async function LeadsPage({
 }) {
     const session = await auth();
     const currentUserId = session?.user?.id || "";
+    const isAdmin = session?.user?.role === "admin";
 
     const params = await searchParams;
     const query = params?.query || "";
@@ -25,6 +26,7 @@ export default async function LeadsPage({
 
     // Build Where Clause
     const whereClause = and(
+        eq(leads.isArchived, false),
         status && status !== "all" ? eq(leads.status, status as "New" | "Contacted" | "In Progress" | "Completed" | "Lost") : undefined,
         query
             ? or(
@@ -86,6 +88,7 @@ export default async function LeadsPage({
                 currentUserId={currentUserId}
                 query={query}
                 status={status}
+                isAdmin={isAdmin}
             />
         </div>
     );

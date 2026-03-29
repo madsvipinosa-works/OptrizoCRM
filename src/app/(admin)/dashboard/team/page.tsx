@@ -2,6 +2,8 @@ import { db } from "@/db";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { UserRoleSelect } from "@/features/cms/team/components/UserRoleSelect";
+import { JobTitleEditor } from "@/features/cms/team/components/JobTitleEditor";
+import { UserActiveToggle } from "@/features/cms/team/components/UserActiveToggle";
 import { TeamToolbar } from "@/features/cms/team/components/TeamToolbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +78,8 @@ interface UserListItem {
     name: string | null;
     email: string;
     image: string | null;
+    jobTitle: string | null;
+    isActive: boolean;
     role: "user" | "admin" | "editor" | "client";
 }
 
@@ -99,7 +103,13 @@ const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title:
                                     {user.name}
                                     {user.id === currentUserId && <Badge variant="secondary" className="text-[10px] h-5">You</Badge>}
                                 </div>
-                                <div className="text-sm text-muted-foreground">{user.email}</div>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1">
+                                    <span className="text-sm text-muted-foreground">{user.email}</span>
+                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
+                                    <JobTitleEditor userId={user.id} currentTitle={user.jobTitle} isAdmin={true} />
+                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
+                                    <UserActiveToggle userId={user.id} isActive={user.isActive} isAdmin={true} />
+                                </div>
                             </div>
                         </div>
 

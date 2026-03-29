@@ -15,7 +15,7 @@ interface ChartProps {
 
 export function PipelineChart({ data }: { data: ChartProps['pipelineData'] }) {
     return (
-        <Card className="glass-card border-white/10 col-span-2">
+        <Card className="bg-[#121212] border-[#262626] rounded-[1rem] col-span-2">
             <CardHeader>
                 <CardTitle>Pipeline Distribution</CardTitle>
             </CardHeader>
@@ -46,7 +46,7 @@ export function PipelineChart({ data }: { data: ChartProps['pipelineData'] }) {
 
 export function SourceChart({ data }: { data: ChartProps['sourceData'] }) {
     return (
-        <Card className="glass-card border-white/10">
+        <Card className="bg-[#121212] border-[#262626] rounded-[1rem]">
             <CardHeader>
                 <CardTitle>Lead Sources</CardTitle>
             </CardHeader>
@@ -89,7 +89,7 @@ export function SourceChart({ data }: { data: ChartProps['sourceData'] }) {
 
 export function TrendChart({ data }: { data: ChartProps['trendData'] }) {
     return (
-        <Card className="glass-card border-white/10 col-span-3">
+        <Card className="bg-[#121212] border-[#262626] rounded-[1rem] col-span-3">
             <CardHeader>
                 <CardTitle>Lead Volume (Last 30 Days)</CardTitle>
             </CardHeader>

@@ -21,7 +21,7 @@ export function KPIStats({ data }: KPIStatsProps) {
         <div className="space-y-4">
             {/* Primary Business KPIs */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="glass-card border-white/10">
+                <Card className="bg-[#121212] border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             Total Leads
@@ -36,7 +36,7 @@ export function KPIStats({ data }: KPIStatsProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10">
+                <Card className="bg-[#050505] border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             Won Deals
@@ -51,7 +51,7 @@ export function KPIStats({ data }: KPIStatsProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10">
+                <Card className="bg-[#121212] border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             Conversion Rate
@@ -66,7 +66,7 @@ export function KPIStats({ data }: KPIStatsProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10">
+                <Card className="bg-[#050505] border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             Pipeline Value
@@ -84,7 +84,7 @@ export function KPIStats({ data }: KPIStatsProps) {
 
             {/* Active Lead Management KPIs */}
             <div className="grid gap-4 md:grid-cols-3">
-                <Card className="glass-card border-white/10 bg-gradient-to-br from-black to-blue-950/20">
+                <Card className="bg-gradient-to-br from-[#121212] to-blue-950/20 border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-blue-400">
                             Avg Lead Aging
@@ -99,7 +99,7 @@ export function KPIStats({ data }: KPIStatsProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10 bg-gradient-to-br from-black to-red-950/20">
+                <Card className="bg-gradient-to-br from-[#121212] to-red-950/20 border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-red-400">
                             Stale Leads
@@ -114,7 +114,7 @@ export function KPIStats({ data }: KPIStatsProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10 bg-gradient-to-br from-black to-green-950/20">
+                <Card className="bg-gradient-to-br from-[#121212] to-green-950/20 border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-green-400">
                             Response Rate
@@ -132,7 +132,7 @@ export function KPIStats({ data }: KPIStatsProps) {
 
             {/* Advanced Intelligence & ROI */}
             <div className="grid gap-4 md:grid-cols-3">
-                <Card className="glass-card border-white/10 bg-gradient-to-br from-black to-emerald-950/20">
+                <Card className="bg-gradient-to-br from-[#121212] to-emerald-950/20 border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-emerald-400">
                             Avg. Customer Lifetime Value
@@ -147,7 +147,7 @@ export function KPIStats({ data }: KPIStatsProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10 bg-gradient-to-br from-black to-purple-950/20">
+                <Card className="bg-gradient-to-br from-[#121212] to-purple-950/20 border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-purple-400">
                             Return on Marketing (ROMI)
@@ -162,7 +162,7 @@ export function KPIStats({ data }: KPIStatsProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10 bg-gradient-to-br from-black to-amber-950/20">
+                <Card className="bg-gradient-to-br from-[#121212] to-amber-950/20 border-[#262626] rounded-[1rem]">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-amber-400">
                             Admin Hours Saved

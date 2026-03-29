@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
+import { logAction } from "@/features/audit/actions";
 
 export type ActionState = {
     message?: string;
@@ -26,6 +27,8 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
         await db.update(agencyProjects)
             .set({ status, updatedAt: new Date() })
             .where(eq(agencyProjects.id, projectId));
+
+        await logAction("UPDATE", "Project", `Project ${projectId} status updated to ${status}`);
 
         revalidatePath("/dashboard/pm");
         revalidatePath("/portal");
@@ -49,6 +52,8 @@ export async function updateProjectSettings(projectId: string, leadId: string | 
             const { leads } = await import("@/db/schema");
             await db.update(leads).set({ files, updatedAt: new Date() }).where(eq(leads.id, leadId));
         }
+
+        await logAction("UPDATE", "Project", `Project ${projectId} settings updated`);
 
         revalidatePath("/dashboard/pm/[id]");
         revalidatePath("/portal");
@@ -90,6 +95,8 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
                 ));
         }
 
+        await logAction("UPDATE", "Milestone", `Milestone ${milestoneId} moved to ${status}`);
+
         revalidatePath("/dashboard/pm/[id]");
         revalidatePath("/portal");
         return { success: true, message: `Milestone moved to ${status}` };
@@ -126,6 +133,8 @@ export async function createTask(projectId: string, milestoneId: string, title: 
             isBlockedByClient: isParentBlocked
         }).returning();
 
+        await logAction("CREATE", "Task", `Task "${title}" created`);
+
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task created.", task: newTask };
     } catch (error) {
@@ -144,6 +153,8 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
         await db.update(tasks)
             .set({ status, isBlockedByClient: status === "Blocked" ? true : false, updatedAt: new Date() })
             .where(eq(tasks.id, taskId));
+
+        await logAction("UPDATE", "Task", `Task ${taskId} status updated to ${status}`);
 
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task updated." };
@@ -174,6 +185,8 @@ export async function updateTaskDetails(
             .where(eq(tasks.id, taskId))
             .returning();
 
+        await logAction("UPDATE", "Task", `Task ${taskId} details updated`);
+
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task details updated.", task: updatedTask };
     } catch (error) {
@@ -190,6 +203,9 @@ export async function deleteTask(taskId: string): Promise<ActionState> {
 
     try {
         await db.delete(tasks).where(eq(tasks.id, taskId));
+        
+        await logAction("DELETE", "Task", `Task ${taskId} deleted`);
+        
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task deleted." };
     } catch (error) {
@@ -219,6 +235,8 @@ export async function createMilestone(projectId: string, title: string): Promise
             status: "Pending"
         }).returning();
 
+        await logAction("CREATE", "Milestone", `Milestone "${title}" created`);
+
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Milestone created.", milestone: newMilestone };
     } catch (error) {
@@ -239,6 +257,8 @@ export async function editMilestone(milestoneId: string, title: string, order?: 
 
         await db.update(milestones).set(payload).where(eq(milestones.id, milestoneId));
 
+        await logAction("UPDATE", "Milestone", `Milestone ${milestoneId} updated`);
+
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Milestone updated." };
     } catch (error) {
@@ -255,9 +275,10 @@ export async function deleteMilestone(milestoneId: string): Promise<ActionState>
     }
 
     try {
-        // Also delete tasks within this milestone to clean up
         await db.delete(tasks).where(eq(tasks.milestoneId, milestoneId));
         await db.delete(milestones).where(eq(milestones.id, milestoneId));
+
+        await logAction("DELETE", "Milestone", `Milestone ${milestoneId} deleted`);
 
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Milestone deleted." };
@@ -298,6 +319,8 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
                 await notifyAllAdmins(`${session.user.name} approved milestone: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
             }
         }
+
+        await logAction("UPDATE", "Milestone Feedback", `Feedback ${status} submitted for Milestone ${milestoneId}`);
 
         revalidatePath("/portal");
         revalidatePath("/dashboard/pm/[id]");
@@ -380,5 +403,27 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
     } catch (error) {
         console.error("Failed to check overdue tasks:", error);
         return { success: false, found: 0 };
+    }
+}
+
+export async function archiveProject(projectId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized: Admins only." };
+    }
+
+    try {
+        await db.update(agencyProjects)
+            .set({ isArchived: true, updatedAt: new Date() })
+            .where(eq(agencyProjects.id, projectId));
+
+        await logAction("UPDATE", "Project", `Project ${projectId} archived.`);
+
+        revalidatePath("/dashboard/pm");
+        revalidatePath("/portal");
+        return { success: true, message: "Project securely archived." };
+    } catch (error) {
+        console.error("Failed to archive project:", error);
+        return { success: false, message: "Database Error" };
     }
 }

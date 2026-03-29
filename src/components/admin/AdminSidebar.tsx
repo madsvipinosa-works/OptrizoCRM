@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Briefcase, Settings, Star, Layers, Mail, BarChart3, Users, KanbanSquare, Menu } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, Settings, Star, Layers, Mail, BarChart3, Users, KanbanSquare, Menu, ShieldAlert, LogOut, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { UserWidget } from "@/components/admin/UserWidget";
+import { handleSignOut } from "@/features/auth/signout-action";
 
 const navItems = [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -20,31 +22,29 @@ const navItems = [
     { href: "/dashboard/testimonials", label: "Testimonials", icon: Star },
     { href: "/dashboard/team", label: "Team", icon: Users },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    { href: "/dashboard/audit", label: "Audit Logs", icon: ShieldAlert },
 ];
 
-export function AdminSidebar({ userRole = "user" }: { userRole?: string }) {
+export function AdminSidebar({ user }: { user?: any }) {
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
+    const userRole = user?.role || "user";
 
     const filteredNavItems = navItems.filter(item => {
-        if (item.label === "Settings" || item.label === "Team") {
+        if (item.label === "Settings" || item.label === "Team" || item.label === "Audit Logs") {
             return userRole === "admin";
         }
         return true;
     });
 
     const renderNavContent = () => (
-        <div className="px-4 py-2 h-full flex flex-col">
-            <div className="mb-8 px-4 mt-6 md:mt-0 flex items-start justify-between">
-                <div>
-                    <h2 className="text-lg font-bold tracking-tight text-white mb-2">Optrizo Admin</h2>
-                    <p className="text-xs text-muted-foreground">Manage your digital empire</p>
-                </div>
-                <div className="hidden md:block">
-                    <NotificationBell />
-                </div>
+        <div className="px-3 py-8 h-full flex flex-col bg-[#050505]">
+            {/* Top Widget */}
+            <div className="mb-8 px-4 shrink-0">
+                <UserWidget user={user} />
             </div>
-            <nav className="space-y-1 flex-1 overflow-y-auto">
+
+            <nav className="space-y-1 flex-1 overflow-y-auto override-scrollbar pr-2">
                 {filteredNavItems.map((item) => {
                     const isActive = item.href === "/dashboard"
                         ? pathname === "/dashboard"
@@ -56,30 +56,43 @@ export function AdminSidebar({ userRole = "user" }: { userRole?: string }) {
                             href={item.href}
                             onClick={() => setOpen(false)}
                             className={cn(
-                                "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors",
+                                "flex items-center gap-4 px-4 py-3.5 text-[15px] font-semibold rounded-[1rem] transition-all group",
                                 isActive
-                                    ? "text-primary bg-primary/10"
-                                    : "text-muted-foreground hover:bg-white/5 hover:text-primary"
+                                    ? "bg-[#262626] text-white"
+                                    : "text-[#A3A3A3] hover:text-white hover:bg-white/5"
                             )}
                         >
-                            <item.icon className="h-4 w-4" />
-                            {item.label}
+                            <item.icon className={cn("h-[20px] w-[20px] stroke-[2.2px]", isActive ? "text-white" : "text-[#A3A3A3] group-hover:text-white")} />
+                            <span>{item.label}</span>
                         </Link>
                     );
                 })}
             </nav>
+
+            <div className="mt-auto shrink-0 space-y-1 pt-6 pb-2">
+                <Link href="#" className="flex items-center gap-4 px-4 py-3.5 text-[15px] font-semibold text-[#A3A3A3] hover:text-white transition-colors group rounded-[1rem] hover:bg-white/5">
+                    <HelpCircle className="h-[20px] w-[20px] stroke-[2.2px] text-[#A3A3A3] group-hover:text-white transition-colors" />
+                    Help & Information
+                </Link>
+                <form action={handleSignOut}>
+                    <button type="submit" className="flex w-full items-center gap-4 px-4 py-3.5 text-[15px] font-semibold text-[#A3A3A3] hover:text-white transition-colors focus:outline-none group rounded-[1rem] hover:bg-white/5">
+                        <LogOut className="h-[20px] w-[20px] stroke-[2.2px] scale-x-[-1] text-[#A3A3A3] group-hover:text-white transition-colors" />
+                        Log out
+                    </button>
+                </form>
+            </div>
         </div>
     );
 
     return (
         <>
             {/* Desktop Sidebar */}
-            <aside className="w-64 border-r border-white/10 bg-black/50 backdrop-blur-xl h-screen fixed left-0 top-0 pt-20 hidden md:block z-40">
+            <aside className="w-64 border-r border-[#262626] bg-[#050505] h-screen fixed left-0 top-0 hidden md:block z-40">
                 {renderNavContent()}
             </aside>
 
             {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 left-0 w-full h-16 border-b border-white/10 bg-black/80 backdrop-blur-xl z-50 flex items-center px-4 justify-between">
+            <div className="md:hidden fixed top-0 left-0 w-full h-16 border-b border-[#262626] bg-[#050505] z-50 flex items-center px-4 justify-between">
                 <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold tracking-tight text-white">Optrizo Admin</h2>
                 </div>
@@ -92,11 +105,11 @@ export function AdminSidebar({ userRole = "user" }: { userRole?: string }) {
                                 <span className="sr-only">Toggle navigation menu</span>
                             </Button>
                         </SheetTrigger>
-                    <SheetContent side="left" className="w-64 p-0 bg-black/95 border-r border-white/10">
-                        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-                        {renderNavContent()}
-                    </SheetContent>
-                </Sheet>
+                        <SheetContent side="left" className="w-64 p-0 bg-[#050505] border-r border-[#262626]">
+                            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                            {renderNavContent()}
+                        </SheetContent>
+                    </Sheet>
                 </div>
             </div>
         </>

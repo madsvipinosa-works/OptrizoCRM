@@ -24,6 +24,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { ProposalBuilderModal } from "@/features/proposals/components/ProposalBuilderModal";
+import { LeadArchiveButton } from "@/features/crm/components/LeadArchiveButton";
+import AnimatedDropdown from "@/components/ui/animated-dropdown";
 
 function CopyLinkButton({ proposalId }: { proposalId: string }) {
     const [copied, setCopied] = useState(false);
@@ -127,7 +129,7 @@ const statusColors: Record<string, string> = {
     "Lost": "bg-gray-500 text-white hover:bg-gray-600",
 };
 
-export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUsers: { id: string; name: string | null; image: string | null }[] }) {
+export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assignableUsers: { id: string; name: string | null; image: string | null }[], isAdmin?: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(lead.status);
@@ -305,13 +307,15 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
             <CardFooter className="pt-2 border-t border-white/5 flex justify-between items-center text-xs text-muted-foreground">
                 <span>Source: {lead.source || "Direct"}</span>
 
-                <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 hover:bg-white/10">
-                            <Pencil className="h-3.5 w-3.5 mr-2" />
-                            Manage
-                        </Button>
-                    </DialogTrigger>
+                <div className="flex gap-1.5 items-center">
+                    {isAdmin && <LeadArchiveButton leadId={lead.id} />}
+                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 hover:bg-white/10">
+                                <Pencil className="h-3.5 w-3.5 mr-2" />
+                                Manage
+                            </Button>
+                        </DialogTrigger>
                     <DialogContent className="glass-card border-white/10 text-white w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
                         <DialogHeader>
                             <DialogTitle>Manage Lead: {lead.name}</DialogTitle>
@@ -325,26 +329,20 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                             <div className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="status">Pipeline Stage</Label>
-                                    <select
-                                        id="status"
-                                        value={status}
-                                        onChange={async (e) => {
-                                            const newStatus = e.target.value as Lead['status'];
-                                            setStatus(newStatus);
-                                            if (newStatus === "Completed" && lead.status !== "Completed") {
-                                                // Trigger "Won" Notification
-                                                toast.info("Click 'Update Status' below to sequence the Project and Client Portal automation.");
+                                    <AnimatedDropdown
+                                        text={status}
+                                        triggerClassName="flex h-10 w-full justify-between items-center rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        items={["New Inquiry", "Qualified", "Proposal Sent", "Negotiation", "Won", "Lost"].map(s => ({
+                                            name: s,
+                                            onClick: () => {
+                                                const newStatus = s as Lead['status'];
+                                                setStatus(newStatus);
+                                                if (newStatus === "Completed" && lead.status !== "Completed") {
+                                                    toast.info("Click 'Update Status' below to sequence the Project and Client Portal automation.");
+                                                }
                                             }
-                                        }}
-                                        className="flex h-10 w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    >
-                                        <option value="New Inquiry">New Inquiry</option>
-                                        <option value="Qualified">Qualified</option>
-                                        <option value="Proposal Sent">Proposal Sent</option>
-                                        <option value="Negotiation">Negotiation</option>
-                                        <option value="Won">Won</option>
-                                        <option value="Lost">Lost</option>
-                                    </select>
+                                        }))}
+                                    />
 
                                     <div className="space-y-2 mt-4">
                                         <Label>Next Action Date</Label>
@@ -380,20 +378,17 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
 
                                 <div className="space-y-2">
                                     <Label htmlFor="assignee">Assign To</Label>
-                                    <select
-                                        id="assignee"
-                                        value={assignedTo}
-                                        onChange={(e) => handleAssign(e.target.value)}
-                                        className="flex h-10 w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        disabled={isLoading}
-                                    >
-                                        <option value="">Unassigned</option>
-                                        {assignableUsers.map(user => (
-                                            <option key={user.id} value={user.id}>
-                                                {user.name || "User"}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <AnimatedDropdown
+                                        text={assignableUsers.find(u => u.id === assignedTo)?.name || "Unassigned"}
+                                        triggerClassName="flex h-10 w-full justify-between items-center rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                                        items={[
+                                            { name: "Unassigned", onClick: () => handleAssign("") },
+                                            ...assignableUsers.map(user => ({
+                                                name: user.name || "User",
+                                                onClick: () => handleAssign(user.id)
+                                            }))
+                                        ]}
+                                    />
                                 </div>
 
                                 <div className="space-y-2 border-t border-white/10 pt-4">
@@ -527,16 +522,14 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                                 <div className="space-y-2 border-t border-white/10 pt-4 mt-2">
                                     <Label>New Note / Log Activity</Label>
                                     <div className="flex flex-col gap-2 mb-2">
-                                        <select
-                                            value={activityType}
-                                            onChange={(e) => setActivityType(e.target.value as "Note" | "Call" | "Email" | "Meeting")}
-                                            className="flex h-9 w-[120px] rounded-md border border-white/10 bg-black/50 px-3 py-1 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        >
-                                            <option value="Note">Note</option>
-                                            <option value="Call">Call</option>
-                                            <option value="Email">Email</option>
-                                            <option value="Meeting">Meeting</option>
-                                        </select>
+                                        <AnimatedDropdown
+                                            text={activityType}
+                                            triggerClassName="flex h-9 w-[120px] justify-between items-center rounded-md border border-white/10 bg-black/50 px-3 py-1 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            items={["Note", "Call", "Email", "Meeting"].map(type => ({
+                                                name: type,
+                                                onClick: () => setActivityType(type as "Note" | "Call" | "Email" | "Meeting")
+                                            }))}
+                                        />
                                         <Textarea
                                             value={newNote}
                                             onChange={(e) => setNewNote(e.target.value)}
@@ -552,6 +545,7 @@ export function LeadCard({ lead, assignableUsers }: { lead: Lead; assignableUser
                         </div>
                     </DialogContent>
                 </Dialog>
+                </div>
             </CardFooter>
         </Card>
     );

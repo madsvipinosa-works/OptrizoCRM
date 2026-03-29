@@ -1,10 +1,13 @@
 import { db } from "@/db";
+import { agencyProjects } from "@/db/schema";
 import { auth } from "@/auth";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
 import { Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -16,7 +19,10 @@ export default async function PMEnginePage() {
         redirect("/");
     }
 
+    const isAdmin = session.user.role === "admin";
+
     const projects = await db.query.agencyProjects.findMany({
+        where: eq(agencyProjects.isArchived, false),
         with: {
             client: true,
             milestones: true,
@@ -101,11 +107,14 @@ export default async function PMEnginePage() {
                                     <Clock className="h-3 w-3" />
                                     {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
                                 </div>
-                                <Button size="sm" variant="ghost" className="h-8 hover:bg-white/10" asChild>
-                                    <Link href={`/dashboard/pm/${project.id}`}>
-                                        Manage Board
-                                    </Link>
-                                </Button>
+                                <div className="flex gap-1.5">
+                                    {isAdmin && <ProjectArchiveButton projectId={project.id} />}
+                                    <Button size="sm" variant="ghost" className="h-8 hover:bg-white/10" asChild>
+                                        <Link href={`/dashboard/pm/${project.id}`}>
+                                            Manage Board
+                                        </Link>
+                                    </Button>
+                                </div>
                             </CardFooter>
                         </Card>
                     );

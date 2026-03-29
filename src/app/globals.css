@@ -57,39 +57,115 @@
   --radius-lg: var(--radius);
 }
 
-:root {
-  /* Default to Dark Mode variables for this specific aesthetic */
-  --background: #050505;
-  /* Deep Black */
-  --foreground: #fafafa;
+/*
+ * HeroUI Theme Customization
+ * Bridged with Shadcn UI variables
+ */
 
-  --card: #0a0a0a;
-  --card-foreground: #fafafa;
+:root,
+.light,
+.default,
+[data-theme="light"],
+[data-theme="default"] {
+  /* Theme Colors (Light Mode) */
+  --accent: oklch(76.97% 0.2124 148.67);
+  --accent-foreground: oklch(15% 0.0300 148.67);
+  --background: oklch(97.02% 0.0020 148.67);
+  --border: oklch(90.00% 0.0020 148.67);
+  --danger: oklch(0.5509 0.2166 25.29);
+  --danger-foreground: oklch(98% 0.0200 25.29);
+  --default: oklch(94.00% 0.0020 148.67);
+  --default-foreground: oklch(21.03% 0.0059 148.67);
+  --field-background: oklch(100.00% 0.0010 148.67);
+  --field-foreground: oklch(21.03% 0.0020 148.67);
+  --field-placeholder: oklch(55.17% 0.0040 148.67);
+  --focus: oklch(76.97% 0.2124 148.67);
+  --foreground: oklch(21.03% 0.0020 148.67);
+  --muted: oklch(55.17% 0.0040 148.67);
+  --overlay: oklch(100.00% 0.0006 148.67);
+  --overlay-foreground: oklch(21.03% 0.0020 148.67);
+  --scrollbar: oklch(87.10% 0.0020 148.67);
+  --segment: oklch(100.00% 0.0020 148.67);
+  --segment-foreground: oklch(21.03% 0.0020 148.67);
+  --separator: oklch(92.00% 0.0020 148.67);
+  --success: oklch(0.6072 0.1647 149.02);
+  --success-foreground: oklch(98% 0.0165 149.02);
+  --surface: oklch(100.00% 0.0010 148.67);
+  --surface-foreground: oklch(21.03% 0.0020 148.67);
+  --surface-secondary: oklch(95.24% 0.0016 148.67);
+  --surface-secondary-foreground: oklch(21.03% 0.0020 148.67);
+  --surface-tertiary: oklch(93.73% 0.0016 148.67);
+  --surface-tertiary-foreground: oklch(21.03% 0.0020 148.67);
+  --warning: oklch(0.6972 0.1687 54.22);
+  --warning-foreground: oklch(15% 0.0500 54.22);
 
-  --popover: #0a0a0a;
-  --popover-foreground: #fafafa;
-
-  --primary: #39ff14;
-  /* Neon Green */
-  --primary-foreground: #000000;
-
-  --secondary: #1a1a1a;
-  --secondary-foreground: #fafafa;
-
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-
-  --accent: #262626;
-  --accent-foreground: #fafafa;
-
-  --destructive: #ef4444;
-  --destructive-foreground: #fafafa;
-
-  --border: #262626;
-  --input: #262626;
-  --ring: #39ff14;
-
+  /* Border Radius */
   --radius: 0.5rem;
+  --field-radius: 0.125rem;
+
+  /* Shadcn Aliases Setup */
+  --card: var(--surface-secondary);
+  --card-foreground: var(--surface-secondary-foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--surface-foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--default);
+  --secondary-foreground: var(--default-foreground);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--danger-foreground);
+  --input: var(--field-background);
+  --ring: var(--focus);
+}
+
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+  /* Theme Colors (Dark Mode) */
+  --accent: oklch(76.97% 0.2124 148.67);
+  --accent-foreground: oklch(15% 0.0300 148.67);
+  --background: oklch(12.00% 0.0020 148.67);
+  --border: oklch(28.00% 0.0020 148.67);
+  --danger: oklch(0.5931 0.2338 25.42);
+  --danger-foreground: oklch(98% 0.0200 25.42);
+  --default: oklch(27.40% 0.0020 148.67);
+  --default-foreground: oklch(99.11% 0 0);
+  --field-background: oklch(21.03% 0.0040 148.67);
+  --field-foreground: oklch(99.11% 0.0020 148.67);
+  --field-placeholder: oklch(70.50% 0.0040 148.67);
+  --focus: oklch(76.97% 0.2124 148.67);
+  --foreground: oklch(99.11% 0.0020 148.67);
+  --muted: oklch(70.50% 0.0040 148.67);
+  --overlay: oklch(21.03% 0.0040 148.67);
+  --overlay-foreground: oklch(99.11% 0.0020 148.67);
+  --scrollbar: oklch(70.50% 0.0020 148.67);
+  --segment: oklch(39.64% 0.0020 148.67);
+  --segment-foreground: oklch(99.11% 0.0020 148.67);
+  --separator: oklch(25.00% 0.0020 148.67);
+  --success: oklch(0.7697 0.2124 148.67);
+  --success-foreground: oklch(15% 0.0500 148.67);
+  --surface: oklch(21.03% 0.0040 148.67);
+  --surface-foreground: oklch(99.11% 0.0020 148.67);
+  --surface-secondary: oklch(25.70% 0.0030 148.67);
+  --surface-secondary-foreground: oklch(99.11% 0.0020 148.67);
+  --surface-tertiary: oklch(27.21% 0.0030 148.67);
+  --surface-tertiary-foreground: oklch(99.11% 0.0020 148.67);
+  --warning: oklch(0.7921 0.1626 67.42);
+  --warning-foreground: oklch(15% 0.0488 67.42);
+  
+  /* Shadcn Aliases Setup */
+  --card: var(--surface-secondary);
+  --card-foreground: var(--surface-secondary-foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--surface-foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--default);
+  --secondary-foreground: var(--default-foreground);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--danger-foreground);
+  --input: var(--field-background);
+  --ring: var(--focus);
 }
 
 body {
