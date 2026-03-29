@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { UserRoleSelect } from "@/features/cms/team/components/UserRoleSelect";
 import { JobTitleEditor } from "@/features/cms/team/components/JobTitleEditor";
 import { UserActiveToggle } from "@/features/cms/team/components/UserActiveToggle";
+import { UserAboutToggle } from "@/features/cms/team/components/UserAboutToggle";
 import { TeamToolbar } from "@/features/cms/team/components/TeamToolbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,7 @@ interface UserListItem {
     image: string | null;
     jobTitle: string | null;
     isActive: boolean;
+    showOnAboutPage: boolean;
     role: "user" | "admin" | "editor" | "client";
 }
 
@@ -109,6 +111,8 @@ const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title:
                                     <JobTitleEditor userId={user.id} currentTitle={user.jobTitle} isAdmin={true} />
                                     <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
                                     <UserActiveToggle userId={user.id} isActive={user.isActive} isAdmin={true} />
+                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
+                                    <UserAboutToggle userId={user.id} isPublic={user.showOnAboutPage} isAdmin={true} />
                                 </div>
                             </div>
                         </div>

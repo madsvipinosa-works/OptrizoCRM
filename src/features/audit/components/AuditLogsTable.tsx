@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,7 +20,7 @@ type AuditLog = {
     } | null;
 };
 
-export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[], pagination: any } }) {
+export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[], pagination: { page: number, total: number, limit: number, totalPages: number } } }) {
     const [logs, setLogs] = useState<AuditLog[]>(initialData.logs);
     const [pagination, setPagination] = useState(initialData.pagination);
     const [loading, setLoading] = useState(false);
@@ -30,7 +30,7 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
         try {
             const { getAuditLogs } = await import("@/features/audit/actions");
             const res = await getAuditLogs(page);
-            if (res.success) {
+            if (res.success && res.pagination) {
                 setLogs(res.logs as AuditLog[]);
                 setPagination(res.pagination);
             }

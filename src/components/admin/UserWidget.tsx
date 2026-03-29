@@ -1,7 +1,7 @@
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export function UserWidget({ user }: { user: any }) {
+export function UserWidget({ user }: { user?: { name?: string | null; email?: string | null; image?: string | null; jobTitle?: string | null } }) {
     if (!user) return null;
 
     const initial = user.name ? user.name.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() || "?";

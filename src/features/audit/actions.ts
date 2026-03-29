@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { auditLogs, users } from "@/db/schema";
+import { auditLogs } from "@/db/schema";
 import { auth } from "@/auth";
-import { desc, eq } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "OTHER";
 
@@ -30,9 +30,9 @@ export async function logAction(
             entity,
             details,
         });
-    } catch (error) {
+    } catch {
         // We catch and log errors securely without crashing the main user workflow
-        console.error("[System Audit Log Error]: Failed to record transaction", error);
+        console.error("[System Audit Log Error]: Failed to record transaction");
     }
 }
 

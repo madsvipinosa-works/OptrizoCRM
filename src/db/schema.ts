@@ -26,6 +26,7 @@ export const users = pgTable("user", {
     role: roleEnum("role").default("user").notNull(),
     jobTitle: text("job_title"),
     isActive: boolean("is_active").default(true).notNull(),
+    showOnAboutPage: boolean("show_on_about_page").default(false).notNull(),
 });
 
 // 3. Accounts (For Google/GitHub OAuth)
@@ -158,6 +159,26 @@ export const siteSettings = pgTable("site_settings", {
     // Phase 5 Intelligence Settings
     monthlyMarketingSpend: integer("monthly_marketing_spend").default(1000).notNull(),
     adminHoursSavedPerProject: integer("admin_hours_saved_per_project").default(2).notNull(),
+
+    // About Page Content
+    aboutHeroTitle: text("about_hero_title").default("About Our Agency"),
+    missionStatement: text("mission_statement"),
+    companyStats: text("company_stats"), // JSON string: [{"label":"...","value":"..."}]
+    aboutTechStack: text("about_tech_stack").default("Powered By Next-Generation Technologies"),
+    aboutTechStackItems: text("about_tech_stack_items"), // JSON string: [{"name":"React", "imageUrl":"..."}]
+    aboutCtaHeadline: text("about_cta_headline").default("Ready to start your next project?"),
+    aboutCtaText: text("about_cta_text").default("Let's build something extraordinary together."),
+});
+
+// 10b. About Page Values (Bento Cards)
+export const aboutValues = pgTable("about_value", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    icon: text("icon").default("Zap"), // Lucide icon name
+    order: integer("order").default(0).notNull(),
 });
 
 // 11. Contact Messages (Lead Capture)

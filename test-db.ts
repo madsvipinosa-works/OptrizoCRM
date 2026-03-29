@@ -1,5 +1,4 @@
 import { db } from "./src/db";
-import { siteSettings } from "./src/db/schema";
 
 async function main() {
     try {

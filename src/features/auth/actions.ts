@@ -14,7 +14,7 @@ export async function googleSignIn() {
     await signIn("google", { redirectTo: "/dashboard" });
 }
 
-export async function signInWithEmail(prevState: any, formData: FormData) {
+export async function signInWithEmail(prevState: unknown, formData: FormData) {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
@@ -49,7 +49,7 @@ export async function signInWithEmail(prevState: any, formData: FormData) {
     }
 }
 
-export async function signUpWithEmail(prevState: any, formData: FormData) {
+export async function signUpWithEmail(prevState: unknown, formData: FormData) {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const name = formData.get("name") as string;
@@ -89,7 +89,7 @@ export async function signUpWithEmail(prevState: any, formData: FormData) {
     }
 }
 
-export async function requestPasswordReset(prevState: any, formData: FormData) {
+export async function requestPasswordReset(prevState: unknown, formData: FormData) {
     const email = formData.get("email") as string;
     
     if (!email) return { success: false, message: "Email is required" };
@@ -125,7 +125,7 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
     }
 }
 
-export async function resetPassword(prevState: any, formData: FormData) {
+export async function resetPassword(prevState: unknown, formData: FormData) {
     const token = formData.get("token") as string;
     const password = formData.get("password") as string;
 

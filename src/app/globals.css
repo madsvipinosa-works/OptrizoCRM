@@ -187,6 +187,21 @@ body {
   .glass-card {
     @apply bg-black/40 backdrop-blur-md border border-white/10;
   }
+
+  .override-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .override-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .override-scrollbar::-webkit-scrollbar-thumb {
+    background: #262626;
+    border-radius: 10px;
+  }
+  .override-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #404040;
+  }
 }
 
 @layer base {
