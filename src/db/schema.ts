@@ -6,7 +6,8 @@ import {
     primaryKey,
     integer,
     pgEnum,
-    AnyPgColumn
+    AnyPgColumn,
+    foreignKey
 } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -405,14 +406,20 @@ export const tasks = pgTable("task", {
         .references(() => milestones.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
-    dependsOnTaskId: text("dependsOnTaskId").references((): AnyPgColumn => tasks.id, { onDelete: "set null" }),
+    dependsOnTaskId: text("dependsOnTaskId"),
     dueDate: timestamp("due_date", { mode: "date" }),
     status: taskStatusEnum("status").default("Todo").notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
     overdueNotified: boolean("overdue_notified").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => ({
+    dependsOnFk: foreignKey({
+        columns: [t.dependsOnTaskId],
+        foreignColumns: [t.id],
+        name: "task_depends_on_fk"
+    }).onDelete("set null")
+}));
 
 export const taskAssignees = pgTable("task_assignee", {
     taskId: text("taskId")
@@ -438,9 +445,15 @@ export const clientFeedback = pgTable("client_feedback", {
         .references(() => users.id, { onDelete: "cascade" }),
     status: feedbackStatusEnum("status").notNull(),
     commentText: text("comment_text"),
-    parentFeedbackId: text("parentFeedbackId").references((): AnyPgColumn => clientFeedback.id, { onDelete: "cascade" }),
+    parentFeedbackId: text("parentFeedbackId"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+    parentFeedbackFk: foreignKey({
+        columns: [t.parentFeedbackId],
+        foreignColumns: [t.id],
+        name: "parent_feedback_fk"
+    }).onDelete("cascade")
+}));
 
 // PM Relations
 export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({

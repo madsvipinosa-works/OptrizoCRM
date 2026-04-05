@@ -24,7 +24,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
     const project = await db.query.agencyProjects.findFirst({
         where: eq(agencyProjects.id, id),
         with: {
-            client: true,
+            stakeholders: { with: { user: true } },
             milestones: {
                 orderBy: (m, { asc }) => [asc(m.order)],
                 with: {
@@ -57,7 +57,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                     <div>
                         <h2 className="text-2xl font-bold text-glow-sm">{project.title}</h2>
                         <p className="text-sm text-muted-foreground hidden sm:flex items-center gap-2">
-                            {project.client?.name} • Status: <span className="text-white">{project.status}</span>
+                            {project.stakeholders?.[0]?.user?.name || "Unknown Client"} • Status: <span className="text-white">{project.status}</span>
                         </p>
                     </div>
                 </div>

@@ -24,7 +24,7 @@ export default async function PMEnginePage() {
     const projects = await db.query.agencyProjects.findMany({
         where: eq(agencyProjects.isArchived, false),
         with: {
-            client: true,
+            stakeholders: { with: { user: true } },
             milestones: true,
             tasks: true
         },
@@ -86,7 +86,7 @@ export default async function PMEnginePage() {
                                 </div>
                                 <CardTitle className="text-lg line-clamp-1" title={project.title}>{project.title}</CardTitle>
                                 <CardDescription className="flex items-center gap-1 text-xs">
-                                    {project.client?.name || "Unknown Client"}
+                                    {project.stakeholders?.[0]?.user?.name || "Unknown Client"}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1">

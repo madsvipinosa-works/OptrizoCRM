@@ -47,7 +47,7 @@ export default async function LeadsPage({
                 },
                 orderBy: (notes, { desc }) => [desc(notes.createdAt)],
             },
-            assignee: true,
+            assignees: { with: { user: true } },
             proposals: {
                 orderBy: (p, { desc }) => [desc(p.createdAt)]
             },
@@ -67,6 +67,7 @@ export default async function LeadsPage({
         createdAt: lead.createdAt.toISOString(),
         updatedAt: lead.updatedAt.toISOString(),
         nextActionDate: lead.nextActionDate ? lead.nextActionDate.toISOString() : null,
+        assignee: lead.assignees?.[0]?.user || null,
     }));
 
     return (

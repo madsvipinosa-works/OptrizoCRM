@@ -22,6 +22,8 @@ export function TestimonialsSection({
     testimonials,
     className,
 }: TestimonialsSectionProps) {
+    if (!testimonials || testimonials.length === 0) return null;
+
     return (
         <section
             className={cn(
