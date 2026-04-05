@@ -48,12 +48,13 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
     }
 
     try {
+        const oldProposal = await db.query.proposals.findFirst({ where: eq(proposals.id, id) });
+        if (!oldProposal) return { success: false, message: "Proposal not found" };
+
         const [updated] = await db.update(proposals)
             .set({ ...data, ...(status && { status }), updatedAt: new Date() })
             .where(eq(proposals.id, id))
             .returning();
-
-        if (!updated) return { success: false, message: "Proposal not found" };
 
         revalidatePath(`/dashboard/leads/${updated.leadId}`);
         revalidatePath(`/proposal/${id}`);
@@ -62,7 +63,16 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
              await db.update(leads).set({ status: "Proposal Sent" }).where(eq(leads.id, updated.leadId));
         }
         
-        await logAction("UPDATE", "Proposal", `Proposal ${id} updated (Status: ${status || updated.status})`);
+        // Custom Audit Log Logic for Scope & Pricing
+        let auditMsg = `Proposal ${id} updated (Status: ${status || updated.status})`;
+        if (data.pricingStructure && data.pricingStructure !== oldProposal.pricingStructure) {
+            auditMsg += ` | Pricing changed from [${oldProposal.pricingStructure}] to [${data.pricingStructure}]`;
+        }
+        if (data.scope && data.scope !== oldProposal.scope) {
+            auditMsg += ` | Scope changed`;
+        }
+        
+        await logAction("UPDATE", "Proposal", auditMsg);
         
         return { success: true, proposal: updated };
     } catch (error) {
@@ -98,6 +108,37 @@ export async function acceptProposalByClient(id: string) {
     } catch (error) {
         console.error("Failed to accept proposal:", error);
         return { success: false, message: "System error while accepting proposal." };
+    }
+}
+
+export async function rejectProposalByClient(id: string, reason?: string) {
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, id),
+            with: { lead: true }
+        });
+
+        if (!proposal) return { success: false, message: "Proposal not found" };
+        if (proposal.status === "Rejected") return { success: false, message: "Already rejected" };
+
+        await db.update(proposals).set({ status: "Rejected", updatedAt: new Date() }).where(eq(proposals.id, id));
+
+        // Sync proposal rejection back to the Lead status
+        await db.update(leads).set({ status: "Negotiation", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
+
+        if (proposal.lead) {
+             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.name}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads/${proposal.lead.id}`);
+        }
+        
+        await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Lead ${proposal.leadId} reverted to Negotiation.`);
+        
+        revalidatePath(`/proposal/${id}`);
+        revalidatePath(`/dashboard/leads/${proposal.leadId}`);
+        
+        return { success: true, message: "Proposal rejected." };
+    } catch (error) {
+        console.error("Failed to reject proposal:", error);
+        return { success: false, message: "System error while rejecting proposal." };
     }
 }
 

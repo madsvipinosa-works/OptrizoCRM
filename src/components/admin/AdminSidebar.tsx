@@ -94,7 +94,7 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
                         </div>
                         <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", contentOpen ? "rotate-180" : "rotate-0")} />
                     </button>
-                    
+
                     <div className={cn("overflow-hidden transition-all duration-300 ease-in-out", contentOpen ? "max-h-[300px] mt-1 opacity-100" : "max-h-0 opacity-0")}>
                         <div className="flex flex-col space-y-1 pl-11 pr-2 pb-2">
                             {contentNavItems.map((item) => {
@@ -168,7 +168,7 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
             {/* Mobile Header */}
             <div className="md:hidden fixed top-0 left-0 w-full h-16 border-b border-[#262626] bg-[#050505] z-50 flex items-center px-4 justify-between">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-bold tracking-tight text-white">Optrizo Admin</h2>
+                    <h2 className="text-lg font-bold tracking-tight text-white">Optrizo Digital Solutions</h2>
                 </div>
                 <div className="flex items-center gap-2">
                     <NotificationBell />

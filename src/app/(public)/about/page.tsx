@@ -133,7 +133,7 @@ export default async function AboutPage() {
                                 <div className="relative mb-6">
                                     <div className="absolute -inset-1 rounded-full bg-gradient-to-b from-primary/50 to-transparent opacity-0 group-hover:opacity-100 blur-md transition-all duration-500" />
                                     <Avatar className="h-40 w-40 border-2 border-[#262626] group-hover:border-primary transition-colors relative z-10">
-                                        <AvatarImage src={member.image || ""} className="object-cover" />
+                                        <AvatarImage src={member.image || ""} className="object-cover" referrerPolicy="no-referrer" />
                                         <AvatarFallback className="bg-gradient-to-br from-[#121212] to-black text-4xl text-white">
                                             {member.name?.[0]?.toUpperCase() || "T"}
                                         </AvatarFallback>

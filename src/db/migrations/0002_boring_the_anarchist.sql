@@ -1,1 +1,0 @@
-ALTER TABLE "lead" ADD COLUMN "notes" text;

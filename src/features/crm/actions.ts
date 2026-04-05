@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, users, leadNotes, agencyProjects, milestones } from "@/db/schema";
+import { leads, users, leadNotes, agencyProjects, milestones, projectStakeholders, leadAssignees } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
@@ -35,12 +35,24 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
     // 3. Update Database
     try {
+        // Extract assignedTo if present to handle junction table separately
+        const { assignedTo, ...updateFields } = validated.data;
+        
         await db.update(leads)
             .set({
-                ...validated.data,
+                ...updateFields,
                 updatedAt: new Date(),
             })
             .where(eq(leads.id, id));
+
+        // If an assignment was made, write to the junction table
+        // (Wiping previous assignees for this UI action if it's a 1-to-many overwrite, or just accumulating)
+        if (assignedTo !== undefined) {
+            await db.delete(leadAssignees).where(eq(leadAssignees.leadId, id));
+            if (assignedTo) {
+                await db.insert(leadAssignees).values({ leadId: id, userId: assignedTo });
+            }
+        }
 
         await logAction("UPDATE", "Lead", `Lead ${id} properties updated.`);
 
@@ -263,12 +275,12 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
             console.log(`[SYS_LOG] 👤 Created new Client User account for ${lead.email}`);
         } else {
             clientUserId = existingUser.id;
-            // Upgrade role to client if they were a standard user
-            if (existingUser.role === "user") {
+            // VERY STRICT ROLE CHECK - NEVER DOWNGRADE AN ADMIN OR EDITOR TO CLIENT
+            if (existingUser.role !== "admin" && existingUser.role !== "editor") {
                 await db.update(users).set({ role: "client" }).where(eq(users.id, existingUser.id));
                 console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.email}`);
             } else {
-                console.log(`[SYS_LOG] 👤 Using existing User account for ${lead.email}`);
+                console.log(`[SYS_LOG] 🛡️ Protected Agency Staff role: Existing User account kept role '${existingUser.role}' for ${lead.email}`);
             }
         }
 
@@ -276,11 +288,16 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
         const [newProject] = await db.insert(agencyProjects).values({
             title: lead.service ? `${lead.name} - ${lead.service}` : `${lead.name} Project`,
             description: lead.notes || lead.message,
-            clientId: clientUserId,
             leadId: lead.id,
             status: "Kickoff",
         }).returning({ id: agencyProjects.id, title: agencyProjects.title });
-        console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id}`);
+        
+        // 3.5 Write to projectStakeholders Junction Table
+        await db.insert(projectStakeholders).values({
+            projectId: newProject.id,
+            userId: clientUserId
+        });
+        console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id} with Stakeholder ${clientUserId}`);
 
         // 4. Create Default Milestone Scaffolding
         await db.insert(milestones).values([

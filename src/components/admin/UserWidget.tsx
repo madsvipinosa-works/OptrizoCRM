@@ -9,7 +9,7 @@ export function UserWidget({ user }: { user?: { name?: string | null; email?: st
     return (
         <div className="flex items-center gap-3 relative group">
             <Avatar className="w-10 h-10 shadow-sm border border-white/5 bg-transparent">
-                <AvatarImage src={user.image || ""} alt={user.name || "Avatar"} />
+                <AvatarImage src={user.image || ""} alt={user.name || "Avatar"} referrerPolicy="no-referrer" />
                 <AvatarFallback className="bg-gradient-to-br from-[#cce5ff] via-[#aad1d7] to-[#80c8ff] shadow-[inset_0_0px_10px_rgba(255,255,255,0.4)] text-black font-semibold">
                     {initial}
                 </AvatarFallback>

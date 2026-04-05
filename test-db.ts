@@ -1,9 +1,11 @@
 import { db } from "./src/db";
+import { users } from "./src/db/schema";
+import { eq } from "drizzle-orm";
 
 async function main() {
     try {
-        const settings = await db.query.siteSettings.findFirst();
-        console.log("Settings from DB:", settings);
+        const team = await db.query.users.findMany({ where: eq(users.showOnAboutPage, true) });
+        console.log("Team members:", team.map(t => ({ name: t.name, image: t.image })));
     } catch (e) {
         console.error("DB Error:", e);
     }

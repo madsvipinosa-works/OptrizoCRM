@@ -1,6 +1,23 @@
 "use server";
 
 import { put, del } from "@vercel/blob";
+import { z } from "zod";
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
+const ALLOWED_MIME_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "application/pdf",
+    "application/zip",
+    "application/x-zip-compressed"
+];
+
+const fileUploadSchema = z.object({
+    file: z.instanceof(File)
+        .refine((file) => file.size <= MAX_FILE_SIZE, `File size must be under 20MB.`)
+        .refine((file) => ALLOWED_MIME_TYPES.includes(file.type), `File type not allowed. Please upload PDF, PNG, JPG, or ZIP.`)
+});
 
 export async function deleteImage(url: string) {
     if (!url) return;
@@ -35,13 +52,18 @@ export async function deleteImage(url: string) {
 
 export async function uploadImage(formData: FormData) {
     const file = formData.get("file") as File;
-
+    
     if (!file) {
         return { success: false, message: "No file uploaded." };
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        return { success: false, message: "File size too large (max 5MB)." };
+    const validated = fileUploadSchema.safeParse({ file });
+    
+    if (!validated.success) {
+        return { 
+            success: false, 
+            message: validated.error.flatten().fieldErrors.file?.[0] || "Invalid file."
+        };
     }
 
     // Local / Offline Fallback

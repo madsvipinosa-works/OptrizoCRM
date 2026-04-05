@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1769438427248,
-      "tag": "0000_clear_scarlet_spider",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1773587286847,
-      "tag": "0001_odd_starfox",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1773587360843,
-      "tag": "0002_boring_the_anarchist",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1773587424670,
-      "tag": "0003_bent_vance_astro",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1773588066976,
-      "tag": "0004_outstanding_adam_warlock",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1774793933431,
-      "tag": "0005_nifty_marauders",
+      "when": 1775414774060,
+      "tag": "0000_damp_union_jack",
       "breakpoints": true
     }
   ]

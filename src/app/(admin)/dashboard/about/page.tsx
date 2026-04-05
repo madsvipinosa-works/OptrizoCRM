@@ -18,7 +18,7 @@ export default async function AboutCMSPage() {
 
             <div className="space-y-12">
                 {/* Stats & Mission */}
-                <AboutSettingsForm initialData={settings} />
+                <AboutSettingsForm initialData={settings || {}} />
 
                 <div className="h-px bg-[#262626] w-full" />
 

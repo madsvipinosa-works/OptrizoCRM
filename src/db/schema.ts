@@ -6,7 +6,7 @@ import {
     primaryKey,
     integer,
     pgEnum,
-
+    AnyPgColumn
 } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -97,8 +97,7 @@ export const posts = pgTable("post", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     authorId: text("authorId")
-        .notNull()
-        .references(() => users.id, { onDelete: "cascade" }),
+        .references(() => users.id, { onDelete: "set null" }), // Keep post if author deleted
     coverImage: text("coverImage"),
     excerpt: text("excerpt"),
 });
@@ -202,7 +201,6 @@ export const leads = pgTable("lead", {
     scope: text("scope"),
     source: text("source").default("Website Form"),
     notes: text("notes"), // Legacy simple notes (keeping for backward compatibility)
-    assignedTo: text("assignedTo").references(() => users.id), // New: Assignment
     files: text("files").array(), // Array of file URLs (e.g., Proposals)
     nextActionDate: timestamp("next_action_date", { mode: "date" }), // Scheduled follow-up
     read: boolean("read").default(false).notNull(),
@@ -210,6 +208,15 @@ export const leads = pgTable("lead", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const leadAssignees = pgTable("lead_assignee", {
+    leadId: text("leadId")
+        .notNull()
+        .references(() => leads.id, { onDelete: "cascade" }),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+}, (t) => ({ pk: primaryKey({ columns: [t.leadId, t.userId] }) }));
 
 // 12. Lead Notes (Audit Trail / Advanced Comments)
 export const leadNotes = pgTable("lead_note", {
@@ -282,13 +289,21 @@ export const auditLogs = pgTable("audit_log", {
 // --- RELATIONS ---
 import { relations } from "drizzle-orm";
 
-export const leadsRelations = relations(leads, ({ one, many }) => ({
+export const leadsRelations = relations(leads, ({ many }) => ({
     notesList: many(leadNotes), // Changed name to avoid conflict with 'notes' column
-    assignee: one(users, {
-        fields: [leads.assignedTo],
+    assignees: many(leadAssignees),
+    proposals: many(proposals),
+}));
+
+export const leadAssigneesRelations = relations(leadAssignees, ({ one }) => ({
+    lead: one(leads, {
+        fields: [leadAssignees.leadId],
+        references: [leads.id],
+    }),
+    user: one(users, {
+        fields: [leadAssignees.userId],
         references: [users.id],
     }),
-    proposals: many(proposals),
 }));
 
 export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
@@ -303,10 +318,10 @@ export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
-    assignedLeads: many(leads),
+    leadAssignments: many(leadAssignees),
     authoredNotes: many(leadNotes),
-    agencyProjects: many(agencyProjects),
-    assignedTasks: many(tasks),
+    projectStakeholds: many(projectStakeholders),
+    taskAssignments: many(taskAssignees),
     notifications: many(notifications),
     clientFeedback: many(clientFeedback),
     auditLogs: many(auditLogs),
@@ -344,9 +359,6 @@ export const agencyProjects = pgTable("agency_project", {
         .$defaultFn(() => crypto.randomUUID()),
     title: text("title").notNull(),
     description: text("description"),
-    clientId: text("clientId")
-        .notNull()
-        .references(() => users.id, { onDelete: "restrict" }),
     leadId: text("leadId")
         .references(() => leads.id, { onDelete: "set null" }), // Link back to originating lead
     status: agencyProjectStatusEnum("status").default("Kickoff").notNull(),
@@ -357,6 +369,15 @@ export const agencyProjects = pgTable("agency_project", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const projectStakeholders = pgTable("project_stakeholder", {
+    projectId: text("projectId")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+}, (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }));
 
 export const milestones = pgTable("milestone", {
     id: text("id")
@@ -384,8 +405,7 @@ export const tasks = pgTable("task", {
         .references(() => milestones.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
-    assigneeId: text("assigneeId")
-        .references(() => users.id, { onDelete: "set null" }), // Staff assigned
+    dependsOnTaskId: text("dependsOnTaskId").references((): AnyPgColumn => tasks.id, { onDelete: "set null" }),
     dueDate: timestamp("due_date", { mode: "date" }),
     status: taskStatusEnum("status").default("Todo").notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
@@ -393,6 +413,15 @@ export const tasks = pgTable("task", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const taskAssignees = pgTable("task_assignee", {
+    taskId: text("taskId")
+        .notNull()
+        .references(() => tasks.id, { onDelete: "cascade" }),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+}, (t) => ({ pk: primaryKey({ columns: [t.taskId, t.userId] }) }));
 
 // 14. Client Feedback
 export const feedbackStatusEnum = pgEnum("feedback_status", ["APPROVED", "REVISION_REQUESTED"]);
@@ -409,21 +438,30 @@ export const clientFeedback = pgTable("client_feedback", {
         .references(() => users.id, { onDelete: "cascade" }),
     status: feedbackStatusEnum("status").notNull(),
     commentText: text("comment_text"),
+    parentFeedbackId: text("parentFeedbackId").references((): AnyPgColumn => clientFeedback.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // PM Relations
 export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({
-    client: one(users, {
-        fields: [agencyProjects.clientId],
-        references: [users.id],
-    }),
+    stakeholders: many(projectStakeholders),
     lead: one(leads, {
         fields: [agencyProjects.leadId],
         references: [leads.id],
     }),
     milestones: many(milestones),
     tasks: many(tasks),
+}));
+
+export const projectStakeholdersRelations = relations(projectStakeholders, ({ one }) => ({
+    project: one(agencyProjects, {
+        fields: [projectStakeholders.projectId],
+        references: [agencyProjects.id],
+    }),
+    user: one(users, {
+        fields: [projectStakeholders.userId],
+        references: [users.id],
+    }),
 }));
 
 export const milestonesRelations = relations(milestones, ({ one, many }) => ({
@@ -435,7 +473,7 @@ export const milestonesRelations = relations(milestones, ({ one, many }) => ({
     feedback: many(clientFeedback),
 }));
 
-export const clientFeedbackRelations = relations(clientFeedback, ({ one }) => ({
+export const clientFeedbackRelations = relations(clientFeedback, ({ one, many }) => ({
     milestone: one(milestones, {
         fields: [clientFeedback.milestoneId],
         references: [milestones.id],
@@ -444,9 +482,15 @@ export const clientFeedbackRelations = relations(clientFeedback, ({ one }) => ({
         fields: [clientFeedback.clientId],
         references: [users.id],
     }),
+    parent: one(clientFeedback, {
+        fields: [clientFeedback.parentFeedbackId],
+        references: [clientFeedback.id],
+        relationName: "feedbackReplies",
+    }),
+    replies: many(clientFeedback, { relationName: "feedbackReplies" }),
 }));
 
-export const tasksRelations = relations(tasks, ({ one }) => ({
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
     project: one(agencyProjects, {
         fields: [tasks.projectId],
         references: [agencyProjects.id],
@@ -455,8 +499,22 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
         fields: [tasks.milestoneId],
         references: [milestones.id],
     }),
-    assignee: one(users, {
-        fields: [tasks.assigneeId],
+    assignees: many(taskAssignees),
+    dependsOn: one(tasks, {
+        fields: [tasks.dependsOnTaskId],
+        references: [tasks.id],
+        relationName: "taskDependencies",
+    }),
+    dependents: many(tasks, { relationName: "taskDependencies" }),
+}));
+
+export const taskAssigneesRelations = relations(taskAssignees, ({ one }) => ({
+    task: one(tasks, {
+        fields: [taskAssignees.taskId],
+        references: [tasks.id],
+    }),
+    user: one(users, {
+        fields: [taskAssignees.userId],
         references: [users.id],
     }),
 }));
