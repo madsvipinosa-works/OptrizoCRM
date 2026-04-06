@@ -93,11 +93,11 @@ export async function acceptProposalByClient(id: string) {
 
         await db.update(proposals).set({ status: "Approved", updatedAt: new Date() }).where(eq(proposals.id, id));
 
-        // Trigger Won Automation
-        await markLeadAsWon(proposal.leadId);
+        // Trigger Won Automation internally bypassing the UI admin check
+        await markLeadAsWon(proposal.leadId, true);
         
         if (proposal.lead) {
-             await notifyAllAdmins(`Proposal accepted by ${proposal.lead.name}!`, "proposal", `/dashboard/leads/${proposal.lead.id}`);
+             await notifyAllAdmins(`Proposal accepted by ${proposal.lead.name}!`, "proposal", `/dashboard/leads`);
         }
         
         await logAction("UPDATE", "Proposal", `Proposal ${id} accepted by client`);
@@ -127,7 +127,7 @@ export async function rejectProposalByClient(id: string, reason?: string) {
         await db.update(leads).set({ status: "Negotiation", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
 
         if (proposal.lead) {
-             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.name}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads/${proposal.lead.id}`);
+             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.name}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
         }
         
         await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Lead ${proposal.leadId} reverted to Negotiation.`);

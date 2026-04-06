@@ -49,8 +49,11 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
     const renderNavContent = () => (
         <div className="px-3 py-8 h-full flex flex-col bg-[#050505]">
             {/* Top Widget */}
-            <div className="mb-8 px-4 shrink-0">
+            <div className="mb-8 px-4 shrink-0 flex items-center justify-between">
                 <UserWidget user={user} />
+                <div className="hidden md:block">
+                    <NotificationBell />
+                </div>
             </div>
 
             <nav className="space-y-1 flex-1 overflow-y-auto override-scrollbar pr-2">

@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { auth } from "@/auth";
-import { agencyProjects } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { agencyProjects, projectStakeholders } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, LayoutTemplate, Clock, Link as LinkIcon, MessageCircle } from "lucide-react";
@@ -14,23 +14,31 @@ export default async function ClientPortalPage() {
     // Assuming role guard handles unauth, but just in case:
     if (!session?.user?.id) return null;
 
-    // Fetch the client's projects
-    const projects = await db.query.agencyProjects.findMany({
-        where: eq(agencyProjects.clientId, session.user.id),
+    // Fetch the client's projects via the projectStakeholders junction
+    const userStakeholderRecords = await db.query.projectStakeholders.findMany({
+        where: eq(projectStakeholders.userId, session.user.id),
         with: {
-            milestones: {
-                orderBy: (milestones, { asc }) => [asc(milestones.order)],
+            project: {
                 with: {
-                    feedback: {
-                        orderBy: (clientFeedback, { desc }) => [desc(clientFeedback.createdAt)]
-                    }
+                    milestones: {
+                        orderBy: (milestones, { asc }) => [asc(milestones.order)],
+                        with: {
+                            feedback: {
+                                orderBy: (clientFeedback, { desc }) => [desc(clientFeedback.createdAt)]
+                            }
+                        }
+                    },
+                    tasks: true,
+                    lead: true
                 }
-            },
-            tasks: true,
-            lead: true
-        },
-        orderBy: (agencyProjects, { desc }) => [desc(agencyProjects.createdAt)]
+            }
+        }
     });
+
+    const projects = userStakeholderRecords
+        .map(record => record.project)
+        .filter(Project => Project !== null)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

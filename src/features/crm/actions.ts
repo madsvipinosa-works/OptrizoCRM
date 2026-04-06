@@ -244,10 +244,14 @@ export async function getAnalyticsData() {
     }
 }
 
-export async function markLeadAsWon(leadId: string): Promise<ActionState> {
+export async function markLeadAsWon(leadId: string, isSystemAction: boolean = false): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
-        return { success: false, message: "Unauthorized" };
+    
+    // Only enforce auth check if it's not a programmatic system action (e.g. client proposal acceptance)
+    if (!isSystemAction) {
+        if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+            return { success: false, message: "Unauthorized" };
+        }
     }
 
     try {

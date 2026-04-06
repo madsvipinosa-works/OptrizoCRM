@@ -128,10 +128,14 @@ export async function createTask(projectId: string, milestoneId: string, title: 
             milestoneId,
             title,
             description,
-            assigneeId: assigneeId || null,
             status: isParentBlocked ? "Blocked" : "Todo",
             isBlockedByClient: isParentBlocked
         }).returning();
+
+        if (assigneeId) {
+            const { taskAssignees } = await import("@/db/schema");
+            await db.insert(taskAssignees).values({ taskId: newTask.id, userId: assigneeId });
+        }
 
         await logAction("CREATE", "Task", `Task "${title}" created`);
 
@@ -150,9 +154,29 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
     }
 
     try {
+        const oldTask = await db.query.tasks.findFirst({
+            where: eq(tasks.id, taskId),
+            with: { milestone: { with: { project: { with: { stakeholders: { with: { user: true } } } } } } }
+        });
+
+        if (!oldTask) return { success: false, message: "Task not found" };
+
+        const wasBlocked = oldTask.isBlockedByClient;
+        const isNowBlocked = status === "Blocked";
+
         await db.update(tasks)
-            .set({ status, isBlockedByClient: status === "Blocked" ? true : false, updatedAt: new Date() })
+            .set({ status, isBlockedByClient: isNowBlocked, updatedAt: new Date() })
             .where(eq(tasks.id, taskId));
+
+        if (!wasBlocked && isNowBlocked) {
+            const stakeholders = oldTask.milestone?.project?.stakeholders || [];
+            const emails = stakeholders.map(s => s.user?.email).filter(Boolean) as string[];
+            
+            if (emails.length > 0) {
+                const { sendTaskBlockedEmail } = await import("@/lib/notifications");
+                await sendTaskBlockedEmail(emails, oldTask.milestone?.project?.title || "Your Project", oldTask.title);
+            }
+        }
 
         await logAction("UPDATE", "Task", `Task ${taskId} status updated to ${status}`);
 
@@ -178,12 +202,19 @@ export async function updateTaskDetails(
             .set({
                 title: data.title,
                 description: data.description,
-                assigneeId: data.assigneeId,
                 dueDate: data.dueDate,
                 updatedAt: new Date()
             })
             .where(eq(tasks.id, taskId))
             .returning();
+
+        if (data.assigneeId !== undefined) {
+             const { taskAssignees } = await import("@/db/schema");
+             await db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId));
+             if (data.assigneeId) {
+                 await db.insert(taskAssignees).values({ taskId, userId: data.assigneeId });
+             }
+        }
 
         await logAction("UPDATE", "Task", `Task ${taskId} details updated`);
 
@@ -301,16 +332,30 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
 
     try {
         const { clientFeedback } = await import("@/db/schema");
+        const { desc } = await import("drizzle-orm");
+
+        // Find the latest feedback for version chaining (threading)
+        const latestFeedback = await db.query.clientFeedback.findFirst({
+            where: eq(clientFeedback.milestoneId, milestoneId),
+            orderBy: [desc(clientFeedback.createdAt)]
+        });
+
         await db.insert(clientFeedback).values({
             milestoneId,
             clientId: session.user.id,
             status,
             commentText: commentText?.trim() || null,
+            parentFeedbackId: latestFeedback?.id || null, // Create threaded version link
         });
 
         const milestone = await db.query.milestones.findFirst({ where: eq(milestones.id, milestoneId) });
         
         if (milestone) {
+            // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT
+            await db.update(tasks)
+                .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
+                .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
+
             if (status === "REVISION_REQUESTED") {
                 await updateMilestoneStatus(milestoneId, "In Progress");
                 await notifyAllAdmins(`${session.user.name} requested a revision for: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
@@ -358,6 +403,9 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
                     with: {
                         project: true
                     }
+                },
+                assignees: {
+                    with: { user: true }
                 }
             }
         });
@@ -373,14 +421,17 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
             const project = task.milestone?.project;
             if (!project) continue;
 
-            // Notify Assignee if they exist
-            if (task.assigneeId) {
-                await createSystemNotification(
-                    task.assigneeId, 
-                    `OVERDUE: The task "${task.title}" is past its deadline.`, 
-                    "alert", 
-                    `/dashboard/pm/${project.id}`
-                );
+            // Notify Assignees if they exist
+            const assignees = task.assignees || [];
+            for (const assignee of assignees) {
+                if (assignee.userId) {
+                    await createSystemNotification(
+                        assignee.userId, 
+                        `OVERDUE: The task "${task.title}" is past its deadline.`, 
+                        "alert", 
+                        `/dashboard/pm/${project.id}`
+                    );
+                }
             }
 
             // Also notify Admins

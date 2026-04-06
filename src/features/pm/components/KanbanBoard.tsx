@@ -6,7 +6,7 @@ import { updateTaskStatus, updateMilestoneStatus, createTask } from "@/features/
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, GripVertical, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Plus, GripVertical, AlertCircle, CheckCircle2, ChevronDown, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -30,6 +30,7 @@ interface KanbanTask {
     status: "Todo" | "In Progress" | "Blocked" | "Done";
     assigneeId: string | null;
     dueDate: Date | null;
+    dependsOnTaskId: string | null;
 }
 
 interface KanbanTeamMember {
@@ -100,6 +101,13 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
             tasksForMilestone = tasksForMilestone.filter(t => t.assigneeId === filterAssignee);
         }
     }
+
+    const isDependencyLocked = (task: KanbanTask) => {
+        if (!task.dependsOnTaskId) return false;
+        const parentTask = optimisticTasks.find(t => t.id === task.dependsOnTaskId);
+        if (!parentTask) return false;
+        return parentTask.status !== "Done";
+    };
 
     const onDragEnd = async (result: DropResult) => {
         const { destination, source, draggableId } = result;
@@ -548,23 +556,34 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                                         <div className="space-y-3">
                                             {tasksForMilestone
                                                 .filter((t) => t.status === column.id)
-                                                .map((task, index: number) => (
-                                                    <Draggable key={task.id} draggableId={task.id} index={index}>
+                                                .map((task, index: number) => {
+                                                    const isLocked = isDependencyLocked(task);
+                                                    return (
+                                                    <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={isLocked}>
                                                         {(provided, snapshot) => (
                                                             <div
                                                                 ref={provided.innerRef}
                                                                 {...provided.draggableProps}
                                                                 {...provided.dragHandleProps}
-                                                                className={`p-3 rounded-lg border flex gap-2 transition-all ${snapshot.isDragging ? 'shadow-2xl shadow-primary/20 bg-zinc-900 border-primary/50' :
+                                                                className={`p-3 rounded-lg border flex gap-2 transition-all ${
+                                                                    isLocked ? 'opacity-50 bg-black/20 border-white/5 cursor-not-allowed' :
+                                                                    snapshot.isDragging ? 'shadow-2xl shadow-primary/20 bg-zinc-900 border-primary/50' :
                                                                     column.id === 'Blocked' ? 'bg-red-500/10 border-red-500/20 shadow-none' :
-                                                                        column.id === 'Done' ? 'bg-green-500/5 border-green-500/20 shadow-none opacity-80' :
-                                                                            'glass-card border-white/10 shadow-none hover:border-white/20'
-                                                                    }`}
+                                                                    column.id === 'Done' ? 'bg-green-500/5 border-green-500/20 shadow-none opacity-80' :
+                                                                    'glass-card border-white/10 shadow-none hover:border-white/20'
+                                                                }`}
                                                             >
-                                                                <GripVertical className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                                                                {isLocked ? (
+                                                                    <Lock className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                                                                ) : (
+                                                                    <GripVertical className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                                                                )}
                                                                 <div className="flex-1 flex justify-between items-start gap-2">
                                                                     <div className="flex-1">
-                                                                        <p className="font-medium text-sm leading-tight mb-1">{task.title}</p>
+                                                                        <p className="font-medium text-sm leading-tight mb-1">
+                                                                            {task.title}
+                                                                            {isLocked && <span className="ml-2 text-[10px] text-red-400 font-bold uppercase tracking-widest">Locked by Dependency</span>}
+                                                                        </p>
                                                                         {task.description && (
                                                                             <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
                                                                         )}
@@ -604,7 +623,8 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                                                             </div>
                                                         )}
                                                     </Draggable>
-                                                ))}
+                                                    );
+                                                })}
                                             {provided.placeholder}
                                         </div>
                                     </div>

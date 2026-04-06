@@ -31,7 +31,7 @@ export default async function AuditLogsPage() {
                     Failed to load audit logs: {message}
                 </div>
             ) : (
-                <AuditLogsTable initialData={{ logs: logs || [], pagination: pagination || { page: 1, totalPages: 1, total: 0 } }} />
+                <AuditLogsTable initialData={{ logs: logs || [], pagination: pagination || { page: 1, totalPages: 1, total: 0, limit: 20 } }} />
             )}
         </div>
     );

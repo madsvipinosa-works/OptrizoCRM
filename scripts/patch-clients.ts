@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "../src/db";
-import { users, agencyProjects } from "../src/db/schema";
+import { users, projectStakeholders } from "../src/db/schema";
 import { eq, inArray } from "drizzle-orm";
 
 async function main() {
@@ -8,10 +8,10 @@ async function main() {
 
     try {
         // Find all projects
-        const allProjects = await db.select().from(agencyProjects);
+        const allStakeholders = await db.select().from(projectStakeholders);
 
         // Find users for those projects
-        const clientIds = allProjects.map(p => p.clientId).filter(Boolean) as string[];
+        const clientIds = allStakeholders.map(s => s.userId).filter(Boolean) as string[];
 
         if (clientIds.length > 0) {
             // Upgrade any user attached to a project who is still just a "user"

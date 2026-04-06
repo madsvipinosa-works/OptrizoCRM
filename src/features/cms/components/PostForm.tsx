@@ -18,11 +18,13 @@ interface PostFormProps {
         title: string;
         slug: string;
         content: string | null;
-        coverImage: string | null; // Add this
+        coverImage: string | null;
+        published?: boolean;
     };
+    isAdmin: boolean;
 }
 
-export function PostForm({ initialData }: PostFormProps) {
+export function PostForm({ initialData, isAdmin }: PostFormProps) {
     const action = initialData ? updatePost : createPost;
     const [state, formAction, isPending] = useActionState(action, { message: "", success: false });
     const [content, setContent] = useState(initialData?.content || "<p>Start writing...</p>");
@@ -81,6 +83,20 @@ export function PostForm({ initialData }: PostFormProps) {
                         {/* Hidden input to send content in FormData */}
                         <input type="hidden" name="content" value={content} />
                     </div>
+
+                    {isAdmin && (
+                        <div className="space-y-2">
+                            <Label>Publish Status</Label>
+                            <select
+                                name="published"
+                                defaultValue={initialData?.published ? "true" : "false"}
+                                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                            >
+                                <option value="true" className="bg-black">Published</option>
+                                <option value="false" className="bg-black">Draft</option>
+                            </select>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

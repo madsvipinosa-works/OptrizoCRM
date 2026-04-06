@@ -112,13 +112,15 @@ export async function createPost(prevState: ActionState, formData: FormData) {
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
 
+        const isPublished = session.user.role === "admin" && formData.get("published") === "true";
+
         await db.insert(posts).values({
             title,
             slug: sanitizedSlug,
             content,
             coverImage,
             authorId: session.user.id!,
-            published: true,
+            published: isPublished,
         });
 
         revalidatePath("/dashboard/posts");
@@ -145,7 +147,7 @@ export async function deletePost(id: string) {
 
 export async function updatePost(prevState: ActionState, formData: FormData) {
     try {
-        await requireEditor();
+        const session = await requireEditor();
 
         const rawData = Object.fromEntries(formData.entries());
         const validated = postSchema.safeParse(rawData);
@@ -166,12 +168,15 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
 
         if (!id) return { success: false, message: "Missing Post ID" };
 
+        const isPublished = session.user.role === "admin" && formData.get("published") === "true";
+
         await db.update(posts)
             .set({
                 title,
                 slug: sanitizedSlug,
                 content,
                 coverImage,
+                published: isPublished,
                 updatedAt: new Date(),
             })
             .where(eq(posts.id, id));

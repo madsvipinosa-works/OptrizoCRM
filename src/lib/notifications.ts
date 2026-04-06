@@ -192,3 +192,38 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string) {
         return { success: false, error: err };
     }
 }
+
+export async function sendTaskBlockedEmail(clientEmails: string[], projectName: string, taskTitle: string) {
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            console.log(`[MOCK EMAIL] To: ${clientEmails.join(",")} | Subject: Action Required: Task Blocked`);
+            return { success: true, mock: true };
+        }
+        
+        await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: clientEmails,
+            subject: `Action Required: Optrizo Task Blocked`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+                    <h2 style="color: #333;">Action Required for ${projectName}</h2>
+                    <p style="color: #555; line-height: 1.5;">
+                        The task <strong>"${taskTitle}"</strong> has been marked as blocked and requires your input to proceed.
+                    </p>
+                    <p style="color: #555; line-height: 1.5;">
+                        Please log in to your Client Portal to provide the necessary assets, feedback, or approval to unblock our team.
+                    </p>
+                    <div style="margin: 30px 0; text-align: center;">
+                        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/portal" style="background-color: #ef4444; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                            Unblock Task in Portal
+                        </a>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (err) {
+        console.error("Task Blocked Email Failed:", err);
+        return { success: false, error: err };
+    }
+}

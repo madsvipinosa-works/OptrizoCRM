@@ -40,10 +40,15 @@ async function main() {
         const [mockProject] = await db.insert(agencyProjects).values({
             title: "Acme Corp Web Transformation",
             description: "Full stack rebuild using Next.js and Supabase.",
-            clientId: mockClient.id,
             leadId: mockLead.id,
             status: "In Progress"
         }).returning({ id: agencyProjects.id });
+
+        const { projectStakeholders } = await import("../src/db/schema");
+        await db.insert(projectStakeholders).values({
+            projectId: mockProject.id,
+            userId: mockClient.id
+        });
 
         // 5. Build Project Milestones
         console.log("Injecting Project Milestones...");
