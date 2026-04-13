@@ -30,7 +30,7 @@ export default async function Home() {
     const publishedPosts = await db.query.posts.findMany({
         where: eq(posts.published, true),
         orderBy: [desc(posts.createdAt)],
-        limit: 5,
+        limit: 4,
     });
 
     // Fetch active testimonials for the marquee
@@ -57,17 +57,23 @@ export default async function Home() {
         image: post.coverImage || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2670&auto=format&fit=crop",
     }));
 
-    // Helper: auto-convert YouTube watch/short URLs to embed URLs
+    // Helper: auto-convert YouTube/Facebook watch URLs to embed URLs
     const toEmbedUrl = (url: string) => {
         try {
             const u = new URL(url);
-            // https://www.youtube.com/watch?v=VIDEO_ID
+            // YouTube
             if (u.hostname.includes("youtube.com") && u.searchParams.get("v")) {
                 return `https://www.youtube.com/embed/${u.searchParams.get("v")}`;
             }
-            // https://youtu.be/VIDEO_ID
             if (u.hostname === "youtu.be") {
                 return `https://www.youtube.com/embed${u.pathname}`;
+            }
+            // Facebook (Videos, Reels, Watch)
+            if (
+                u.hostname.includes("facebook.com") &&
+                (u.pathname.includes("/videos/") || u.pathname.includes("/watch") || u.pathname.includes("/reel/"))
+            ) {
+                return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=0&width=734&height=476&appId`;
             }
         } catch {
             // Not a URL, return as-is

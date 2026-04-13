@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
+import { MultiAssigneeSelect } from "@/components/ui/multi-assignee-select";
 
 const COLUMNS = [
     { id: "Todo", title: "To Do" },
@@ -28,7 +29,7 @@ interface KanbanTask {
     title: string;
     description: string | null;
     status: "Todo" | "In Progress" | "Blocked" | "Done";
-    assigneeId: string | null;
+    assignees: { user: KanbanTeamMember }[];
     dueDate: Date | null;
     dependsOnTaskId: string | null;
 }
@@ -37,6 +38,7 @@ interface KanbanTeamMember {
     id: string;
     name: string | null;
     image: string | null;
+    jobTitle?: string | null;
 }
 
 interface KanbanMilestone {
@@ -67,14 +69,14 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
     const [editTaskTitle, setEditTaskTitle] = useState("");
     const [editTaskDesc, setEditTaskDesc] = useState("");
-    const [editAssigneeId, setEditAssigneeId] = useState<string>("unassigned");
+    const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
     const [editDueDate, setEditDueDate] = useState("");
     const [isSavingEdit, setIsSavingEdit] = useState(false);
 
     // Task Form state
     const [newTaskTitle, setNewTaskTitle] = useState("");
     const [newTaskDesc, setNewTaskDesc] = useState("");
-    const [newAssigneeId, setNewAssigneeId] = useState<string>("unassigned");
+    const [newAssigneeIds, setNewAssigneeIds] = useState<string[]>([]);
 
     // Milestone State
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
@@ -93,12 +95,12 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
     
     // Apply Filters
     if (myTasksOnly && currentUserId) {
-        tasksForMilestone = tasksForMilestone.filter(t => t.assigneeId === currentUserId);
+        tasksForMilestone = tasksForMilestone.filter(t => t.assignees?.some(a => a.user.id === currentUserId));
     } else if (filterAssignee !== "all") {
         if (filterAssignee === "unassigned") {
-            tasksForMilestone = tasksForMilestone.filter(t => !t.assigneeId);
+            tasksForMilestone = tasksForMilestone.filter(t => !t.assignees || t.assignees.length === 0);
         } else {
-            tasksForMilestone = tasksForMilestone.filter(t => t.assigneeId === filterAssignee);
+            tasksForMilestone = tasksForMilestone.filter(t => t.assignees?.some(a => a.user.id === filterAssignee));
         }
     }
 
@@ -146,14 +148,13 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
         e.preventDefault();
         if (!activeMilestone) return;
         setIsAddingTask(true);
-        const assigneeToSubmit = newAssigneeId === "unassigned" ? undefined : newAssigneeId;
-        const res = await createTask(project.id, activeMilestoneId, newTaskTitle, newTaskDesc, assigneeToSubmit);
+        const res = await createTask(project.id, activeMilestoneId, newTaskTitle, newTaskDesc, newAssigneeIds);
         if (res.success && res.task) {
             toast.success("Task added");
             setOptimisticTasks([...optimisticTasks, res.task as unknown as KanbanTask]);
             setNewTaskTitle("");
             setNewTaskDesc("");
-            setNewAssigneeId("unassigned");
+            setNewAssigneeIds([]);
         } else {
             toast.error(res.message);
         }
@@ -164,7 +165,7 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
         setEditingTask(task);
         setEditTaskTitle(task.title);
         setEditTaskDesc(task.description || "");
-        setEditAssigneeId(task.assigneeId || "unassigned");
+        setEditAssigneeIds(task.assignees?.map(a => a.user.id) || []);
         setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : "");
     };
 
@@ -173,7 +174,6 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
         if (!editingTask) return;
         setIsSavingEdit(true);
 
-        const assigneeToSubmit = editAssigneeId === "unassigned" ? null : editAssigneeId;
         const dueToSubmit = editDueDate ? new Date(editDueDate) : null;
 
         // Optimistic UI Update
@@ -182,7 +182,7 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                 ...t,
                 title: editTaskTitle,
                 description: editTaskDesc,
-                assigneeId: assigneeToSubmit,
+                assignees: teamMembers.filter(m => editAssigneeIds.includes(m.id)).map(m => ({ user: m })),
                 dueDate: dueToSubmit
             } : t
         );
@@ -194,7 +194,7 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
         const res = await updateTaskDetails(editingTask.id, {
             title: editTaskTitle,
             description: editTaskDesc,
-            assigneeId: assigneeToSubmit,
+            assigneeIds: editAssigneeIds,
             dueDate: dueToSubmit
         });
 
@@ -471,18 +471,12 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Assignee (Optional)</Label>
-                                <Select value={newAssigneeId} onValueChange={setNewAssigneeId}>
-                                    <SelectTrigger className="bg-black/50 border-white/10">
-                                        <SelectValue placeholder="Select team member" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                                        {teamMembers.map(member => (
-                                            <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Label>Assignees (Optional)</Label>
+                                <MultiAssigneeSelect
+                                    users={teamMembers}
+                                    selectedIds={newAssigneeIds}
+                                    onSelectionChange={setNewAssigneeIds}
+                                />
                             </div>
                             <Button type="submit" disabled={isAddingTask} className="w-full bg-primary text-black hover:bg-primary/90">
                                 Create Task
@@ -587,12 +581,23 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                                                                         {task.description && (
                                                                             <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
                                                                         )}
-                                                                        {task.assigneeId && (
-                                                                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-2">
-                                                                                <div className="w-4 h-4 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
-                                                                                    {teamMembers.find(m => m.id === task.assigneeId)?.name?.[0] || 'U'}
+                                                                        {task.assignees && task.assignees.length > 0 && (
+                                                                            <div className="flex items-center gap-1 mt-3">
+                                                                                <div className="flex -space-x-1.5 mr-1">
+                                                                                    {task.assignees.slice(0, 3).map((assignee, idx) => (
+                                                                                        <div key={idx} className="w-5 h-5 rounded-full bg-black border border-zinc-700 text-primary flex items-center justify-center font-bold text-[9px] z-10" title={assignee.user.name || "User"}>
+                                                                                            {assignee.user.name?.[0]?.toUpperCase() || 'U'}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                    {task.assignees.length > 3 && (
+                                                                                        <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 text-muted-foreground flex items-center justify-center font-bold text-[8px] z-0">
+                                                                                            +{task.assignees.length - 3}
+                                                                                        </div>
+                                                                                    )}
                                                                                 </div>
-                                                                                {teamMembers.find(m => m.id === task.assigneeId)?.name}
+                                                                                {task.assignees.length === 1 && (
+                                                                                   <span className="text-[10px] text-muted-foreground ml-1 truncate max-w-[100px]">{task.assignees[0].user.name}</span>
+                                                                                )}
                                                                             </div>
                                                                         )}
                                                                         {task.dueDate && (
@@ -662,18 +667,12 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>Assignee</Label>
-                                    <Select value={editAssigneeId} onValueChange={setEditAssigneeId}>
-                                        <SelectTrigger className="bg-black/50 border-white/10">
-                                            <SelectValue placeholder="Unassigned" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                                            {teamMembers.map(member => (
-                                                <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Label>Assignees</Label>
+                                    <MultiAssigneeSelect
+                                        users={teamMembers}
+                                        selectedIds={editAssigneeIds}
+                                        onSelectionChange={setEditAssigneeIds}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Due Date</Label>

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { format } from "date-fns";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface Props {
     params: Promise<{ slug: string }>;
@@ -72,7 +73,7 @@ export default async function BlogPostPage({ params }: Props) {
             {/* Render Tiptap HTML Content */}
             <div
                 className="prose prose-invert prose-lg mx-auto prose-headings:text-white prose-a:text-primary hover:prose-a:text-primary/80"
-                dangerouslySetInnerHTML={{ __html: post.content || "" }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
             />
         </article>
     );

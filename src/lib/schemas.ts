@@ -17,7 +17,7 @@ export const leadStatusEnum = z.enum(["New", "Contacted", "In Progress", "Comple
 export const leadUpdateSchema = z.object({
     status: leadStatusEnum.optional(),
     notes: z.string().optional(),
-    assignedTo: z.string().nullable().optional(),
+    assigneeIds: z.array(z.string()).optional(),
     files: z.array(z.string()).optional(),
     nextActionDate: z.coerce.date().nullable().optional(),
     activityType: z.enum(["Call", "Email", "Meeting", "Note"]).optional(),

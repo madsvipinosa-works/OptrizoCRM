@@ -33,7 +33,13 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                     }
                 }
             },
-            tasks: true,
+            tasks: {
+                with: {
+                    assignees: {
+                        with: { user: true }
+                    }
+                }
+            },
             lead: true
         }
     });

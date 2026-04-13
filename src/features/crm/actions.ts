@@ -35,8 +35,8 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
     // 3. Update Database
     try {
-        // Extract assignedTo if present to handle junction table separately
-        const { assignedTo, ...updateFields } = validated.data;
+        // Extract assigneeIds if present to handle junction table separately
+        const { assigneeIds, ...updateFields } = validated.data;
         
         await db.update(leads)
             .set({
@@ -47,10 +47,12 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
         // If an assignment was made, write to the junction table
         // (Wiping previous assignees for this UI action if it's a 1-to-many overwrite, or just accumulating)
-        if (assignedTo !== undefined) {
+        if (assigneeIds !== undefined) {
             await db.delete(leadAssignees).where(eq(leadAssignees.leadId, id));
-            if (assignedTo) {
-                await db.insert(leadAssignees).values({ leadId: id, userId: assignedTo });
+            if (assigneeIds && assigneeIds.length > 0) {
+                await db.insert(leadAssignees).values(
+                    assigneeIds.map(userId => ({ leadId: id, userId }))
+                );
             }
         }
 

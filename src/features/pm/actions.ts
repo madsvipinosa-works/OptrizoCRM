@@ -107,7 +107,7 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
 }
 
 // --- Task Actions ---
-export async function createTask(projectId: string, milestoneId: string, title: string, description?: string, assigneeId?: string): Promise<ActionState> {
+export async function createTask(projectId: string, milestoneId: string, title: string, description?: string, assigneeIds?: string[]): Promise<ActionState> {
     const session = await auth();
     if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
         return { success: false, message: "Unauthorized" };
@@ -132,9 +132,11 @@ export async function createTask(projectId: string, milestoneId: string, title: 
             isBlockedByClient: isParentBlocked
         }).returning();
 
-        if (assigneeId) {
+        if (assigneeIds && assigneeIds.length > 0) {
             const { taskAssignees } = await import("@/db/schema");
-            await db.insert(taskAssignees).values({ taskId: newTask.id, userId: assigneeId });
+            await db.insert(taskAssignees).values(
+                assigneeIds.map(userId => ({ taskId: newTask.id, userId }))
+            );
         }
 
         await logAction("CREATE", "Task", `Task "${title}" created`);
@@ -190,7 +192,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
 export async function updateTaskDetails(
     taskId: string,
-    data: { title?: string; description?: string; assigneeId?: string | null; dueDate?: Date | null }
+    data: { title?: string; description?: string; assigneeIds?: string[]; dueDate?: Date | null }
 ): Promise<ActionState> {
     const session = await auth();
     if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
@@ -208,11 +210,13 @@ export async function updateTaskDetails(
             .where(eq(tasks.id, taskId))
             .returning();
 
-        if (data.assigneeId !== undefined) {
+        if (data.assigneeIds !== undefined) {
              const { taskAssignees } = await import("@/db/schema");
              await db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId));
-             if (data.assigneeId) {
-                 await db.insert(taskAssignees).values({ taskId, userId: data.assigneeId });
+             if (data.assigneeIds && data.assigneeIds.length > 0) {
+                 await db.insert(taskAssignees).values(
+                     data.assigneeIds.map(userId => ({ taskId, userId }))
+                 );
              }
         }
 

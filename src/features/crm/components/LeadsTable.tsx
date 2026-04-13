@@ -33,12 +33,12 @@ interface Lead {
     service?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
-    assignee: { name: string | null; image: string | null } | null;
+    assignees?: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
 }
 
 interface LeadsTableProps {
     leads: Lead[];
-    assignableUsers: { id: string; name: string | null; image: string | null }[];
+    assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
 }
 
 export function LeadsTable({ leads, assignableUsers }: LeadsTableProps) {
@@ -102,15 +102,26 @@ export function LeadsTable({ leads, assignableUsers }: LeadsTableProps) {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        {lead.assignee ? (
+                                        {lead.assignees && lead.assignees.length > 0 ? (
                                             <div className="flex items-center gap-2 text-xs">
-                                                <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] text-primary font-bold">
-                                                    {lead.assignee.name?.[0] || "U"}
+                                                <div className="flex -space-x-1.5 mr-1">
+                                                    {lead.assignees.slice(0, 3).map((assignee, idx) => (
+                                                        <div key={idx} className="w-6 h-6 rounded-full bg-black border border-white/20 text-primary flex items-center justify-center font-bold text-[10px] z-10" title={assignee.name || "User"}>
+                                                            {assignee.name?.[0]?.toUpperCase() || 'U'}
+                                                        </div>
+                                                    ))}
+                                                    {lead.assignees.length > 3 && (
+                                                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-white/20 text-muted-foreground flex items-center justify-center font-bold text-[9px] z-0">
+                                                            +{lead.assignees.length - 3}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <span className="text-muted-foreground">{lead.assignee.name}</span>
+                                                {lead.assignees.length === 1 && (
+                                                    <span className="text-muted-foreground">{lead.assignees[0].name}</span>
+                                                )}
                                             </div>
                                         ) : (
-                                            <span className="text-xs text-muted-foreground/50 italic">Unassigned</span>
+                                            <span className="text-[10px] text-muted-foreground/50 italic uppercase tracking-wider">Unassigned</span>
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right">

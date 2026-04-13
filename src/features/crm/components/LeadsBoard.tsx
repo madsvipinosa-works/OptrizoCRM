@@ -27,7 +27,7 @@ type Lead = {
     read: boolean;
     files: string[] | null;
     nextActionDate: Date | string | null;
-    assignee: { id: string; name: string | null; image: string | null } | null;
+    assignees?: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
     notesList?: {
         id: string;
         content: string;
@@ -39,7 +39,7 @@ type Lead = {
 
 interface LeadsBoardProps {
     leads: Lead[];
-    assignableUsers: { id: string; name: string | null; image: string | null }[];
+    assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
     currentUserId: string;
     query?: string;
     status?: string;
@@ -53,7 +53,7 @@ export function LeadsBoard({ leads, assignableUsers, currentUserId, query, statu
     // Filter leads based on viewMode
     const displayedLeads = leads.filter(lead => {
         if (viewMode === "mine") {
-            return lead.assignee?.id === currentUserId;
+            return lead.assignees?.some(a => a.id === currentUserId) ?? false;
         }
         return true;
     });

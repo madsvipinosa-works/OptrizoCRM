@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { ProposalBuilderModal } from "@/features/proposals/components/ProposalBuilderModal";
 import { LeadArchiveButton } from "@/features/crm/components/LeadArchiveButton";
 import AnimatedDropdown from "@/components/ui/animated-dropdown";
+import { MultiAssigneeSelect } from "@/components/ui/multi-assignee-select";
 
 function CopyLinkButton({ proposalId }: { proposalId: string }) {
     const [copied, setCopied] = useState(false);
@@ -99,7 +100,7 @@ type Lead = {
     updatedAt: Date | string;
     read: boolean;
     files: string[] | null;
-    assignee: { id: string; name: string | null; image: string | null } | null;
+    assignees?: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
     nextActionDate: Date | string | null;
     notesList?: {
         id: string;
@@ -129,11 +130,11 @@ const statusColors: Record<string, string> = {
     "Lost": "bg-gray-500 text-white hover:bg-gray-600",
 };
 
-export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assignableUsers: { id: string; name: string | null; image: string | null }[], isAdmin?: boolean }) {
+export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[], isAdmin?: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(lead.status);
-    const [assignedTo, setAssignedTo] = useState(lead.assignee?.id || "");
+    const [assignedToIds, setAssignedToIds] = useState<string[]>(lead.assignees?.map(a => a.id) || []);
     const [newNote, setNewNote] = useState("");
     const [activityType, setActivityType] = useState<"Call" | "Email" | "Meeting" | "Note">("Note");
     const [nextActionDate, setNextActionDate] = useState<Date | undefined>(
@@ -182,12 +183,12 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
         }
     };
 
-    const handleAssign = async (userId: string) => {
+    const handleAssign = async (userIds: string[]) => {
         setIsLoading(true);
         try {
-            const result = await updateLead(lead.id, { assignedTo: userId || null });
+            const result = await updateLead(lead.id, { assigneeIds: userIds });
             if (result.success) {
-                setAssignedTo(userId);
+                setAssignedToIds(userIds);
             } else {
                 alert(result.message);
             }
@@ -252,10 +253,21 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                             <Clock className="h-3 w-3" />
                             {lastUpdated}
                         </div>
-                        {lead.assignee && (
-                            <Badge variant="outline" className="text-[10px] h-5 px-1 border-white/20">
-                                {lead.assignee.name || "Assigned"}
-                            </Badge>
+                        {lead.assignees && lead.assignees.length > 0 && (
+                            <div className="flex items-center gap-1 mt-1 justify-end">
+                                <div className="flex -space-x-1.5 mr-1">
+                                    {lead.assignees.slice(0, 3).map((assignee, idx) => (
+                                        <div key={idx} className="w-5 h-5 rounded-full bg-black border border-white/20 text-primary flex items-center justify-center font-bold text-[9px] z-10" title={assignee.name || "User"}>
+                                            {assignee.name?.[0]?.toUpperCase() || 'U'}
+                                        </div>
+                                    ))}
+                                    {lead.assignees.length > 3 && (
+                                        <div className="w-5 h-5 rounded-full bg-zinc-800 border border-white/20 text-muted-foreground flex items-center justify-center font-bold text-[8px] z-0">
+                                            +{lead.assignees.length - 3}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -377,17 +389,11 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="assignee">Assign To</Label>
-                                    <AnimatedDropdown
-                                        text={assignableUsers.find(u => u.id === assignedTo)?.name || "Unassigned"}
-                                        triggerClassName="flex h-10 w-full justify-between items-center rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                                        items={[
-                                            { name: "Unassigned", onClick: () => handleAssign("") },
-                                            ...assignableUsers.map(user => ({
-                                                name: user.name || "User",
-                                                onClick: () => handleAssign(user.id)
-                                            }))
-                                        ]}
+                                    <Label htmlFor="assignee">Assign Team Members</Label>
+                                    <MultiAssigneeSelect
+                                        users={assignableUsers}
+                                        selectedIds={assignedToIds}
+                                        onSelectionChange={handleAssign}
                                     />
                                 </div>
 

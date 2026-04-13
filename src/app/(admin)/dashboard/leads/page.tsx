@@ -57,7 +57,7 @@ export default async function LeadsPage({
 
     // Fetch potential assignees (Admins/Editors)
     const assignableUsers = await db.query.users.findMany({
-        columns: { id: true, name: true, image: true },
+        columns: { id: true, name: true, image: true, jobTitle: true },
         where: inArray(users.role, ["admin", "editor"]),
     });
 
@@ -67,7 +67,7 @@ export default async function LeadsPage({
         createdAt: lead.createdAt.toISOString(),
         updatedAt: lead.updatedAt.toISOString(),
         nextActionDate: lead.nextActionDate ? lead.nextActionDate.toISOString() : null,
-        assignee: lead.assignees?.[0]?.user || null,
+        assignees: lead.assignees?.map(a => a.user) || [],
     }));
 
     return (
