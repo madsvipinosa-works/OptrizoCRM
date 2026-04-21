@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { proposals, leads } from "@/db/schema";
+import { proposals, leads, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
@@ -20,7 +20,7 @@ export interface ProposalData {
 
 export async function createProposal(leadId: string, data: ProposalData) {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -43,7 +43,7 @@ export async function createProposal(leadId: string, data: ProposalData) {
 
 export async function updateProposal(id: string, data: ProposalData, status?: "Draft" | "Sent" | "Approved" | "Rejected") {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -83,12 +83,24 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
 
 export async function acceptProposalByClient(id: string) {
     try {
+        const session = await auth();
+        if (!session?.user?.id || session.user.role !== "client") {
+            return { success: false, message: "Unauthorized" };
+        }
+
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, id),
             with: { lead: true }
         });
 
         if (!proposal) return { success: false, message: "Proposal not found" };
+        if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
+
+        // Ownership: client can only accept proposals linked to their lead email.
+        if (session.user.email !== proposal.lead.email) {
+            return { success: false, message: "Unauthorized: Proposal ownership mismatch" };
+        }
+
         if (proposal.status === "Approved") return { success: false, message: "Already approved" };
 
         await db.update(proposals).set({ status: "Approved", updatedAt: new Date() }).where(eq(proposals.id, id));
@@ -113,12 +125,24 @@ export async function acceptProposalByClient(id: string) {
 
 export async function rejectProposalByClient(id: string, reason?: string) {
     try {
+        const session = await auth();
+        if (!session?.user?.id || session.user.role !== "client") {
+            return { success: false, message: "Unauthorized" };
+        }
+
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, id),
             with: { lead: true }
         });
 
         if (!proposal) return { success: false, message: "Proposal not found" };
+        if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
+
+        // Ownership: client can only reject proposals linked to their lead email.
+        if (session.user.email !== proposal.lead.email) {
+            return { success: false, message: "Unauthorized: Proposal ownership mismatch" };
+        }
+
         if (proposal.status === "Rejected") return { success: false, message: "Already rejected" };
 
         await db.update(proposals).set({ status: "Rejected", updatedAt: new Date() }).where(eq(proposals.id, id));
@@ -146,6 +170,11 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendProposalEmail(proposalId: string) {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized" };
+    }
+
     const p = await db.query.proposals.findFirst({
         where: eq(proposals.id, proposalId),
         with: { lead: true }
@@ -154,6 +183,29 @@ export async function sendProposalEmail(proposalId: string) {
     if (!p || !p.lead) return { success: false, message: "Proposal or lead not found" };
 
     try {
+        // Ensure the recipient can log in as a client (login-only proposal access).
+        const existingClientUser = await db.query.users.findFirst({
+            where: eq(users.email, p.lead.email)
+        });
+
+        if (!existingClientUser) {
+            await db.insert(users).values({
+                name: p.lead.name,
+                email: p.lead.email,
+                role: "client",
+                isActive: true,
+            });
+            await logAction("CREATE", "User", `Provisioned client login for proposal recipient: ${p.lead.email}`);
+        } else {
+            // Avoid downgrading agency staff if the email is already an admin/editor.
+            if (existingClientUser.role !== "admin" && existingClientUser.role !== "editor") {
+                await db.update(users)
+                    .set({ role: "client", isActive: true })
+                    .where(eq(users.id, existingClientUser.id));
+                await logAction("UPDATE", "User", `Upgraded user to client role: ${p.lead.email}`);
+            }
+        }
+
         const url = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://'+process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000')}/proposal/${proposalId}`;
         
         await resend.emails.send({
@@ -170,5 +222,48 @@ export async function sendProposalEmail(proposalId: string) {
     } catch(e) {
         console.error(e);
         return { success: false, message: "Failed to send email." };
+    }
+}
+
+export async function getProposalById(id: string) {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, id),
+        });
+        if (!proposal) return { success: false, message: "Proposal not found" };
+        return { success: true, proposal };
+    } catch (error) {
+        console.error("Failed to fetch proposal:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function deleteProposal(id: string) {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({ where: eq(proposals.id, id) });
+        if (!proposal) return { success: false, message: "Proposal not found" };
+
+        if (proposal.status === "Approved" || proposal.status === "Accepted") {
+            return { success: false, message: "Cannot delete an approved/accepted proposal" };
+        }
+
+        await db.delete(proposals).where(eq(proposals.id, id));
+        await logAction("DELETE", "Proposal", `Proposal ${id} deleted`);
+        
+        revalidatePath(`/dashboard/leads/${proposal.leadId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete proposal:", error);
+        return { success: false, message: "Database Error" };
     }
 }

@@ -39,9 +39,10 @@ interface Lead {
 interface LeadsTableProps {
     leads: Lead[];
     assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
+    isAdmin?: boolean;
 }
 
-export function LeadsTable({ leads, assignableUsers }: LeadsTableProps) {
+export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps) {
     if (leads.length === 0) return null;
 
     return (
@@ -141,7 +142,11 @@ export function LeadsTable({ leads, assignableUsers }: LeadsTableProps) {
                                         Detailed view of lead information and project scope.
                                     </DialogDescription>
                                 </DialogHeader>
-                                <LeadCard lead={lead as unknown as React.ComponentProps<typeof LeadCard>['lead']} assignableUsers={assignableUsers} />
+                                <LeadCard
+                                    lead={lead as unknown as React.ComponentProps<typeof LeadCard>["lead"]}
+                                    assignableUsers={assignableUsers}
+                                    isAdmin={isAdmin}
+                                />
                             </DialogContent>
                         </Dialog>
                     ))}

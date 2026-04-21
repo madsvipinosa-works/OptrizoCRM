@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format, differenceInDays, formatDistanceToNow } from "date-fns";
-import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, AlertTriangle, Upload, X, Copy, Check } from "lucide-react";
+import { Mail, Clock, DollarSign, Activity, Pencil, Briefcase, Plus, AlertTriangle, Upload, X, Copy, Check, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,36 @@ function SendEmailButton({ proposalId }: { proposalId: string }) {
             title="Send Proposal via Email"
         >
             <Mail className="h-3 w-3" />
+        </Button>
+    );
+}
+
+function DeleteProposalButton({ proposalId }: { proposalId: string }) {
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = async () => {
+        if (!confirm("Are you sure you want to delete this proposal?")) return;
+        setIsDeleting(true);
+        const { deleteProposal } = await import("@/features/proposals/actions");
+        const res = await deleteProposal(proposalId);
+        if (res.success) {
+            toast.success("Proposal deleted.");
+        } else {
+            toast.error(res.message || "Delete failed");
+        }
+        setIsDeleting(false);
+    };
+
+    return (
+        <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 text-muted-foreground hover:text-red-500"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            title="Delete Proposal"
+        >
+            <Trash2 className="h-3 w-3" />
         </Button>
     );
 }
@@ -321,20 +351,21 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
 
                 <div className="flex gap-1.5 items-center">
                     {isAdmin && <LeadArchiveButton leadId={lead.id} />}
-                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 hover:bg-white/10">
-                                <Pencil className="h-3.5 w-3.5 mr-2" />
-                                Manage
-                            </Button>
-                        </DialogTrigger>
-                    <DialogContent className="glass-card border-white/10 text-white w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
-                        <DialogHeader>
-                            <DialogTitle>Manage Lead: {lead.name}</DialogTitle>
-                            <DialogDescription>
-                                Update pipeline status and assign tasks.
-                            </DialogDescription>
-                        </DialogHeader>
+                    {isAdmin && (
+                        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 hover:bg-white/10">
+                                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                                    Manage
+                                </Button>
+                            </DialogTrigger>
+                        <DialogContent className="glass-card border-white/10 text-white w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+                            <DialogHeader>
+                                <DialogTitle>Manage Lead: {lead.name}</DialogTitle>
+                                <DialogDescription>
+                                    Update pipeline status and assign tasks.
+                                </DialogDescription>
+                            </DialogHeader>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
                             {/* Left Column: Actions */}
@@ -414,6 +445,12 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             <CopyLinkButton proposalId={p.id} />
                                                             <SendEmailButton proposalId={p.id} />
+                                                            {p.status !== "Approved" && p.status !== "Accepted" && (
+                                                                <>
+                                                                    <ProposalBuilderModal leadId={lead.id} leadName={lead.name} proposalId={p.id} />
+                                                                    <DeleteProposalButton proposalId={p.id} />
+                                                                </>
+                                                            )}
                                                             <Badge variant="outline" className={`text-[10px] h-4 ${p.status === 'Approved' ? 'border-green-500 text-green-500' : p.status === 'Sent' ? 'border-yellow-500 text-yellow-500' : 'border-white/20'}`}>
                                                                 {p.status}
                                                             </Badge>
@@ -549,8 +586,9 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                 </div>
                             </div>
                         </div>
-                    </DialogContent>
-                </Dialog>
+                        </DialogContent>
+                        </Dialog>
+                    )}
                 </div>
             </CardFooter>
         </Card>

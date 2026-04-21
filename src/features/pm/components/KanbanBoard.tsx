@@ -63,7 +63,8 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
     
     // Filters
     const [filterAssignee, setFilterAssignee] = useState<string>("all"); // "all", "unassigned", or userId
-    const [myTasksOnly, setMyTasksOnly] = useState<boolean>(false);
+    // General Staff (editor) should only see their own tasks by default.
+    const [myTasksOnly, setMyTasksOnly] = useState<boolean>(currentUserRole !== "admin");
 
     // Edit Task State
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
@@ -397,10 +398,14 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                             </DropdownMenu>
                         )}
                     </h3>
-                    <MilestoneStatusDropdown 
-                        status={activeMilestone.status} 
-                        onStatusChange={handleMilestoneStatusChange} 
-                    />
+                    {currentUserRole === "admin" ? (
+                        <MilestoneStatusDropdown
+                            status={activeMilestone.status}
+                            onStatusChange={handleMilestoneStatusChange}
+                        />
+                    ) : (
+                        <span className="text-xs text-muted-foreground">{activeMilestone.status}</span>
+                    )}
                 </div>
 
                 {/* Feedback History Toggle/List */}
@@ -441,88 +446,100 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                     </div>
                 )}
 
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button size="sm" className="bg-primary text-black hover:bg-primary/90">
-                            <Plus className="h-4 w-4 mr-2" /> Add Task
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="glass-card border-white/10 text-white">
-                        <DialogHeader>
-                            <DialogTitle>Add Task to {activeMilestone.title}</DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleCreateTask} className="space-y-4 pt-4">
-                            <div className="space-y-2">
-                                <Label>Task Title</Label>
-                                <Input
-                                    className="bg-black/50 border-white/10"
-                                    value={newTaskTitle}
-                                    onChange={e => setNewTaskTitle(e.target.value)}
-                                    placeholder="e.g. Design wireframes"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Description (Optional)</Label>
-                                <Textarea
-                                    className="bg-black/50 border-white/10"
-                                    value={newTaskDesc}
-                                    onChange={e => setNewTaskDesc(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Assignees (Optional)</Label>
-                                <MultiAssigneeSelect
-                                    users={teamMembers}
-                                    selectedIds={newAssigneeIds}
-                                    onSelectionChange={setNewAssigneeIds}
-                                />
-                            </div>
-                            <Button type="submit" disabled={isAddingTask} className="w-full bg-primary text-black hover:bg-primary/90">
-                                Create Task
+                {currentUserRole === "admin" && (
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button size="sm" className="bg-primary text-black hover:bg-primary/90">
+                                <Plus className="h-4 w-4 mr-2" /> Add Task
                             </Button>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-            </div>
-            
-            {/* Task Filters */}
-            <div className="flex items-center gap-4 mb-6 bg-white/5 p-3 rounded-lg border border-white/10 shrink-0">
-                <div className="flex items-center gap-2">
-                    <Label className="text-sm text-muted-foreground">Assignee:</Label>
-                    <Select value={filterAssignee} onValueChange={(val) => {
-                        setFilterAssignee(val);
-                        if (val !== "all") setMyTasksOnly(false);
-                    }}>
-                        <SelectTrigger className="w-[180px] h-8 bg-black/50 border-white/10 text-sm">
-                            <SelectValue placeholder="All Tasks" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-black border-white/10">
-                            <SelectItem value="all">All Assignees</SelectItem>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {teamMembers.map(member => (
-                                <SelectItem key={member.id} value={member.id}>{member.name || member.id}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                
-                {currentUserId && (
-                    <div className="flex items-center gap-2">
-                        <Button 
-                            variant={myTasksOnly ? "default" : "outline"} 
-                            size="sm" 
-                            className={`h-8 text-xs ${myTasksOnly ? 'bg-primary text-black' : 'border-white/10'}`}
-                            onClick={() => {
-                                setMyTasksOnly(!myTasksOnly);
-                                if (!myTasksOnly) setFilterAssignee("all");
-                            }}
-                        >
-                            My Tasks
-                        </Button>
-                    </div>
+                        </DialogTrigger>
+                        <DialogContent className="glass-card border-white/10 text-white">
+                            <DialogHeader>
+                                <DialogTitle>Add Task to {activeMilestone.title}</DialogTitle>
+                            </DialogHeader>
+                            <form onSubmit={handleCreateTask} className="space-y-4 pt-4">
+                                <div className="space-y-2">
+                                    <Label>Task Title</Label>
+                                    <Input
+                                        className="bg-black/50 border-white/10"
+                                        value={newTaskTitle}
+                                        onChange={e => setNewTaskTitle(e.target.value)}
+                                        placeholder="e.g. Design wireframes"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Description (Optional)</Label>
+                                    <Textarea
+                                        className="bg-black/50 border-white/10"
+                                        value={newTaskDesc}
+                                        onChange={e => setNewTaskDesc(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Assignees (Optional)</Label>
+                                    {teamMembers.length === 0 && (
+                                        <p className="text-xs text-amber-300/90 border border-amber-300/20 bg-amber-300/10 rounded-md px-3 py-2">
+                                            Add at least one Project Team member from Settings to assign tasks.
+                                        </p>
+                                    )}
+                                    <MultiAssigneeSelect
+                                        users={teamMembers}
+                                        selectedIds={newAssigneeIds}
+                                        onSelectionChange={setNewAssigneeIds}
+                                        disabled={teamMembers.length === 0}
+                                    />
+                                </div>
+                                <Button type="submit" disabled={isAddingTask} className="w-full bg-primary text-black hover:bg-primary/90">
+                                    Create Task
+                                </Button>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 )}
             </div>
+            
+            {currentUserRole === "admin" && (
+                <>
+                    {/* Task Filters (Admin only) */}
+                    <div className="flex items-center gap-4 mb-6 bg-white/5 p-3 rounded-lg border border-white/10 shrink-0">
+                        <div className="flex items-center gap-2">
+                            <Label className="text-sm text-muted-foreground">Assignee:</Label>
+                            <Select value={filterAssignee} onValueChange={(val) => {
+                                setFilterAssignee(val);
+                                if (val !== "all") setMyTasksOnly(false);
+                            }}>
+                                <SelectTrigger className="w-[180px] h-8 bg-black/50 border-white/10 text-sm">
+                                    <SelectValue placeholder="All Tasks" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-black border-white/10">
+                                    <SelectItem value="all">All Assignees</SelectItem>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    {teamMembers.map(member => (
+                                        <SelectItem key={member.id} value={member.id}>{member.name || member.id}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        
+                        {currentUserId && (
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    variant={myTasksOnly ? "default" : "outline"} 
+                                    size="sm" 
+                                    className={`h-8 text-xs ${myTasksOnly ? 'bg-primary text-black' : 'border-white/10'}`}
+                                    onClick={() => {
+                                        setMyTasksOnly(!myTasksOnly);
+                                        if (!myTasksOnly) setFilterAssignee("all");
+                                    }}
+                                >
+                                    My Tasks
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
 
             {/* Kanban Columns */}
             <DragDropContext onDragEnd={onDragEnd}>
@@ -618,7 +635,9 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                                                                             </Button>
                                                                         </DropdownMenuTrigger>
                                                                         <DropdownMenuContent align="end" className="w-40">
-                                                                            <DropdownMenuItem onClick={() => openEditModal(task)}>Edit Task</DropdownMenuItem>
+                                                                            {(currentUserRole === "admin" || (currentUserRole === "editor" && task.assignees?.some(a => a.user.id === currentUserId))) && (
+                                                                                <DropdownMenuItem onClick={() => openEditModal(task)}>Edit Task</DropdownMenuItem>
+                                                                            )}
                                                                             {currentUserRole === "admin" && (
                                                                                 <DropdownMenuItem className="text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={() => handleDeleteTask(task.id)}>Delete Task</DropdownMenuItem>
                                                                             )}
@@ -668,10 +687,16 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Assignees</Label>
+                                    {teamMembers.length === 0 && (
+                                        <p className="text-xs text-amber-300/90 border border-amber-300/20 bg-amber-300/10 rounded-md px-3 py-2">
+                                            Project Team is empty, so assignees cannot be selected yet.
+                                        </p>
+                                    )}
                                     <MultiAssigneeSelect
                                         users={teamMembers}
                                         selectedIds={editAssigneeIds}
                                         onSelectionChange={setEditAssigneeIds}
+                                        disabled={teamMembers.length === 0}
                                     />
                                 </div>
                                 <div className="space-y-2">

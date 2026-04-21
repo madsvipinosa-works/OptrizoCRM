@@ -2,6 +2,8 @@
 
 import { put, del } from "@vercel/blob";
 import { z } from "zod";
+import { auth } from "@/auth";
+import { logAction } from "@/features/audit/actions";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
 const ALLOWED_MIME_TYPES = [
@@ -20,37 +22,70 @@ const fileUploadSchema = z.object({
 });
 
 export async function deleteImage(url: string) {
-    if (!url) return;
-
-    // 1. Local File Deletion
-    if (url.startsWith("/uploads/")) {
-        const fs = await import("fs/promises");
-        const path = await import("path");
-
-        // Remove "/uploads/" to get the filename
-        const filename = url.replace("/uploads/", "");
-        const filePath = path.join(process.cwd(), "public", "uploads", filename);
-
-        try {
-            await fs.unlink(filePath);
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to delete local file:", error);
-            return { success: false, message: "Failed to delete local file" };
-        }
+    const session = await auth();
+    if (!session?.user?.id || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
     }
 
-    // 2. Vercel Blob Deletion
+    if (!url) return;
+
     try {
+        // New protected download URL format: /api/private-file?local=... or /api/private-file?blobUrl=...
+        if (url.startsWith("/api/private-file")) {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            const u = new URL(url, baseUrl);
+
+            const local = u.searchParams.get("local");
+            const blobUrl = u.searchParams.get("blobUrl");
+
+            const fs = await import("fs/promises");
+            const path = await import("path");
+
+            if (local) {
+                const safeName = local.replace(/[^a-zA-Z0-9._-]/g, "");
+                const filePath = path.join(process.cwd(), ".private-uploads", safeName);
+                await fs.unlink(filePath);
+                await logAction("DELETE", "Upload", `Deleted local private upload ${safeName}`, session.user.id);
+                return { success: true };
+            }
+
+            if (blobUrl) {
+                await del(blobUrl);
+                await logAction("DELETE", "Upload", `Deleted private blob upload`, session.user.id);
+                return { success: true };
+            }
+
+            return { success: false, message: "Missing deletion parameters" };
+        }
+
+        // Backward compatibility: old local files in public/uploads
+        if (url.startsWith("/uploads/")) {
+            const fs = await import("fs/promises");
+            const path = await import("path");
+
+            const filename = url.replace("/uploads/", "");
+            const filePath = path.join(process.cwd(), "public", "uploads", filename);
+            await fs.unlink(filePath);
+            await logAction("DELETE", "Upload", `Deleted legacy public upload ${filename}`, session.user.id);
+            return { success: true };
+        }
+
+        // Legacy: assume `url` is a blob URL that `del()` can handle.
         await del(url);
+        await logAction("DELETE", "Upload", `Deleted legacy upload reference`, session.user.id);
         return { success: true };
     } catch (error) {
-        console.error("Failed to delete blob:", error);
-        return { success: false, message: "Failed to delete blob" };
+        console.error("Failed to delete file:", error);
+        return { success: false, message: "Failed to delete file" };
     }
 }
 
 export async function uploadImage(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { success: false, message: "Unauthorized" };
+    }
+
     const file = formData.get("file") as File;
     
     if (!file) {
@@ -66,42 +101,38 @@ export async function uploadImage(formData: FormData) {
         };
     }
 
-    // Local / Offline Fallback
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        console.warn("⚠️ Vercel Blob Token missing. Using local storage.");
-
-        const fs = await import("fs/promises");
-        const path = await import("path");
-        const crypto = await import("crypto");
-
-        const buffer = Buffer.from(await file.arrayBuffer());
-        // Unique filename to prevent overwrites
-        const uniqueName = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "")}`;
-        const uploadDir = path.join(process.cwd(), "public", "uploads");
-
+    try {
+        // Upload to a private Vercel Blob store so the content isn't publicly reachable.
+        const blob = await put(file.name, file, { access: "private" });
+        const downloadUrl = `/api/private-file?blobUrl=${encodeURIComponent(blob.url)}`;
+        await logAction("CREATE", "Upload", `Uploaded private file ${file.name}`, session.user.id);
+        return {
+            success: true,
+            url: downloadUrl,
+        };
+    } catch (error) {
+        // Local/dev fallback: store into `.private-uploads` and serve via the protected route.
         try {
+            const fs = await import("fs/promises");
+            const path = await import("path");
+            const crypto = await import("crypto");
+
+            const buffer = Buffer.from(await file.arrayBuffer());
+            const uniqueName = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "")}`;
+            const uploadDir = path.join(process.cwd(), ".private-uploads");
+
             await fs.mkdir(uploadDir, { recursive: true });
             await fs.writeFile(path.join(uploadDir, uniqueName), buffer);
-            return { success: true, url: `/uploads/${uniqueName}` };
-        } catch (err) {
-            console.error("Local upload failed (likely read-only host):", err);
+
+            await logAction("CREATE", "Upload", `Uploaded local private file ${uniqueName}`, session.user.id);
             return {
-                success: false,
-                message: "Vercel Blob Storage is not configured. Please add BLOB_READ_WRITE_TOKEN to your Vercel Environment Variables to enable cloud uploads."
+                success: true,
+                url: `/api/private-file?local=${encodeURIComponent(uniqueName)}`,
             };
+        } catch (fallbackErr) {
+            const err = error as Error;
+            console.error("Upload failed:", err, fallbackErr);
+            return { success: false, message: `Upload failed: ${err.message || "Unknown error"}` };
         }
-    }
-
-    try {
-        // Upload to Vercel Blob
-        const blob = await put(file.name, file, {
-            access: "public",
-        });
-
-        return { success: true, url: blob.url };
-    } catch (error) {
-        const err = error as Error;
-        console.error("Upload failed:", err);
-        return { success: false, message: `Cloud upload failed: ${err.message || "Unknown error"}` };
     }
 }

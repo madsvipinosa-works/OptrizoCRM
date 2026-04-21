@@ -25,6 +25,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
         where: eq(agencyProjects.id, id),
         with: {
             stakeholders: { with: { user: true } },
+            teamMembers: { with: { user: true } },
             milestones: {
                 orderBy: (m, { asc }) => [asc(m.order)],
                 with: {
@@ -46,10 +47,14 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
 
     if (!project) notFound();
 
-    // Fetch team for assignment
-    const teamMembers = await db.query.users.findMany({
-        where: (users, { inArray }) => inArray(users.role, ["admin", "editor", "user"])
+    // Internal users available for project team management.
+    const internalUsers = await db.query.users.findMany({
+        where: (users, { inArray }) => inArray(users.role, ["admin", "editor", "user"]),
     });
+
+    const projectTeamUsers = project.teamMembers
+        .map((member) => member.user)
+        .filter((user): user is NonNullable<typeof user> => Boolean(user));
 
     return (
         <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500">
@@ -67,12 +72,21 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                         </p>
                     </div>
                 </div>
-                <ProjectSettingsModal project={project} />
+                <ProjectSettingsModal
+                    project={project}
+                    internalUsers={internalUsers}
+                    projectTeamMembers={project.teamMembers}
+                />
             </div>
 
             {/* The Kanban Board gets the rest of the height */}
             <div className="flex-1 min-h-0 overflow-hidden">
-                <KanbanBoard project={project as unknown as React.ComponentProps<typeof KanbanBoard>['project']} teamMembers={teamMembers as unknown as React.ComponentProps<typeof KanbanBoard>['teamMembers']} currentUserId={session.user.id} currentUserRole={session.user.role} />
+                <KanbanBoard
+                    project={project as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
+                    teamMembers={projectTeamUsers as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
+                    currentUserId={session.user.id}
+                    currentUserRole={session.user.role}
+                />
             </div>
         </div>
     );

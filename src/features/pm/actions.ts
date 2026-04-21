@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks } from "@/db/schema";
+import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, projectTeamMembers, users } from "@/db/schema";
 import { auth } from "@/auth";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
@@ -16,10 +16,28 @@ export type ActionState = {
     milestone?: Record<string, unknown>;
 };
 
+async function validateProjectAssignees(projectId: string, assigneeIds: string[]): Promise<{ valid: boolean; message?: string }> {
+    if (assigneeIds.length === 0) return { valid: true };
+    const membershipRows = await db.query.projectTeamMembers.findMany({
+        where: and(
+            eq(projectTeamMembers.projectId, projectId),
+            eq(projectTeamMembers.isAssignable, true),
+            inArray(projectTeamMembers.userId, assigneeIds)
+        ),
+        columns: { userId: true },
+    });
+    const validUserIds = new Set(membershipRows.map((row) => row.userId));
+    const invalidIds = assigneeIds.filter((id) => !validUserIds.has(id));
+    if (invalidIds.length > 0) {
+        return { valid: false, message: "Some assignees are not in this project's internal team." };
+    }
+    return { valid: true };
+}
+
 // --- Project Actions ---
 export async function updateProjectStatus(projectId: string, status: "Kickoff" | "In Progress" | "In Review" | "Completed"): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -41,7 +59,7 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
 
 export async function updateProjectSettings(projectId: string, leadId: string | null, stagingUrls: string[], files: string[]): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -64,10 +82,74 @@ export async function updateProjectSettings(projectId: string, leadId: string | 
     }
 }
 
+export async function addProjectTeamMember(projectId: string, userId: string, roleInProject?: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user?.id || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized" };
+    }
+    try {
+        const user = await db.query.users.findFirst({
+            where: and(eq(users.id, userId), ne(users.role, "client")),
+            columns: { id: true },
+        });
+        if (!user) {
+            return { success: false, message: "Only internal users can be added to project team." };
+        }
+
+        await db.insert(projectTeamMembers).values({
+            projectId,
+            userId,
+            roleInProject: roleInProject?.trim() || null,
+            addedBy: session.user.id,
+            isAssignable: true,
+        }).onConflictDoNothing();
+
+        await logAction("UPDATE", "Project Team", `Added user ${userId} to project ${projectId}`);
+        revalidatePath(`/dashboard/pm/${projectId}`);
+        return { success: true, message: "Project team member added." };
+    } catch (error) {
+        console.error("Failed to add project team member:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function removeProjectTeamMember(projectId: string, userId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized" };
+    }
+    try {
+        await db.delete(projectTeamMembers).where(
+            and(eq(projectTeamMembers.projectId, projectId), eq(projectTeamMembers.userId, userId))
+        );
+
+        // Clean up dangling task assignees to keep integrity strict.
+        const projectTaskIds = await db.query.tasks.findMany({
+            where: eq(tasks.projectId, projectId),
+            columns: { id: true },
+        });
+        if (projectTaskIds.length > 0) {
+            await db.delete(taskAssignees).where(
+                and(
+                    inArray(taskAssignees.taskId, projectTaskIds.map((task) => task.id)),
+                    eq(taskAssignees.userId, userId)
+                )
+            );
+        }
+
+        await logAction("UPDATE", "Project Team", `Removed user ${userId} from project ${projectId}`);
+        revalidatePath(`/dashboard/pm/${projectId}`);
+        return { success: true, message: "Project team member removed." };
+    } catch (error) {
+        console.error("Failed to remove project team member:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
 // --- Milestone Actions ---
 export async function updateMilestoneStatus(milestoneId: string, status: "Pending" | "In Progress" | "Client Approval" | "Completed"): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -109,13 +191,19 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
 // --- Task Actions ---
 export async function createTask(projectId: string, milestoneId: string, title: string, description?: string, assigneeIds?: string[]): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
     if (!title.trim()) return { success: false, message: "Title is required" };
 
     try {
+        const cleanAssigneeIds = Array.from(new Set((assigneeIds || []).filter(Boolean)));
+        const validation = await validateProjectAssignees(projectId, cleanAssigneeIds);
+        if (!validation.valid) {
+            return { success: false, message: validation.message || "Invalid assignees" };
+        }
+
         // Check dependency logic on creation
         const parentMilestone = await db.query.milestones.findFirst({
             where: eq(milestones.id, milestoneId)
@@ -132,10 +220,10 @@ export async function createTask(projectId: string, milestoneId: string, title: 
             isBlockedByClient: isParentBlocked
         }).returning();
 
-        if (assigneeIds && assigneeIds.length > 0) {
+        if (cleanAssigneeIds.length > 0) {
             const { taskAssignees } = await import("@/db/schema");
             await db.insert(taskAssignees).values(
-                assigneeIds.map(userId => ({ taskId: newTask.id, userId }))
+                cleanAssigneeIds.map(userId => ({ taskId: newTask.id, userId }))
             );
         }
 
@@ -156,6 +244,18 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
     }
 
     try {
+        // Editor can only update tasks that are explicitly assigned to them.
+        if (session.user.role === "editor") {
+            const editorId = session.user.id;
+            if (!editorId) return { success: false, message: "Unauthorized" };
+            const assignment = await db.query.taskAssignees.findFirst({
+                where: and(eq(taskAssignees.taskId, taskId), eq(taskAssignees.userId, editorId)),
+            });
+            if (!assignment) {
+                return { success: false, message: "Unauthorized: Task not assigned to you" };
+            }
+        }
+
         const oldTask = await db.query.tasks.findFirst({
             where: eq(tasks.id, taskId),
             with: { milestone: { with: { project: { with: { stakeholders: { with: { user: true } } } } } } }
@@ -200,6 +300,34 @@ export async function updateTaskDetails(
     }
 
     try {
+        // Editor can only update tasks that are explicitly assigned to them.
+        if (session.user.role === "editor") {
+            const editorId = session.user.id;
+            if (!editorId) return { success: false, message: "Unauthorized" };
+            const assignment = await db.query.taskAssignees.findFirst({
+                where: and(eq(taskAssignees.taskId, taskId), eq(taskAssignees.userId, editorId)),
+            });
+            if (!assignment) {
+                return { success: false, message: "Unauthorized: Task not assigned to you" };
+            }
+        }
+
+        const existingTask = await db.query.tasks.findFirst({
+            where: eq(tasks.id, taskId),
+            columns: { projectId: true },
+        });
+        if (!existingTask) return { success: false, message: "Task not found" };
+
+        const cleanAssigneeIds = data.assigneeIds !== undefined
+            ? Array.from(new Set((data.assigneeIds || []).filter(Boolean)))
+            : undefined;
+        if (cleanAssigneeIds !== undefined) {
+            const validation = await validateProjectAssignees(existingTask.projectId, cleanAssigneeIds);
+            if (!validation.valid) {
+                return { success: false, message: validation.message || "Invalid assignees" };
+            }
+        }
+
         const [updatedTask] = await db.update(tasks)
             .set({
                 title: data.title,
@@ -210,12 +338,12 @@ export async function updateTaskDetails(
             .where(eq(tasks.id, taskId))
             .returning();
 
-        if (data.assigneeIds !== undefined) {
+        if (cleanAssigneeIds !== undefined) {
              const { taskAssignees } = await import("@/db/schema");
              await db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId));
-             if (data.assigneeIds && data.assigneeIds.length > 0) {
+             if (cleanAssigneeIds.length > 0) {
                  await db.insert(taskAssignees).values(
-                     data.assigneeIds.map(userId => ({ taskId, userId }))
+                     cleanAssigneeIds.map(userId => ({ taskId, userId }))
                  );
              }
         }
@@ -232,7 +360,7 @@ export async function updateTaskDetails(
 
 export async function deleteTask(taskId: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -252,7 +380,7 @@ export async function deleteTask(taskId: string): Promise<ActionState> {
 // --- Milestone Management ---
 export async function createMilestone(projectId: string, title: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -282,7 +410,7 @@ export async function createMilestone(projectId: string, title: string): Promise
 
 export async function editMilestone(milestoneId: string, title: string, order?: number): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -326,7 +454,7 @@ export async function deleteMilestone(milestoneId: string): Promise<ActionState>
 // --- Client Feedback Actions ---
 export async function submitMilestoneFeedback(milestoneId: string, status: "APPROVED" | "REVISION_REQUESTED", commentText?: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user?.id) {
+    if (!session?.user?.id || session.user.role !== "client") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -337,6 +465,18 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
     try {
         const { clientFeedback } = await import("@/db/schema");
         const { desc } = await import("drizzle-orm");
+
+        const milestone = await db.query.milestones.findFirst({ where: eq(milestones.id, milestoneId) });
+        if (!milestone) return { success: false, message: "Milestone not found" };
+
+        // Ownership: only stakeholders for the milestone's project can submit feedback.
+        const stakeholder = await db.query.projectStakeholders.findFirst({
+            where: and(
+                eq(projectStakeholders.projectId, milestone.projectId),
+                eq(projectStakeholders.userId, session.user.id)
+            )
+        });
+        if (!stakeholder) return { success: false, message: "Unauthorized: Feedback ownership mismatch" };
 
         // Find the latest feedback for version chaining (threading)
         const latestFeedback = await db.query.clientFeedback.findFirst({
@@ -352,21 +492,21 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
             parentFeedbackId: latestFeedback?.id || null, // Create threaded version link
         });
 
-        const milestone = await db.query.milestones.findFirst({ where: eq(milestones.id, milestoneId) });
-        
-        if (milestone) {
-            // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT
-            await db.update(tasks)
-                .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
-                .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
+        // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT
+        await db.update(tasks)
+            .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
+            .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
 
-            if (status === "REVISION_REQUESTED") {
-                await updateMilestoneStatus(milestoneId, "In Progress");
-                await notifyAllAdmins(`${session.user.name} requested a revision for: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
-            } else if (status === "APPROVED") {
-                await updateMilestoneStatus(milestoneId, "Completed");
-                await notifyAllAdmins(`${session.user.name} approved milestone: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
-            }
+        // Client feedback should deterministically drive milestone status.
+        const newMilestoneStatus = status === "REVISION_REQUESTED" ? "In Progress" : "Completed";
+        await db.update(milestones)
+            .set({ status: newMilestoneStatus, updatedAt: new Date() })
+            .where(eq(milestones.id, milestoneId));
+
+        if (status === "REVISION_REQUESTED") {
+            await notifyAllAdmins(`${session.user.name || "Client"} requested a revision for: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
+        } else if (status === "APPROVED") {
+            await notifyAllAdmins(`${session.user.name || "Client"} approved milestone: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
         }
 
         await logAction("UPDATE", "Milestone Feedback", `Feedback ${status} submitted for Milestone ${milestoneId}`);
@@ -383,7 +523,7 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
 // --- Deadline Tracking ---
 export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; found: number }> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, found: 0 };
     }
 

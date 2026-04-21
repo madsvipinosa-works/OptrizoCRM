@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { leads, users } from "@/db/schema";
+import { leads, users, leadAssignees } from "@/db/schema";
 import { desc, like, eq, and, or, inArray } from "drizzle-orm";
 import { LeadsFilter } from "@/features/crm/components/LeadsFilter";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
@@ -19,6 +19,19 @@ export default async function LeadsPage({
     const session = await auth();
     const currentUserId = session?.user?.id || "";
     const isAdmin = session?.user?.role === "admin";
+    const isEditor = session?.user?.role === "editor";
+
+    // Role-based CRM visibility:
+    // - Admin sees all non-archived leads.
+    // - Editor (General Staff) sees only leads explicitly assigned to them.
+    let assignedLeadIds: string[] = [];
+    if (isEditor && session?.user?.id) {
+        const assigned = await db.query.leadAssignees.findMany({
+            where: eq(leadAssignees.userId, session.user.id),
+            columns: { leadId: true },
+        });
+        assignedLeadIds = assigned.map(a => a.leadId);
+    }
 
     const params = await searchParams;
     const query = params?.query || "";
@@ -27,6 +40,7 @@ export default async function LeadsPage({
     // Build Where Clause
     const whereClause = and(
         eq(leads.isArchived, false),
+        !isAdmin ? inArray(leads.id, assignedLeadIds) : undefined,
         status && status !== "all" ? eq(leads.status, status as "New" | "Contacted" | "In Progress" | "Completed" | "Lost") : undefined,
         query
             ? or(

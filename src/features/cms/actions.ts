@@ -36,8 +36,8 @@ async function requireAdmin() {
 
 async function requireEditor() {
     const session = await auth();
-    if (session?.user?.role !== "admin" && session?.user?.role !== "editor") {
-        throw new Error("Unauthorized: Editor access required");
+    if (session?.user?.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
     }
     return session; // Returning session to get user ID
 }

@@ -19,7 +19,7 @@ export type ActionState = {
 export async function updateLead(id: string, data: LeadUpdateValues): Promise<ActionState> {
     // 1. Auth Check (Admin or Editor)
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized: Access required." };
     }
 
@@ -68,7 +68,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
 export async function addLeadNote(leadId: string, content: string, activityType: "Call" | "Email" | "Meeting" | "Note" = "Note"): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -104,7 +104,7 @@ export async function getAnalyticsData() {
         return null; // Return null gracefully instead of crashing the page
     }
 
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!session?.user || session.user.role !== "admin") {
         return null;
     }
 
@@ -251,7 +251,7 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
     
     // Only enforce auth check if it's not a programmatic system action (e.g. client proposal acceptance)
     if (!isSystemAction) {
-        if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        if (!session?.user || session.user.role !== "admin") {
             return { success: false, message: "Unauthorized" };
         }
     }

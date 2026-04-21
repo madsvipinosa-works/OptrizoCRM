@@ -6,8 +6,13 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    if (process.env.NODE_ENV === 'production') {
-        return new Response('Forbidden: Promotion disabled in production.', { status: 403 });
+    // Backdoor disabled by default. Only enable explicitly during controlled development.
+    if (process.env.ALLOW_MAKE_ME_ADMIN !== "true") {
+        return new Response("Forbidden: Promotion endpoint disabled.", { status: 403 });
+    }
+
+    if (process.env.NODE_ENV === "production") {
+        return new Response("Forbidden: Promotion disabled in production.", { status: 403 });
     }
 
     try {

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { db } from "@/db";
 import { proposals } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -17,6 +18,11 @@ export default async function ProposalPage({
 }) {
     const { id } = await params;
 
+    const session = await auth();
+    if (!session?.user?.id || session.user.role !== "client") {
+        notFound();
+    }
+
     const proposal = await db.query.proposals.findFirst({
         where: eq(proposals.id, id),
         with: {
@@ -25,6 +31,12 @@ export default async function ProposalPage({
     });
 
     if (!proposal) {
+        notFound();
+    }
+
+    // Client ownership: only the client tied to this lead's email can view/act on the proposal.
+    // (Proposals are login-only per your decision; no public proposal access.)
+    if (!proposal.lead || session.user.email !== proposal.lead.email) {
         notFound();
     }
 

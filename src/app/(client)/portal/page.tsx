@@ -1,18 +1,20 @@
 import { db } from "@/db";
 import { auth } from "@/auth";
-import { agencyProjects, projectStakeholders } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { projectStakeholders } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, LayoutTemplate, Clock, Link as LinkIcon, MessageCircle } from "lucide-react";
 import { FeedbackActionModal } from "@/features/client-portal/components/FeedbackActionModal";
+import { ClientDocumentUpload } from "@/features/client-portal/components/ClientDocumentUpload";
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientPortalPage() {
     const session = await auth();
-    // Assuming role guard handles unauth, but just in case:
-    if (!session?.user?.id) return null;
+    // Strict portal role: only authenticated users with role `client`.
+    if (!session?.user?.id || session.user.role !== "client") notFound();
 
     // Fetch the client's projects via the projectStakeholders junction
     const userStakeholderRecords = await db.query.projectStakeholders.findMany({
@@ -182,6 +184,8 @@ export default async function ClientPortalPage() {
                                                 ) : (
                                                     <p className="text-muted-foreground italic">No documents shared yet.</p>
                                                 )}
+
+                                                {project.lead?.id && <ClientDocumentUpload leadId={project.lead.id} />}
                                             </CardContent>
                                         </Card>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -8,16 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/ui/file-upload";
-import { createProposal } from "@/features/proposals/actions";
+import { createProposal, getProposalById, updateProposal } from "@/features/proposals/actions";
 import { toast } from "sonner";
-import { FileText, Loader2, Plus, Trash2, UploadCloud } from "lucide-react";
+import { FileText, Loader2, Plus, Trash2, UploadCloud, Pencil } from "lucide-react";
 
 interface Props {
     leadId: string;
     leadName: string;
+    proposalId?: string;
 }
 
-export function ProposalBuilderModal({ leadId, leadName }: Props) {
+export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -31,6 +32,33 @@ export function ProposalBuilderModal({ leadId, leadName }: Props) {
     const [fileUrl, setFileUrl] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState("dynamic");
+
+    useEffect(() => {
+        if (open && proposalId) {
+            setIsLoading(true);
+            getProposalById(proposalId).then((res) => {
+                if (res.success && res.proposal) {
+                   const p = res.proposal;
+                   if (p.fileUrl) {
+                       setActiveTab("upload");
+                       setFileUrl(p.fileUrl);
+                   } else {
+                       setActiveTab("dynamic");
+                       setScope(p.scope || "");
+                       try {
+                           setDeliverables(p.deliverables ? JSON.parse(p.deliverables) : [""]);
+                       } catch(e) { setDeliverables([""]); }
+                       setTimeline(p.timeline || "");
+                       try {
+                           const parsedPricing = p.pricingStructure ? JSON.parse(p.pricingStructure) : { items: [{ name: "", price: 0 }] };
+                           setPricingItems(parsedPricing.items || [{ name: "", price: 0 }]);
+                       } catch(e) { setPricingItems([{ name: "", price: 0 }]); }
+                   }
+                }
+                setIsLoading(false);
+            });
+        }
+    }, [open, proposalId]);
 
     const addDeliverable = () => setDeliverables([...deliverables, ""]);
     const removeDeliverable = (index: number) => setDeliverables(deliverables.filter((_, i) => i !== index));
@@ -50,11 +78,11 @@ export function ProposalBuilderModal({ leadId, leadName }: Props) {
 
     const totalAmount = pricingItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
 
-    const handleCreateProposal = async (e: React.FormEvent) => {
+    const handleSubmitProposal = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
-        let data;
+        let data: any;
         if (activeTab === "upload") {
             if (!fileUrl) {
                 toast.error("Please upload a file first.");
@@ -62,24 +90,34 @@ export function ProposalBuilderModal({ leadId, leadName }: Props) {
                 return;
             }
             data = {
-                fileUrl: fileUrl
+                fileUrl: fileUrl,
+                scope: null,
+                deliverables: null,
+                timeline: null,
+                pricingStructure: null
             };
         } else {
             data = {
                 scope,
                 deliverables: JSON.stringify(deliverables.filter(d => d.trim() !== "")),
                 timeline,
-                pricingStructure: JSON.stringify({ items: pricingItems.filter(p => p.name.trim() !== ""), total: totalAmount })
+                pricingStructure: JSON.stringify({ items: pricingItems.filter(p => p.name.trim() !== ""), total: totalAmount }),
+                fileUrl: null
             };
         }
 
-        const res = await createProposal(leadId, data);
+        let res;
+        if (proposalId) {
+            res = await updateProposal(proposalId, data, "Draft");
+        } else {
+            res = await createProposal(leadId, data);
+        }
         
         if (res.success) {
-            toast.success("Proposal created successfully!");
+            toast.success(`Proposal ${proposalId ? "updated" : "created"} successfully!`);
             setOpen(false);
         } else {
-            toast.error(res.message || "Failed to create proposal.");
+            toast.error(res.message || `Failed to ${proposalId ? "update" : "create"} proposal.`);
         }
         setIsLoading(false);
     };
@@ -87,14 +125,20 @@ export function ProposalBuilderModal({ leadId, leadName }: Props) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:text-primary">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Build Dynamic Proposal
-                </Button>
+                {proposalId ? (
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary transition-colors" title="Edit Proposal">
+                        <Pencil className="h-3 w-3" />
+                    </Button>
+                ) : (
+                    <Button className="w-full bg-primary text-black hover:bg-primary/90 font-medium py-2 rounded-md flex items-center justify-center transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.5)] border-0">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Build Dynamic Proposal
+                    </Button>
+                )}
             </DialogTrigger>
-            <DialogContent className="glass-card border-white/10 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="glass-card border-white/10 text-white max-w-3xl max-h-[90vh] overflow-y-auto w-full sm:max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle className="text-xl">Create Proposal for {leadName}</DialogTitle>
+                    <DialogTitle className="text-xl">{proposalId ? "Edit" : "Create"} Proposal for {leadName}</DialogTitle>
                 </DialogHeader>
                 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
@@ -103,7 +147,7 @@ export function ProposalBuilderModal({ leadId, leadName }: Props) {
                         <TabsTrigger value="upload">📄 Upload PDF</TabsTrigger>
                     </TabsList>
                     
-                    <form onSubmit={handleCreateProposal} className="mt-6 space-y-6">
+                    <form onSubmit={handleSubmitProposal} className="mt-6 space-y-6">
                         <TabsContent value="dynamic" className="space-y-6 mt-0">
                             {/* Scope */}
                             <div className="space-y-2">
@@ -221,7 +265,7 @@ export function ProposalBuilderModal({ leadId, leadName }: Props) {
                             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={isLoading || (activeTab === "upload" && !fileUrl)} className="bg-primary text-black hover:bg-primary/90">
                                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                                Generate Proposal Link
+                                {proposalId ? "Update" : "Generate"} Proposal Link
                             </Button>
                         </div>
                     </form>
