@@ -706,6 +706,7 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                                         className="bg-black/50 border-white/10"
                                         value={editDueDate}
                                         onChange={e => setEditDueDate(e.target.value)}
+                                        min={new Date().toISOString().split('T')[0]}
                                     />
                                 </div>
                             </div>

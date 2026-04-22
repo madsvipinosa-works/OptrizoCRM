@@ -84,7 +84,7 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
 export async function acceptProposalByClient(id: string) {
     try {
         const session = await auth();
-        if (!session?.user?.id || session.user.role !== "client") {
+        if (!session?.user?.id) {
             return { success: false, message: "Unauthorized" };
         }
 
@@ -126,7 +126,7 @@ export async function acceptProposalByClient(id: string) {
 export async function rejectProposalByClient(id: string, reason?: string) {
     try {
         const session = await auth();
-        if (!session?.user?.id || session.user.role !== "client") {
+        if (!session?.user?.id) {
             return { success: false, message: "Unauthorized" };
         }
 

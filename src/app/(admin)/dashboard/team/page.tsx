@@ -37,7 +37,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
     const regularUsers = await db.query.users.findMany({
         where: and(
-            eq(users.role, "user"),
+            inArray(users.role, ["user", "client"]),
             searchFilter
         ),
         limit: 50, // Limit to prevent massive lists
@@ -47,15 +47,15 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight text-glow">Team Management</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-glow">User Management</h2>
                 <p className="text-muted-foreground">
-                    Manage your team structure and promote users.
+                    Manage staff access and registered users/clients.
                 </p>
             </div>
 
             <TeamToolbar />
 
-            <UserList list={teamMembers} title="Active Team" currentUserId={session.user?.id || ""} />
+            <UserList list={teamMembers} title="Staff Members" currentUserId={session.user?.id || ""} />
 
             <div className="pt-8 border-t border-white/10">
                 <h3 className="text-xl font-bold mb-4">User Directory</h3>
@@ -111,8 +111,12 @@ const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title:
                                     <JobTitleEditor userId={user.id} currentTitle={user.jobTitle} isAdmin={true} />
                                     <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
                                     <UserActiveToggle userId={user.id} isActive={user.isActive} isAdmin={true} />
-                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
-                                    <UserAboutToggle userId={user.id} isPublic={user.showOnAboutPage} isAdmin={true} />
+                                    {(user.role === "admin" || user.role === "editor") && (
+                                        <>
+                                            <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
+                                            <UserAboutToggle userId={user.id} isPublic={user.showOnAboutPage} isAdmin={true} />
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -26,7 +26,7 @@ const contentNavItems = [
 ];
 
 const bottomNavItems = [
-    { href: "/dashboard/team", label: "Team", icon: Users },
+    { href: "/dashboard/team", label: "Users", icon: Users },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
     { href: "/dashboard/audit", label: "Audit Logs", icon: ShieldAlert },
 ];

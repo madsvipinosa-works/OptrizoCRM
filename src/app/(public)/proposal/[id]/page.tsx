@@ -19,8 +19,15 @@ export default async function ProposalPage({
     const { id } = await params;
 
     const session = await auth();
-    if (!session?.user?.id || session.user.role !== "client") {
-        notFound();
+    if (!session?.user?.id) {
+        return (
+            <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+                <div className="text-center space-y-4 max-w-md">
+                    <h1 className="text-2xl font-bold">Authentication Required</h1>
+                    <p className="text-muted-foreground">You must log in to view this proposal.</p>
+                </div>
+            </div>
+        );
     }
 
     const proposal = await db.query.proposals.findFirst({
@@ -34,10 +41,26 @@ export default async function ProposalPage({
         notFound();
     }
 
-    // Client ownership: only the client tied to this lead's email can view/act on the proposal.
-    // (Proposals are login-only per your decision; no public proposal access.)
-    if (!proposal.lead || session.user.email !== proposal.lead.email) {
-        notFound();
+    // Access Control: 
+    // Allow if the user is an admin or editor (so they can preview proposals).
+    // Otherwise, require the user's email to match the lead's email exactly.
+    const isAdminOrEditor = session.user.role === "admin" || session.user.role === "editor";
+    const isOwner = proposal.lead && session.user.email === proposal.lead.email;
+
+    if (!isAdminOrEditor && !isOwner) {
+        return (
+            <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+                <div className="text-center space-y-4 max-w-md bg-red-500/10 border border-red-500/20 p-8 rounded-xl">
+                    <h1 className="text-2xl font-bold text-red-400">Access Denied</h1>
+                    <p className="text-white/80">You do not have permission to view this proposal.</p>
+                    <div className="bg-black/50 p-4 rounded-lg text-sm text-left font-mono mt-4 space-y-2 text-white/60">
+                        <p><strong>Logged in as:</strong> {session.user.email} (Role: {session.user.role})</p>
+                        <p><strong>Proposal Lead:</strong> {proposal.lead?.email}</p>
+                    </div>
+                    <p className="text-xs text-white/40 mt-4">Emails must match exactly to gain access.</p>
+                </div>
+            </div>
+        );
     }
 
     // Parse the JSON data safely
@@ -87,6 +110,7 @@ export default async function ProposalPage({
                     proposal={proposal} 
                     parsedDeliverables={parsedDeliverables}
                     parsedPricing={parsedPricing}
+                    isPreview={!isOwner}
                 />
             </div>
         </div>
