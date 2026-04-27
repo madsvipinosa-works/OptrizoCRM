@@ -253,7 +253,7 @@ export async function deleteProposal(id: string) {
         const proposal = await db.query.proposals.findFirst({ where: eq(proposals.id, id) });
         if (!proposal) return { success: false, message: "Proposal not found" };
 
-        if (proposal.status === "Approved" || proposal.status === "Accepted") {
+        if (proposal.status === "Approved") {
             return { success: false, message: "Cannot delete an approved/accepted proposal" };
         }
 
