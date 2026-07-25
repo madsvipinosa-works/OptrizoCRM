@@ -43,9 +43,9 @@ export default async function ProposalPage({
 
     // Access Control: 
     // Allow if the user is an admin or editor (so they can preview proposals).
-    // Otherwise, require the user's email to match the lead's email exactly.
+    // Otherwise, require the user's ID to match the lead's clientId exactly.
     const isAdminOrEditor = session.user.role === "admin" || session.user.role === "editor";
-    const isOwner = proposal.lead && session.user.email === proposal.lead.email;
+    const isOwner = proposal.lead && session.user.id === proposal.lead.clientId;
 
     if (!isAdminOrEditor && !isOwner) {
         return (
@@ -55,9 +55,9 @@ export default async function ProposalPage({
                     <p className="text-white/80">You do not have permission to view this proposal.</p>
                     <div className="bg-black/50 p-4 rounded-lg text-sm text-left font-mono mt-4 space-y-2 text-white/60">
                         <p><strong>Logged in as:</strong> {session.user.email} (Role: {session.user.role})</p>
-                        <p><strong>Proposal Lead:</strong> {proposal.lead?.email}</p>
+                        <p><strong>Proposal Lead Client ID:</strong> {proposal.lead?.clientId}</p>
                     </div>
-                    <p className="text-xs text-white/40 mt-4">Emails must match exactly to gain access.</p>
+                    <p className="text-xs text-white/40 mt-4">You must be the client associated with this proposal.</p>
                 </div>
             </div>
         );
@@ -96,7 +96,7 @@ export default async function ProposalPage({
                             <span className="text-xl font-bold tracking-tight text-white">Optrizo</span>
                         </div>
                         <h1 className="text-4xl font-bold tracking-tight mb-2">Project Proposal</h1>
-                        <p className="text-muted-foreground">Prepared for <span className="text-white font-medium">{proposal.lead?.name}</span></p>
+                        <p className="text-muted-foreground">Prepared for <span className="text-white font-medium">{proposal.lead?.businessName || "Valued Client"}</span></p>
                     </div>
                     <div className="text-left md:text-right text-sm text-muted-foreground bg-white/5 border border-white/10 p-4 rounded-xl">
                         <p className="font-medium text-white mb-1">Proposal Details</p>

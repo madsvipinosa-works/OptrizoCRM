@@ -5,19 +5,6 @@ import { ContactForm } from "@/components/public/ContactForm";
 import { getSiteSettings } from "@/features/cms/actions";
 
 export default async function ContactPage() {
-    // Fetch available services for the dropdown
-    let availableServices: { id: string; title: string }[] = [];
-    try {
-        availableServices = await db.query.services.findMany({
-            columns: {
-                id: true,
-                title: true,
-            },
-        });
-    } catch (error) {
-        console.error("Failed to fetch services for contact form:", error);
-        // Fallback or empty list
-    }
 
     const settings = await getSiteSettings();
 
@@ -70,8 +57,7 @@ export default async function ContactPage() {
                 </div>
 
 
-                {/* Contact Form (Client Component) */}
-                <ContactForm availableServices={availableServices} />
+                <ContactForm />
             </div>
         </div>
     );

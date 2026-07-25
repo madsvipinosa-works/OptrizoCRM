@@ -1,0 +1,1 @@
+ALTER TABLE "lead" ADD COLUMN "isArchived" boolean DEFAULT false NOT NULL;

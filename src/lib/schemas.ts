@@ -6,20 +6,30 @@ export const contactFormSchema = z.object({
     email: z.string().email({ message: "Please enter a valid email address." }),
     subject: z.string().min(5, { message: "Subject must be at least 5 characters." }),
     message: z.string().min(10, { message: "Message must be at least 10 characters." }),
-    budget: z.string().optional(),
-    service: z.string().optional(),
 });
 
 export type ContactFormValues = z.infer<typeof contactFormSchema>;
 
-export const leadStatusEnum = z.enum(["New", "Contacted", "In Progress", "Completed", "Lost", "New Inquiry", "Qualified", "Proposal Sent", "Negotiation", "Won"]);
+export const intakeFormSchema = z.object({
+    businessName: z.string().min(2, { message: "Business name is required." }),
+    industry: z.string().min(2, { message: "Industry is required." }),
+    targetAudience: z.string().min(2, { message: "Target audience is required." }),
+    budget: z.string().min(1, { message: "Budget is required." }),
+    timelineExpectation: z.string().min(1, { message: "Timeline is required." }),
+    goals: z.string().min(10, { message: "Please describe your project goals." }),
+    serviceId: z.string().optional(),
+});
+
+export type IntakeFormValues = z.infer<typeof intakeFormSchema>;
+
+export const leadStatusEnum = z.enum(["Pending Approval", "In Review", "Proposal Sent", "Closed Won", "Closed Lost"]);
 
 export const leadUpdateSchema = z.object({
     status: leadStatusEnum.optional(),
     notes: z.string().optional(),
     assigneeIds: z.array(z.string()).optional(),
     files: z.array(z.string()).optional(),
-    nextActionDate: z.coerce.date().nullable().optional(),
+    score: z.number().optional(),
     activityType: z.enum(["Call", "Email", "Meeting", "Note"]).optional(),
 });
 

@@ -7,32 +7,24 @@ import { LeadCard } from "./LeadCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Define the shape of our Lead based on strict schema alignment
 type Lead = {
     id: string;
-    name: string;
-    email: string;
-    subject: string | null;
-    message: string;
-    status: "New Inquiry" | "Qualified" | "Proposal Sent" | "Negotiation" | "Won" | "Lost" | string;
+    businessName: string | null;
+    clientId: string;
+    client?: { name: string | null; email: string };
+    goals: string | null;
+    status: string;
     industry?: string | null;
-    scope?: string | null;
-    score: number | null;
     budget: string | null;
-    service: string | null;
     source: string | null;
-    notes: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
-    read: boolean;
-    files: string[] | null;
-    nextActionDate: Date | string | null;
     assignees?: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
-    notesList?: {
+    activityLogs?: {
         id: string;
         content: string;
         activityType: string | null;
-        createdAt: Date;
+        createdAt: Date | string;
         author: { name: string | null; email: string } | null;
     }[];
 };

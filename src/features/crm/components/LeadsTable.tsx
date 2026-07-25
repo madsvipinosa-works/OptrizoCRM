@@ -23,14 +23,12 @@ import { LeadCard } from "./LeadCard";
 
 interface Lead {
     id: string;
-    name: string;
-    email: string;
-    subject: string | null;
+    businessName: string | null;
+    clientId: string;
+    client?: { name: string | null; email: string };
     status: string;
     industry?: string | null;
-    scope?: string | null;
     budget?: string | null;
-    service?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     assignees?: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
@@ -65,8 +63,8 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                                 <TableRow className="cursor-pointer hover:bg-white/5 border-white/10 transition-colors group">
                                     <TableCell>
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-white group-hover:text-primary transition-colors">{lead.name}</span>
-                                            <span className="text-xs text-muted-foreground">{lead.email}</span>
+                                            <span className="font-medium text-white group-hover:text-primary transition-colors">{lead.businessName || lead.client?.name || "Unknown Lead"}</span>
+                                            <span className="text-xs text-muted-foreground">{lead.client?.email || "No Email"}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -81,11 +79,6 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                                                     <Building2 className="h-3 w-3" /> {lead.industry}
                                                 </div>
                                             )}
-                                            {lead.service && (
-                                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                    <Briefcase className="h-3 w-3" /> {lead.service}
-                                                </div>
-                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -93,11 +86,6 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                                             {lead.budget && (
                                                 <div className="flex items-center gap-1 text-xs text-green-400 font-medium">
                                                     <DollarSign className="h-3 w-3" /> {lead.budget}
-                                                </div>
-                                            )}
-                                            {lead.scope && (
-                                                <div className="text-[10px] text-muted-foreground max-w-[150px] truncate">
-                                                    {lead.scope}
                                                 </div>
                                             )}
                                         </div>
@@ -137,7 +125,7 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                             </DialogTrigger>
                             <DialogContent className="max-w-2xl bg-black/90 border-white/10 p-0 overflow-hidden outline-none">
                                 <DialogHeader className="sr-only">
-                                    <DialogTitle>Lead Details: {lead.name}</DialogTitle>
+                                    <DialogTitle>Lead Details: {lead.businessName || lead.client?.name}</DialogTitle>
                                     <DialogDescription>
                                         Detailed view of lead information and project scope.
                                     </DialogDescription>

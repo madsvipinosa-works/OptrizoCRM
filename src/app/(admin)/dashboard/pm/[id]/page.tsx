@@ -35,6 +35,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                 }
             },
             tasks: {
+                where: (tasks, { isNull }) => isNull(tasks.deletedAt),
                 with: {
                     assignees: {
                         with: { user: true }

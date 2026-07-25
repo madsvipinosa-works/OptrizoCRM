@@ -13,8 +13,10 @@ import { handleSignOut } from "@/features/auth/signout-action";
 
 const mainNavItems = [
     { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/dashboard/leads", label: "Leads", icon: Mail },
-    { href: "/dashboard/pm", label: "Project Board", icon: KanbanSquare },
+    { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail },
+    { href: "/dashboard/contacts", label: "Contacts", icon: Users },
+    { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare },
+    { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare },
 ];
 
 const contentNavItems = [
@@ -26,7 +28,7 @@ const contentNavItems = [
 ];
 
 const bottomNavItems = [
-    { href: "/dashboard/team", label: "Users", icon: Users },
+    { href: "/dashboard/team", label: "Team", icon: Users },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
     { href: "/dashboard/audit", label: "Audit Logs", icon: ShieldAlert },
 ];

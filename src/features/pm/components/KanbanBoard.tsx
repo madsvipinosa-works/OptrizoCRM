@@ -20,6 +20,7 @@ const COLUMNS = [
     { id: "Todo", title: "To Do" },
     { id: "In Progress", title: "In Progress" },
     { id: "Blocked", title: "Blocked" },
+    { id: "In Review", title: "In Review" },
     { id: "Done", title: "Done" }
 ];
 
@@ -28,7 +29,10 @@ interface KanbanTask {
     milestoneId: string;
     title: string;
     description: string | null;
-    status: "Todo" | "In Progress" | "Blocked" | "Done";
+    status: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done";
+    requiresProof?: boolean;
+    proofUrl?: string | null;
+    proofNotes?: string | null;
     assignees: { user: KanbanTeamMember }[];
     dueDate: Date | null;
     dependsOnTaskId: string | null;
@@ -79,6 +83,11 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
     const [newTaskDesc, setNewTaskDesc] = useState("");
     const [newAssigneeIds, setNewAssigneeIds] = useState<string[]>([]);
 
+    // Task Proof state
+    const [proofingTask, setProofingTask] = useState<{taskId: string, newStatus: string} | null>(null);
+    const [proofUrl, setProofUrl] = useState("");
+    const [proofNotes, setProofNotes] = useState("");
+
     // Milestone State
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
     const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
@@ -125,9 +134,22 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
 
         const newStatus = destination.droppableId as KanbanTask["status"];
 
+        const task = optimisticTasks.find(t => t.id === draggableId);
+        if (!task) return;
+
         // Block manual move to/from "Blocked" if the milestone itself is blocking them
         if (activeMilestone.status === "Client Approval" && newStatus !== "Blocked") {
             toast.error("Cannot unblock task while Milestone is awaiting Client Approval.");
+            return;
+        }
+
+        if (newStatus === "Done" && task.requiresProof && currentUserRole !== "admin") {
+            toast.error("Only Admins can approve tasks to Done.");
+            return;
+        }
+
+        if (newStatus === "In Review" && task.requiresProof) {
+            setProofingTask({ taskId: draggableId, newStatus });
             return;
         }
 
@@ -741,6 +763,67 @@ export function KanbanBoard({ project, teamMembers, currentUserId, currentUserRo
                             <Button type="button" variant="ghost" onClick={() => setEditingMilestoneId(null)}>Cancel</Button>
                             <Button type="submit" disabled={isEditingMilestone} className="bg-primary text-black hover:bg-primary/90">
                                 Save Changes
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+            {/* Task Proof Modal */}
+            <Dialog open={!!proofingTask} onOpenChange={(open) => !open && setProofingTask(null)}>
+                <DialogContent className="glass-card border-white/10 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Submit Work for Review</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!proofingTask) return;
+                        if (!proofUrl && !proofNotes) {
+                            toast.error("Proof URL or Notes are required.");
+                            return;
+                        }
+
+                        // Optimistic UI
+                        const updatedTasks = optimisticTasks.map(t =>
+                            t.id === proofingTask.taskId ? { ...t, status: proofingTask.newStatus as any, proofUrl, proofNotes } : t
+                        );
+                        setOptimisticTasks(updatedTasks);
+                        
+                        const currentTask = proofingTask;
+                        setProofingTask(null);
+                        setProofUrl("");
+                        setProofNotes("");
+
+                        const { updateTaskStatus } = await import("@/features/pm/actions");
+                        const res = await updateTaskStatus(currentTask.taskId, currentTask.newStatus as any, proofUrl, proofNotes);
+                        if (!res.success) {
+                            toast.error(res.message);
+                            setOptimisticTasks(optimisticTasks);
+                        } else {
+                            toast.success("Task submitted for review.");
+                        }
+                    }} className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label>Proof URL (Optional)</Label>
+                            <Input
+                                className="bg-black/50 border-white/10"
+                                value={proofUrl}
+                                onChange={e => setProofUrl(e.target.value)}
+                                placeholder="e.g. Figma or Vercel link"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Notes (Optional)</Label>
+                            <Textarea
+                                className="bg-black/50 border-white/10"
+                                value={proofNotes}
+                                onChange={e => setProofNotes(e.target.value)}
+                                placeholder="Details about what was done..."
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button type="button" variant="ghost" onClick={() => setProofingTask(null)}>Cancel</Button>
+                            <Button type="submit" className="bg-primary text-black hover:bg-primary/90">
+                                Submit for Review
                             </Button>
                         </div>
                     </form>

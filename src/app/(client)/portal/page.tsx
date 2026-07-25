@@ -13,8 +13,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function ClientPortalPage() {
     const session = await auth();
-    // Strict portal role: only authenticated users with role `client`.
-    if (!session?.user?.id || session.user.role !== "client") notFound();
+    // Allow logged in users. Admins/editors can view/preview client project progress.
+    if (!session?.user?.id) notFound();
+
+    const isAdminOrStaff = session.user.role === "admin" || session.user.role === "editor";
 
     // Fetch the client's projects via the projectStakeholders junction
     const userStakeholderRecords = await db.query.projectStakeholders.findMany({
@@ -37,10 +39,29 @@ export default async function ClientPortalPage() {
         }
     });
 
-    const projects = userStakeholderRecords
+    let projects = userStakeholderRecords
         .map(record => record.project)
         .filter(Project => Project !== null)
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    // If Admin/Staff testing and no direct stakeholder project, show all active projects for preview
+    if (projects.length === 0 && isAdminOrStaff) {
+        const allProjects = await db.query.agencyProjects.findMany({
+            with: {
+                milestones: {
+                    orderBy: (milestones, { asc }) => [asc(milestones.order)],
+                    with: {
+                        feedback: {
+                            orderBy: (clientFeedback, { desc }) => [desc(clientFeedback.createdAt)]
+                        }
+                    }
+                },
+                tasks: true,
+                lead: true
+            }
+        });
+        projects = allProjects.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -174,16 +195,7 @@ export default async function ClientPortalPage() {
                                                 </CardTitle>
                                             </CardHeader>
                                             <CardContent className="space-y-2 text-sm">
-                                                {project.lead?.files && project.lead.files.length > 0 ? (
-                                                    project.lead.files.map((file, idx) => (
-                                                        <a key={idx} href={file} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-white/10 transition-colors border border-white/5 border-dashed text-primary">
-                                                            <FileText className="h-4 w-4 shrink-0" />
-                                                            <span className="truncate">{file.split('/').pop()}</span>
-                                                        </a>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-muted-foreground italic">No documents shared yet.</p>
-                                                )}
+                                                <p className="text-muted-foreground italic">No documents shared yet.</p>
 
                                                 {project.lead?.id && <ClientDocumentUpload leadId={project.lead.id} />}
                                             </CardContent>

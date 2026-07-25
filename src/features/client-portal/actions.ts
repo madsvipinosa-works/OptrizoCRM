@@ -45,19 +45,8 @@ export async function addClientLeadDocument(leadId: string, fileUrl: string) {
         return { success: false, message: "Lead not found" };
     }
 
-    const currentFiles = lead.files ?? [];
-    if (currentFiles.includes(fileUrl)) {
-        return { success: true, message: "File already attached" };
-    }
-
-    const updatedFiles = [...currentFiles, fileUrl];
-
-    await db.update(leads)
-        .set({
-            files: updatedFiles,
-            updatedAt: new Date(),
-        })
-        .where(eq(leads.id, leadId));
+    // Files logic temporarily disabled as `leads.files` was removed in schema v2.
+    // In the future, this should upload to project-specific file storage.
 
     await logAction("CREATE", "Client Document", `Client attached document to Lead ${leadId}`);
 

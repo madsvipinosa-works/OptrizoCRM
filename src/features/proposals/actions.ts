@@ -96,8 +96,8 @@ export async function acceptProposalByClient(id: string) {
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        // Ownership: client can only accept proposals linked to their lead email.
-        if (session.user.email !== proposal.lead.email) {
+        // Ownership: client can only accept proposals linked to their lead.
+        if (session.user.id !== proposal.lead.clientId) {
             return { success: false, message: "Unauthorized: Proposal ownership mismatch" };
         }
 
@@ -109,7 +109,7 @@ export async function acceptProposalByClient(id: string) {
         await markLeadAsWon(proposal.leadId, true);
         
         if (proposal.lead) {
-             await notifyAllAdmins(`Proposal accepted by ${proposal.lead.name}!`, "proposal", `/dashboard/leads`);
+             await notifyAllAdmins(`Proposal accepted by ${proposal.lead.businessName || "Client"}!`, "proposal", `/dashboard/leads`);
         }
         
         await logAction("UPDATE", "Proposal", `Proposal ${id} accepted by client`);
@@ -138,8 +138,8 @@ export async function rejectProposalByClient(id: string, reason?: string) {
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        // Ownership: client can only reject proposals linked to their lead email.
-        if (session.user.email !== proposal.lead.email) {
+        // Ownership: client can only reject proposals linked to their lead.
+        if (session.user.id !== proposal.lead.clientId) {
             return { success: false, message: "Unauthorized: Proposal ownership mismatch" };
         }
 
@@ -148,10 +148,10 @@ export async function rejectProposalByClient(id: string, reason?: string) {
         await db.update(proposals).set({ status: "Rejected", updatedAt: new Date() }).where(eq(proposals.id, id));
 
         // Sync proposal rejection back to the Lead status
-        await db.update(leads).set({ status: "Negotiation", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
+        await db.update(leads).set({ status: "In Review", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
 
         if (proposal.lead) {
-             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.name}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
+             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.businessName || "Client"}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
         }
         
         await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Lead ${proposal.leadId} reverted to Negotiation.`);
@@ -177,42 +177,19 @@ export async function sendProposalEmail(proposalId: string) {
 
     const p = await db.query.proposals.findFirst({
         where: eq(proposals.id, proposalId),
-        with: { lead: true }
+        with: { lead: { with: { client: true } } }
     });
     
-    if (!p || !p.lead) return { success: false, message: "Proposal or lead not found" };
+    if (!p || !p.lead || !p.lead.client) return { success: false, message: "Proposal, lead, or client not found" };
 
     try {
-        // Ensure the recipient can log in as a client (login-only proposal access).
-        const existingClientUser = await db.query.users.findFirst({
-            where: eq(users.email, p.lead.email)
-        });
-
-        if (!existingClientUser) {
-            await db.insert(users).values({
-                name: p.lead.name,
-                email: p.lead.email,
-                role: "client",
-                isActive: true,
-            });
-            await logAction("CREATE", "User", `Provisioned client login for proposal recipient: ${p.lead.email}`);
-        } else {
-            // Avoid downgrading agency staff if the email is already an admin/editor.
-            if (existingClientUser.role !== "admin" && existingClientUser.role !== "editor") {
-                await db.update(users)
-                    .set({ role: "client", isActive: true })
-                    .where(eq(users.id, existingClientUser.id));
-                await logAction("UPDATE", "User", `Upgraded user to client role: ${p.lead.email}`);
-            }
-        }
-
         const url = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://'+process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000')}/proposal/${proposalId}`;
         
         await resend.emails.send({
             from: "Optrizo <onboarding@resend.dev>",
-            to: p.lead.email,
-            subject: `Your Custom Proposal from Optrizo - ${p.lead.name}`,
-            html: `<p>Hi ${p.lead.name},</p><p>We have prepared a custom proposal for your project.</p><p>You can view and accept it here: <br/><a href="${url}">${url}</a></p><p>Looking forward to working with you!</p><p>The Optrizo Team</p>`,
+            to: p.lead.client.email,
+            subject: `Your Custom Proposal from Optrizo - ${p.lead.businessName || p.lead.client.name}`,
+            html: `<p>Hi ${p.lead.client.name},</p><p>We have prepared a custom proposal for your project.</p><p>You can view and accept it here: <br/><a href="${url}">${url}</a></p><p>Looking forward to working with you!</p><p>The Optrizo Team</p>`,
         });
 
         // Mark as sent

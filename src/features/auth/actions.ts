@@ -30,7 +30,10 @@ export async function signInWithEmail(prevState: unknown, formData: FormData) {
         // Audit log on login
         await logAction("LOGIN", "User", `Email login: ${email}`);
 
-        return { success: true, redirect: "/dashboard" };
+        const callbackUrl = (formData.get("callbackUrl") as string) || "/dashboard";
+        const targetRedirect = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+
+        return { success: true, redirect: targetRedirect };
     } catch (error) {
         if (error instanceof AuthError) {
             const customMessage = error.cause?.err?.message;
@@ -53,6 +56,8 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData) {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const name = formData.get("name") as string;
+    const callbackUrl = (formData.get("callbackUrl") as string) || "/dashboard";
+    const targetRedirect = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
 
     if (!email || !password) return { success: false, message: "Email and password are required" };
     if (password.length < 6) return { success: false, message: "Password must be at least 6 characters long" };
@@ -78,7 +83,7 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData) {
             redirect: false,
         });
 
-        return { success: true, redirect: "/dashboard" };
+        return { success: true, redirect: targetRedirect };
     } catch (error) {
         if (error instanceof AuthError) {
             return { success: false, message: "Failed to automatically sign in after registration" };

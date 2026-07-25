@@ -57,7 +57,7 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
     }
 }
 
-export async function updateProjectSettings(projectId: string, leadId: string | null, stagingUrls: string[], files: string[]): Promise<ActionState> {
+export async function updateProjectSettings(projectId: string, stagingUrls: string[]): Promise<ActionState> {
     const session = await auth();
     if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
@@ -65,11 +65,6 @@ export async function updateProjectSettings(projectId: string, leadId: string | 
 
     try {
         await db.update(agencyProjects).set({ stagingUrls, updatedAt: new Date() }).where(eq(agencyProjects.id, projectId));
-
-        if (leadId) {
-            const { leads } = await import("@/db/schema");
-            await db.update(leads).set({ files, updatedAt: new Date() }).where(eq(leads.id, leadId));
-        }
 
         await logAction("UPDATE", "Project", `Project ${projectId} settings updated`);
 
@@ -237,7 +232,7 @@ export async function createTask(projectId: string, milestoneId: string, title: 
     }
 }
 
-export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "Done"): Promise<ActionState> {
+export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done", proofUrl?: string, proofNotes?: string): Promise<ActionState> {
     const session = await auth();
     if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
         return { success: false, message: "Unauthorized" };
@@ -263,11 +258,25 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
         if (!oldTask) return { success: false, message: "Task not found" };
 
+        if (status === "Done" && oldTask.requiresProof && session.user.role !== "admin") {
+            return { success: false, message: "Only Admins can approve tasks to Done." };
+        }
+
+        if (status === "In Review" && oldTask.requiresProof && !proofUrl && !proofNotes) {
+            return { success: false, message: "Proof URL or Notes are required for review." };
+        }
+
         const wasBlocked = oldTask.isBlockedByClient;
         const isNowBlocked = status === "Blocked";
 
+        const updateData: any = { status, isBlockedByClient: isNowBlocked, updatedAt: new Date() };
+        if (status === "In Review" || status === "Done") {
+            if (proofUrl !== undefined) updateData.proofUrl = proofUrl;
+            if (proofNotes !== undefined) updateData.proofNotes = proofNotes;
+        }
+
         await db.update(tasks)
-            .set({ status, isBlockedByClient: isNowBlocked, updatedAt: new Date() })
+            .set(updateData)
             .where(eq(tasks.id, taskId));
 
         if (!wasBlocked && isNowBlocked) {
@@ -277,6 +286,27 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             if (emails.length > 0) {
                 const { sendTaskBlockedEmail } = await import("@/lib/notifications");
                 await sendTaskBlockedEmail(emails, oldTask.milestone?.project?.title || "Your Project", oldTask.title);
+            }
+        }
+
+        // Status bubbling logic
+        if (status === "Done" && oldTask.milestoneId) {
+            const { isNull } = await import("drizzle-orm");
+            const allTasks = await db.query.tasks.findMany({
+                where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
+            });
+            
+            const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
+            if (allDone) {
+                await db.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
+                
+                const allMilestones = await db.query.milestones.findMany({
+                    where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
+                });
+                const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
+                if (allMsCompleted) {
+                    await db.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
+                }
             }
         }
 
@@ -365,9 +395,11 @@ export async function deleteTask(taskId: string): Promise<ActionState> {
     }
 
     try {
-        await db.delete(tasks).where(eq(tasks.id, taskId));
+        await db.update(tasks)
+            .set({ deletedAt: new Date(), updatedAt: new Date() })
+            .where(eq(tasks.id, taskId));
         
-        await logAction("DELETE", "Task", `Task ${taskId} deleted`);
+        await logAction("DELETE", "Task", `Task ${taskId} soft-deleted`);
         
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task deleted." };

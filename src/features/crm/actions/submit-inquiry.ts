@@ -2,12 +2,11 @@
 
 import { contactFormSchema } from "@/lib/schemas";
 import { db } from "@/db";
-import { leads } from "@/db/schema";
-import { calculateLeadScore } from "@/lib/scoring";
-import { sendLeadNotification } from "@/lib/notifications";
+import { inquiries } from "@/db/schema";
 import { headers } from "next/headers";
 import { checkContactRateLimit } from "@/lib/rate-limit";
 import { notifyAllAdmins } from "@/features/notifications/actions";
+// Removed calculateLeadScore and sendLeadNotification since those apply to true Leads now.
 
 export type ContactState = {
     message: string;
@@ -37,8 +36,6 @@ export async function submitContactForm(prevState: ContactState, formData: FormD
         email: formData.get("email"),
         subject: formData.get("subject"),
         message: formData.get("message"),
-        budget: formData.get("budget"),
-        service: formData.get("service"),
     });
 
     // 2. Return early if validation fails
@@ -51,41 +48,21 @@ export async function submitContactForm(prevState: ContactState, formData: FormD
     }
 
     // 3. Save to Database
-    const { firstName, lastName, email, subject, message, budget, service } = validatedFields.data;
+    const { firstName, lastName, email, subject, message } = validatedFields.data;
     const name = `${firstName} ${lastName || ""}`.trim();
 
-    // Calculate Score
-    const score = calculateLeadScore({ budget, service, message });
-
     try {
-        await db.insert(leads).values({
+        await db.insert(inquiries).values({
             name,
             email,
             subject,
             message,
-            budget,
-            service,
-            score,
             source: "Website Form",
         });
 
-        console.log(`[Contact] Lead saved from ${email}`);
+        console.log(`[Contact] Inquiry saved from ${email}`);
 
-        // 4. Send Email Notification (Fire and forget)
-        try {
-            await sendLeadNotification({
-                name,
-                email,
-                message,
-                service: service ?? undefined,
-                budget: budget ?? undefined,
-                score,
-            });
-        } catch (emailError) {
-            console.error("Failed to send email notif:", emailError);
-        }
-
-        await notifyAllAdmins(`New website inquiry from ${name}`, "lead", "/dashboard/leads");
+        await notifyAllAdmins(`New website inquiry from ${name}`, "system", "/dashboard/inquiries");
 
         // 5. Return success
         return {

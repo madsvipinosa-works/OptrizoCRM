@@ -3,6 +3,7 @@ import { leads, users, leadAssignees } from "@/db/schema";
 import { desc, like, eq, and, or, inArray } from "drizzle-orm";
 import { LeadsFilter } from "@/features/crm/components/LeadsFilter";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
+import { CreateLeadModal } from "@/features/crm/components/CreateLeadModal";
 import { Suspense } from "react";
 import { auth } from "@/auth"; // Need auth for current user ID
 
@@ -39,14 +40,12 @@ export default async function LeadsPage({
 
     // Build Where Clause
     const whereClause = and(
-        eq(leads.isArchived, false),
         !isAdmin ? inArray(leads.id, assignedLeadIds) : undefined,
-        status && status !== "all" ? eq(leads.status, status as "New" | "Contacted" | "In Progress" | "Completed" | "Lost") : undefined,
+        status && status !== "all" ? eq(leads.status, status as any) : undefined,
         query
             ? or(
-                like(leads.name, `%${query}%`),
-                like(leads.email, `%${query}%`),
-                like(leads.subject, `%${query}%`)
+                like(leads.businessName, `%${query}%`),
+                like(leads.industry, `%${query}%`)
             )
             : undefined
     );
@@ -55,11 +54,12 @@ export default async function LeadsPage({
     const leadsList = await db.query.leads.findMany({
         where: whereClause,
         with: {
-            notesList: {
+            client: true, // Need client details for display
+            activityLogs: {
                 with: {
                     author: true,
                 },
-                orderBy: (notes, { desc }) => [desc(notes.createdAt)],
+                orderBy: (logs, { desc }) => [desc(logs.createdAt)],
             },
             assignees: { with: { user: true } },
             proposals: {
@@ -80,17 +80,21 @@ export default async function LeadsPage({
         ...lead,
         createdAt: lead.createdAt.toISOString(),
         updatedAt: lead.updatedAt.toISOString(),
-        nextActionDate: lead.nextActionDate ? lead.nextActionDate.toISOString() : null,
         assignees: lead.assignees?.map(a => a.user) || [],
     }));
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight text-glow">Lead Pipeline</h2>
-                <p className="text-muted-foreground">
-                    Manage incoming project inquiries and potential clients.
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-glow">Sales Pipeline</h2>
+                    <p className="text-muted-foreground">
+                        Manage inquiries and active deals.
+                    </p>
+                </div>
+                {isAdmin && (
+                    <CreateLeadModal />
+                )}
             </div>
 
             <Suspense fallback={<div className="h-10 w-full bg-white/5 animate-pulse rounded-md" />}>

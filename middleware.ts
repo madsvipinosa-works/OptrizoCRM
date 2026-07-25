@@ -6,18 +6,32 @@ const { auth } = NextAuth(authConfig)
 export default auth((req) => {
     const isLoggedIn = !!req.auth;
     const { nextUrl } = req;
+    const role = (req.auth?.user as any)?.role;
 
-    const isProtectedRoute =
+    const isAdminRoute =
         nextUrl.pathname.startsWith("/dashboard") ||
-        nextUrl.pathname.startsWith("/admin") ||
-        nextUrl.pathname.startsWith("/portal");
+        nextUrl.pathname.startsWith("/admin");
+
+    const isClientRoute =
+        nextUrl.pathname.startsWith("/portal") ||
+        nextUrl.pathname.startsWith("/proposal");
+
+    const isProtectedRoute = isAdminRoute || isClientRoute;
 
     // 1. Redirect unauthenticated users trying to access protected routes
     if (isProtectedRoute && !isLoggedIn) {
-        return Response.redirect(new URL("/api/auth/signin", nextUrl));
+        return Response.redirect(new URL("/services?login=required", nextUrl));
     }
 
-    // 2. Allow everything else (Public by default)
+    // 2. RBAC checks for authenticated users
+    if (isLoggedIn) {
+        if (isAdminRoute && role !== "admin" && role !== "editor") {
+            // Non-admin users trying to access admin routes
+            return Response.redirect(new URL("/portal", nextUrl));
+        }
+    }
+
+    // 3. Allow everything else (Public by default)
     return;
 });
 

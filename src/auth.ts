@@ -70,6 +70,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 if (existingUser) {
                     // Update the user.id so the DrizzleAdapter links the account correctly
                     user.id = existingUser.id;
+                    (user as any).role = existingUser.role;
+                    (user as any).jobTitle = existingUser.jobTitle;
                 }
             }
             return true;
@@ -78,22 +80,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // User object is only available on initial sign-in
             if (user) {
                 token.id = user.id;
+                token.role = (user as any).role;
+                token.jobTitle = (user as any).jobTitle;
+            }
+            // Fetch fresh user data from DB to reflect role changes in Supabase/DB immediately
+            if (token.email) {
+                const dbUser = await db.query.users.findFirst({
+                    where: eq(users.email, token.email),
+                });
+                if (dbUser) {
+                    token.id = dbUser.id;
+                    token.role = dbUser.role;
+                    token.jobTitle = dbUser.jobTitle;
+                }
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user && token?.id) {
                 session.user.id = token.id as string;
-
-                // Force fetch role from DB to avoid JWT staleness
-                const dbUser = await db.query.users.findFirst({
-                    where: eq(users.id, session.user.id),
-                });
-
-                session.user.role = dbUser?.role || "user";
-                session.user.jobTitle = dbUser?.jobTitle || null;
-
-                console.log(`[Auth] Session User: ${session.user.email}, Role from DB: ${session.user.role}`);
+                session.user.role = (token.role as "user" | "admin" | "editor" | "client") || "user";
+                session.user.jobTitle = (token.jobTitle as string) || null;
             }
             return session;
         },

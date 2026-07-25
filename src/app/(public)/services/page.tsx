@@ -1,14 +1,19 @@
 import { db } from "@/db";
 import { services } from "@/db/schema";
 import { asc } from "drizzle-orm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ServiceCardAction } from "@/components/public/ServiceCardAction";
+import { auth } from "@/auth";
 import Link from "next/link";
 import { ArrowRight, Box } from "lucide-react";
 import * as Icons from "lucide-react";
 
 export default async function ServicesPage() {
+    const session = await auth();
+    const isLoggedIn = !!session?.user;
+
     const allServices = await db.query.services.findMany({
         orderBy: [asc(services.order)],
     });
@@ -30,18 +35,21 @@ export default async function ServicesPage() {
                     const IconComponent = Icons[service.icon] || Box;
 
                     return (
-                        <Card key={service.id} className="bg-black/40 border-primary/10 hover:border-primary/50 transition-colors group">
+                        <Card key={service.id} className="bg-black/40 border-primary/10 hover:border-primary/50 transition-colors group flex flex-col justify-between">
                             <CardHeader>
                                 <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform duration-300">
                                     <IconComponent className="h-6 w-6" />
                                 </div>
                                 <CardTitle className="text-2xl">{service.title}</CardTitle>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="flex-1">
                                 <p className="text-muted-foreground leading-relaxed">
                                     {service.description}
                                 </p>
                             </CardContent>
+                            <CardFooter className="pt-4">
+                                <ServiceCardAction serviceId={service.id} isLoggedIn={isLoggedIn} />
+                            </CardFooter>
                         </Card>
                     );
                 })}

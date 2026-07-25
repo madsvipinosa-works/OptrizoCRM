@@ -114,29 +114,22 @@ function DeleteProposalButton({ proposalId }: { proposalId: string }) {
 // Define the shape of our Lead based on the schema
 type Lead = {
     id: string;
-    name: string;
-    email: string;
-    subject: string | null;
-    message: string;
-    status: "New Inquiry" | "Qualified" | "Proposal Sent" | "Negotiation" | "Won" | "Lost" | string;
+    businessName: string | null;
+    clientId: string;
+    client?: { name: string | null; email: string };
+    goals: string | null;
+    status: string;
     industry?: string | null;
-    scope?: string | null;
-    score: number | null;
     budget: string | null;
-    service: string | null;
     source: string | null;
-    notes: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
-    read: boolean;
-    files: string[] | null;
     assignees?: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
-    nextActionDate: Date | string | null;
-    notesList?: {
+    activityLogs?: {
         id: string;
         content: string;
         activityType: string | null;
-        createdAt: Date;
+        createdAt: Date | string;
         author: { name: string | null; email: string } | null;
     }[];
     proposals?: {
@@ -147,60 +140,53 @@ type Lead = {
 };
 
 // Colors for different statuses
-const statusColors: Record<string, string> = {
-    "New": "bg-primary text-black hover:bg-primary/80",
-    "New Inquiry": "bg-primary text-black hover:bg-primary/80",
-    "Contacted": "bg-blue-500 text-white hover:bg-blue-600",
-    "Qualified": "bg-blue-500 text-white hover:bg-blue-600",
-    "In Progress": "bg-yellow-500 text-black hover:bg-yellow-600",
+const STATUS_COLORS: Record<string, string> = {
+    "Pending Approval": "bg-primary text-black hover:bg-primary/80",
+    "In Review": "bg-blue-500 text-white hover:bg-blue-600",
     "Proposal Sent": "bg-yellow-500 text-black hover:bg-yellow-600",
-    "Negotiation": "bg-orange-500 text-white hover:bg-orange-600",
-    "Completed": "bg-green-500 text-white hover:bg-green-600",
-    "Won": "bg-green-500 text-white hover:bg-green-600",
-    "Lost": "bg-gray-500 text-white hover:bg-gray-600",
+    "Closed Won": "bg-green-500 text-white hover:bg-green-600",
+    "Closed Lost": "bg-gray-500 text-white hover:bg-gray-600",
 };
 
+import { useRouter } from "next/navigation";
+
 export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[], isAdmin?: boolean }) {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(lead.status);
     const [assignedToIds, setAssignedToIds] = useState<string[]>(lead.assignees?.map(a => a.id) || []);
     const [newNote, setNewNote] = useState("");
-    const [activityType, setActivityType] = useState<"Call" | "Email" | "Meeting" | "Note">("Note");
-    const [nextActionDate, setNextActionDate] = useState<Date | undefined>(
-        lead.nextActionDate ? new Date(lead.nextActionDate) : undefined
-    );
+    const [activityType, setActivityType] = useState<"Note" | "Email" | "Call" | "Meeting">("Note");
 
     // Stale Logic: older than 7 days and not in a terminal state
     const daysSinceUpdate = differenceInDays(new Date(), new Date(lead.updatedAt));
-    const isStale = daysSinceUpdate > 7 && status !== "Completed" && status !== "Lost";
+    const isStale = daysSinceUpdate > 7 && status !== "Closed Won" && status !== "Closed Lost";
 
     const lastUpdated = formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true });
 
     const handleSaveStatus = async () => {
         setIsLoading(true);
         try {
-            if (status === "Completed" && lead.status !== "Completed") {
-                // If there's a next action date set, save it first
-                if (nextActionDate) {
-                    await updateLead(lead.id, { nextActionDate });
-                }
+            if (status === "Closed Won" && lead.status !== "Closed Won") {
                 const result = await markLeadAsWon(lead.id);
                 if (result.success) {
                     toast.success("Lead Won! Client and Project Provisioned.", {
-                        description: "Check terminal logs for mock credential emails."
+                        description: "Check client portal or PM dashboard for project status."
                     });
                     setIsOpen(false);
+                    router.refresh();
                 } else {
                     toast.error(result.message);
                 }
             } else {
                 const result = await updateLead(lead.id, {
-                    status: status as "New Inquiry" | "Qualified" | "Proposal Sent" | "Negotiation" | "Won" | "Lost",
-                    nextActionDate: nextActionDate || null
+                    status: status as "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost"
                 });
                 if (result.success) {
                     toast.success("Lead status updated");
+                    setIsOpen(false);
+                    router.refresh();
                 } else {
                     toast.error(result.message);
                 }
@@ -219,6 +205,7 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
             const result = await updateLead(lead.id, { assigneeIds: userIds });
             if (result.success) {
                 setAssignedToIds(userIds);
+                router.refresh();
             } else {
                 alert(result.message);
             }
@@ -237,6 +224,7 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
             if (result.success) {
                 setNewNote("");
                 toast.success(`${activityType} logged successfully`);
+                router.refresh();
             } else {
                 toast.error(result.message);
             }
@@ -269,13 +257,13 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                             )}
                         </div>
                         <CardTitle className="text-lg flex items-center gap-2">
-                            {lead.name}
-                            <Badge className={statusColors[lead.status] || "bg-secondary"}>
+                            {lead.businessName || lead.client?.name || "Unknown Lead"}
+                            <Badge className={STATUS_COLORS[lead.status] || "bg-secondary"}>
                                 {lead.status}
                             </Badge>
                         </CardTitle>
                         <CardDescription className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" /> {lead.email}
+                            <Mail className="h-3 w-3" /> {lead.client?.email || "No Email"}
                         </CardDescription>
                     </div>
                     <div className="text-xs text-muted-foreground flex flex-col items-end gap-1">
@@ -304,21 +292,16 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
             </CardHeader>
             <CardContent className="space-y-4 py-4 flex-grow">
                 <div>
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Project Details</span>
-                    {lead.subject && (
-                        <p className="text-sm font-semibold text-white mb-1">
-                            {lead.subject}
-                        </p>
-                    )}
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Project Goals</span>
                     <p className="text-sm text-gray-400 line-clamp-3">
-                        {lead.message}
+                        {lead.goals || "No goals provided."}
                     </p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-xs">
-                    {lead.service && (
+                    {lead.industry && (
                         <Badge variant="outline" className="border-white/10 flex gap-1 items-center">
-                            <Briefcase className="h-3 w-3" /> {lead.service}
+                            <Briefcase className="h-3 w-3" /> {lead.industry}
                         </Badge>
                     )}
                     {lead.budget && (
@@ -326,21 +309,16 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                             <DollarSign className="h-3 w-3" /> {lead.budget}
                         </Badge>
                     )}
-                    {(lead.score || 0) > 0 && (
-                        <Badge variant="outline" className={`border-white/10 flex gap-1 items-center ${(lead.score || 0) > 50 ? 'text-green-400' : 'text-yellow-400'}`}>
-                            <Activity className="h-3 w-3" /> Score: {lead.score}
-                        </Badge>
-                    )}
                 </div>
 
                 {/* Display Latest Note Preview */}
-                {lead.notesList && lead.notesList.length > 0 && (
+                {lead.activityLogs && lead.activityLogs.length > 0 && (
                     <div className="bg-white/5 p-2 rounded-md border-l-2 border-yellow-500/50">
                         <p className="text-xs text-muted-foreground line-clamp-2 italic">
-                            &quot;{lead.notesList[0].content}&quot;
+                            &quot;{lead.activityLogs[0].content}&quot;
                         </p>
                         <div className="mt-1 text-[10px] text-gray-500 flex justify-end">
-                            - {lead.notesList[0].author?.name || "Admin"}
+                            - {lead.activityLogs[0].author?.name || "System"}
                         </div>
                     </div>
                 )}
@@ -361,7 +339,7 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                             </DialogTrigger>
                         <DialogContent className="glass-card border-white/10 text-white w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
                             <DialogHeader>
-                                <DialogTitle>Manage Lead: {lead.name}</DialogTitle>
+                                <DialogTitle>Manage Lead: {lead.businessName || lead.client?.name}</DialogTitle>
                                 <DialogDescription>
                                     Update pipeline status and assign tasks.
                                 </DialogDescription>
@@ -375,48 +353,20 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                     <AnimatedDropdown
                                         text={status}
                                         triggerClassName="flex h-10 w-full justify-between items-center rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        items={["New Inquiry", "Qualified", "Proposal Sent", "Negotiation", "Won", "Lost"].map(s => ({
+                                        items={["Pending Approval", "In Review", "Proposal Sent", "Closed Won", "Closed Lost"].map(s => ({
                                             name: s,
                                             onClick: () => {
                                                 const newStatus = s as Lead['status'];
                                                 setStatus(newStatus);
-                                                if (newStatus === "Completed" && lead.status !== "Completed") {
+                                                if (newStatus === "Closed Won" && lead.status !== "Closed Won") {
                                                     toast.info("Click 'Update Status' below to sequence the Project and Client Portal automation.");
                                                 }
                                             }
                                         }))}
                                     />
 
-                                    <div className="space-y-2 mt-4">
-                                        <Label>Next Action Date</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant={"outline"}
-                                                    className={cn(
-                                                        "w-full justify-start text-left font-normal bg-black/50 border-white/10 hover:bg-white/10 hover:text-white",
-                                                        !nextActionDate && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {nextActionDate ? format(nextActionDate, "PPP") : <span>Pick a date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 bg-black border-white/10" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={nextActionDate}
-                                                    onSelect={setNextActionDate}
-                                                    initialFocus
-                                                    className="bg-black text-white"
-                                                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-
-                                    <Button onClick={handleSaveStatus} disabled={isLoading || (status !== "Completed" && status !== "Lost" && !nextActionDate)} size="sm" className="w-full bg-primary text-black hover:bg-primary/90 mt-4">
-                                        Update Status & Schedule
+                                    <Button onClick={handleSaveStatus} disabled={isLoading || status === lead.status} size="sm" className="w-full bg-primary text-black hover:bg-primary/90 mt-4">
+                                        {isLoading ? "Updating..." : "Update Status & Schedule"}
                                     </Button>
                                 </div>
 
@@ -433,7 +383,7 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                     <Label>Proposal & Files</Label>
                                     <div className="bg-white/5 rounded-md p-3 border border-dashed border-white/20">
                                         <div className="mb-4">
-                                            <ProposalBuilderModal leadId={lead.id} leadName={lead.name} />
+                                            <ProposalBuilderModal leadId={lead.id} leadName={lead.businessName || "Client"} />
                                         </div>
                                         
                                         {lead.proposals && lead.proposals.length > 0 && (
@@ -448,7 +398,7 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                                             <SendEmailButton proposalId={p.id} />
                                                             {p.status !== "Approved" && p.status !== "Accepted" && (
                                                                 <>
-                                                                    <ProposalBuilderModal leadId={lead.id} leadName={lead.name} proposalId={p.id} />
+                                                                    <ProposalBuilderModal leadId={lead.id} leadName={lead.businessName || "Client"} proposalId={p.id} />
                                                                     <DeleteProposalButton proposalId={p.id} />
                                                                 </>
                                                             )}
@@ -461,72 +411,7 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                             </div>
                                         )}
 
-                                        <div className="space-y-2">
-                                            {lead.files && lead.files.length > 0 && (
-                                                <div className="space-y-1 mb-3">
-                                                    {lead.files.map((fileUrl, idx) => (
-                                                        <div key={idx} className="flex items-center justify-between text-xs bg-black/40 p-2 rounded">
-                                                            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[150px]">
-                                                                {fileUrl.split('/').pop()}
-                                                            </a>
-                                                            <Button
-                                                                size="icon"
-                                                                variant="ghost"
-                                                                className="h-4 w-4 text-muted-foreground hover:text-red-500"
-                                                                onClick={async () => {
-                                                                    if (!confirm("Remove file?")) return;
-                                                                    const newFiles = lead.files!.filter(f => f !== fileUrl);
-                                                                    await updateLead(lead.id, { files: newFiles });
-                                                                    toast.success("File removed");
-                                                                }}
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
 
-                                            <div className="relative">
-                                                <input
-                                                    type="file"
-                                                    className="hidden"
-                                                    id={`file-upload-${lead.id}`}
-                                                    onChange={async (e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (!file) return;
-
-                                                        const formData = new FormData();
-                                                        formData.append("file", file);
-
-                                                        const toastId = toast.loading("Uploading...");
-                                                        try {
-                                                            const { uploadImage } = await import("@/features/upload/actions");
-                                                            const res = await uploadImage(formData);
-
-                                                            if (res.success && res.url) {
-                                                                const currentFiles = lead.files || [];
-                                                                await updateLead(lead.id, { files: [...currentFiles, res.url] });
-                                                                toast.success("File uploaded!");
-                                                            } else {
-                                                                toast.error(res.message || "Upload failed");
-                                                            }
-                                                        } catch (err) {
-                                                            console.error(err);
-                                                            toast.error("Upload error");
-                                                        } finally {
-                                                            toast.dismiss(toastId);
-                                                            e.target.value = "";
-                                                        }
-                                                    }}
-                                                />
-                                                <Button size="sm" variant="outline" className="w-full h-8 text-xs" asChild>
-                                                    <label htmlFor={`file-upload-${lead.id}`} className="cursor-pointer flex items-center justify-center">
-                                                        <Upload className="h-3 w-3 mr-2" /> Upload Document
-                                                    </label>
-                                                </Button>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -538,12 +423,12 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                 </h3>
                                 <ScrollArea className="h-[400px] pr-4">
                                     <div className="space-y-4">
-                                        {lead.notesList?.map((note) => (
+                                        {lead.activityLogs?.map((note) => (
                                             <div key={note.id} className="text-sm relative pl-4 border-l border-white/10 pb-4 last:pb-0">
                                                 <div className="absolute left-[-2.5px] top-1 h-1.5 w-1.5 rounded-full bg-primary" />
                                                 <div className="flex justify-between items-start text-xs text-muted-foreground mb-1">
                                                     <span className="font-semibold text-white flex items-center gap-2">
-                                                        {note.author?.name || "Unknown"}
+                                                        {note.author?.name || "System"}
                                                         <Badge variant="outline" className="text-[10px] h-4 px-1 py-0 leading-none">
                                                             {note.activityType || "Note"}
                                                         </Badge>
@@ -555,9 +440,9 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                                 </p>
                                             </div>
                                         ))}
-                                        {(!lead.notesList || lead.notesList.length === 0) && (
+                                        {(!lead.activityLogs || lead.activityLogs.length === 0) && (
                                             <p className="text-xs text-muted-foreground text-center py-8">
-                                                No notes yet. Start the conversation!
+                                                No activity logs yet. Start the conversation!
                                             </p>
                                         )}
                                     </div>

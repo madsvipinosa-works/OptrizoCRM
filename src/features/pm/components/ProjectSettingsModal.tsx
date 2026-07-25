@@ -29,13 +29,13 @@ export function ProjectSettingsModal({
     internalUsers,
     projectTeamMembers,
 }: {
-    project: { id: string, stagingUrls: string[] | null, leadId: string | null, lead: { files: string[] | null } | null };
+    project: { id: string, stagingUrls: string[] | null, leadId: string | null };
     internalUsers: InternalUser[];
     projectTeamMembers: ProjectTeamMember[];
 }) {
     const [open, setOpen] = useState(false);
     const [stagingUrls, setStagingUrls] = useState<string[]>(project.stagingUrls || []);
-    const [files, setFiles] = useState<string[]>(project.lead?.files || []);
+
     const [isSaving, setIsSaving] = useState(false);
     const [teamMembers, setTeamMembers] = useState<ProjectTeamMember[]>(projectTeamMembers || []);
     const [selectedUserId, setSelectedUserId] = useState<string>("");
@@ -57,9 +57,7 @@ export function ProjectSettingsModal({
         setIsSaving(true);
         // Clean up empty strings
         const cleanUrls = stagingUrls.filter(u => u.trim() !== "");
-        const cleanFiles = files.filter(f => f.trim() !== "");
-
-        const res = await updateProjectSettings(project.id, project.leadId, cleanUrls, cleanFiles);
+        const res = await updateProjectSettings(project.id, cleanUrls);
         setIsSaving(false);
         if (res.success) {
             toast.success("Project settings updated.");
@@ -257,26 +255,6 @@ export function ProjectSettingsModal({
                     <div className="space-y-3">
                         <Label>Document Hub Links</Label>
                         <p className="text-xs text-muted-foreground">Add Google Docs, PDFs, Figma Links, or any file links directly to the client portal document hub.</p>
-                        {files.map((file, i) => (
-                            <div key={i} className="flex gap-2">
-                                <Input
-                                    className="bg-black/50 border-white/10"
-                                    value={file}
-                                    onChange={e => {
-                                        const newFiles = [...files];
-                                        newFiles[i] = e.target.value;
-                                        setFiles(newFiles);
-                                    }}
-                                    placeholder="https://"
-                                />
-                                <Button type="button" variant="ghost" size="icon" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => setFiles([...files, ""])} className="w-full text-xs py-1 h-8 bg-white/5 border-white/10 hover:bg-white/10">
-                            <Plus className="h-3 w-3 mr-1" /> Add Document Link
-                        </Button>
                     </div>
 
                     <div className="pt-2">

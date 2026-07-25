@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { submitContactForm, type ContactState } from "@/features/crm/actions/submit-lead";
-import { BUDGET_OPTIONS } from "@/lib/constants";
+import { submitContactForm, type ContactState } from "@/features/crm/actions/submit-inquiry";
 
 const initialState: ContactState = {
     message: "",
@@ -16,12 +15,7 @@ const initialState: ContactState = {
     success: false,
 }
 
-interface ServiceOption {
-    id: string;
-    title: string;
-}
-
-export function ContactForm({ availableServices }: { availableServices: ServiceOption[] }) {
+export function ContactForm() {
     const [state, formAction, isPending] = useActionState(submitContactForm, initialState);
 
     return (
@@ -61,43 +55,6 @@ export function ContactForm({ availableServices }: { availableServices: ServiceO
                         {state?.errors?.email && (
                             <p id="email-error" className="text-sm text-red-500">{state.errors.email[0]}</p>
                         )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="service">Service Type</Label>
-                            <select
-                                id="service"
-                                name="service"
-                                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="" className="bg-black">Select a service...</option>
-                                {availableServices.length > 0 ? (
-                                    availableServices.map((service) => (
-                                        <option key={service.id} value={service.title} className="bg-black">
-                                            {service.title}
-                                        </option>
-                                    ))
-                                ) : (
-                                    <option value="General Inquiry" className="bg-black">General Inquiry</option>
-                                )}
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="budget">Budget Range</Label>
-                            <select
-                                id="budget"
-                                name="budget"
-                                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="" className="bg-black">Select a budget...</option>
-                                {BUDGET_OPTIONS.map((option) => (
-                                    <option key={option} value={option} className="bg-black">
-                                        {option}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
                     </div>
 
                     <div className="space-y-2">

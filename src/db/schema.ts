@@ -26,8 +26,12 @@ export const users = pgTable("user", {
     image: text("image"),
     role: roleEnum("role").default("user").notNull(),
     jobTitle: text("job_title"),
+    companyName: text("company_name"),
+    industry: text("industry"),
+    linkedInUrl: text("linkedin_url"),
     isActive: boolean("is_active").default(true).notNull(),
     showOnAboutPage: boolean("show_on_about_page").default(false).notNull(),
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
 });
 
 // 3. Accounts (For Google/GitHub OAuth)
@@ -181,12 +185,10 @@ export const aboutValues = pgTable("about_value", {
     order: integer("order").default(0).notNull(),
 });
 
-// 11. Contact Messages (Lead Capture)
-// 11. Leads (CRM Core)
-export const leadEnum = pgEnum("lead_status", ["New", "Contacted", "In Progress", "Completed", "Lost", "New Inquiry", "Qualified", "Proposal Sent", "Negotiation", "Won"]);
-export const activityEnum = pgEnum("activity_type", ["Call", "Email", "Meeting", "Note"]);
+// 11. Casual Inquiries (Contact Us Form)
+export const inquiryStatusEnum = pgEnum("inquiry_status", ["Unread", "Read", "Archived"]);
 
-export const leads = pgTable("lead", {
+export const inquiries = pgTable("inquiry", {
     id: text("id")
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
@@ -194,18 +196,33 @@ export const leads = pgTable("lead", {
     email: text("email").notNull(),
     subject: text("subject"),
     message: text("message").notNull(),
-    status: leadEnum("status").default("New Inquiry").notNull(),
-    score: integer("score").default(0),
-    budget: text("budget"), // e.g., "$1k - $5k"
-    service: text("service"), // e.g., "Web Development"
-    industry: text("industry"),
-    scope: text("scope"),
+    status: inquiryStatusEnum("status").default("Unread").notNull(),
     source: text("source").default("Website Form"),
-    notes: text("notes"), // Legacy simple notes (keeping for backward compatibility)
-    files: text("files").array(), // Array of file URLs (e.g., Proposals)
-    nextActionDate: timestamp("next_action_date", { mode: "date" }), // Scheduled follow-up
-    read: boolean("read").default(false).notNull(),
-    isArchived: boolean("is_archived").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// 12. Leads (CRM Core - True Bottom of Funnel)
+export const leadEnum = pgEnum("lead_status", ["Pending Approval", "In Review", "Proposal Sent", "Closed Won", "Closed Lost"]);
+export const activityEnum = pgEnum("activity_type", ["System", "Note", "Email", "Call", "Meeting"]);
+
+export const leads = pgTable("lead", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    clientId: text("clientId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }), 
+    serviceId: text("serviceId")
+        .references(() => services.id, { onDelete: "set null" }), 
+    businessName: text("business_name"),
+    budget: text("budget"),
+    goals: text("goals"),
+    industry: text("industry"),
+    targetAudience: text("target_audience"),
+    timelineExpectation: text("timeline_expectation"),
+    status: leadEnum("status").default("Pending Approval").notNull(),
+    source: text("source").default("Client Portal Intake"),
+    isArchived: boolean("isArchived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -219,8 +236,8 @@ export const leadAssignees = pgTable("lead_assignee", {
         .references(() => users.id, { onDelete: "cascade" }),
 }, (t) => ({ pk: primaryKey({ columns: [t.leadId, t.userId] }) }));
 
-// 12. Lead Notes (Audit Trail / Advanced Comments)
-export const leadNotes = pgTable("lead_note", {
+// 13. Lead Activity Logs (Audit Trail / Advanced Comments)
+export const leadActivityLogs = pgTable("lead_activity_log", {
     id: text("id")
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
@@ -228,10 +245,9 @@ export const leadNotes = pgTable("lead_note", {
         .notNull()
         .references(() => leads.id, { onDelete: "cascade" }),
     authorId: text("authorId")
-        .notNull()
-        .references(() => users.id, { onDelete: "set null" }), // Keep note even if user deleted
+        .references(() => users.id, { onDelete: "set null" }), // Nullable for System events
+    activityType: activityEnum("activity_type").default("System").notNull(),
     content: text("content").notNull(),
-    activityType: activityEnum("activity_type").default("Note").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -269,6 +285,7 @@ export const proposals = pgTable("proposal", {
     fileUrl: text("fileUrl"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
 });
 
 // 15. Audit Logs
@@ -290,10 +307,18 @@ export const auditLogs = pgTable("audit_log", {
 // --- RELATIONS ---
 import { relations } from "drizzle-orm";
 
-export const leadsRelations = relations(leads, ({ many }) => ({
-    notesList: many(leadNotes), // Changed name to avoid conflict with 'notes' column
+export const leadsRelations = relations(leads, ({ one, many }) => ({
+    activityLogs: many(leadActivityLogs),
     assignees: many(leadAssignees),
     proposals: many(proposals),
+    client: one(users, {
+        fields: [leads.clientId],
+        references: [users.id],
+    }),
+    serviceTemplate: one(serviceTemplates, {
+        fields: [leads.serviceId],
+        references: [serviceTemplates.id],
+    })
 }));
 
 export const leadAssigneesRelations = relations(leadAssignees, ({ one }) => ({
@@ -307,20 +332,20 @@ export const leadAssigneesRelations = relations(leadAssignees, ({ one }) => ({
     }),
 }));
 
-export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
+export const leadActivityLogsRelations = relations(leadActivityLogs, ({ one }) => ({
     lead: one(leads, {
-        fields: [leadNotes.leadId],
+        fields: [leadActivityLogs.leadId],
         references: [leads.id],
     }),
     author: one(users, {
-        fields: [leadNotes.authorId],
+        fields: [leadActivityLogs.authorId],
         references: [users.id],
     }),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
     leadAssignments: many(leadAssignees),
-    authoredNotes: many(leadNotes),
+    authoredActivityLogs: many(leadActivityLogs),
     projectStakeholds: many(projectStakeholders),
     projectTeamMemberships: many(projectTeamMembers),
     taskAssignments: many(taskAssignees),
@@ -353,7 +378,7 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 // 13. Operational Project Management (PM Engine)
 export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff", "In Progress", "In Review", "Completed"]);
 export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Client Approval", "Completed"]);
-export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "Done"]);
+export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "In Review", "Done"]);
 
 export const agencyProjects = pgTable("agency_project", {
     id: text("id")
@@ -370,6 +395,7 @@ export const agencyProjects = pgTable("agency_project", {
     isArchived: boolean("is_archived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
 });
 
 export const projectStakeholders = pgTable("project_stakeholder", {
@@ -408,6 +434,7 @@ export const milestones = pgTable("milestone", {
     order: integer("order").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
 });
 
 export const tasks = pgTable("task", {
@@ -425,10 +452,14 @@ export const tasks = pgTable("task", {
     dependsOnTaskId: text("dependsOnTaskId"),
     dueDate: timestamp("due_date", { mode: "date" }),
     status: taskStatusEnum("status").default("Todo").notNull(),
+    proofUrl: text("proof_url"),
+    proofNotes: text("proof_notes"),
+    requiresProof: boolean("requires_proof").default(false).notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
     overdueNotified: boolean("overdue_notified").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
 }, (t) => ({
     dependsOnFk: foreignKey({
         columns: [t.dependsOnTaskId],
@@ -457,8 +488,7 @@ export const clientFeedback = pgTable("client_feedback", {
         .notNull()
         .references(() => milestones.id, { onDelete: "cascade" }),
     clientId: text("clientId")
-        .notNull()
-        .references(() => users.id, { onDelete: "cascade" }),
+        .references(() => users.id, { onDelete: "set null" }),
     status: feedbackStatusEnum("status").notNull(),
     commentText: text("comment_text"),
     parentFeedbackId: text("parentFeedbackId"),
@@ -557,5 +587,43 @@ export const taskAssigneesRelations = relations(taskAssignees, ({ one }) => ({
     user: one(users, {
         fields: [taskAssignees.userId],
         references: [users.id],
+    }),
+}));
+
+// 16. Service Templates
+export const serviceTemplates = pgTable("service_template", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull().unique(), // e.g., "Web Development"
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const taskTemplates = pgTable("task_template", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    serviceTemplateId: text("serviceTemplateId")
+        .notNull()
+        .references(() => serviceTemplates.id, { onDelete: "cascade" }),
+    milestoneTitle: text("milestone_title").notNull(), // e.g., "Design"
+    milestoneOrder: integer("milestone_order").notNull(), // e.g., 2
+    title: text("title").notNull(), // e.g., "Setup Figma"
+    description: text("description"),
+    requiresProof: boolean("requires_proof").default(false).notNull(),
+    order: integer("order").default(0).notNull(),
+});
+
+// Relations for Templates
+export const serviceTemplatesRelations = relations(serviceTemplates, ({ many }) => ({
+    tasks: many(taskTemplates),
+}));
+
+export const taskTemplatesRelations = relations(taskTemplates, ({ one }) => ({
+    serviceTemplate: one(serviceTemplates, {
+        fields: [taskTemplates.serviceTemplateId],
+        references: [serviceTemplates.id],
     }),
 }));

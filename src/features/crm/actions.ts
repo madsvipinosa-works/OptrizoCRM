@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, users, leadNotes, agencyProjects, milestones, projectStakeholders, leadAssignees } from "@/db/schema";
+import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
@@ -15,6 +15,30 @@ export type ActionState = {
     success?: boolean;
     errors?: Record<string, string[]>;
 };
+
+export async function createInquiry(data: { name: string, email: string, source: string, service?: string, budget?: string, notes?: string }): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
+    }
+    try {
+        await db.insert(inquiries).values({
+            name: data.name,
+            email: data.email,
+            subject: data.service || "Manual Inquiry",
+            message: data.notes || "Manual Entry",
+            source: data.source,
+            status: "Unread",
+        });
+        await logAction("CREATE", "Inquiry", `Manually created inquiry for ${data.name}`);
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: "Lead created successfully" };
+    } catch(e) {
+        return { success: false, message: "Failed to create lead" };
+    }
+}
+
+
 
 export async function updateLead(id: string, data: LeadUpdateValues): Promise<ActionState> {
     // 1. Auth Check (Admin or Editor)
@@ -77,7 +101,7 @@ export async function addLeadNote(leadId: string, content: string, activityType:
     }
 
     try {
-        await db.insert(leadNotes).values({
+        await db.insert(leadActivityLogs).values({
             leadId,
             authorId: session.user.id!,
             content: content.trim(),
@@ -113,12 +137,12 @@ export async function getAnalyticsData() {
 
         // 2. KPI Calculations
         const totalLeads = allLeads.length;
-        const wonLeads = allLeads.filter(l => l.status === "Won" || l.status === "Completed").length;
+        const wonLeads = allLeads.filter(l => l.status === "Closed Won").length;
         const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : "0";
 
         // Estimate Revenue (naive parsing of budget string e.g. "$1k - $5k")
         const pipelineValue = allLeads
-            .filter(l => !(["Lost", "New"] as string[]).includes(l.status || "")) // Filter out terminal or raw states
+            .filter(l => !(["Closed Lost", "Pending Approval"] as string[]).includes(l.status || "")) // Filter out terminal or raw states
             .reduce((acc, lead) => {
                 if (!lead.budget) return acc;
                 // Extract first number
@@ -133,11 +157,11 @@ export async function getAnalyticsData() {
 
         // Pipeline Distribution
         const pipelineData = [
-            { name: "New", value: allLeads.filter(l => l.status === "New Inquiry" || l.status === "New").length, fill: "#3b82f6" },
-            { name: "Qualified", value: allLeads.filter(l => l.status === "Qualified" || l.status === "Contacted").length, fill: "#a855f7" },
-            { name: "Proposal", value: allLeads.filter(l => l.status === "Proposal Sent" || l.status === "In Progress").length, fill: "#eab308" },
-            { name: "Won", value: allLeads.filter(l => l.status === "Won" || l.status === "Completed").length, fill: "#22c55e" },
-            { name: "Lost", value: allLeads.filter(l => l.status === "Lost").length, fill: "#6b7280" },
+            { name: "Pending", value: allLeads.filter(l => l.status === "Pending Approval").length, fill: "#3b82f6" },
+            { name: "In Review", value: allLeads.filter(l => l.status === "In Review").length, fill: "#a855f7" },
+            { name: "Proposal", value: allLeads.filter(l => l.status === "Proposal Sent").length, fill: "#eab308" },
+            { name: "Won", value: allLeads.filter(l => l.status === "Closed Won").length, fill: "#22c55e" },
+            { name: "Lost", value: allLeads.filter(l => l.status === "Closed Lost").length, fill: "#6b7280" },
         ];
 
         // Lead Sources
@@ -192,18 +216,18 @@ export async function getAnalyticsData() {
             const daysSinceUpdate = (now.getTime() - updated.getTime()) / (1000 * 3600 * 24);
 
             // Lead Aging: How long a lead has been in raw inquiry state
-            if (l.status === "New Inquiry" || l.status === "New") {
+            if (l.status === "Pending Approval") {
                 totalAgeDays += daysSinceCreation;
                 agedLeadsCount++;
             }
 
             // Stale Leads: Not in terminal state AND untouched for > 2 days
-            if (!(["Won", "Completed", "Lost"] as string[]).includes(l.status || "") && daysSinceUpdate > 2) {
+            if (!(["Closed Won", "Closed Lost"] as string[]).includes(l.status || "") && daysSinceUpdate > 2) {
                 staleLeadsCount++;
             }
 
             // Response Rate: Leads moved out of initial inquiry
-            if (!(["New Inquiry", "New"] as string[]).includes(l.status || "")) {
+            if (l.status !== "Pending Approval") {
                 actionedLeadsCount++;
             }
         });
@@ -259,41 +283,29 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
     try {
         // 1. Fetch Lead
         const lead = await db.query.leads.findFirst({
-            where: eq(leads.id, leadId)
+            where: eq(leads.id, leadId),
+            with: { client: true }
         });
 
         if (!lead) return { success: false, message: "Lead not found" };
-        if (lead.status === "Completed") return { success: false, message: "Lead is already won!" };
+        if (lead.status === "Closed Won") return { success: false, message: "Lead is already won!" };
 
-        // 2. Ensure Client User Exists
-        let clientUserId = "";
-        const existingUser = await db.query.users.findFirst({
-            where: eq(users.email, lead.email)
-        });
-
-        if (!existingUser) {
-            const [newUser] = await db.insert(users).values({
-                name: lead.name,
-                email: lead.email,
-                role: "client",
-            }).returning({ id: users.id });
-            clientUserId = newUser.id;
-            console.log(`[SYS_LOG] 👤 Created new Client User account for ${lead.email}`);
+        if (!lead.client) return { success: false, message: "Client data not associated with this lead" };
+        
+        let clientUserId = lead.clientId;
+        
+        // VERY STRICT ROLE CHECK - NEVER DOWNGRADE AN ADMIN OR EDITOR TO CLIENT
+        if (lead.client.role !== "admin" && lead.client.role !== "editor") {
+            await db.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
+            console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.client.email}`);
         } else {
-            clientUserId = existingUser.id;
-            // VERY STRICT ROLE CHECK - NEVER DOWNGRADE AN ADMIN OR EDITOR TO CLIENT
-            if (existingUser.role !== "admin" && existingUser.role !== "editor") {
-                await db.update(users).set({ role: "client" }).where(eq(users.id, existingUser.id));
-                console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.email}`);
-            } else {
-                console.log(`[SYS_LOG] 🛡️ Protected Agency Staff role: Existing User account kept role '${existingUser.role}' for ${lead.email}`);
-            }
+            console.log(`[SYS_LOG] 🛡️ Protected Agency Staff role: Existing User account kept role '${lead.client.role}' for ${lead.client.email}`);
         }
 
         // 3. Create Operational Project (PM Engine)
         const [newProject] = await db.insert(agencyProjects).values({
-            title: lead.service ? `${lead.name} - ${lead.service}` : `${lead.name} Project`,
-            description: lead.notes || lead.message,
+            title: lead.serviceId ? `${lead.businessName || lead.client.name} Project` : `${lead.businessName || lead.client.name} Project`,
+            description: lead.goals,
             leadId: lead.id,
             status: "Kickoff",
         }).returning({ id: agencyProjects.id, title: agencyProjects.title });
@@ -305,28 +317,73 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
         });
         console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id} with Stakeholder ${clientUserId}`);
 
-        // 4. Create Default Milestone Scaffolding
-        await db.insert(milestones).values([
-            { projectId: newProject.id, title: "Discovery", status: "Pending", order: 1 },
-            { projectId: newProject.id, title: "Design", status: "Pending", order: 2 },
-            { projectId: newProject.id, title: "Development", status: "Pending", order: 3 },
-            { projectId: newProject.id, title: "QA & Launch", status: "Pending", order: 4 },
-        ]);
-        console.log(`[SYS_LOG] 🗺️ Generated default project milestones.`);
+        // 4. Create Default Milestone Scaffolding or Apply Templates
+        let templateApplied = false;
+        if (lead.serviceId) {
+            const template = await db.query.serviceTemplates.findFirst({
+                where: eq(serviceTemplates.id, lead.serviceId),
+                with: { tasks: true }
+            });
+            
+            if (template && template.tasks && template.tasks.length > 0) {
+                // Group by milestoneTitle and order
+                const milestonesMap = new Map<string, typeof template.tasks>();
+                for (const t of template.tasks) {
+                    const key = `${t.milestoneOrder}-${t.milestoneTitle}`;
+                    if (!milestonesMap.has(key)) milestonesMap.set(key, []);
+                    milestonesMap.get(key)!.push(t);
+                }
+
+                for (const [key, tskArr] of milestonesMap.entries()) {
+                    const splitIdx = key.indexOf('-');
+                    const order = parseInt(key.substring(0, splitIdx), 10);
+                    const title = key.substring(splitIdx + 1);
+
+                    const [newMs] = await db.insert(milestones).values({
+                        projectId: newProject.id,
+                        title,
+                        order,
+                        status: "Pending"
+                    }).returning({ id: milestones.id });
+
+                    const tasksToInsert = tskArr.map(t => ({
+                        projectId: newProject.id,
+                        milestoneId: newMs.id,
+                        title: t.title,
+                        description: t.description,
+                        requiresProof: t.requiresProof,
+                        status: "Todo" as const,
+                    }));
+                    await db.insert(tasks).values(tasksToInsert);
+                }
+                templateApplied = true;
+                console.log(`[SYS_LOG] 🗺️ Generated project milestones from template '${template.name}'.`);
+            }
+        }
+
+        if (!templateApplied) {
+            await db.insert(milestones).values([
+                { projectId: newProject.id, title: "Discovery", status: "Pending", order: 1 },
+                { projectId: newProject.id, title: "Design", status: "Pending", order: 2 },
+                { projectId: newProject.id, title: "Development", status: "Pending", order: 3 },
+                { projectId: newProject.id, title: "QA & Launch", status: "Pending", order: 4 },
+            ]);
+            console.log(`[SYS_LOG] 🗺️ Generated default project milestones.`);
+        }
 
         // 5. Update Lead Status
         await db.update(leads)
-            .set({ status: "Won", updatedAt: new Date() })
+            .set({ status: "Closed Won", updatedAt: new Date() })
             .where(eq(leads.id, leadId));
 
         // 6. Send Client Portal Credentials via Email
         await sendClientWelcomeEmail({
-            name: lead.name,
-            email: lead.email,
+            name: lead.client.name || "Client",
+            email: lead.client.email,
             projectName: newProject.title
         });
 
-        await notifyAllAdmins(`Lead ${lead.name} won! Project "${newProject.title}" provisioned.`, "deal_won", `/dashboard/pm/${newProject.id}`);
+        await notifyAllAdmins(`Lead ${lead.businessName || lead.client.name} won! Project "${newProject.title}" provisioned.`, "deal_won", `/dashboard/pm/${newProject.id}`);
 
         await logAction("UPDATE", "Lead", `Lead ${lead.id} marked as Won and Project ${newProject.id} provisioned.`);
 

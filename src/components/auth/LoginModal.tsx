@@ -16,7 +16,15 @@ import {
 import { googleSignIn, signInWithEmail, signUpWithEmail, requestPasswordReset } from "@/features/auth/actions";
 import { Chrome, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 
-export function LoginModal({ children }: { children: React.ReactNode }) {
+interface LoginModalProps {
+    children?: React.ReactNode;
+    defaultRedirect?: string;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    customTitle?: string;
+}
+
+export function LoginModal({ children, defaultRedirect, open, onOpenChange, customTitle }: LoginModalProps) {
     const [isLogin, setIsLogin] = useState(true);
     const [isResetting, setIsResetting] = useState(false); // New state flag
     const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +39,9 @@ export function LoginModal({ children }: { children: React.ReactNode }) {
         setSuccessMessage(null);
         
         const formData = new FormData(e.currentTarget);
+        if (defaultRedirect) {
+            formData.append("callbackUrl", defaultRedirect);
+        }
         
         try {
             if (isResetting) {
@@ -48,8 +59,8 @@ export function LoginModal({ children }: { children: React.ReactNode }) {
                 if (!result.success) {
                     setError(result.message || "An error occurred");
                 } else if (result.redirect) {
-                    // On success, redirect to dashboard and refresh to update session
-                    router.push(result.redirect);
+                    const targetRedirect = defaultRedirect || result.redirect;
+                    router.push(targetRedirect);
                     router.refresh();
                 }
             }
@@ -62,10 +73,12 @@ export function LoginModal({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <Dialog>
-            <DialogTrigger asChild>
-                {children}
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            {children && (
+                <DialogTrigger asChild>
+                    {children}
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[425px] border-primary/20 bg-black/95 backdrop-blur-xl">
                 <DialogHeader>
                     <DialogTitle className="text-2xl text-center text-primary text-glow">
