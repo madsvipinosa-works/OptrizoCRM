@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
     DropdownMenu,
@@ -28,6 +28,8 @@ interface UserNavProps {
 }
 
 export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
+    const [open, setOpen] = useState(false);
+
     const initials = user.name
         ? user.name
               .split(' ')
@@ -38,7 +40,12 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
         : user.email?.substring(0, 2).toUpperCase() || 'U';
 
     return (
-        <DropdownMenu>
+        <div
+            className="relative inline-block"
+            onMouseEnter={() => setOpen(true)}
+            onMouseLeave={() => setOpen(false)}
+        >
+            <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
                 <Button
                     variant="ghost"
@@ -103,5 +110,6 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+        </div>
     );
 }
