@@ -25,11 +25,16 @@ type Notification = {
 };
 
 export function NotificationBell() {
+    const [mounted, setMounted] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
     const pathname = usePathname();
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const fetchNotifications = async () => {
         try {
@@ -77,6 +82,14 @@ export function NotificationBell() {
         setNotifications([]);
         await markAllNotificationsAsRead();
     };
+
+    if (!mounted) {
+        return (
+            <Button variant="ghost" size="icon" className="relative hover:bg-white/10 shrink-0">
+                <Bell className="h-5 w-5 text-white/80" />
+            </Button>
+        );
+    }
 
     return (
         <DropdownMenu>
