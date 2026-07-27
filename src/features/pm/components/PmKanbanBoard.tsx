@@ -139,7 +139,7 @@ export function PmKanbanBoard({
     };
 
     return (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext id="pm-kanban-dnd-context" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-start">
                 {COLUMNS.map((col) => {
                     const columnTasks = optimisticTasks.filter((t) => t.status === col.id);

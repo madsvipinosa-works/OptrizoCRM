@@ -101,6 +101,7 @@ export function LeadsKanbanBoard({
 
     return (
         <DndContext
+            id="crm-kanban-dnd-context"
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}

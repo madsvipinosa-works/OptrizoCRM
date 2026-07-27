@@ -119,13 +119,13 @@ export function KanbanBoard({
             return;
         }
 
-        if (targetStatus === "Done" && task.requiresProof && currentUserRole !== "admin") {
+        if (targetStatus === "Done" && currentUserRole !== "admin") {
             toast.error("Only Admins can approve tasks to Done.");
             return;
         }
 
-        // Intercept if moving to "In Review" or "Done" requiring proof
-        if ((targetStatus === "In Review" || targetStatus === "Done") && task.requiresProof) {
+        // Always intercept if moving to "In Review" or "Done"
+        if (targetStatus === "In Review" || targetStatus === "Done") {
             setProofingTask({
                 task,
                 targetStatus: targetStatus as "In Review" | "Done",
