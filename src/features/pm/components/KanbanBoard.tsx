@@ -86,6 +86,8 @@ export function KanbanBoard({
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
     const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
     const [isSavingMilestone, setIsSavingMilestone] = useState(false);
+    const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+    const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
 
     const activeMilestone = optimisticMilestones?.find((m) => m.id === activeMilestoneId);
     if (!activeMilestone && optimisticMilestones.length > 0) {

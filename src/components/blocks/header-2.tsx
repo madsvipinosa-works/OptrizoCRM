@@ -9,6 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Code2 } from 'lucide-react';
 import { LoginModal } from '@/components/auth/LoginModal';
+import { UserNav } from '@/components/auth/UserNav';
 
 import { ShineBorder } from '@/components/ui/shine-border';
 
@@ -118,26 +119,16 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         <div className="w-px h-6 bg-border mx-2" />
 
                         {session ? (
-                            <>
-                                <Button asChild variant="secondary" className="font-semibold rounded-xl tracking-tight">
-                                    <Link href="/portal">Client Portal</Link>
-                                </Button>
-                                {isAdmin && (
-                                    <Button asChild variant="outline" className="font-semibold rounded-xl tracking-tight">
-                                        <Link href="/dashboard">Admin Panel</Link>
-                                    </Button>
-                                )}
-                                <Button
-                                    variant="ghost"
-                                    className="font-medium text-muted-foreground hover:text-white border border-transparent hover:border-[#34E513]/60 hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] rounded-xl transition-all"
-                                    onClick={() => startTransition(async () => {
+                            <UserNav
+                                user={session.user}
+                                isAdmin={isAdmin}
+                                onSignOut={async () => {
+                                    startTransition(async () => {
                                         await onSignOut();
-                                    })}
-                                    disabled={isPending}
-                                >
-                                    {isPending ? 'Signing out...' : 'Sign Out'}
-                                </Button>
-                            </>
+                                    });
+                                }}
+                                isPending={isPending}
+                            />
                         ) : (
                             <>
                                 <LoginModal>
@@ -195,7 +186,10 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         {session ? (
                             <>
                                 <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
-                                    <Link href="/portal" onClick={() => setOpen(false)}>Client Portal</Link>
+                                    <Link href="/portal" onClick={() => setOpen(false)}>My Dashboard</Link>
+                                </Button>
+                                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-zinc-800 bg-zinc-900/50 text-zinc-200">
+                                    <Link href="/portal/services" onClick={() => setOpen(false)}>Availed Services</Link>
                                 </Button>
                                 {isAdmin && (
                                     <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight">
@@ -211,7 +205,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                     })}
                                     disabled={isPending}
                                 >
-                                    {isPending ? '...' : 'Sign Out'}
+                                    {isPending ? 'Signing out...' : 'Log out'}
                                 </Button>
                             </>
                         ) : (
