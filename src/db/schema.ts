@@ -463,6 +463,7 @@ export const tasks = pgTable("task", {
     proofNotes: text("proof_notes"),
     requiresProof: boolean("requires_proof").default(true).notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
+    blockedReason: text("blocked_reason"),
     overdueNotified: boolean("overdue_notified").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

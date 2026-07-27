@@ -402,6 +402,63 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
     }
 }
 
+export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReason: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    if (!blockedReason.trim()) {
+        return { success: false, message: "Blocked reason is required." };
+    }
+
+    try {
+        if (session.user.role === "editor") {
+            const editorId = session.user.id;
+            if (!editorId) return { success: false, message: "Unauthorized" };
+            const assignment = await db.query.taskAssignees.findFirst({
+                where: and(eq(taskAssignees.taskId, taskId), eq(taskAssignees.userId, editorId)),
+            });
+            if (!assignment) {
+                return { success: false, message: "Unauthorized: Task not assigned to you" };
+            }
+        }
+
+        const oldTask = await db.query.tasks.findFirst({
+            where: eq(tasks.id, taskId),
+            with: { milestone: { with: { project: { with: { teamMembers: { with: { user: true } } } } } } }
+        });
+
+        if (!oldTask) return { success: false, message: "Task not found" };
+
+        await db.update(tasks)
+            .set({ 
+                status: "Blocked", 
+                isBlockedByClient: true,
+                blockedReason: blockedReason.trim(),
+                updatedAt: new Date() 
+            })
+            .where(eq(tasks.id, taskId));
+
+        // Notify internal team members ONLY (Admins/PMs)
+        const teamMembers = oldTask.milestone?.project?.teamMembers || [];
+        const emails = teamMembers.map(tm => tm.user?.email).filter(Boolean) as string[];
+        
+        if (emails.length > 0) {
+            const { sendTaskBlockedEmail } = await import("@/lib/notifications");
+            await sendTaskBlockedEmail(emails, oldTask.milestone?.project?.title || "Your Project", oldTask.title);
+        }
+
+        await logAction("UPDATE", "Task", `Task ${taskId} blocked with reason: ${blockedReason.trim()}`);
+
+        revalidatePath("/dashboard/pm/[id]");
+        return { success: true, message: "Task blocked with reason." };
+    } catch (error) {
+        console.error("Failed to block task:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
 export async function updateTaskDetails(
     taskId: string,
     data: { title?: string; description?: string; assigneeIds?: string[]; dueDate?: Date | null }

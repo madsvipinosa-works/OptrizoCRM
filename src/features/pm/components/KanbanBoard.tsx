@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
+import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, submitTaskBlockedReasonAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
 import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
+import { TaskBlockedReasonModal } from "./TaskBlockedReasonModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 
 interface KanbanMilestone {
@@ -76,12 +77,15 @@ export function KanbanBoard({
         targetStatus: "In Review" | "Done";
     } | null>(null);
 
+    // Task Blocked Intercept state
+    const [blockingTask, setBlockingTask] = useState<{
+        task: PmTask;
+    } | null>(null);
+
     // Milestone State
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
     const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
     const [isSavingMilestone, setIsSavingMilestone] = useState(false);
-    const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
-    const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
 
     const activeMilestone = optimisticMilestones?.find((m) => m.id === activeMilestoneId);
     if (!activeMilestone && optimisticMilestones.length > 0) {
@@ -133,6 +137,12 @@ export function KanbanBoard({
             return;
         }
 
+        // Intercept if moving to "Blocked"
+        if (targetStatus === "Blocked") {
+            setBlockingTask({ task });
+            return;
+        }
+
         // Direct optimistic update for non-intercepted moves
         const updated = optimisticTasks.map((t) =>
             t.id === taskId ? { ...t, status: targetStatus } : t
@@ -174,6 +184,34 @@ export function KanbanBoard({
         }
 
         setProofingTask(null);
+    };
+
+    const handleConfirmTaskBlocked = async (blockedReason: string) => {
+        if (!blockingTask) return;
+
+        const { task } = blockingTask;
+
+        // Optimistic UI Update
+        const updated = optimisticTasks.map((t) =>
+            t.id === task.id
+                ? {
+                      ...t,
+                      status: "Blocked" as const,
+                      blockedReason: blockedReason,
+                  }
+                : t
+        );
+        setOptimisticTasks(updated);
+
+        const res = await submitTaskBlockedReasonAndMove(task.id, blockedReason);
+        if (!res.success) {
+            toast.error(res.message || "Failed to block task");
+            setOptimisticTasks(optimisticTasks); // Revert
+        } else {
+            toast.success("Task flagged as Blocked with reason!");
+        }
+
+        setBlockingTask(null);
     };
 
     const handleConfirmDeleteTask = async () => {
@@ -621,6 +659,16 @@ export function KanbanBoard({
                 task={proofingTask?.task || null}
                 targetStatus={proofingTask?.targetStatus || "In Review"}
                 onConfirm={handleConfirmTaskProof}
+            />
+
+            {/* Task Blocked Reason Intercept Modal */}
+            <TaskBlockedReasonModal
+                open={!!blockingTask}
+                onOpenChange={(open) => {
+                    if (!open) setBlockingTask(null);
+                }}
+                task={blockingTask?.task || null}
+                onConfirm={handleConfirmTaskBlocked}
             />
 
             {/* Task Soft-Delete Confirmation Modal */}

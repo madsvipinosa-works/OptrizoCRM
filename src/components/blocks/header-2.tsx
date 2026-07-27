@@ -119,9 +119,12 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
 
                         {session ? (
                             <>
+                                <Button asChild variant="secondary" className="font-semibold rounded-xl tracking-tight">
+                                    <Link href="/portal">Client Portal</Link>
+                                </Button>
                                 {isAdmin && (
-                                    <Button asChild variant="secondary" className="font-semibold rounded-xl tracking-tight">
-                                        <Link href="/dashboard">Dashboard</Link>
+                                    <Button asChild variant="outline" className="font-semibold rounded-xl tracking-tight">
+                                        <Link href="/dashboard">Admin Panel</Link>
                                     </Button>
                                 )}
                                 <Button
@@ -191,9 +194,12 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                     <div className="flex flex-col gap-3">
                         {session ? (
                             <>
+                                <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
+                                    <Link href="/portal" onClick={() => setOpen(false)}>Client Portal</Link>
+                                </Button>
                                 {isAdmin && (
-                                    <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
-                                        <Link href="/dashboard" onClick={() => setOpen(false)}>Dashboard</Link>
+                                    <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight">
+                                        <Link href="/dashboard" onClick={() => setOpen(false)}>Admin Panel</Link>
                                     </Button>
                                 )}
                                 <Button

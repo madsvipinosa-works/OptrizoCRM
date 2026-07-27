@@ -62,10 +62,10 @@ export default async function ClientPortalPage() {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
-                <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl text-glow bg-clip-text text-transparent bg-gradient-to-br from-white to-gray-400">
+                <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                     Project Dashboard
                 </h1>
-                <p className="text-lg text-muted-foreground mt-2">
+                <p className="text-sm text-zinc-400 mt-1">
                     Track delivery progress, review deliverables & proof of work, and access staging environments.
                 </p>
             </div>

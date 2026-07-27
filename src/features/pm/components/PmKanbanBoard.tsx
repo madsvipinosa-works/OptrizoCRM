@@ -28,6 +28,7 @@ import {
     ShieldCheck,
     Edit2,
     Trash2,
+    AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ export interface PmTask {
     requiresProof?: boolean;
     proofUrl?: string | null;
     proofNotes?: string | null;
+    blockedReason?: string | null;
     assignees: { user: { id: string; name: string | null; image?: string | null; jobTitle?: string | null } }[];
     dueDate: Date | null;
     dependsOnTaskId: string | null;
@@ -342,6 +344,15 @@ function TaskCardContent({
                 <p className="text-[11px] text-zinc-400 mt-1.5 line-clamp-2 leading-relaxed">
                     {task.description}
                 </p>
+            )}
+
+            {task.status === "Blocked" && task.blockedReason && (
+                <div className="mt-2 flex items-start gap-1.5 p-1.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] leading-tight">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400 mt-0.5" />
+                    <span className="line-clamp-2" title={task.blockedReason}>
+                        <span className="font-semibold text-rose-400">Blocked:</span> {task.blockedReason}
+                    </span>
+                </div>
             )}
 
             <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-zinc-800/60 text-[10px]">
