@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileText, Briefcase, Settings, Star, Layers, Mail, BarChart3, Users, KanbanSquare, Menu, ShieldAlert, LogOut, HelpCircle, ChevronDown, Monitor } from "lucide-react";
@@ -36,7 +36,12 @@ const bottomNavItems = [
 export function AdminSidebar({ user }: { user?: { name?: string | null; email?: string | null; image?: string | null; role?: string | null } }) {
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const userRole = user?.role || "user";
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const isContentActive = contentNavItems.some(item => pathname.startsWith(item.href));
     const [contentOpen, setContentOpen] = useState(isContentActive);
@@ -177,18 +182,25 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
                 </div>
                 <div className="flex items-center gap-2">
                     <NotificationBell />
-                    <Sheet open={open} onOpenChange={setOpen}>
-                        <SheetTrigger asChild>
-                            <Button variant="ghost" size="icon" className="shrink-0 text-white hover:bg-white/10">
-                                <Menu className="h-5 w-5" />
-                                <span className="sr-only">Toggle navigation menu</span>
-                            </Button>
-                        </SheetTrigger>
-                        <SheetContent side="left" className="w-64 p-0 bg-[#050505] border-r border-[#262626]">
-                            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-                            {renderNavContent()}
-                        </SheetContent>
-                    </Sheet>
+                    {isMounted ? (
+                        <Sheet open={open} onOpenChange={setOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon" className="shrink-0 text-white hover:bg-white/10">
+                                    <Menu className="h-5 w-5" />
+                                    <span className="sr-only">Toggle navigation menu</span>
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="left" className="w-64 p-0 bg-[#050505] border-r border-[#262626]">
+                                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                                {renderNavContent()}
+                            </SheetContent>
+                        </Sheet>
+                    ) : (
+                        <Button variant="ghost" size="icon" className="shrink-0 text-white hover:bg-white/10">
+                            <Menu className="h-5 w-5" />
+                            <span className="sr-only">Toggle navigation menu</span>
+                        </Button>
+                    )}
                 </div>
             </div>
         </>
