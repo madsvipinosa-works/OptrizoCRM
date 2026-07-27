@@ -105,7 +105,10 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         {navLinks.map((link) => (
                             <Link
                                 key={link.href}
-                                className={cn(buttonVariants({ variant: 'ghost' }), 'font-medium rounded-xl hover:bg-accent/80')}
+                                className={cn(
+                                    buttonVariants({ variant: 'ghost' }),
+                                    'font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
+                                )}
                                 href={link.href}
                             >
                                 {link.label}
@@ -123,7 +126,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 )}
                                 <Button
                                     variant="ghost"
-                                    className="font-medium text-muted-foreground hover:text-red-500 rounded-xl hover:bg-red-950/20"
+                                    className="font-medium text-muted-foreground hover:text-white border border-transparent hover:border-[#34E513]/60 hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] rounded-xl transition-all"
                                     onClick={() => startTransition(async () => {
                                         await onSignOut();
                                     })}
@@ -135,7 +138,10 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         ) : (
                             <>
                                 <LoginModal>
-                                    <Button variant="ghost" className="font-medium rounded-xl hover:bg-accent/80">
+                                    <Button
+                                        variant="ghost"
+                                        className="font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all"
+                                    >
                                         Login
                                     </Button>
                                 </LoginModal>
@@ -171,9 +177,10 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         {navLinks.map((link) => (
                             <Link
                                 key={link.label}
-                                className={cn(buttonVariants({
-                                    variant: 'ghost',
-                                }), 'justify-start text-lg font-semibold tracking-tight rounded-xl h-12')}
+                                className={cn(
+                                    buttonVariants({ variant: 'ghost' }),
+                                    'justify-start text-lg font-semibold tracking-tight rounded-xl h-12 border border-transparent hover:border-[#34E513]/60 hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
+                                )}
                                 href={link.href}
                                 onClick={() => setOpen(false)}
                             >

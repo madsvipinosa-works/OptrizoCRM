@@ -1,14 +1,68 @@
 import { db } from "@/db";
 import { services } from "@/db/schema";
 import { asc } from "drizzle-orm";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ServiceCardAction } from "@/components/public/ServiceCardAction";
 import { auth } from "@/auth";
 import Link from "next/link";
-import { ArrowRight, Box } from "lucide-react";
-import * as Icons from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { ServiceCardItem } from "@/components/public/ServiceCardItem";
+
+const SERVICE_ASSETS: Record<string, { images: string[]; tags: string[] }> = {
+    "Web Development": {
+        images: [
+            "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1000&auto=format&fit=crop",
+        ],
+        tags: ["Web", "Full-Stack"],
+    },
+    "UI/UX Design": {
+        images: [
+            "https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?q=80&w=1000&auto=format&fit=crop",
+        ],
+        tags: ["Design", "Prototyping"],
+    },
+    "Mobile App Development": {
+        images: [
+            "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1526498460520-4c246339dccb?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1551650975-87deedd944c3?q=80&w=1000&auto=format&fit=crop",
+        ],
+        tags: ["iOS", "Android"],
+    },
+    "AI Integration": {
+        images: [
+            "https://images.unsplash.com/photo-1677442136019-21780efad99a?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1000&auto=format&fit=crop",
+        ],
+        tags: ["AI/ML", "Automation"],
+    },
+    "Cloud & DevOps": {
+        images: [
+            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?q=80&w=1000&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1000&auto=format&fit=crop",
+        ],
+        tags: ["Cloud", "DevOps"],
+    },
+};
+
+const DEFAULT_IMAGE_SETS = [
+    [
+        "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=1000&auto=format&fit=crop",
+    ],
+    [
+        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1000&auto=format&fit=crop",
+    ],
+];
 
 export default async function ServicesPage() {
     const session = await auth();
@@ -28,29 +82,22 @@ export default async function ServicesPage() {
                 </p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mb-24">
-                {allServices.map((service) => {
-                    // Dynamic Icon Lookup
-                    // @ts-expect-error - Lucide icons are many
-                    const IconComponent = Icons[service.icon] || Box;
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mb-24 items-stretch">
+                {allServices.map((service, index) => {
+                    const mappedAsset = SERVICE_ASSETS[service.title] || {
+                        images: DEFAULT_IMAGE_SETS[index % DEFAULT_IMAGE_SETS.length],
+                        tags: ["Service", "Solutions"],
+                    };
 
                     return (
-                        <Card key={service.id} className="bg-black/40 border-primary/10 hover:border-primary/50 transition-colors group flex flex-col justify-between">
-                            <CardHeader>
-                                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform duration-300">
-                                    <IconComponent className="h-6 w-6" />
-                                </div>
-                                <CardTitle className="text-2xl">{service.title}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex-1">
-                                <p className="text-muted-foreground leading-relaxed">
-                                    {service.description}
-                                </p>
-                            </CardContent>
-                            <CardFooter className="pt-4">
-                                <ServiceCardAction serviceId={service.id} isLoggedIn={isLoggedIn} />
-                            </CardFooter>
-                        </Card>
+                        <div key={service.id} className="flex justify-center">
+                            <ServiceCardItem
+                                service={service}
+                                images={mappedAsset.images}
+                                tags={mappedAsset.tags}
+                                isLoggedIn={isLoggedIn}
+                            />
+                        </div>
                     );
                 })}
 

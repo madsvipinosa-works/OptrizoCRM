@@ -7,7 +7,8 @@ import {
     integer,
     pgEnum,
     AnyPgColumn,
-    foreignKey
+    foreignKey,
+    index
 } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -225,7 +226,10 @@ export const leads = pgTable("lead", {
     isArchived: boolean("isArchived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+    index("idx_lead_status_archived").on(t.status, t.isArchived),
+    index("idx_lead_client").on(t.clientId),
+]);
 
 export const leadAssignees = pgTable("lead_assignee", {
     leadId: text("leadId")
@@ -283,10 +287,13 @@ export const proposals = pgTable("proposal", {
     pricingStructure: text("pricingStructure"),
     status: proposalStatusEnum("status").default("Draft").notNull(),
     fileUrl: text("fileUrl"),
+    rejectionReason: text("rejection_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
-});
+}, (t) => [
+    index("idx_proposal_lead").on(t.leadId),
+]);
 
 // 15. Audit Logs
 export const auditActionEnum = pgEnum("audit_action", ["CREATE", "UPDATE", "DELETE", "LOGIN", "OTHER"]);
@@ -454,7 +461,7 @@ export const tasks = pgTable("task", {
     status: taskStatusEnum("status").default("Todo").notNull(),
     proofUrl: text("proof_url"),
     proofNotes: text("proof_notes"),
-    requiresProof: boolean("requires_proof").default(false).notNull(),
+    requiresProof: boolean("requires_proof").default(true).notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
     overdueNotified: boolean("overdue_notified").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -465,7 +472,9 @@ export const tasks = pgTable("task", {
         columns: [t.dependsOnTaskId],
         foreignColumns: [t.id],
         name: "task_depends_on_fk"
-    }).onDelete("set null")
+    }).onDelete("set null"),
+    idxProjectDeleted: index("idx_task_project_deleted").on(t.projectId, t.deletedAt),
+    idxMilestoneDeleted: index("idx_task_milestone_deleted").on(t.milestoneId, t.deletedAt),
 }));
 
 export const taskAssignees = pgTable("task_assignee", {

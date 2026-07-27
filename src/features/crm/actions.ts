@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks } from "@/db/schema";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
 import { sendClientWelcomeEmail } from "@/lib/notifications";
 import { auth } from "@/auth";
@@ -416,5 +416,127 @@ export async function archiveLead(leadId: string): Promise<ActionState> {
         return { success: false, message: "Database Error" };
     }
 }
+
+export async function updateLeadStatusWithAudit(
+    leadId: string,
+    newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost",
+    reasonNotes?: string
+): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId)
+        });
+
+        if (!lead) return { success: false, message: "Lead not found" };
+
+        if (newStatus === "Closed Won") {
+            return await markLeadAsWon(leadId);
+        }
+
+        const oldStatus = lead.status;
+        await db.update(leads)
+            .set({ status: newStatus, updatedAt: new Date() })
+            .where(eq(leads.id, leadId));
+
+        const logContent = `Status updated from "${oldStatus}" to "${newStatus}"${reasonNotes ? `: ${reasonNotes}` : ""}`;
+        await db.insert(leadActivityLogs).values({
+            leadId,
+            authorId: session.user.id || null,
+            activityType: "System",
+            content: logContent,
+        });
+
+        await logAction("UPDATE", "Lead", `Lead ${leadId} status changed from ${oldStatus} to ${newStatus}`);
+
+        revalidatePath("/dashboard/leads");
+        revalidatePath(`/dashboard/leads/${leadId}`);
+
+        return { success: true, message: `Lead status updated to ${newStatus}` };
+    } catch (error) {
+        console.error("Failed to update lead status:", error);
+        return { success: false, message: "Failed to update lead status" };
+    }
+}
+
+export async function bulkUpdateLeadStatus(
+    leadIds: string[],
+    newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost"
+): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    if (!leadIds || leadIds.length === 0) {
+        return { success: false, message: "No leads selected" };
+    }
+
+    try {
+        if (newStatus === "Closed Won") {
+            for (const id of leadIds) {
+                await markLeadAsWon(id);
+            }
+        } else {
+            await db.update(leads)
+                .set({ status: newStatus, updatedAt: new Date() })
+                .where(inArray(leads.id, leadIds));
+
+            const logEntries = leadIds.map(id => ({
+                leadId: id,
+                authorId: session.user.id || null,
+                activityType: "System" as const,
+                content: `Bulk status update to "${newStatus}"`,
+            }));
+            await db.insert(leadActivityLogs).values(logEntries);
+
+            await logAction("UPDATE", "Lead", `Bulk status update for ${leadIds.length} leads to ${newStatus}`);
+        }
+
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: `Updated status for ${leadIds.length} leads to ${newStatus}` };
+    } catch (error) {
+        console.error("Failed bulk update lead status:", error);
+        return { success: false, message: "Failed to perform bulk update" };
+    }
+}
+
+export async function bulkAssignLeads(
+    leadIds: string[],
+    assigneeUserIds: string[]
+): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+        return { success: false, message: "Unauthorized: Admin access required" };
+    }
+
+    if (!leadIds || leadIds.length === 0) {
+        return { success: false, message: "No leads selected" };
+    }
+
+    try {
+        for (const leadId of leadIds) {
+            await db.delete(leadAssignees).where(eq(leadAssignees.leadId, leadId));
+            if (assigneeUserIds && assigneeUserIds.length > 0) {
+                await db.insert(leadAssignees).values(
+                    assigneeUserIds.map(userId => ({ leadId, userId }))
+                );
+            }
+        }
+
+        await logAction("UPDATE", "Lead", `Bulk assigned ${leadIds.length} leads to ${assigneeUserIds.length} staff users`);
+
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: `Successfully updated assignees for ${leadIds.length} leads` };
+    } catch (error) {
+        console.error("Failed bulk assign leads:", error);
+        return { success: false, message: "Failed to update assignees" };
+    }
+}
+
 
 

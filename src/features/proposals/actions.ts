@@ -103,18 +103,27 @@ export async function acceptProposalByClient(id: string) {
 
         if (proposal.status === "Approved") return { success: false, message: "Already approved" };
 
+        // Execute atomic status update
         await db.update(proposals).set({ status: "Approved", updatedAt: new Date() }).where(eq(proposals.id, id));
 
-        // Trigger Won Automation internally bypassing the UI admin check
-        await markLeadAsWon(proposal.leadId, true);
+        // Trigger Won Automation internally (provisions Project, Stakeholder, Milestones, Client Welcome Email)
+        const wonResult = await markLeadAsWon(proposal.leadId, true);
+        if (!wonResult.success) {
+            console.error("markLeadAsWon failed during proposal acceptance:", wonResult.message);
+        }
         
         if (proposal.lead) {
-             await notifyAllAdmins(`Proposal accepted by ${proposal.lead.businessName || "Client"}!`, "proposal", `/dashboard/leads`);
+            await notifyAllAdmins(`Proposal accepted by ${proposal.lead.businessName || "Client"}!`, "proposal", `/dashboard/leads`);
         }
         
         await logAction("UPDATE", "Proposal", `Proposal ${id} accepted by client`);
         
+        // Instant UI cache updates across all client & staff views
         revalidatePath(`/proposal/${id}`);
+        revalidatePath("/dashboard/leads");
+        revalidatePath(`/dashboard/leads/${proposal.leadId}`);
+        revalidatePath("/portal/projects");
+        revalidatePath("/dashboard/pm");
         
         return { success: true, message: "Proposal accepted! Project is being provisioned." };
     } catch (error) {
@@ -145,18 +154,25 @@ export async function rejectProposalByClient(id: string, reason?: string) {
 
         if (proposal.status === "Rejected") return { success: false, message: "Already rejected" };
 
-        await db.update(proposals).set({ status: "Rejected", updatedAt: new Date() }).where(eq(proposals.id, id));
+        await db.update(proposals)
+            .set({ 
+                status: "Rejected", 
+                rejectionReason: reason || null, 
+                updatedAt: new Date() 
+            })
+            .where(eq(proposals.id, id));
 
-        // Sync proposal rejection back to the Lead status
+        // Sync proposal rejection back to the Lead status ("In Review")
         await db.update(leads).set({ status: "In Review", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
 
         if (proposal.lead) {
-             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.businessName || "Client"}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
+            await notifyAllAdmins(`Proposal rejected by ${proposal.lead.businessName || "Client"}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
         }
         
-        await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Lead ${proposal.leadId} reverted to Negotiation.`);
+        await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Reason: ${reason || 'N/A'}`);
         
         revalidatePath(`/proposal/${id}`);
+        revalidatePath("/dashboard/leads");
         revalidatePath(`/dashboard/leads/${proposal.leadId}`);
         
         return { success: true, message: "Proposal rejected." };

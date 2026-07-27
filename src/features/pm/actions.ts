@@ -269,7 +269,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
         const wasBlocked = oldTask.isBlockedByClient;
         const isNowBlocked = status === "Blocked";
 
-        const updateData: any = { status, isBlockedByClient: isNowBlocked, updatedAt: new Date() };
+        const updateData: Record<string, unknown> = { status, isBlockedByClient: isNowBlocked, updatedAt: new Date() };
         if (status === "In Review" || status === "Done") {
             if (proofUrl !== undefined) updateData.proofUrl = proofUrl;
             if (proofNotes !== undefined) updateData.proofNotes = proofNotes;
@@ -316,6 +316,88 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
         return { success: true, message: "Task updated." };
     } catch (error) {
         console.error("Failed to update task status:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function submitTaskProofAndMove(taskId: string, newStatus: "In Review" | "Done", proofUrl?: string, proofNotes?: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        if (session.user.role === "editor") {
+            const editorId = session.user.id;
+            if (!editorId) return { success: false, message: "Unauthorized" };
+            const assignment = await db.query.taskAssignees.findFirst({
+                where: and(eq(taskAssignees.taskId, taskId), eq(taskAssignees.userId, editorId)),
+            });
+            if (!assignment) {
+                return { success: false, message: "Unauthorized: Task not assigned to you" };
+            }
+        }
+
+        const oldTask = await db.query.tasks.findFirst({
+            where: eq(tasks.id, taskId),
+            with: { milestone: { with: { project: true } } }
+        });
+
+        if (!oldTask) return { success: false, message: "Task not found" };
+
+        if (newStatus === "Done" && oldTask.requiresProof && session.user.role !== "admin") {
+            return { success: false, message: "Only Admins can approve tasks to Done." };
+        }
+
+        if ((newStatus === "In Review" || newStatus === "Done") && oldTask.requiresProof) {
+            if (!proofUrl && !proofNotes) {
+                return { success: false, message: "Proof URL or Notes are required." };
+            }
+            if (proofUrl) {
+                try {
+                    new URL(proofUrl);
+                } catch {
+                    return { success: false, message: "Invalid Proof URL format." };
+                }
+            }
+        }
+
+        await db.update(tasks)
+            .set({ 
+                status: newStatus, 
+                proofUrl: proofUrl !== undefined ? proofUrl : oldTask.proofUrl,
+                proofNotes: proofNotes !== undefined ? proofNotes : oldTask.proofNotes,
+                updatedAt: new Date() 
+            })
+            .where(eq(tasks.id, taskId));
+
+        if (newStatus === "Done" && oldTask.milestoneId) {
+            const { isNull } = await import("drizzle-orm");
+            const allTasks = await db.query.tasks.findMany({
+                where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
+            });
+            
+            const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
+            if (allDone) {
+                await db.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
+                
+                const allMilestones = await db.query.milestones.findMany({
+                    where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
+                });
+                const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
+                if (allMsCompleted) {
+                    await db.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
+                }
+            }
+        }
+
+        await logAction("UPDATE", "Task", `Task ${taskId} moved to ${newStatus} with proof`);
+
+        revalidatePath("/dashboard/pm/[id]");
+        revalidatePath("/portal");
+        return { success: true, message: "Task proof submitted." };
+    } catch (error) {
+        console.error("Failed to submit task proof:", error);
         return { success: false, message: "Database Error" };
     }
 }
