@@ -3,7 +3,12 @@ import { getSiteSettings } from "@/features/cms/actions";
 import { Header } from "@/components/blocks/header-2";
 
 export async function Navbar() {
-    const session = await auth();
+    let session = null;
+    try {
+        session = await auth();
+    } catch (error) {
+        console.warn("[Navbar] Invalid/stale session token encountered, falling back to guest mode:", error);
+    }
     const isAdmin = session?.user?.role === "admin";
     const settings = await getSiteSettings();
 

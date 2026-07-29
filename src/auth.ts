@@ -85,13 +85,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
             // Fetch fresh user data from DB to reflect role changes in Supabase/DB immediately
             if (token.email) {
-                const dbUser = await db.query.users.findFirst({
-                    where: eq(users.email, token.email),
-                });
-                if (dbUser) {
-                    token.id = dbUser.id;
-                    token.role = dbUser.role;
-                    token.jobTitle = dbUser.jobTitle;
+                try {
+                    const dbUser = await db.query.users.findFirst({
+                        where: eq(users.email, token.email),
+                    });
+                    if (dbUser) {
+                        token.id = dbUser.id;
+                        token.role = dbUser.role;
+                        token.jobTitle = dbUser.jobTitle;
+                    }
+                } catch (e) {
+                    console.error("[Auth] DB lookup error in JWT callback:", e);
                 }
             }
             return token;
