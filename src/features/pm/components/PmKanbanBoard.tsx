@@ -39,7 +39,7 @@ export interface PmTask {
     description: string | null;
     status: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done";
     requiresProof?: boolean;
-    proofUrl?: string | null;
+    proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
     blockedReason?: string | null;
     assignees: { user: { id: string; name: string | null; image?: string | null; jobTitle?: string | null } }[];
@@ -62,6 +62,7 @@ interface PmKanbanBoardProps {
     onStatusChangeRequest: (taskId: string, targetStatus: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done") => void;
     onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
+    onViewProofs?: (task: PmTask) => void;
 }
 
 const COLUMNS: { id: PmTask["status"]; title: string; color: string }[] = [
@@ -80,19 +81,20 @@ export function PmKanbanBoard({
     onStatusChangeRequest,
     onEditTask,
     onDeleteTask,
+    onViewProofs,
 }: PmKanbanBoardProps) {
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
     // Optimistic UI updates
     const [optimisticTasks, setOptimisticTasks] = useOptimistic(
         tasks,
-        (currentTasks, update: { taskId: string; newStatus: PmTask["status"]; proofUrl?: string; proofNotes?: string }) => {
+        (currentTasks, update: { taskId: string; newStatus: PmTask["status"]; proofLinks?: { label: string; url: string }[]; proofNotes?: string }) => {
             return currentTasks.map((t) =>
                 t.id === update.taskId
                     ? {
                           ...t,
                           status: update.newStatus,
-                          proofUrl: update.proofUrl !== undefined ? update.proofUrl : t.proofUrl,
+                          proofLinks: update.proofLinks !== undefined ? update.proofLinks : t.proofLinks,
                           proofNotes: update.proofNotes !== undefined ? update.proofNotes : t.proofNotes,
                       }
                     : t
@@ -154,6 +156,7 @@ export function PmKanbanBoard({
                             currentUserRole={currentUserRole}
                             onEditTask={onEditTask}
                             onDeleteTask={onDeleteTask}
+                            onViewProofs={onViewProofs}
                         />
                     );
                 })}
@@ -181,6 +184,7 @@ function PmKanbanColumn({
     currentUserRole,
     onEditTask,
     onDeleteTask,
+    onViewProofs,
 }: {
     column: { id: PmTask["status"]; title: string; color: string };
     tasks: PmTask[];
@@ -188,6 +192,7 @@ function PmKanbanColumn({
     currentUserRole?: string;
     onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
+    onViewProofs?: (task: PmTask) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -225,6 +230,7 @@ function PmKanbanColumn({
                                 currentUserRole={currentUserRole}
                                 onEditTask={onEditTask}
                                 onDeleteTask={onDeleteTask}
+                                onViewProofs={onViewProofs}
                             />
                         ))
                     )}
@@ -240,12 +246,14 @@ function SortableTaskCard({
     currentUserRole,
     onEditTask,
     onDeleteTask,
+    onViewProofs,
 }: {
     task: PmTask;
     allTasks: PmTask[];
     currentUserRole?: string;
     onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
+    onViewProofs?: (task: PmTask) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: task.id,
@@ -275,6 +283,7 @@ function SortableTaskCard({
                 dragHandleProps={{ ...attributes, ...listeners }}
                 onEditTask={() => onEditTask(task)}
                 onDeleteTask={() => onDeleteTask(task)}
+                onViewProofs={() => onViewProofs?.(task)}
             />
         </div>
     );
@@ -287,6 +296,7 @@ function TaskCardContent({
     dragHandleProps,
     onEditTask,
     onDeleteTask,
+    onViewProofs,
 }: {
     task: PmTask;
     allTasks: PmTask[];
@@ -294,6 +304,7 @@ function TaskCardContent({
     dragHandleProps?: Record<string, unknown>;
     onEditTask?: () => void;
     onDeleteTask?: () => void;
+    onViewProofs?: () => void;
 }) {
     const isLocked = (() => {
         if (!task.dependsOnTaskId) return false;
@@ -356,7 +367,7 @@ function TaskCardContent({
             )}
 
             <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-zinc-800/60 text-[10px]">
-                {/* Due Date & Badges */}
+                {/* Due Date, Badges & Proof Button */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                     {task.dueDate && (
                         <div
@@ -379,18 +390,23 @@ function TaskCardContent({
                         </div>
                     )}
 
-                    {task.proofUrl && (
-                        <a
-                            href={task.proofUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:underline"
-                            title={task.proofNotes || "View Proof"}
+                    {(task.status === "In Review" || task.status === "Done" || (task.proofLinks && task.proofLinks.length > 0) || task.proofNotes) && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onViewProofs) onViewProofs();
+                            }}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer text-[10px] font-semibold"
+                            title="View or edit task proofs"
                         >
-                            <ShieldCheck className="w-3 h-3" />
-                            <span>Proof</span>
-                        </a>
+                            <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span>
+                                {task.proofLinks && task.proofLinks.length > 0
+                                    ? `Proofs (${task.proofLinks.length})`
+                                    : "Proof"}
+                            </span>
+                        </button>
                     )}
                 </div>
 

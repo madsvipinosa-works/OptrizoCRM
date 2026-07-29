@@ -8,7 +8,8 @@ import {
     pgEnum,
     AnyPgColumn,
     foreignKey,
-    index
+    index,
+    jsonb
 } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -354,7 +355,6 @@ export const usersRelations = relations(users, ({ many }) => ({
     leadAssignments: many(leadAssignees),
     authoredActivityLogs: many(leadActivityLogs),
     projectStakeholds: many(projectStakeholders),
-    projectTeamMemberships: many(projectTeamMembers),
     taskAssignments: many(taskAssignees),
     notifications: many(notifications),
     clientFeedback: many(clientFeedback),
@@ -387,6 +387,13 @@ export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff
 export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Client Approval", "Completed"]);
 export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "In Review", "Done"]);
 
+export type ProjectDocumentItem = {
+    id: string;
+    title: string;
+    url: string;
+    type: "pdf" | "doc" | "figma" | "sheet" | "link";
+};
+
 export const agencyProjects = pgTable("agency_project", {
     id: text("id")
         .primaryKey()
@@ -399,6 +406,7 @@ export const agencyProjects = pgTable("agency_project", {
     startDate: timestamp("start_date", { mode: "date" }),
     targetDate: timestamp("target_date", { mode: "date" }),
     stagingUrls: text("staging_urls").array(), // For Figma/Live links
+    documents: jsonb("documents").$type<ProjectDocumentItem[]>(), // For PDFs, Docs, Figma, Sheets
     isArchived: boolean("is_archived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -414,20 +422,7 @@ export const projectStakeholders = pgTable("project_stakeholder", {
         .references(() => users.id, { onDelete: "cascade" }),
 }, (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }));
 
-export const projectTeamMembers = pgTable("project_team_member", {
-    projectId: text("projectId")
-        .notNull()
-        .references(() => agencyProjects.id, { onDelete: "cascade" }),
-    userId: text("userId")
-        .notNull()
-        .references(() => users.id, { onDelete: "cascade" }),
-    roleInProject: text("role_in_project"),
-    isAssignable: boolean("is_assignable").default(true).notNull(),
-    addedBy: text("added_by")
-        .references(() => users.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }));
+
 
 export const milestones = pgTable("milestone", {
     id: text("id")
@@ -459,7 +454,7 @@ export const tasks = pgTable("task", {
     dependsOnTaskId: text("dependsOnTaskId"),
     dueDate: timestamp("due_date", { mode: "date" }),
     status: taskStatusEnum("status").default("Todo").notNull(),
-    proofUrl: text("proof_url"),
+    proofLinks: jsonb("proof_links").$type<{ label: string; url: string }[]>().default([]),
     proofNotes: text("proof_notes"),
     requiresProof: boolean("requires_proof").default(true).notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
@@ -514,7 +509,6 @@ export const clientFeedback = pgTable("client_feedback", {
 // PM Relations
 export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({
     stakeholders: many(projectStakeholders),
-    teamMembers: many(projectTeamMembers),
     lead: one(leads, {
         fields: [agencyProjects.leadId],
         references: [leads.id],
@@ -534,16 +528,7 @@ export const projectStakeholdersRelations = relations(projectStakeholders, ({ on
     }),
 }));
 
-export const projectTeamMembersRelations = relations(projectTeamMembers, ({ one }) => ({
-    project: one(agencyProjects, {
-        fields: [projectTeamMembers.projectId],
-        references: [agencyProjects.id],
-    }),
-    user: one(users, {
-        fields: [projectTeamMembers.userId],
-        references: [users.id],
-    }),
-}));
+
 
 export const milestonesRelations = relations(milestones, ({ one, many }) => ({
     project: one(agencyProjects, {

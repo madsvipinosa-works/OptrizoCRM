@@ -13,6 +13,8 @@ export interface TeamMemberItem {
     name: string | null;
     image?: string | null;
     jobTitle?: string | null;
+    email?: string | null;
+    role?: string | null;
 }
 
 interface AssigneeComboboxProps {
@@ -39,7 +41,9 @@ export function AssigneeCombobox({
         const query = searchQuery.toLowerCase();
         const nameMatch = member.name?.toLowerCase().includes(query);
         const titleMatch = member.jobTitle?.toLowerCase().includes(query);
-        return nameMatch || titleMatch;
+        const emailMatch = member.email?.toLowerCase().includes(query);
+        const roleMatch = member.role?.toLowerCase().includes(query);
+        return nameMatch || titleMatch || emailMatch || roleMatch;
     });
 
     const toggleMember = (id: string) => {
@@ -145,9 +149,9 @@ export function AssigneeCombobox({
                                             <span className="font-medium text-zinc-200 leading-none truncate">
                                                 {member.name || "Unknown"}
                                             </span>
-                                            {member.jobTitle && (
-                                                <span className="text-[10px] text-zinc-500 leading-tight mt-0.5 truncate">
-                                                    {member.jobTitle}
+                                            {(member.jobTitle || member.role) && (
+                                                <span className="text-[10px] text-zinc-500 leading-tight mt-0.5 truncate uppercase">
+                                                    {member.jobTitle || member.role}
                                                 </span>
                                             )}
                                         </div>

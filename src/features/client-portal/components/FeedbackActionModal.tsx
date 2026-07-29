@@ -14,7 +14,7 @@ interface TaskItem {
     title: string;
     description: string | null;
     status: string;
-    proofUrl?: string | null;
+    proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
 }
 
@@ -99,16 +99,21 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
                                                     </div>
                                                 </div>
 
-                                                {task.proofUrl && (
-                                                    <a 
-                                                        href={task.proofUrl} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-md transition-colors shrink-0"
-                                                    >
-                                                        <span>View Deliverable</span>
-                                                        <ExternalLink className="h-3 w-3" />
-                                                    </a>
+                                                {task.proofLinks && task.proofLinks.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-1 justify-end shrink-0">
+                                                        {task.proofLinks.map((link, i) => (
+                                                            <a 
+                                                                key={i}
+                                                                href={link.url} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-2 py-0.5 rounded transition-colors"
+                                                            >
+                                                                <span>{link.label || "Proof"}</span>
+                                                                <ExternalLink className="h-3 w-3" />
+                                                            </a>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
 

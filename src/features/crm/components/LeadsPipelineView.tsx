@@ -33,13 +33,13 @@ export function LeadsPipelineView({
     // Intercept Validation Modal state
     const [pendingValidation, setPendingValidation] = useState<{
         isOpen: boolean;
-        leadId: string;
+        leadId?: string;
+        leadIds?: string[];
         leadTitle: string;
         fromStatus: string;
         toStatus: string;
     }>({
         isOpen: false,
-        leadId: "",
         leadTitle: "",
         fromStatus: "",
         toStatus: "",
@@ -101,50 +101,75 @@ export function LeadsPipelineView({
 
     // Execution of Mutating Server Action with Optimistic UI Feedback
     const handleConfirmStatusChange = async (reasonNotes?: string) => {
-        const { leadId, toStatus } = pendingValidation;
-        if (!leadId || !toStatus) return;
+        const { leadId, leadIds, toStatus } = pendingValidation;
+        if (!toStatus) return;
+        if (!leadId && (!leadIds || leadIds.length === 0)) return;
 
         setIsSubmittingMutation(true);
 
-        // Instant Optimistic Feedback
-        startTransition(() => {
-            setOptimisticLeads({ leadId, newStatus: toStatus });
-        });
-
-        try {
-            const res = await updateLeadStatusWithAudit(leadId, toStatus as any, reasonNotes);
-            if (res.success) {
-                toast.success(res.message || `Moved lead stage to ${toStatus}`);
-            } else {
-                toast.error(res.message || "Failed to update lead status");
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("An unexpected error occurred");
-        } finally {
-            setIsSubmittingMutation(false);
-            setPendingValidation({
-                isOpen: false,
-                leadId: "",
-                leadTitle: "",
-                fromStatus: "",
-                toStatus: "",
+        if (leadIds && leadIds.length > 0) {
+            startTransition(() => {
+                leadIds.forEach((id) => setOptimisticLeads({ leadId: id, newStatus: toStatus }));
             });
+            try {
+                const res = await bulkUpdateLeadStatus(leadIds, toStatus as any);
+                if (res.success) {
+                    if (res.errors && Object.keys(res.errors).length > 0) {
+                        toast.warning(res.message);
+                    } else {
+                        toast.success(res.message);
+                    }
+                } else {
+                    toast.error(res.message || "Failed to bulk update leads");
+                }
+            } catch (err) {
+                console.error(err);
+                toast.error("An unexpected error occurred during bulk update");
+            } finally {
+                setIsSubmittingMutation(false);
+                setPendingValidation({
+                    isOpen: false,
+                    leadTitle: "",
+                    fromStatus: "",
+                    toStatus: "",
+                });
+            }
+        } else if (leadId) {
+            // Instant Optimistic Feedback
+            startTransition(() => {
+                setOptimisticLeads({ leadId, newStatus: toStatus });
+            });
+
+            try {
+                const res = await updateLeadStatusWithAudit(leadId, toStatus as any, reasonNotes);
+                if (res.success) {
+                    toast.success(res.message || `Moved lead stage to ${toStatus}`);
+                } else {
+                    toast.error(res.message || "Failed to update lead status");
+                }
+            } catch (err) {
+                console.error(err);
+                toast.error("An unexpected error occurred");
+            } finally {
+                setIsSubmittingMutation(false);
+                setPendingValidation({
+                    isOpen: false,
+                    leadTitle: "",
+                    fromStatus: "",
+                    toStatus: "",
+                });
+            }
         }
     };
 
-    // Bulk Status Mutation
-    const handleBulkStatusChange = (leadIds: string[], toStatus: string) => {
-        startTransition(async () => {
-            leadIds.forEach((id) => {
-                setOptimisticLeads({ leadId: id, newStatus: toStatus });
-            });
-            const res = await bulkUpdateLeadStatus(leadIds, toStatus as any);
-            if (res.success) {
-                toast.success(res.message);
-            } else {
-                toast.error(res.message);
-            }
+    // Intercept Bulk Status Mutation
+    const handleBulkStatusChangeRequest = (leadIds: string[], toStatus: string) => {
+        setPendingValidation({
+            isOpen: true,
+            leadIds,
+            leadTitle: `${leadIds.length} Selected Leads`,
+            fromStatus: "Mixed",
+            toStatus,
         });
     };
 
@@ -248,7 +273,7 @@ export function LeadsPipelineView({
                     assignableUsers={assignableUsers}
                     isAdmin={isAdmin}
                     onStatusChangeRequest={handleStatusChangeRequest}
-                    onBulkStatusChange={handleBulkStatusChange}
+                    onBulkStatusChange={handleBulkStatusChangeRequest}
                     onBulkAssign={handleBulkAssign}
                 />
             ) : (
@@ -266,7 +291,8 @@ export function LeadsPipelineView({
                 onClose={() =>
                     setPendingValidation({
                         isOpen: false,
-                        leadId: "",
+                        leadId: undefined,
+                        leadIds: undefined,
                         leadTitle: "",
                         fromStatus: "",
                         toStatus: "",

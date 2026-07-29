@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, projectTeamMembers, users } from "@/db/schema";
+import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
 import { auth } from "@/auth";
 import { eq, and, desc, inArray, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -16,23 +16,7 @@ export type ActionState = {
     milestone?: Record<string, unknown>;
 };
 
-async function validateProjectAssignees(projectId: string, assigneeIds: string[]): Promise<{ valid: boolean; message?: string }> {
-    if (assigneeIds.length === 0) return { valid: true };
-    const membershipRows = await db.query.projectTeamMembers.findMany({
-        where: and(
-            eq(projectTeamMembers.projectId, projectId),
-            eq(projectTeamMembers.isAssignable, true),
-            inArray(projectTeamMembers.userId, assigneeIds)
-        ),
-        columns: { userId: true },
-    });
-    const validUserIds = new Set(membershipRows.map((row) => row.userId));
-    const invalidIds = assigneeIds.filter((id) => !validUserIds.has(id));
-    if (invalidIds.length > 0) {
-        return { valid: false, message: "Some assignees are not in this project's internal team." };
-    }
-    return { valid: true };
-}
+
 
 // --- Project Actions ---
 export async function updateProjectStatus(projectId: string, status: "Kickoff" | "In Progress" | "In Review" | "Completed"): Promise<ActionState> {
@@ -57,89 +41,40 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
     }
 }
 
-export async function updateProjectSettings(projectId: string, stagingUrls: string[]): Promise<ActionState> {
+export async function updateProjectSettings(
+    projectId: string, 
+    stagingUrls: string[],
+    documents?: ProjectDocumentItem[]
+): Promise<ActionState> {
     const session = await auth();
     if (!session?.user || session.user.role !== "admin") {
         return { success: false, message: "Unauthorized" };
     }
 
     try {
-        await db.update(agencyProjects).set({ stagingUrls, updatedAt: new Date() }).where(eq(agencyProjects.id, projectId));
+        const updatePayload: Record<string, unknown> = {
+            stagingUrls,
+            updatedAt: new Date()
+        };
 
-        await logAction("UPDATE", "Project", `Project ${projectId} settings updated`);
+        if (documents !== undefined) {
+            updatePayload.documents = documents;
+        }
+
+        await db.update(agencyProjects).set(updatePayload).where(eq(agencyProjects.id, projectId));
+
+        await logAction("UPDATE", "Project Resources", `Project ${projectId} resources updated`);
 
         revalidatePath("/dashboard/pm/[id]");
         revalidatePath("/portal");
-        return { success: true, message: "Project settings updated." };
+        return { success: true, message: "Project resources updated." };
     } catch (error) {
         console.error("Failed to update project settings:", error);
         return { success: false, message: "Database Error" };
     }
 }
 
-export async function addProjectTeamMember(projectId: string, userId: string, roleInProject?: string): Promise<ActionState> {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== "admin") {
-        return { success: false, message: "Unauthorized" };
-    }
-    try {
-        const user = await db.query.users.findFirst({
-            where: and(eq(users.id, userId), ne(users.role, "client")),
-            columns: { id: true },
-        });
-        if (!user) {
-            return { success: false, message: "Only internal users can be added to project team." };
-        }
 
-        await db.insert(projectTeamMembers).values({
-            projectId,
-            userId,
-            roleInProject: roleInProject?.trim() || null,
-            addedBy: session.user.id,
-            isAssignable: true,
-        }).onConflictDoNothing();
-
-        await logAction("UPDATE", "Project Team", `Added user ${userId} to project ${projectId}`);
-        revalidatePath(`/dashboard/pm/${projectId}`);
-        return { success: true, message: "Project team member added." };
-    } catch (error) {
-        console.error("Failed to add project team member:", error);
-        return { success: false, message: "Database Error" };
-    }
-}
-
-export async function removeProjectTeamMember(projectId: string, userId: string): Promise<ActionState> {
-    const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
-        return { success: false, message: "Unauthorized" };
-    }
-    try {
-        await db.delete(projectTeamMembers).where(
-            and(eq(projectTeamMembers.projectId, projectId), eq(projectTeamMembers.userId, userId))
-        );
-
-        // Clean up dangling task assignees to keep integrity strict.
-        const projectTaskIds = await db.query.tasks.findMany({
-            where: eq(tasks.projectId, projectId),
-            columns: { id: true },
-        });
-        if (projectTaskIds.length > 0) {
-            await db.delete(taskAssignees).where(
-                and(
-                    inArray(taskAssignees.taskId, projectTaskIds.map((task) => task.id)),
-                    eq(taskAssignees.userId, userId)
-                )
-            );
-        }
-
-        await logAction("UPDATE", "Project Team", `Removed user ${userId} from project ${projectId}`);
-        revalidatePath(`/dashboard/pm/${projectId}`);
-        return { success: true, message: "Project team member removed." };
-    } catch (error) {
-        console.error("Failed to remove project team member:", error);
-        return { success: false, message: "Database Error" };
-    }
-}
 
 // --- Milestone Actions ---
 export async function updateMilestoneStatus(milestoneId: string, status: "Pending" | "In Progress" | "Client Approval" | "Completed"): Promise<ActionState> {
@@ -194,10 +129,6 @@ export async function createTask(projectId: string, milestoneId: string, title: 
 
     try {
         const cleanAssigneeIds = Array.from(new Set((assigneeIds || []).filter(Boolean)));
-        const validation = await validateProjectAssignees(projectId, cleanAssigneeIds);
-        if (!validation.valid) {
-            return { success: false, message: validation.message || "Invalid assignees" };
-        }
 
         // Check dependency logic on creation
         const parentMilestone = await db.query.milestones.findFirst({
@@ -232,7 +163,7 @@ export async function createTask(projectId: string, milestoneId: string, title: 
     }
 }
 
-export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done", proofUrl?: string, proofNotes?: string): Promise<ActionState> {
+export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
     if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
         return { success: false, message: "Unauthorized" };
@@ -262,8 +193,8 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             return { success: false, message: "Only Admins can approve tasks to Done." };
         }
 
-        if (status === "In Review" && oldTask.requiresProof && !proofUrl && !proofNotes) {
-            return { success: false, message: "Proof URL or Notes are required for review." };
+        if (status === "In Review" && oldTask.requiresProof && (!proofLinks || proofLinks.length === 0) && !proofNotes) {
+            return { success: false, message: "Proof Links or Notes are required for review." };
         }
 
         const wasBlocked = oldTask.isBlockedByClient;
@@ -271,7 +202,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
         const updateData: Record<string, unknown> = { status, isBlockedByClient: isNowBlocked, updatedAt: new Date() };
         if (status === "In Review" || status === "Done") {
-            if (proofUrl !== undefined) updateData.proofUrl = proofUrl;
+            if (proofLinks !== undefined) updateData.proofLinks = proofLinks || [];
             if (proofNotes !== undefined) updateData.proofNotes = proofNotes;
         }
 
@@ -312,7 +243,10 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
         await logAction("UPDATE", "Task", `Task ${taskId} status updated to ${status}`);
 
-        revalidatePath("/dashboard/pm/[id]");
+        if (oldTask.projectId) {
+            revalidatePath(`/dashboard/pm/${oldTask.projectId}`);
+        }
+        revalidatePath("/dashboard/pm/[id]", "page");
         return { success: true, message: "Task updated." };
     } catch (error) {
         console.error("Failed to update task status:", error);
@@ -320,7 +254,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
     }
 }
 
-export async function submitTaskProofAndMove(taskId: string, newStatus: "In Review" | "Done", proofUrl?: string, proofNotes?: string): Promise<ActionState> {
+export async function submitTaskProofAndMove(taskId: string, newStatus: "In Review" | "Done", proofLinks?: { label: string; url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
     if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
         return { success: false, message: "Unauthorized" };
@@ -350,23 +284,28 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
         }
 
         if ((newStatus === "In Review" || newStatus === "Done") && oldTask.requiresProof) {
-            if (!proofUrl && !proofNotes) {
-                return { success: false, message: "Proof URL or Notes are required." };
+            if ((!proofLinks || proofLinks.length === 0) && !proofNotes) {
+                return { success: false, message: "Proof Links or Notes are required." };
             }
-            if (proofUrl) {
-                try {
-                    new URL(proofUrl);
-                } catch {
-                    return { success: false, message: "Invalid Proof URL format." };
+            if (proofLinks && proofLinks.length > 0) {
+                for (const link of proofLinks) {
+                    try {
+                        new URL(link.url);
+                    } catch {
+                        return { success: false, message: `Invalid Proof URL format: ${link.url}` };
+                    }
                 }
             }
         }
 
+        const updatedProofLinks = proofLinks !== undefined ? proofLinks : oldTask.proofLinks;
+        const updatedProofNotes = proofNotes !== undefined ? proofNotes : oldTask.proofNotes;
+
         await db.update(tasks)
             .set({ 
                 status: newStatus, 
-                proofUrl: proofUrl !== undefined ? proofUrl : oldTask.proofUrl,
-                proofNotes: proofNotes !== undefined ? proofNotes : oldTask.proofNotes,
+                proofLinks: updatedProofLinks || [],
+                proofNotes: updatedProofNotes,
                 updatedAt: new Date() 
             })
             .where(eq(tasks.id, taskId));
@@ -393,7 +332,10 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
 
         await logAction("UPDATE", "Task", `Task ${taskId} moved to ${newStatus} with proof`);
 
-        revalidatePath("/dashboard/pm/[id]");
+        if (oldTask.projectId) {
+            revalidatePath(`/dashboard/pm/${oldTask.projectId}`);
+        }
+        revalidatePath("/dashboard/pm/[id]", "page");
         revalidatePath("/portal");
         return { success: true, message: "Task proof submitted." };
     } catch (error) {
@@ -426,7 +368,7 @@ export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReas
 
         const oldTask = await db.query.tasks.findFirst({
             where: eq(tasks.id, taskId),
-            with: { milestone: { with: { project: { with: { teamMembers: { with: { user: true } } } } } } }
+            with: { milestone: { with: { project: true } } }
         });
 
         if (!oldTask) return { success: false, message: "Task not found" };
@@ -441,8 +383,11 @@ export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReas
             .where(eq(tasks.id, taskId));
 
         // Notify internal team members ONLY (Admins/PMs)
-        const teamMembers = oldTask.milestone?.project?.teamMembers || [];
-        const emails = teamMembers.map(tm => tm.user?.email).filter(Boolean) as string[];
+        const allInternalUsers = await db.query.users.findMany({
+            where: (users, { inArray }) => inArray(users.role, ["admin", "editor"]),
+            columns: { email: true }
+        });
+        const emails = allInternalUsers.map(u => u.email).filter(Boolean) as string[];
         
         if (emails.length > 0) {
             const { sendTaskBlockedEmail } = await import("@/lib/notifications");
@@ -490,12 +435,6 @@ export async function updateTaskDetails(
         const cleanAssigneeIds = data.assigneeIds !== undefined
             ? Array.from(new Set((data.assigneeIds || []).filter(Boolean)))
             : undefined;
-        if (cleanAssigneeIds !== undefined) {
-            const validation = await validateProjectAssignees(existingTask.projectId, cleanAssigneeIds);
-            if (!validation.valid) {
-                return { success: false, message: validation.message || "Invalid assignees" };
-            }
-        }
 
         const [updatedTask] = await db.update(tasks)
             .set({

@@ -31,7 +31,7 @@ interface Task {
     title: string;
     description: string | null;
     status: string;
-    proofUrl?: string | null;
+    proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
 }
 

@@ -21,6 +21,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConvertInquiryButton } from "@/features/crm/components/ConvertInquiryButton";
 
 export const dynamic = 'force-dynamic';
 
@@ -139,6 +140,11 @@ export default async function InquiriesPage({
                                                 <span>Source: {inquiry.source}</span>
                                                 <span>Sent: {format(new Date(inquiry.createdAt), "PPP")}</span>
                                             </div>
+                                            {inquiry.status !== "Archived" && (
+                                                <div className="pt-4 flex justify-end">
+                                                    <ConvertInquiryButton inquiryId={inquiry.id} />
+                                                </div>
+                                            )}
                                         </div>
                                     </DialogContent>
                                 </Dialog>

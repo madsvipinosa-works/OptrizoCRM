@@ -145,6 +145,59 @@ export async function sendClientWelcomeEmail(clientData: {
     }
 }
 
+// Email Template for Client Onboarding (from Inquiry Conversion)
+export async function sendClientOnboardingEmail(clientData: {
+    name: string;
+    email: string;
+    resetUrl: string;
+}) {
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            console.log(`[MOCK EMAIL] To: ${clientData.email} | Subject: Welcome to Optrizo - Set Up Your Account`);
+            console.log(`Link: ${clientData.resetUrl}`);
+            return { success: true, mock: true };
+        }
+
+        const { data, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: clientData.email,
+            subject: `Welcome to Optrizo - Set Up Your Account`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+                    <h2 style="color: #333;">Welcome to Optrizo, ${clientData.name}! 👋</h2>
+                    <p style="color: #555; line-height: 1.5;">
+                        We have successfully processed your inquiry and set up your dedicated Client Portal account. 
+                        In your portal, you'll be able to review project proposals, track progress, and communicate with our team.
+                    </p>
+                    <p style="color: #555; line-height: 1.5;">
+                        To get started and securely access any proposals we prepare for you, please set your password using the secure link below:
+                    </p>
+                    
+                    <div style="margin: 30px 0; text-align: center;">
+                        <a href="${clientData.resetUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                            Set Up Password
+                        </a>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                        <em>Note: This link will expire in 1 hour. If it expires, you can always request a new one by trying to log in and clicking "Forgot Password".</em>
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending onboarding email:", error);
+            return { success: false, error };
+        }
+
+        return { success: true, data };
+    } catch (err) {
+        console.error("Onboarding Email Failed:", err);
+        return { success: false, error: err };
+    }
+}
+
 // Email Template for Password Reset
 export async function sendPasswordResetEmail(email: string, resetUrl: string) {
     try {

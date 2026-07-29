@@ -1,14 +1,16 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks } from "@/db/schema";
+import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks, proposals, passwordResetTokens } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq, inArray, and } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
-import { sendClientWelcomeEmail } from "@/lib/notifications";
+import { sendClientWelcomeEmail, sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 export type ActionState = {
     message?: string;
@@ -38,7 +40,85 @@ export async function createInquiry(data: { name: string, email: string, source:
     }
 }
 
+export async function convertInquiryToLead(inquiryId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return { success: false, message: "Unauthorized" };
+    }
 
+    try {
+        const inquiry = await db.query.inquiries.findFirst({
+            where: eq(inquiries.id, inquiryId),
+        });
+
+        if (!inquiry) return { success: false, message: "Inquiry not found" };
+
+        let clientUser = await db.query.users.findFirst({
+            where: eq(users.email, inquiry.email),
+        });
+
+        let isNewUser = false;
+        let token = "";
+
+        if (!clientUser) {
+            isNewUser = true;
+            // Generate a random secure password for the placeholder account
+            const randomPassword = crypto.randomBytes(16).toString("hex");
+            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+            const [newUser] = await db.insert(users).values({
+                email: inquiry.email,
+                name: inquiry.name,
+                password: hashedPassword,
+                role: "client",
+            }).returning();
+            clientUser = newUser;
+            
+            // Generate password reset token for onboarding
+            token = crypto.randomBytes(32).toString("hex");
+            const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
+
+            await db.insert(passwordResetTokens).values({
+                email: inquiry.email,
+                token,
+                expiresAt,
+            });
+        }
+
+        // Create the lead
+        const [newLead] = await db.insert(leads).values({
+            clientId: clientUser.id,
+            businessName: inquiry.name, // Using name as fallback business name
+            goals: inquiry.message,
+            source: inquiry.source,
+            status: "Pending Approval",
+        }).returning();
+
+        // Update inquiry status
+        await db.update(inquiries).set({ status: "Archived" }).where(eq(inquiries.id, inquiryId));
+
+        await logAction("CREATE", "Lead", `Converted inquiry ${inquiryId} to Lead ${newLead.id}`);
+
+        if (isNewUser) {
+            const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://'+process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000');
+            const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+            
+            await sendClientOnboardingEmail({
+                name: clientUser.name || "Client",
+                email: clientUser.email,
+                resetUrl,
+            });
+        }
+
+        revalidatePath("/dashboard/inquiries");
+        revalidatePath("/dashboard/leads");
+
+        return { success: true, message: "Inquiry successfully converted to Lead" };
+    } catch (e) {
+        console.error("Failed to convert inquiry to lead:", e);
+        return { success: false, message: "Database Error" };
+    }
+}
 
 export async function updateLead(id: string, data: LeadUpdateValues): Promise<ActionState> {
     // 1. Auth Check (Admin or Editor)
@@ -115,6 +195,243 @@ export async function addLeadNote(leadId: string, content: string, activityType:
     } catch (error) {
         console.error("Failed to add note:", error);
         return { success: false, message: "Failed to add note" };
+    }
+}
+
+export async function getUnifiedDashboardData() {
+    let session;
+    try {
+        session = await auth();
+    } catch (e) {
+        console.error("Auth Session Error in getUnifiedDashboardData:", e);
+        return null;
+    }
+
+    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+        return null;
+    }
+
+    try {
+        // Parallel Drizzle Fetching
+        const [allLeads, allProjects, allTasks, allProposals] = await Promise.all([
+            db.select().from(leads),
+            db.query.agencyProjects.findMany({
+                with: {
+                    lead: true,
+                }
+            }),
+            db.query.tasks.findMany({
+                with: {
+                    project: true,
+                }
+            }),
+            db.query.proposals.findMany({
+                with: {
+                    lead: true,
+                }
+            })
+        ]);
+
+        // 1. KPI Calculations
+        let totalPipelineValue = 0;
+        let wonLeadsCount = 0;
+        let lostLeadsCount = 0;
+
+        allLeads.forEach((l) => {
+            if (l.status === "Closed Won") wonLeadsCount++;
+            else if (l.status === "Closed Lost") lostLeadsCount++;
+            
+            if (["Pending Approval", "In Review", "Proposal Sent"].includes(l.status)) {
+                if (l.budget) {
+                    const match = l.budget.match(/\d+/);
+                    const val = match ? parseInt(match[0]) : 0;
+                    const multiplier = l.budget.toLowerCase().includes("k") ? 1000 : 1;
+                    totalPipelineValue += val * multiplier;
+                }
+            }
+        });
+
+        // Win/Loss Rate
+        const totalClosed = wonLeadsCount + lostLeadsCount;
+        const winRatePercentage = totalClosed > 0 
+            ? ((wonLeadsCount / totalClosed) * 100).toFixed(1) 
+            : "0.0";
+
+        // Active Projects
+        const activeProjects = allProjects.filter(p => !["Completed", "Archived"].includes(p.status));
+        const activeProjectsCount = activeProjects.length;
+
+        // Task Completion Velocity
+        const doneTasksCount = allTasks.filter(t => t.status === "Done").length;
+        const totalTasksCount = allTasks.length;
+        const taskCompletionRate = totalTasksCount > 0
+            ? ((doneTasksCount / totalTasksCount) * 100).toFixed(1)
+            : "0.0";
+
+        // 2. Visualizations Data
+        const taskStatusCounts = {
+            "In Progress": 0,
+            Blocked: 0,
+            Todo: 0,
+            Done: 0,
+        };
+        allTasks.forEach(t => {
+            if (taskStatusCounts[t.status as keyof typeof taskStatusCounts] !== undefined) {
+                taskStatusCounts[t.status as keyof typeof taskStatusCounts]++;
+            }
+        });
+
+        const taskDonutData = [
+            { name: "In Progress", value: taskStatusCounts["In Progress"], fill: "#f59e0b" },
+            { name: "Blocked", value: taskStatusCounts.Blocked, fill: "#f43f5e" },
+            { name: "Todo", value: taskStatusCounts.Todo, fill: "#6366f1" },
+            { name: "Done", value: taskStatusCounts.Done, fill: "#10b981" },
+        ];
+
+        // Lead Source Bar Chart Data
+        const sourceMap: Record<string, { total: number; won: number }> = {};
+        allLeads.forEach(l => {
+            const src = l.source || "Direct Inquiry";
+            if (!sourceMap[src]) sourceMap[src] = { total: 0, won: 0 };
+            sourceMap[src].total++;
+            if (l.status === "Closed Won") sourceMap[src].won++;
+        });
+
+        const leadSourceData = Object.entries(sourceMap).map(([name, data]) => ({
+            name,
+            total: data.total,
+            won: data.won,
+        }));
+
+        // Revenue & Lead Trend (Last 30 days)
+        const today = new Date();
+        const trendMap = new Map<string, { date: string; leads: number; won: number; value: number }>();
+        
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split("T")[0];
+            const displayDate = `${d.getMonth() + 1}/${d.getDate()}`;
+            trendMap.set(dateStr, { date: displayDate, leads: 0, won: 0, value: 0 });
+        }
+
+        allLeads.forEach(l => {
+            const dateStr = new Date(l.createdAt).toISOString().split("T")[0];
+            if (trendMap.has(dateStr)) {
+                const item = trendMap.get(dateStr)!;
+                item.leads++;
+                if (l.status === "Closed Won") {
+                    item.won++;
+                }
+                if (l.budget) {
+                    const match = l.budget.match(/\d+/);
+                    const val = match ? parseInt(match[0]) : 0;
+                    const multiplier = l.budget.toLowerCase().includes("k") ? 1000 : 1;
+                    item.value += val * multiplier;
+                }
+            }
+        });
+
+        const trendData = Array.from(trendMap.values());
+
+        // 3. "Action Required" Triage Queue
+        const now = new Date();
+        const actionQueue: Array<{
+            id: string;
+            type: "blocked_task" | "pending_proposal" | "stale_lead";
+            title: string;
+            subtitle: string;
+            urgency: "high" | "medium" | "low";
+            link: string;
+            badgeText: string;
+            createdAt: string;
+        }> = [];
+
+        // Blocked Tasks (High / Red)
+        allTasks.forEach(t => {
+            if (t.status === "Blocked" || t.isBlockedByClient) {
+                actionQueue.push({
+                    id: `task-${t.id}`,
+                    type: "blocked_task",
+                    title: `Blocked Task: "${t.title}"`,
+                    subtitle: `Project: ${t.project?.title || "Unknown"} ${t.blockedReason ? `— Reason: ${t.blockedReason}` : ""}`,
+                    urgency: "high",
+                    link: `/dashboard/pm/${t.projectId}`,
+                    badgeText: "Action Required",
+                    createdAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
+                });
+            }
+        });
+
+        // Pending Proposals (Medium / Yellow)
+        allProposals.forEach(p => {
+            if (p.status === "Sent") {
+                actionQueue.push({
+                    id: `prop-${p.id}`,
+                    type: "pending_proposal",
+                    title: `Proposal Awaiting Client Acceptance`,
+                    subtitle: `Lead: ${p.lead?.businessName || "Client"} — Sent on ${new Date(p.updatedAt).toLocaleDateString()}`,
+                    urgency: "medium",
+                    link: `/proposal/${p.id}`,
+                    badgeText: "Proposal Sent",
+                    createdAt: new Date(p.updatedAt).toISOString(),
+                });
+            }
+        });
+
+        // Stale Leads (Low / Orange)
+        allLeads.forEach(l => {
+            if (["Pending Approval", "In Review"].includes(l.status)) {
+                const daysInactive = Math.floor((now.getTime() - new Date(l.updatedAt).getTime()) / (1000 * 3600 * 24));
+                if (daysInactive >= 2) {
+                    actionQueue.push({
+                        id: `lead-${l.id}`,
+                        type: "stale_lead",
+                        title: `Stale Lead: "${l.businessName || "Unnamed Lead"}"`,
+                        subtitle: `Status: ${l.status} — Inactive for ${daysInactive} day${daysInactive === 1 ? "" : "s"}`,
+                        urgency: "low",
+                        link: `/dashboard/leads`,
+                        badgeText: `${daysInactive}d Idle`,
+                        createdAt: new Date(l.updatedAt).toISOString(),
+                    });
+                }
+            }
+        });
+
+        // Sort action queue by urgency
+        const urgencyWeight = { high: 3, medium: 2, low: 1 };
+        actionQueue.sort((a, b) => {
+            if (urgencyWeight[b.urgency] !== urgencyWeight[a.urgency]) {
+                return urgencyWeight[b.urgency] - urgencyWeight[a.urgency];
+            }
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+        return {
+            kpis: {
+                pipelineValue: totalPipelineValue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
+                rawPipelineValue: totalPipelineValue,
+                winRatePercentage,
+                wonLeadsCount,
+                lostLeadsCount,
+                totalClosedCount: totalClosed,
+                activeProjectsCount,
+                taskCompletionRate,
+                doneTasksCount,
+                totalTasksCount,
+                totalLeadsCount: allLeads.length,
+            },
+            charts: {
+                taskDonutData,
+                leadSourceData,
+                trendData,
+            },
+            actionQueue,
+        };
+
+    } catch (error) {
+        console.error("Unified Dashboard Analytics Error:", error);
+        return null;
     }
 }
 
@@ -417,6 +734,27 @@ export async function archiveLead(leadId: string): Promise<ActionState> {
     }
 }
 
+async function validateLeadTransition(
+    leadId: string,
+    newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost"
+): Promise<{ valid: boolean; error?: string }> {
+    if (newStatus === "Proposal Sent") {
+        const proposal = await db.query.proposals.findFirst({
+            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "Sent"))
+        });
+        if (!proposal) return { valid: false, error: "Cannot move to Proposal Sent. This lead requires a sent proposal." };
+    }
+
+    if (newStatus === "Closed Won") {
+        const proposal = await db.query.proposals.findFirst({
+            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "Approved"))
+        });
+        if (!proposal) return { valid: false, error: "Cannot move to Closed Won. This lead requires an approved proposal." };
+    }
+    
+    return { valid: true };
+}
+
 export async function updateLeadStatusWithAudit(
     leadId: string,
     newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost",
@@ -433,6 +771,11 @@ export async function updateLeadStatusWithAudit(
         });
 
         if (!lead) return { success: false, message: "Lead not found" };
+
+        const validation = await validateLeadTransition(leadId, newStatus);
+        if (!validation.valid) {
+            return { success: false, message: validation.error };
+        }
 
         if (newStatus === "Closed Won") {
             return await markLeadAsWon(leadId);
@@ -477,16 +820,36 @@ export async function bulkUpdateLeadStatus(
     }
 
     try {
+        const validLeadIds: string[] = [];
+        const errors: Record<string, string[]> = {};
+        
+        for (const id of leadIds) {
+            const validation = await validateLeadTransition(id, newStatus);
+            if (validation.valid) {
+                validLeadIds.push(id);
+            } else {
+                errors[id] = [validation.error || "Validation failed"];
+            }
+        }
+        
+        if (validLeadIds.length === 0) {
+            return { 
+                success: false, 
+                message: "No leads passed validation for this stage.", 
+                errors 
+            };
+        }
+
         if (newStatus === "Closed Won") {
-            for (const id of leadIds) {
+            for (const id of validLeadIds) {
                 await markLeadAsWon(id);
             }
         } else {
             await db.update(leads)
                 .set({ status: newStatus, updatedAt: new Date() })
-                .where(inArray(leads.id, leadIds));
+                .where(inArray(leads.id, validLeadIds));
 
-            const logEntries = leadIds.map(id => ({
+            const logEntries = validLeadIds.map(id => ({
                 leadId: id,
                 authorId: session.user.id || null,
                 activityType: "System" as const,
@@ -494,11 +857,20 @@ export async function bulkUpdateLeadStatus(
             }));
             await db.insert(leadActivityLogs).values(logEntries);
 
-            await logAction("UPDATE", "Lead", `Bulk status update for ${leadIds.length} leads to ${newStatus}`);
+            await logAction("UPDATE", "Lead", `Bulk status update for ${validLeadIds.length} leads to ${newStatus}`);
         }
 
         revalidatePath("/dashboard/leads");
-        return { success: true, message: `Updated status for ${leadIds.length} leads to ${newStatus}` };
+        
+        if (Object.keys(errors).length > 0) {
+            return {
+                success: true,
+                message: `Updated ${validLeadIds.length} leads. ${Object.keys(errors).length} leads failed validation.`,
+                errors
+            };
+        }
+
+        return { success: true, message: `Updated status for ${validLeadIds.length} leads to ${newStatus}` };
     } catch (error) {
         console.error("Failed bulk update lead status:", error);
         return { success: false, message: "Failed to perform bulk update" };

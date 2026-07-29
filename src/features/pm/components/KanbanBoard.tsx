@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, submitTaskBlockedReasonAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,10 +45,17 @@ export function KanbanBoard({
     currentUserId?: string;
     currentUserRole?: string;
 }) {
+    const router = useRouter();
     const [optimisticTasks, setOptimisticTasks] = useState<PmTask[]>(project.tasks || []);
     const [optimisticMilestones, setOptimisticMilestones] = useState<KanbanMilestone[]>(
         project.milestones?.sort((a, b) => a.order - b.order) || []
     );
+
+    useEffect(() => {
+        if (project.tasks) {
+            setOptimisticTasks(project.tasks);
+        }
+    }, [project.tasks]);
     const [activeMilestoneId, setActiveMilestoneId] = useState<string>(project.milestones?.[0]?.id || "");
     const [isAddingTask, setIsAddingTask] = useState(false);
 
@@ -76,6 +84,9 @@ export function KanbanBoard({
         task: PmTask;
         targetStatus: "In Review" | "Done";
     } | null>(null);
+
+    // Task Proof Viewing state
+    const [viewingProofsTask, setViewingProofsTask] = useState<PmTask | null>(null);
 
     // Task Blocked Intercept state
     const [blockingTask, setBlockingTask] = useState<{
@@ -159,7 +170,7 @@ export function KanbanBoard({
         });
     };
 
-    const handleConfirmTaskProof = async (proofUrl: string, proofNotes: string) => {
+    const handleConfirmTaskProof = async (proofLinks: { label: string; url: string }[], proofNotes: string) => {
         if (!proofingTask) return;
 
         const { task, targetStatus } = proofingTask;
@@ -170,19 +181,20 @@ export function KanbanBoard({
                 ? {
                       ...t,
                       status: targetStatus,
-                      proofUrl: proofUrl || t.proofUrl,
+                      proofLinks: proofLinks.length > 0 ? proofLinks : t.proofLinks,
                       proofNotes: proofNotes || t.proofNotes,
                   }
                 : t
         );
         setOptimisticTasks(updated);
 
-        const res = await submitTaskProofAndMove(task.id, targetStatus, proofUrl, proofNotes);
+        const res = await submitTaskProofAndMove(task.id, targetStatus, proofLinks, proofNotes);
         if (!res.success) {
             toast.error(res.message || "Failed to submit task proof");
             setOptimisticTasks(optimisticTasks); // Revert
         } else {
             toast.success("Task proof submitted & status updated!");
+            router.refresh();
         }
 
         setProofingTask(null);
@@ -650,6 +662,7 @@ export function KanbanBoard({
                 onStatusChangeRequest={handleStatusChangeRequest}
                 onEditTask={openEditModal}
                 onDeleteTask={(task) => setDeletingTask(task)}
+                onViewProofs={(task) => setViewingProofsTask(task)}
             />
 
             {/* Task Proof Intercept Modal */}
@@ -661,6 +674,49 @@ export function KanbanBoard({
                 task={proofingTask?.task || null}
                 targetStatus={proofingTask?.targetStatus || "In Review"}
                 onConfirm={handleConfirmTaskProof}
+            />
+
+            {/* Task Proof Viewing/Editing Modal */}
+            <TaskProofValidationModal
+                open={!!viewingProofsTask}
+                onOpenChange={(open) => {
+                    if (!open) setViewingProofsTask(null);
+                }}
+                task={viewingProofsTask}
+                targetStatus={viewingProofsTask?.status as "In Review" | "Done" || "In Review"}
+                mode="edit"
+                isViewOnly={
+                    !(
+                        currentUserRole === "admin" ||
+                        viewingProofsTask?.assignees?.some(a => a.user.id === currentUserId)
+                    )
+                }
+                onConfirm={async (proofLinks, proofNotes) => {
+                    if (!viewingProofsTask) return;
+                    const res = await submitTaskProofAndMove(
+                        viewingProofsTask.id,
+                        viewingProofsTask.status as "In Review" | "Done",
+                        proofLinks,
+                        proofNotes
+                    );
+                    if (!res.success) {
+                        toast.error(res.message || "Failed to update task proofs");
+                        throw new Error(res.message || "Failed to update task proofs");
+                    } else {
+                        toast.success("Task proofs updated!");
+                        const updated = optimisticTasks.map((t) =>
+                            t.id === viewingProofsTask.id
+                                ? {
+                                      ...t,
+                                      proofLinks,
+                                      proofNotes,
+                                  }
+                                : t
+                        );
+                        setOptimisticTasks(updated);
+                        router.refresh();
+                    }
+                }}
             />
 
             {/* Task Blocked Reason Intercept Modal */}

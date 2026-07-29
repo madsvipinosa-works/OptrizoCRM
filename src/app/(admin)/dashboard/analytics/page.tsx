@@ -1,37 +1,21 @@
-import { getAnalyticsData } from "@/features/crm/actions";
-import { KPIStats } from "@/features/crm/components/KPIStats";
-import { PipelineChart, SourceChart, TrendChart } from "@/features/crm/components/AnalyticsCharts";
+import { getUnifiedDashboardData } from "@/features/crm/actions";
+import { AnalyticsDashboard } from "@/features/crm/components/AnalyticsDashboard";
+
+export const dynamic = 'force-dynamic';
 
 export default async function AnalyticsPage() {
-    const data = await getAnalyticsData();
+    const data = await getUnifiedDashboardData();
 
     if (!data) {
         return (
-            <div className="p-8 text-center">
-                <p className="text-muted-foreground">Unable to load analytics data.</p>
+            <div className="p-12 text-center bg-black/40 border border-white/10 rounded-xl max-w-lg mx-auto my-12">
+                <h3 className="text-lg font-semibold text-white mb-2">Unable to load telemetry</h3>
+                <p className="text-sm text-zinc-400">
+                    Ensure you are logged in with Admin or Editor credentials to access executive telemetry.
+                </p>
             </div>
         );
     }
 
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight text-white">Analytics</h1>
-                <p className="text-sm text-muted-foreground">
-                    Overview of your sales pipeline and performance.
-                </p>
-            </div>
-
-            <KPIStats data={data.kpi} />
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <PipelineChart data={data.charts.pipeline} />
-                <SourceChart data={data.charts.sources} />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
-                <TrendChart data={data.charts.trend} />
-            </div>
-        </div>
-    );
+    return <AnalyticsDashboard data={data} />;
 }
