@@ -1,6 +1,6 @@
 import { getAuditLogs } from "@/features/audit/actions";
 import { AuditLogsTable } from "@/features/audit/components/AuditLogsTable";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default async function AuditLogsPage() {
     const session = await auth();
     // Double check authentication on page load; strictly restrict to fully admin role
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin"])) {
         redirect("/dashboard");
     }
 

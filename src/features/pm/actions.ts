@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { eq, and, desc, inArray, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
@@ -21,7 +21,7 @@ export type ActionState = {
 // --- Project Actions ---
 export async function updateProjectStatus(projectId: string, status: "Kickoff" | "In Progress" | "In Review" | "Completed"): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -47,7 +47,7 @@ export async function updateProjectSettings(
     documents?: ProjectDocumentItem[]
 ): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -79,7 +79,7 @@ export async function updateProjectSettings(
 // --- Milestone Actions ---
 export async function updateMilestoneStatus(milestoneId: string, status: "Pending" | "In Progress" | "Client Approval" | "Completed"): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -121,7 +121,7 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
 // --- Task Actions ---
 export async function createTask(projectId: string, milestoneId: string, title: string, description?: string, assigneeIds?: string[]): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -165,13 +165,13 @@ export async function createTask(projectId: string, milestoneId: string, title: 
 
 export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
     }
 
     try {
         // Editor can only update tasks that are explicitly assigned to them.
-        if (session.user.role === "editor") {
+        if (session.user.role === "developer") {
             const editorId = session.user.id;
             if (!editorId) return { success: false, message: "Unauthorized" };
             const assignment = await db.query.taskAssignees.findFirst({
@@ -189,8 +189,8 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
         if (!oldTask) return { success: false, message: "Task not found" };
 
-        if (status === "Done" && oldTask.requiresProof && session.user.role !== "admin") {
-            return { success: false, message: "Only Admins can approve tasks to Done." };
+        if (status === "Done" && oldTask.requiresProof && !hasRole(session, ["superadmin", "manager"])) {
+            return { success: false, message: "Only Managers and Superadmins can approve tasks to Done." };
         }
 
         if (status === "In Review" && oldTask.requiresProof && (!proofLinks || proofLinks.length === 0) && !proofNotes) {
@@ -256,12 +256,12 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
 export async function submitTaskProofAndMove(taskId: string, newStatus: "In Review" | "Done", proofLinks?: { label: string; url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
     }
 
     try {
-        if (session.user.role === "editor") {
+        if (session.user.role === "developer") {
             const editorId = session.user.id;
             if (!editorId) return { success: false, message: "Unauthorized" };
             const assignment = await db.query.taskAssignees.findFirst({
@@ -279,8 +279,8 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
 
         if (!oldTask) return { success: false, message: "Task not found" };
 
-        if (newStatus === "Done" && oldTask.requiresProof && session.user.role !== "admin") {
-            return { success: false, message: "Only Admins can approve tasks to Done." };
+        if (newStatus === "Done" && oldTask.requiresProof && !hasRole(session, ["superadmin", "manager"])) {
+            return { success: false, message: "Only Managers and Superadmins can approve tasks to Done." };
         }
 
         if ((newStatus === "In Review" || newStatus === "Done") && oldTask.requiresProof) {
@@ -346,7 +346,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
 
 export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReason: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -355,7 +355,7 @@ export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReas
     }
 
     try {
-        if (session.user.role === "editor") {
+        if (session.user.role === "developer") {
             const editorId = session.user.id;
             if (!editorId) return { success: false, message: "Unauthorized" };
             const assignment = await db.query.taskAssignees.findFirst({
@@ -384,7 +384,7 @@ export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReas
 
         // Notify internal team members ONLY (Admins/PMs)
         const allInternalUsers = await db.query.users.findMany({
-            where: (users, { inArray }) => inArray(users.role, ["admin", "editor"]),
+            where: (users, { inArray }) => inArray(users.role, ["superadmin", "manager", "developer", "content_editor"]),
             columns: { email: true }
         });
         const emails = allInternalUsers.map(u => u.email).filter(Boolean) as string[];
@@ -409,13 +409,13 @@ export async function updateTaskDetails(
     data: { title?: string; description?: string; assigneeIds?: string[]; dueDate?: Date | null }
 ): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
     }
 
     try {
         // Editor can only update tasks that are explicitly assigned to them.
-        if (session.user.role === "editor") {
+        if (session.user.role === "developer") {
             const editorId = session.user.id;
             if (!editorId) return { success: false, message: "Unauthorized" };
             const assignment = await db.query.taskAssignees.findFirst({
@@ -468,7 +468,7 @@ export async function updateTaskDetails(
 
 export async function deleteTask(taskId: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -490,7 +490,7 @@ export async function deleteTask(taskId: string): Promise<ActionState> {
 // --- Milestone Management ---
 export async function createMilestone(projectId: string, title: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -520,7 +520,7 @@ export async function createMilestone(projectId: string, title: string): Promise
 
 export async function editMilestone(milestoneId: string, title: string, order?: number): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -543,7 +543,7 @@ export async function editMilestone(milestoneId: string, title: string, order?: 
 export async function deleteMilestone(milestoneId: string): Promise<ActionState> {
     const session = await auth();
     // Restrict deletion to admin only
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized: Only Admins can delete milestones." };
     }
 
@@ -633,7 +633,7 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
 // --- Deadline Tracking ---
 export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; found: number }> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, found: 0 };
     }
 
@@ -713,7 +713,7 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
 
 export async function archiveProject(projectId: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized: Admins only." };
     }
 

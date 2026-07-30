@@ -12,7 +12,7 @@ export default async function AdminLayout({
     const userRole = session?.user?.role || "user";
 
     return (
-        <RoleGuard allowedRoles={["admin", "editor"]}>
+        <RoleGuard allowedRoles={["superadmin", "sales", "manager", "developer", "content_editor"]}>
             <div className="flex min-h-screen bg-black">
                 <AdminSidebar user={session?.user} />
                 <main className="flex-1 md:ml-64 pt-24 md:pt-8 px-4 sm:px-8 pb-8 bg-zinc-950/50 min-h-screen">

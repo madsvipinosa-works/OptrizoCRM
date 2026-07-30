@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
 import { proposals } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -44,7 +44,7 @@ export default async function ProposalPage({
     // Access Control: 
     // Allow if the user is an admin or editor (so they can preview proposals).
     // Otherwise, require the user's ID to match the lead's clientId exactly.
-    const isAdminOrEditor = session.user.role === "admin" || session.user.role === "editor";
+    const isAdminOrEditor = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
     const isOwner = proposal.lead && session.user.id === proposal.lead.clientId;
 
     if (!isAdminOrEditor && !isOwner) {

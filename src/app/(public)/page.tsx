@@ -8,8 +8,10 @@ import { ServicesGrid } from "@/components/blocks/ServicesGrid";
 import GalleryHoverCarousel from "@/components/blocks/gallery-hover-carousel";
 import { TestimonialsSection } from "@/components/blocks/testimonials-with-marquee";
 import { db } from "@/db";
-import { posts, testimonials } from "@/db/schema";
+import { posts, projects, testimonials } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+
+import { PortfolioShowcase } from "@/components/public/PortfolioShowcase";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -23,9 +25,6 @@ import { CTAScrollScale } from "@/components/blocks/cta-scroll-scale";
 export default async function Home() {
     const settings = await getSiteSettings();
 
-    // Fetch only what's needed or nothing if static
-    // (Removed unused parallel fetch)
-
     // Fetch latest blog posts for the carousel
     const publishedPosts = await db.query.posts.findMany({
         where: eq(posts.published, true),
@@ -37,6 +36,13 @@ export default async function Home() {
     const allTestimonials = await db.query.testimonials.findMany({
         where: eq(testimonials.active, true),
         orderBy: [desc(testimonials.id)],
+    });
+
+    // Fetch active projects for portfolio showcase
+    const activeProjects = await db.query.projects.findMany({
+        where: eq(projects.status, "published"),
+        orderBy: [desc(projects.createdAt)],
+        limit: 6,
     });
 
     const testimonialItems = allTestimonials.map((t) => ({
@@ -137,6 +143,20 @@ export default async function Home() {
                 </ScrollReveal>
 
                 <ServicesGrid />
+            </section>
+
+            {/* Portfolio Showcase Section */}
+            <section className="container px-4 mx-auto py-16">
+                <ScrollReveal className="flex justify-between items-end mb-12">
+                    <div>
+                        <Badge variant="secondary" className="mb-4 text-primary">Our Work</Badge>
+                        <SectionHeading text="Featured Case Studies" className="text-3xl tracking-tight" />
+                    </div>
+                    <Button variant="outline" asChild>
+                        <Link href="/portfolio">View Portfolio</Link>
+                    </Button>
+                </ScrollReveal>
+                <PortfolioShowcase projects={activeProjects} />
             </section>
 
             {/* Testimonials Section */}

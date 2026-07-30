@@ -14,7 +14,7 @@ import {
 import type { AdapterAccount } from "next-auth/adapters";
 
 // 1. Enums (Single Source of Truth)
-export const roleEnum = pgEnum("role", ["user", "admin", "editor", "client"]);
+export const roleEnum = pgEnum("role", ["superadmin", "sales", "manager", "developer", "content_editor", "client"]);
 
 // 2. Users Table (Extended for RBAC)
 export const users = pgTable("user", {
@@ -26,7 +26,7 @@ export const users = pgTable("user", {
     emailVerified: timestamp("emailVerified", { mode: "date" }),
     password: text("password"),
     image: text("image"),
-    role: roleEnum("role").default("user").notNull(),
+    role: roleEnum("role").default("client").notNull(),
     jobTitle: text("job_title"),
     companyName: text("company_name"),
     industry: text("industry"),
@@ -162,10 +162,7 @@ export const siteSettings = pgTable("site_settings", {
     notificationEmails: text("notificationEmails"), // Comma-separated list of admin emails
     demoVideoUrl: text("demoVideoUrl"), // URL for the homepage demo video (YouTube/Vimeo embed or direct)
 
-    // Phase 5 Intelligence Settings
-    monthlyMarketingSpend: integer("monthly_marketing_spend").default(1000).notNull(),
-    adminHoursSavedPerProject: integer("admin_hours_saved_per_project").default(2).notNull(),
-
+    // Phase 5 Intelligence Settings (REMOVED)
     // About Page Content
     aboutHeroTitle: text("about_hero_title").default("About Our Agency"),
     missionStatement: text("mission_statement"),
@@ -218,6 +215,7 @@ export const leads = pgTable("lead", {
         .references(() => services.id, { onDelete: "set null" }), 
     businessName: text("business_name"),
     budget: text("budget"),
+    estimatedValue: integer("estimated_value").default(0).notNull(),
     goals: text("goals"),
     industry: text("industry"),
     targetAudience: text("target_audience"),
@@ -323,9 +321,9 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
         fields: [leads.clientId],
         references: [users.id],
     }),
-    serviceTemplate: one(serviceTemplates, {
+    service: one(services, {
         fields: [leads.serviceId],
-        references: [serviceTemplates.id],
+        references: [services.id],
     })
 }));
 

@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { posts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -12,7 +12,7 @@ interface Props {
 export default async function EditPostPage({ params }: Props) {
     const { id } = await params;
     const session = await auth();
-    const isAdmin = session?.user?.role === "admin";
+    const isAdmin = hasRole(session, ["superadmin"]);
 
     const post = await db.query.posts.findFirst({
         where: eq(posts.id, id),

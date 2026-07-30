@@ -1,13 +1,13 @@
 import { db } from "@/db";
 import { users, leads } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContactsPage() {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return <div className="p-8 text-white">Unauthorized</div>;
     }
 

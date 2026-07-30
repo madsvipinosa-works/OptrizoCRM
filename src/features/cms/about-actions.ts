@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { siteSettings, aboutValues, users } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 
 export type ActionState = {
     message: string;
@@ -14,15 +14,15 @@ export type ActionState = {
 
 async function requireEditor() {
     const session = await auth();
-    if (session?.user?.role !== "admin") {
-        throw new Error("Unauthorized: Admin access required");
+    if (!hasRole(session, ["superadmin", "content_editor"])) {
+        throw new Error("Unauthorized: Editor access required");
     }
     return session;
 }
 
 async function requireAdmin() {
     const session = await auth();
-    if (session?.user?.role !== "admin") {
+    if (!hasRole(session, ["superadmin"])) {
         throw new Error("Unauthorized: Admin access required");
     }
     return session;

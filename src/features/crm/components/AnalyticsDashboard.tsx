@@ -12,6 +12,7 @@ interface AnalyticsDashboardProps {
     data: {
         kpis: {
             pipelineValue: string;
+            weightedPipelineValue?: string;
             winRatePercentage: string;
             wonLeadsCount: number;
             lostLeadsCount: number;

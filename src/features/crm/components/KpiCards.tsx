@@ -7,6 +7,7 @@ import { DollarSign, Trophy, FolderKanban, CheckCircle2, TrendingUp } from "luci
 interface KpiCardsProps {
     data: {
         pipelineValue: string;
+        weightedPipelineValue?: string;
         winRatePercentage: string;
         wonLeadsCount: number;
         lostLeadsCount: number;
@@ -22,25 +23,35 @@ interface KpiCardsProps {
 export function KpiCards({ data }: KpiCardsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {/* Card 1: Pipeline Value */}
+            {/* Card 1: Pipeline Value & Weighted Forecast */}
             <Card className="bg-black/40 border-white/10 backdrop-blur-md relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-all" />
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                        Total Pipeline Value
+                        Pipeline Revenue
                     </CardTitle>
                     <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                         <DollarSign className="h-4 w-4" />
                     </div>
                 </CardHeader>
-                <CardContent className="pt-2">
-                    <div className="text-3xl font-bold text-white tracking-tight drop-shadow-[0_0_12px_rgba(99,102,241,0.3)]">
-                        {data.pipelineValue}
+                <CardContent className="pt-2 space-y-2">
+                    <div className="flex items-baseline justify-between">
+                        <div className="text-3xl font-bold text-white tracking-tight drop-shadow-[0_0_12px_rgba(99,102,241,0.3)]">
+                            {data.pipelineValue}
+                        </div>
                     </div>
-                    <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1">
-                        <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Active sales deals value</span>
-                    </p>
+                    
+                    {data.weightedPipelineValue && (
+                        <div className="flex items-center justify-between pt-1.5 border-t border-white/5 text-xs">
+                            <span className="text-zinc-400 flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3 text-indigo-400" />
+                                Weighted Forecast:
+                            </span>
+                            <span className="font-semibold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                                {data.weightedPipelineValue}
+                            </span>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

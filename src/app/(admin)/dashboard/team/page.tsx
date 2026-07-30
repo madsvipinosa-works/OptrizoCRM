@@ -29,7 +29,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
     const teamMembers = await db.query.users.findMany({
         where: and(
-            inArray(users.role, ["admin", "editor"]),
+            inArray(users.role, ["superadmin", "sales", "manager", "developer", "content_editor"]),
             searchFilter
         ),
         orderBy: (users, { desc }) => [desc(users.role)],
@@ -37,7 +37,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
     const regularUsers = await db.query.users.findMany({
         where: and(
-            inArray(users.role, ["user", "client"]),
+            inArray(users.role, ["client"]),
             searchFilter
         ),
         limit: 50, // Limit to prevent massive lists
@@ -68,8 +68,11 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
 const getRoleIcon = (role: string) => {
     switch (role) {
-        case "admin": return <ShieldAlert className="h-4 w-4 text-red-500" />;
-        case "editor": return <Shield className="h-4 w-4 text-blue-500" />;
+        case "superadmin": return <ShieldAlert className="h-4 w-4 text-red-500" />;
+        case "sales": return <Shield className="h-4 w-4 text-emerald-500" />;
+        case "manager": return <Shield className="h-4 w-4 text-amber-500" />;
+        case "developer": return <User className="h-4 w-4 text-purple-500" />;
+        case "content_editor": return <User className="h-4 w-4 text-blue-500" />;
         default: return <User className="h-4 w-4 text-gray-500" />;
     }
 };
@@ -82,7 +85,7 @@ interface UserListItem {
     jobTitle: string | null;
     isActive: boolean;
     showOnAboutPage: boolean;
-    role: "user" | "admin" | "editor" | "client";
+    role: "superadmin" | "sales" | "manager" | "developer" | "content_editor" | "client";
 }
 
 const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title: string, currentUserId: string }) => (
@@ -111,7 +114,7 @@ const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title:
                                     <JobTitleEditor userId={user.id} currentTitle={user.jobTitle} isAdmin={true} />
                                     <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
                                     <UserActiveToggle userId={user.id} isActive={user.isActive} isAdmin={true} />
-                                    {(user.role === "admin" || user.role === "editor") && (
+                                    {user.role !== "client" && (
                                         <>
                                             <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
                                             <UserAboutToggle userId={user.id} isPublic={user.showOnAboutPage} isAdmin={true} />

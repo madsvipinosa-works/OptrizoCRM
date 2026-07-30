@@ -9,7 +9,7 @@ export function UserRoleSelect({ userId, currentRole, currentUserId }: { userId:
     const [role, setRole] = useState(currentRole);
     const [loading, setLoading] = useState(false);
 
-    const handleRoleChange = async (newRole: "admin" | "editor" | "user" | "client") => {
+    const handleRoleChange = async (newRole: "superadmin" | "sales" | "manager" | "developer" | "content_editor" | "client") => {
         setLoading(true);
         // Optimistic UI
         const prevRole = role;
@@ -38,10 +38,12 @@ export function UserRoleSelect({ userId, currentRole, currentUserId }: { userId:
             text={role.charAt(0).toUpperCase() + role.slice(1)}
             triggerClassName="flex min-w-[120px] h-8 justify-between items-center rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             items={[
-                { name: "User", onClick: () => { if (!loading && !isSelf) handleRoleChange("user"); } },
                 { name: "Client", onClick: () => { if (!loading && !isSelf) handleRoleChange("client"); } },
-                { name: "Editor", onClick: () => { if (!loading && !isSelf) handleRoleChange("editor"); } },
-                { name: "Admin", onClick: () => { if (!loading && !isSelf) handleRoleChange("admin"); } },
+                { name: "Content Editor", onClick: () => { if (!loading && !isSelf) handleRoleChange("content_editor"); } },
+                { name: "Developer", onClick: () => { if (!loading && !isSelf) handleRoleChange("developer"); } },
+                { name: "Manager", onClick: () => { if (!loading && !isSelf) handleRoleChange("manager"); } },
+                { name: "Sales", onClick: () => { if (!loading && !isSelf) handleRoleChange("sales"); } },
+                { name: "Super Admin", onClick: () => { if (!loading && !isSelf) handleRoleChange("superadmin"); } },
             ]}
         />
     );

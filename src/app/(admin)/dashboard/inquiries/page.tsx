@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { inquiries } from "@/db/schema";
 import { desc, like, eq, and, or } from "drizzle-orm";
 import { Suspense } from "react";
-import { auth } from "@/auth"; 
+import { auth, hasRole } from "@/auth";
 import {
     Table,
     TableBody,
@@ -34,10 +34,7 @@ export default async function InquiriesPage({
     }>;
 }) {
     const session = await auth();
-    const isAdmin = session?.user?.role === "admin";
-    const isEditor = session?.user?.role === "editor";
-
-    if (!isAdmin && !isEditor) {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return <div className="p-8 text-center text-red-500">Unauthorized</div>;
     }
 

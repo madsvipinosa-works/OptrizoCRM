@@ -1,4 +1,4 @@
-import { auth, signOut } from "@/auth";
+import { auth, signOut, hasRole } from "@/auth";
 import { getSiteSettings } from "@/features/cms/actions";
 import { Header } from "@/components/blocks/header-2";
 
@@ -9,7 +9,7 @@ export async function Navbar() {
     } catch (error) {
         console.warn("[Navbar] Invalid/stale session token encountered, falling back to guest mode:", error);
     }
-    const isAdmin = session?.user?.role === "admin";
+    const isAdmin = hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"]);
     const settings = await getSiteSettings();
 
     const navLinks = [

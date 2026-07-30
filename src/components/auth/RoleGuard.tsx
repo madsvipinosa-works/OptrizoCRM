@@ -1,21 +1,19 @@
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { redirect } from "next/navigation";
 
 interface RoleGuardProps {
     children: React.ReactNode;
-    allowedRoles?: ("admin" | "editor" | "user" | "client")[];
+    allowedRoles?: string[];
 }
 
-export async function RoleGuard({ children, allowedRoles = ["admin"] }: RoleGuardProps) {
+export async function RoleGuard({ children, allowedRoles = ["superadmin"] }: RoleGuardProps) {
     const session = await auth();
 
     if (!session || !session.user) {
         redirect("/api/auth/signin");
     }
 
-    const userRole = session.user.role;
-
-    if (!allowedRoles.includes(userRole)) {
+    if (!hasRole(session, allowedRoles)) {
         redirect("/");
     }
 

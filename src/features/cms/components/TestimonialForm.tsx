@@ -30,7 +30,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
         if (state.message) {
             if (state.success) {
                 toast.success(state.message);
-                router.push("/dashboard/testimonials");
+                router.push("/dashboard/cms");
             } else {
                 toast.error(state.message);
             }

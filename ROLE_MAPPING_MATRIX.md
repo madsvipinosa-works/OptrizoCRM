@@ -11,23 +11,22 @@ This matrix aligns the product roles described in Chapter 1 with the technical r
 
 #### CRM (Leads, Lead Notes, Analytics, Deal Won)
 - View (Chapter intent):
-  - `admin`: can view all non-archived leads.
-  - `editor`: can view only leads assigned to them (server-side scope).
+  - `admin`: can view all non-archived leads and analytics.
+  - `editor`: **locked out completely** (no access to CRM or Analytics).
 - Mutate (Chapter intent):
   - `admin`: allowed to update leads, add lead notes, mark deals won, and view CRM analytics.
-  - `editor`: **not allowed** to mutate CRM commercial workflow data (updates/notes/analytics).
+  - `editor`: **locked out completely**.
 
 #### Proposals (Draft/Sent/Approved/Rejected)
 - Mutate:
   - `admin`: allowed to create/update proposals and send proposal emails.
-  - `editor`: **not allowed** to create/update/send proposals.
+  - `editor`: **locked out completely**.
 - Client-initiated:
   - `client`: can view the proposal only for the lead tied to their email, and can accept/reject proposals.
 
 #### CMS (Public Content Management)
 - Mutate:
-  - `admin`: allowed to create/update/publish public site content and global settings.
-  - `editor`: **not allowed** to manage CMS content.
+  - `admin` and `editor`: allowed to create/update/publish public site content (Portfolio, Services, Blog, Testimonials).
 - Public read:
   - All visitors can read published content according to CMS publishing state.
 

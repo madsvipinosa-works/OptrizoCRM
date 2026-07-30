@@ -9,10 +9,10 @@ async function main() {
 
     try {
         await db.update(users)
-            .set({ role: "admin" })
+            .set({ role: "superadmin" })
             .where(inArray(users.email, emails));
 
-        console.log(`✅ Success! The accounts are now ADMINS!`);
+        console.log(`✅ Success! The accounts are now SUPERADMINS!`);
         process.exit(0);
     } catch (e) {
         console.error("❌ Failed: ", e);

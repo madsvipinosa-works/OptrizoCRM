@@ -27,7 +27,7 @@ export async function GET() {
 
         // 2. Update role to admin
         await db.update(users)
-            .set({ role: "admin" })
+            .set({ role: "superadmin" })
             .where(eq(users.id, user.id));
 
         return NextResponse.json({

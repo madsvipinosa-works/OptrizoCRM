@@ -2,7 +2,7 @@
 
 import { put, del } from "@vercel/blob";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { logAction } from "@/features/audit/actions";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
@@ -23,7 +23,7 @@ const fileUploadSchema = z.object({
 
 export async function deleteImage(url: string) {
     const session = await auth();
-    if (!session?.user?.id || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "manager", "content_editor", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 

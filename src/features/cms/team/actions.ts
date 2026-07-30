@@ -2,14 +2,14 @@
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-export async function updateUserRole(userId: string, newRole: "admin" | "editor" | "user" | "client") {
+export async function updateUserRole(userId: string, newRole: "superadmin" | "sales" | "manager" | "developer" | "content_editor" | "client") {
     // 1. Auth Check
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin"])) {
         return { success: false, message: "Unauthorized: Only admins can manage roles." };
     }
 
@@ -34,7 +34,7 @@ export async function updateUserRole(userId: string, newRole: "admin" | "editor"
 export async function updateUserJobTitle(userId: string, newTitle: string) {
     // 1. Strict Auth Check
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin"])) {
         return { success: false, message: "Unauthorized: Only admins can manage job titles." };
     }
 
@@ -54,7 +54,7 @@ export async function updateUserJobTitle(userId: string, newTitle: string) {
 export async function toggleUserActiveStatus(userId: string, currentStatus: boolean) {
     // 1. Strict Auth Check
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin"])) {
         return { success: false, message: "Unauthorized: Only admins can manage active status." };
     }
 

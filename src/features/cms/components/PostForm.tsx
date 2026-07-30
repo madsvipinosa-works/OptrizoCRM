@@ -35,7 +35,7 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
         if (state.message) {
             if (state.success) {
                 toast.success(state.message);
-                router.push("/dashboard/posts");
+                router.push("/dashboard/cms");
             } else {
                 toast.error(state.message);
             }

@@ -5,7 +5,7 @@ import { LeadsFilter } from "@/features/crm/components/LeadsFilter";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
 import { CreateLeadModal } from "@/features/crm/components/CreateLeadModal";
 import { Suspense } from "react";
-import { auth } from "@/auth"; // Need auth for current user ID
+import { auth, hasRole } from "@/auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,17 +18,20 @@ export default async function LeadsPage({
     }>;
 }) {
     const session = await auth();
-    const currentUserId = session?.user?.id || "";
-    const isAdmin = session?.user?.role === "admin";
-    const isEditor = session?.user?.role === "editor";
+    if (!hasRole(session, ["superadmin", "sales"])) {
+        return <div className="p-8 text-center text-red-500">Unauthorized</div>;
+    }
+
+    const currentUserId = session.user.id;
+    const isSuperAdmin = session.user.role === "superadmin";
 
     // Role-based CRM visibility:
-    // - Admin sees all non-archived leads.
-    // - Editor (General Staff) sees only leads explicitly assigned to them.
+    // - Superadmin sees all non-archived leads.
+    // - Sales sees only leads explicitly assigned to them.
     let assignedLeadIds: string[] = [];
-    if (isEditor && session?.user?.id) {
+    if (!isSuperAdmin && session.user.id) {
         const assigned = await db.query.leadAssignees.findMany({
-            where: eq(leadAssignees.userId, session.user.id),
+            where: eq(leadAssignees.userId, currentUserId),
             columns: { leadId: true },
         });
         assignedLeadIds = assigned.map(a => a.leadId);
@@ -40,7 +43,7 @@ export default async function LeadsPage({
 
     // Build Where Clause
     const whereClause = and(
-        !isAdmin ? inArray(leads.id, assignedLeadIds) : undefined,
+        !isSuperAdmin ? inArray(leads.id, assignedLeadIds) : undefined,
         status && status !== "all" ? eq(leads.status, status as any) : undefined,
         query
             ? or(
@@ -72,7 +75,7 @@ export default async function LeadsPage({
     // Fetch potential assignees (Admins/Editors)
     const assignableUsers = await db.query.users.findMany({
         columns: { id: true, name: true, image: true, jobTitle: true },
-        where: inArray(users.role, ["admin", "editor"]),
+        where: inArray(users.role, ["superadmin", "sales"]),
     });
 
     // Serialize dates for Client Component
@@ -92,7 +95,7 @@ export default async function LeadsPage({
                         Manage inquiries and active deals.
                     </p>
                 </div>
-                {isAdmin && (
+                {isSuperAdmin && (
                     <CreateLeadModal />
                 )}
             </div>
@@ -107,7 +110,7 @@ export default async function LeadsPage({
                 currentUserId={currentUserId}
                 query={query}
                 status={status}
-                isAdmin={isAdmin}
+                isAdmin={isSuperAdmin}
             />
         </div>
     );

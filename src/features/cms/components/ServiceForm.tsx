@@ -29,7 +29,7 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
         if (state.message) {
             if (state.success) {
                 toast.success(state.message);
-                router.push("/dashboard/services");
+                router.push("/dashboard/cms");
             } else {
                 toast.error(state.message);
             }

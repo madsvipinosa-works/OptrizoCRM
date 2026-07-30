@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { agencyProjects } from "@/db/schema";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { eq } from "drizzle-orm";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -12,7 +12,7 @@ import { ProjectResourcesSidebar } from "@/features/pm/components/ProjectResourc
 
 export default async function KanbanBoardPage(props: { params: Promise<{ id: string }> }) {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         redirect("/");
     }
 
@@ -50,7 +50,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
 
     // Internal users available for task assignment.
     const internalUsers = await db.query.users.findMany({
-        where: (users, { inArray }) => inArray(users.role, ["admin", "editor", "user"]),
+        where: (users, { inArray }) => inArray(users.role, ["superadmin", "manager", "developer", "content_editor"]),
     });
 
     return (

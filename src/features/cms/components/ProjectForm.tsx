@@ -39,7 +39,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
         if (state.message) {
             if (state.success) {
                 toast.success(state.message);
-                router.push("/dashboard/portfolio");
+                router.push("/dashboard/cms");
             } else {
                 toast.error(state.message);
             }

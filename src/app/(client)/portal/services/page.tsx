@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { projectStakeholders, leads, agencyProjects } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Layers, ArrowUpRight, Clock, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -11,15 +11,22 @@ export const dynamic = "force-dynamic";
 
 export default async function AvailedServicesPage() {
     const session = await auth();
-    if (!session?.user?.id) notFound();
 
-    const isAdminOrStaff = session.user.role === "admin" || session.user.role === "editor";
+    if (!session?.user?.id) {
+        redirect("/api/auth/signin");
+    }
+
+    if (!hasRole(session, ["client", "superadmin", "manager", "sales", "developer", "content_editor"])) {
+        redirect("/api/auth/signin");
+    }
+
+    const isAdminOrStaff = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
 
     // 1. Fetch user's leads (Service Inquiries & Proposals)
     let clientLeads = await db.query.leads.findMany({
         where: eq(leads.clientId, session.user.id),
         with: {
-            serviceTemplate: true,
+            service: true,
         },
         orderBy: (leads, { desc }) => [desc(leads.createdAt)],
     });
@@ -45,7 +52,7 @@ export default async function AvailedServicesPage() {
         });
         clientLeads = await db.query.leads.findMany({
             limit: 5,
-            with: { serviceTemplate: true },
+            with: { service: true },
             orderBy: (leads, { desc }) => [desc(leads.createdAt)],
         });
     }
@@ -189,7 +196,7 @@ export default async function AvailedServicesPage() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <h3 className="font-semibold text-white">
-                                            {lead.serviceTemplate?.name || lead.businessName || "Custom Service Request"}
+                                            {lead.service?.title || lead.businessName || "Custom Service Request"}
                                         </h3>
                                         {lead.goals && (
                                             <p className="text-xs text-zinc-400 mt-1 line-clamp-2">

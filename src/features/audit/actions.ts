@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { auditLogs } from "@/db/schema";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { desc } from "drizzle-orm";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "OTHER";
@@ -39,7 +39,7 @@ export async function logAction(
 export async function getAuditLogs(page = 1, limit = 50) {
     const session = await auth();
     // Strictly restrict to Admin
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin"])) {
         return { success: false, message: "Unauthorized", logs: [] };
     }
 

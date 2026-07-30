@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { agencyProjects } from "@/db/schema";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -15,11 +15,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function PMEnginePage() {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         redirect("/");
     }
 
-    const isAdmin = session.user.role === "admin";
+    const isSuperAdmin = hasRole(session, ["superadmin"]);
 
     const projects = await db.query.agencyProjects.findMany({
         where: eq(agencyProjects.isArchived, false),
@@ -108,7 +108,7 @@ export default async function PMEnginePage() {
                                     {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
                                 </div>
                                 <div className="flex gap-1.5">
-                                    {isAdmin && <ProjectArchiveButton projectId={project.id} />}
+                                    {isSuperAdmin && <ProjectArchiveButton projectId={project.id} />}
                                     <Button size="sm" variant="ghost" className="h-8 hover:bg-white/10" asChild>
                                         <Link href={`/dashboard/pm/${project.id}`}>
                                             Manage Board

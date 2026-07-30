@@ -103,10 +103,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         async session({ session, token }) {
             if (session.user && token?.id) {
                 session.user.id = token.id as string;
-                session.user.role = (token.role as "user" | "admin" | "editor" | "client") || "user";
+                let role = (token.role as string) || "client";
+                
+                // Graceful fallback for existing JWT sessions after 6-tier migration
+                if (role === "admin") role = "superadmin";
+                if (role === "editor") role = "content_editor";
+                if (role === "user") role = "client";
+
+                session.user.role = role as any;
                 session.user.jobTitle = (token.jobTitle as string) || null;
             }
             return session;
         },
     },
 })
+
+import type { Session } from "next-auth";
+
+export function hasRole(session: Session | null, allowedRoles: string[]): session is Session & { user: { role: string, id: string, email: string, name: string } } {
+    const role = (session?.user as any)?.role;
+    return !!(role && allowedRoles.includes(role));
+}
+
+export function requireRole(session: Session | null, allowedRoles: string[]): asserts session is Session & { user: { role: string, id: string, email: string, name: string } } {
+    if (!hasRole(session, allowedRoles)) {
+        throw new Error("Unauthorized");
+    }
+}

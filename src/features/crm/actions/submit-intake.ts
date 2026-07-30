@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { auth } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
+import { parseBudgetToEstimatedValue } from "@/lib/utils";
 
 export type IntakeState = {
     message: string;
@@ -48,6 +49,7 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             industry: validatedFields.data.industry,
             targetAudience: validatedFields.data.targetAudience,
             budget: validatedFields.data.budget,
+            estimatedValue: parseBudgetToEstimatedValue(validatedFields.data.budget),
             timelineExpectation: validatedFields.data.timelineExpectation,
             goals: validatedFields.data.goals,
             serviceId: validatedFields.data.serviceId,

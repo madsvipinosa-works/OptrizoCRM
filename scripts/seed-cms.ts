@@ -8,7 +8,7 @@ async function main() {
 
     try {
         // 1. Get an Author for the Blog Posts (Use the admin account)
-        const allUsers = await db.select().from(users).where(eq(users.role, "admin")).limit(1);
+        const allUsers = await db.select().from(users).where(eq(users.role, "superadmin")).limit(1);
         let authorId = allUsers.length > 0 ? allUsers[0].id : null;
 
         if (!authorId) {

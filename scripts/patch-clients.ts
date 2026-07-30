@@ -20,7 +20,7 @@ async function main() {
 
             let fixedCount = 0;
             for (const user of affectedUsers) {
-                if (user.role === "user") {
+                if ((user.role as unknown as string) === "user") {
                     await db.update(users).set({ role: "client" }).where(eq(users.id, user.id));
                     console.log(`✅ Upgraded ${user.email} from 'user' to 'client'.`);
                     fixedCount++;

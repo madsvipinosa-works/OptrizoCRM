@@ -61,7 +61,7 @@ export function KanbanBoard({
 
     // Filters
     const [filterAssignee, setFilterAssignee] = useState<string>("all");
-    const [myTasksOnly, setMyTasksOnly] = useState<boolean>(currentUserRole !== "admin");
+    const [myTasksOnly, setMyTasksOnly] = useState<boolean>(!["superadmin", "manager"].includes(currentUserRole || ""));
 
     // Edit Task State
     const [editingTask, setEditingTask] = useState<PmTask | null>(null);
@@ -136,8 +136,8 @@ export function KanbanBoard({
             return;
         }
 
-        if (targetStatus === "Done" && currentUserRole !== "admin") {
-            toast.error("Only Admins can approve tasks to Done.");
+        if (targetStatus === "Done" && !["superadmin", "manager"].includes(currentUserRole || "")) {
+            toast.error("Only Managers and Super-Admins can approve tasks to Done.");
             return;
         }
 
@@ -179,11 +179,11 @@ export function KanbanBoard({
         const updated = optimisticTasks.map((t) =>
             t.id === task.id
                 ? {
-                      ...t,
-                      status: targetStatus,
-                      proofLinks: proofLinks.length > 0 ? proofLinks : t.proofLinks,
-                      proofNotes: proofNotes || t.proofNotes,
-                  }
+                    ...t,
+                    status: targetStatus,
+                    proofLinks: proofLinks.length > 0 ? proofLinks : t.proofLinks,
+                    proofNotes: proofNotes || t.proofNotes,
+                }
                 : t
         );
         setOptimisticTasks(updated);
@@ -209,10 +209,10 @@ export function KanbanBoard({
         const updated = optimisticTasks.map((t) =>
             t.id === task.id
                 ? {
-                      ...t,
-                      status: "Blocked" as const,
-                      blockedReason: blockedReason,
-                  }
+                    ...t,
+                    status: "Blocked" as const,
+                    blockedReason: blockedReason,
+                }
                 : t
         );
         setOptimisticTasks(updated);
@@ -289,14 +289,14 @@ export function KanbanBoard({
         const updatedTasks = optimisticTasks.map((t) =>
             t.id === editingTask.id
                 ? {
-                      ...t,
-                      title: editTaskTitle,
-                      description: editTaskDesc,
-                      assignees: teamMembers
-                          .filter((m) => editAssigneeIds.includes(m.id))
-                          .map((m) => ({ user: m })),
-                      dueDate: dueToSubmit,
-                  }
+                    ...t,
+                    title: editTaskTitle,
+                    description: editTaskDesc,
+                    assignees: teamMembers
+                        .filter((m) => editAssigneeIds.includes(m.id))
+                        .map((m) => ({ user: m })),
+                    dueDate: dueToSubmit,
+                }
                 : t
         );
         setOptimisticTasks(updatedTasks);
@@ -400,7 +400,7 @@ export function KanbanBoard({
             <div className="flex flex-col items-center justify-center p-8 bg-zinc-900/50 border border-zinc-800 rounded-xl mt-4 text-center">
                 <h3 className="text-xl font-bold mb-2 text-zinc-100">No Milestones</h3>
                 <p className="text-zinc-400 mb-4">Create a milestone to start organizing your project tasks.</p>
-                {currentUserRole === "admin" && (
+                {["superadmin", "manager"].includes(currentUserRole || "") && (
                     <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
                         <DialogTrigger asChild>
                             <Button className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium">
@@ -445,17 +445,16 @@ export function KanbanBoard({
                     <button
                         key={m.id}
                         onClick={() => setActiveMilestoneId(m.id)}
-                        className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
-                            activeMilestoneId === m.id
+                        className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${activeMilestoneId === m.id
                                 ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20"
                                 : "bg-zinc-900/80 border-zinc-800 hover:bg-zinc-800 text-zinc-400"
-                        }`}
+                            }`}
                     >
                         {m.order}. {m.title}
                     </button>
                 ))}
 
-                {currentUserRole === "admin" && (
+                {["superadmin", "manager"].includes(currentUserRole || "") && (
                     <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
                         <DialogTrigger asChild>
                             <button className="px-3 py-2 rounded-lg text-xs font-medium border border-zinc-800 hover:bg-zinc-800 text-zinc-400 whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
@@ -495,7 +494,7 @@ export function KanbanBoard({
                 <div className="flex items-center gap-3">
                     <h3 className="font-bold text-lg text-zinc-100 flex items-center gap-2">
                         {activeMilestone.title}
-                        {currentUserRole === "admin" && (
+                        {["superadmin", "manager"].includes(currentUserRole || "") && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
@@ -539,7 +538,7 @@ export function KanbanBoard({
                             </DropdownMenu>
                         )}
                     </h3>
-                    {currentUserRole === "admin" ? (
+                    {["superadmin", "manager"].includes(currentUserRole || "") ? (
                         <MilestoneStatusDropdown
                             status={activeMilestone.status}
                             onStatusChange={handleMilestoneStatusChange}
@@ -552,7 +551,7 @@ export function KanbanBoard({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {currentUserRole === "admin" && (
+                    {["superadmin", "manager"].includes(currentUserRole || "") && (
                         <Dialog>
                             <DialogTrigger asChild>
                                 <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/20">
@@ -607,7 +606,7 @@ export function KanbanBoard({
             </div>
 
             {/* Filter Bar */}
-            {currentUserRole === "admin" && (
+            {["superadmin", "manager"].includes(currentUserRole || "") && (
                 <div className="flex items-center gap-4 mb-4 bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/60 shrink-0">
                     <div className="flex items-center gap-2">
                         <Label className="text-xs text-zinc-400 font-medium">Filter Assignee:</Label>
@@ -637,11 +636,10 @@ export function KanbanBoard({
                         <Button
                             variant={myTasksOnly ? "default" : "outline"}
                             size="sm"
-                            className={`h-8 text-xs ${
-                                myTasksOnly
+                            className={`h-8 text-xs ${myTasksOnly
                                     ? "bg-indigo-600 text-white border-indigo-500"
                                     : "border-zinc-800 text-zinc-400 hover:bg-zinc-800"
-                            }`}
+                                }`}
                             onClick={() => {
                                 setMyTasksOnly(!myTasksOnly);
                                 if (!myTasksOnly) setFilterAssignee("all");
@@ -687,7 +685,7 @@ export function KanbanBoard({
                 mode="edit"
                 isViewOnly={
                     !(
-                        currentUserRole === "admin" ||
+                        ["superadmin", "manager"].includes(currentUserRole || "") ||
                         viewingProofsTask?.assignees?.some(a => a.user.id === currentUserId)
                     )
                 }
@@ -707,10 +705,10 @@ export function KanbanBoard({
                         const updated = optimisticTasks.map((t) =>
                             t.id === viewingProofsTask.id
                                 ? {
-                                      ...t,
-                                      proofLinks,
-                                      proofNotes,
-                                  }
+                                    ...t,
+                                    proofLinks,
+                                    proofNotes,
+                                }
                                 : t
                         );
                         setOptimisticTasks(updated);

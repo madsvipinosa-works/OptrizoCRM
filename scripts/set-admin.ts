@@ -5,11 +5,11 @@ import { eq } from "drizzle-orm";
 
 async function main() {
     const targetEmail = "mads.vipinosa@gmail.com";
-    console.log(`Promoting ${targetEmail} to ADMIN...`);
+    console.log(`Promoting ${targetEmail} to SUPERADMIN...`);
 
     try {
         await db.update(users)
-            .set({ role: "admin" })
+            .set({ role: "superadmin" })
             .where(eq(users.email, targetEmail));
 
         console.log("✅ Use role updated successfully!");

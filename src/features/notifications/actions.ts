@@ -27,7 +27,7 @@ export async function createSystemNotification(userId: string, message: string, 
 export async function notifyAllAdmins(message: string, type: string, link?: string) {
     try {
         const adminUsers = await db.query.users.findMany({
-            where: inArray(users.role, ["admin", "editor"])
+            where: inArray(users.role, ["superadmin", "manager"])
         });
         
         if (adminUsers.length === 0) return;

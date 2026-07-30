@@ -72,7 +72,7 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData) {
             email,
             password: hashedPassword,
             name: name || null,
-            role: "user",
+            role: "client",
         });
 
         await logAction("CREATE", "User", `New email account registered: ${email}`);

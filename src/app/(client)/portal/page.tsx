@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { projectStakeholders } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ClientPortalDashboardView } from "@/features/client-portal/components/ClientPortalDashboardView";
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +12,11 @@ export default async function ClientPortalPage() {
     // Allow logged in users. Admins/editors can view/preview client project progress.
     if (!session?.user?.id) notFound();
 
-    const isAdminOrStaff = session.user.role === "admin" || session.user.role === "editor";
+    if (!hasRole(session, ["client", "superadmin", "manager", "sales", "developer", "content_editor"])) {
+        redirect("/api/auth/signin");
+    }
+
+    const isAdminOrStaff = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
 
     // Fetch the client's projects via the projectStakeholders junction
     const userStakeholderRecords = await db.query.projectStakeholders.findMany({

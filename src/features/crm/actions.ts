@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { eq, inArray, and } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
 import { sendClientWelcomeEmail, sendClientOnboardingEmail } from "@/lib/notifications";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
 import crypto from "crypto";
@@ -20,7 +20,7 @@ export type ActionState = {
 
 export async function createInquiry(data: { name: string, email: string, source: string, service?: string, budget?: string, notes?: string }): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
     try {
@@ -42,7 +42,7 @@ export async function createInquiry(data: { name: string, email: string, source:
 
 export async function convertInquiryToLead(inquiryId: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -123,7 +123,7 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
 export async function updateLead(id: string, data: LeadUpdateValues): Promise<ActionState> {
     // 1. Auth Check (Admin or Editor)
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized: Access required." };
     }
 
@@ -172,7 +172,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
 export async function addLeadNote(leadId: string, content: string, activityType: "Call" | "Email" | "Meeting" | "Note" = "Note"): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -207,7 +207,7 @@ export async function getUnifiedDashboardData() {
         return null;
     }
 
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return null;
     }
 
@@ -234,6 +234,7 @@ export async function getUnifiedDashboardData() {
 
         // 1. KPI Calculations
         let totalPipelineValue = 0;
+        let weightedPipelineValue = 0;
         let wonLeadsCount = 0;
         let lostLeadsCount = 0;
 
@@ -242,11 +243,14 @@ export async function getUnifiedDashboardData() {
             else if (l.status === "Closed Lost") lostLeadsCount++;
             
             if (["Pending Approval", "In Review", "Proposal Sent"].includes(l.status)) {
-                if (l.budget) {
-                    const match = l.budget.match(/\d+/);
-                    const val = match ? parseInt(match[0]) : 0;
-                    const multiplier = l.budget.toLowerCase().includes("k") ? 1000 : 1;
-                    totalPipelineValue += val * multiplier;
+                totalPipelineValue += l.estimatedValue;
+                
+                if (l.status === "Pending Approval") {
+                    weightedPipelineValue += l.estimatedValue * 0.10;
+                } else if (l.status === "In Review") {
+                    weightedPipelineValue += l.estimatedValue * 0.40;
+                } else if (l.status === "Proposal Sent") {
+                    weightedPipelineValue += l.estimatedValue * 0.80;
                 }
             }
         });
@@ -323,12 +327,7 @@ export async function getUnifiedDashboardData() {
                 if (l.status === "Closed Won") {
                     item.won++;
                 }
-                if (l.budget) {
-                    const match = l.budget.match(/\d+/);
-                    const val = match ? parseInt(match[0]) : 0;
-                    const multiplier = l.budget.toLowerCase().includes("k") ? 1000 : 1;
-                    item.value += val * multiplier;
-                }
+                item.value += l.estimatedValue;
             }
         });
 
@@ -410,6 +409,7 @@ export async function getUnifiedDashboardData() {
         return {
             kpis: {
                 pipelineValue: totalPipelineValue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
+                weightedPipelineValue: weightedPipelineValue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
                 rawPipelineValue: totalPipelineValue,
                 winRatePercentage,
                 wonLeadsCount,
@@ -445,7 +445,7 @@ export async function getAnalyticsData() {
         return null; // Return null gracefully instead of crashing the page
     }
 
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return null;
     }
 
@@ -457,17 +457,11 @@ export async function getAnalyticsData() {
         const wonLeads = allLeads.filter(l => l.status === "Closed Won").length;
         const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : "0";
 
-        // Estimate Revenue (naive parsing of budget string e.g. "$1k - $5k")
+        // Estimate Revenue (sum of estimated values)
         const pipelineValue = allLeads
             .filter(l => !(["Closed Lost", "Pending Approval"] as string[]).includes(l.status || "")) // Filter out terminal or raw states
             .reduce((acc, lead) => {
-                if (!lead.budget) return acc;
-                // Extract first number
-                const match = lead.budget.match(/\d+/);
-                const val = match ? parseInt(match[0]) : 0;
-                // If it looks like 'k', multiply by 1000
-                const multiplier = lead.budget.toLowerCase().includes('k') ? 1000 : 1;
-                return acc + (val * multiplier);
+                return acc + lead.estimatedValue;
             }, 0);
 
         // 3. Chart Data Preparation
@@ -552,14 +546,7 @@ export async function getAnalyticsData() {
         const avgLeadAgeDays = agedLeadsCount > 0 ? (totalAgeDays / agedLeadsCount).toFixed(1) : "0";
         const responseRate = totalLeads > 0 ? ((actionedLeadsCount / totalLeads) * 100).toFixed(0) : "0";
 
-        // Advanced ROI & Intelligence Metrics
-        const settings = await db.query.siteSettings.findFirst();
-        const monthlyMarketingSpend = settings?.monthlyMarketingSpend || 1000;
-        const adminHoursPerProject = settings?.adminHoursSavedPerProject || 2;
-
         const clv = wonLeads > 0 ? Math.round(pipelineValue / wonLeads).toLocaleString() : "0";
-        const romi = pipelineValue > 0 ? Math.round(((pipelineValue - monthlyMarketingSpend) / monthlyMarketingSpend) * 100) : 0;
-        const adminHoursSaved = wonLeads * adminHoursPerProject;
 
         return {
             kpi: {
@@ -571,8 +558,6 @@ export async function getAnalyticsData() {
                 staleLeadsCount,
                 responseRate,
                 clv,
-                romi,
-                adminHoursSaved,
             },
             charts: {
                 pipeline: pipelineData,
@@ -592,7 +577,7 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
     
     // Only enforce auth check if it's not a programmatic system action (e.g. client proposal acceptance)
     if (!isSystemAction) {
-        if (!session?.user || session.user.role !== "admin") {
+        if (!hasRole(session, ["superadmin", "sales"])) {
             return { success: false, message: "Unauthorized" };
         }
     }
@@ -612,7 +597,8 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
         let clientUserId = lead.clientId;
         
         // VERY STRICT ROLE CHECK - NEVER DOWNGRADE AN ADMIN OR EDITOR TO CLIENT
-        if (lead.client.role !== "admin" && lead.client.role !== "editor") {
+        const internalRoles = ["superadmin", "sales", "manager", "developer", "content_editor"];
+        if (!internalRoles.includes(lead.client.role)) {
             await db.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
             console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.client.email}`);
         } else {
@@ -715,7 +701,7 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
 
 export async function archiveLead(leadId: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized: Admins only." };
     }
 
@@ -761,7 +747,7 @@ export async function updateLeadStatusWithAudit(
     reasonNotes?: string
 ): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -811,7 +797,7 @@ export async function bulkUpdateLeadStatus(
     newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost"
 ): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "admin" && session.user.role !== "editor")) {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -882,7 +868,7 @@ export async function bulkAssignLeads(
     assigneeUserIds: string[]
 ): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized: Admin access required" };
     }
 

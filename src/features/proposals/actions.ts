@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { proposals, leads, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { markLeadAsWon } from "@/features/crm/actions";
@@ -20,7 +20,7 @@ export interface ProposalData {
 
 export async function createProposal(leadId: string, data: ProposalData) {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -43,7 +43,7 @@ export async function createProposal(leadId: string, data: ProposalData) {
 
 export async function updateProposal(id: string, data: ProposalData, status?: "Draft" | "Sent" | "Approved" | "Rejected") {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -187,7 +187,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendProposalEmail(proposalId: string) {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -220,7 +220,7 @@ export async function sendProposalEmail(proposalId: string) {
 
 export async function getProposalById(id: string) {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -238,7 +238,7 @@ export async function getProposalById(id: string) {
 
 export async function deleteProposal(id: string) {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 

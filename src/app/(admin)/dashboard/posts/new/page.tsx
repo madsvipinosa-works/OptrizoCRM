@@ -1,9 +1,9 @@
 import { PostForm } from "@/features/cms/components/PostForm";
-import { auth } from "@/auth";
+import { auth, hasRole } from "@/auth";
 
 export default async function NewPostPage() {
     const session = await auth();
-    const isAdmin = session?.user?.role === "admin";
+    const isAdmin = hasRole(session, ["superadmin"]);
 
     return (
         <div className="max-w-4xl mx-auto">

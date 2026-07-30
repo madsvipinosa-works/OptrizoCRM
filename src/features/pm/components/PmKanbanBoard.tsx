@@ -339,7 +339,7 @@ function TaskCardContent({
                             <Edit2 className="w-3 h-3" />
                         </button>
                     )}
-                    {currentUserRole === "admin" && onDeleteTask && (
+                    {["superadmin", "manager"].includes(currentUserRole || "") && onDeleteTask && (
                         <button
                             onClick={onDeleteTask}
                             className="p-1 rounded hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"

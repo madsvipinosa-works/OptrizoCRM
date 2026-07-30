@@ -3,39 +3,75 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Briefcase, Settings, Star, Layers, Mail, BarChart3, Users, KanbanSquare, Menu, ShieldAlert, LogOut, HelpCircle, ChevronDown, Monitor } from "lucide-react";
+import {
+    FileText,
+    Briefcase,
+    Settings,
+    Star,
+    Layers,
+    Mail,
+    BarChart3,
+    Users,
+    KanbanSquare,
+    Menu,
+    ShieldAlert,
+    LogOut,
+    HelpCircle,
+    Monitor,
+    Search,
+    Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { UserWidget } from "@/components/admin/UserWidget";
+import { CommandPalette } from "@/components/admin/CommandPalette";
 import { handleSignOut } from "@/features/auth/signout-action";
 
-const mainNavItems = [
-    { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail },
-    { href: "/dashboard/contacts", label: "Contacts", icon: Users },
-    { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare },
-    { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare },
-];
+interface NavItem {
+    href: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    allowedRoles: string[];
+}
 
-const contentNavItems = [
-    { href: "/dashboard/posts", label: "Posts", icon: FileText },
-    { href: "/dashboard/portfolio", label: "Portfolio", icon: Briefcase },
-    { href: "/dashboard/services", label: "Services", icon: Layers },
-    { href: "/dashboard/testimonials", label: "Testimonials", icon: Star },
-    { href: "/dashboard/about", label: "About Page", icon: Users },
-];
+interface NavGroup {
+    title: string;
+    items: NavItem[];
+}
 
-const bottomNavItems = [
-    { href: "/dashboard/team", label: "Team", icon: Users },
-    { href: "/dashboard/settings", label: "Settings", icon: Settings },
-    { href: "/dashboard/audit", label: "Audit Logs", icon: ShieldAlert },
+const navGroups: NavGroup[] = [
+    {
+        title: "Growth & CRM",
+        items: [
+            { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, allowedRoles: ["superadmin", "sales"] },
+            { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["superadmin", "sales"] },
+            { href: "/dashboard/contacts", label: "Contacts", icon: Users, allowedRoles: ["superadmin", "sales"] },
+            { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["superadmin", "sales"] },
+        ],
+    },
+    {
+        title: "Operations & Content",
+        items: [
+            { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare, allowedRoles: ["superadmin", "manager", "developer"] },
+            { href: "/dashboard/cms", label: "Content Manager", icon: Monitor, allowedRoles: ["superadmin", "content_editor"] },
+        ],
+    },
+    {
+        title: "System Administration",
+        items: [
+            { href: "/dashboard/team", label: "Team", icon: Users, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/audit", label: "Audit Logs", icon: ShieldAlert, allowedRoles: ["superadmin"] },
+        ],
+    },
 ];
 
 export function AdminSidebar({ user }: { user?: { name?: string | null; email?: string | null; image?: string | null; role?: string | null } }) {
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
+    const [cmdOpen, setCmdOpen] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
     const userRole = user?.role || "user";
 
@@ -43,125 +79,96 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
         setIsMounted(true);
     }, []);
 
-    const isContentActive = contentNavItems.some(item => pathname.startsWith(item.href));
-    const [contentOpen, setContentOpen] = useState(isContentActive);
-
-    const filteredBottomNavItems = bottomNavItems.filter(item => {
-        if (item.label === "Settings" || item.label === "Team" || item.label === "Audit Logs") {
-            return userRole === "admin";
-        }
-        return true;
-    });
+    // Filter items and exclude empty groups dynamically based on RBAC
+    const filteredNavGroups = navGroups
+        .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => item.allowedRoles.includes(userRole)),
+        }))
+        .filter((group) => group.items.length > 0);
 
     const renderNavContent = () => (
-        <div className="px-3 py-8 h-full flex flex-col bg-[#050505]">
-            {/* Top Widget */}
-            <div className="mb-8 px-4 shrink-0 flex items-center justify-between">
+        <div className="px-3 py-6 h-full flex flex-col bg-[#050505] text-white">
+            {/* Top User Widget */}
+            <div className="mb-6 px-1 shrink-0 flex items-center justify-between gap-2 min-w-0 overflow-hidden">
                 <UserWidget user={user} />
-                <div className="hidden md:block">
+                <div className="hidden md:block shrink-0">
                     <NotificationBell />
                 </div>
             </div>
 
-            <nav className="space-y-1 flex-1 overflow-y-auto override-scrollbar pr-2">
-                {mainNavItems.map((item) => {
-                    const isActive = item.href === "/dashboard"
-                        ? pathname === "/dashboard"
-                        : pathname.startsWith(item.href);
+            {/* Command Palette Trigger Button */}
+            <div className="px-1 mb-4">
+                <button
+                    onClick={() => setCmdOpen(true)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white/60 hover:text-white hover:border-primary/40 hover:bg-primary/5 transition-all group"
+                >
+                    <span className="flex items-center gap-2">
+                        <Search className="h-3.5 w-3.5 text-[#A3A3A3] group-hover:text-primary transition-colors" />
+                        <span>Quick Search...</span>
+                    </span>
+                    <kbd className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-white/40 group-hover:text-white/70">
+                        ⌘K
+                    </kbd>
+                </button>
+            </div>
 
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                                "flex items-center gap-4 px-4 py-3.5 text-[15px] font-semibold rounded-[1rem] transition-all group",
-                                isActive
-                                    ? "bg-[#262626] text-white"
-                                    : "text-[#A3A3A3] hover:text-white hover:bg-white/5"
-                            )}
-                        >
-                            <item.icon className={cn("h-[20px] w-[20px] stroke-[2.2px]", isActive ? "text-white" : "text-[#A3A3A3] group-hover:text-white")} />
-                            <span>{item.label}</span>
-                        </Link>
-                    );
-                })}
-
-                {/* Collapsible Content Section */}
-                <div className="pt-2">
-                    <button
-                        onClick={() => setContentOpen(!contentOpen)}
-                        className={cn(
-                            "flex w-full items-center justify-between px-4 py-3.5 text-[15px] font-semibold rounded-[1rem] transition-all group",
-                            isContentActive
-                                ? "bg-[#262626] text-white"
-                                : "text-[#A3A3A3] hover:text-white hover:bg-white/5"
-                        )}
-                    >
-                        <div className="flex items-center gap-4">
-                            <Monitor className={cn("h-[20px] w-[20px] stroke-[2.2px]", isContentActive ? "text-white" : "text-[#A3A3A3] group-hover:text-white")} />
-                            <span>Website Content</span>
+            {/* Categorized Navigation Groups */}
+            <nav className="space-y-6 flex-1 overflow-y-auto override-scrollbar pr-1">
+                {filteredNavGroups.map((group) => (
+                    <div key={group.title} className="space-y-1">
+                        <div className="px-3 mb-2 text-[10px] font-extrabold tracking-[0.15em] text-[#A3A3A3]/70 uppercase">
+                            {group.title}
                         </div>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", contentOpen ? "rotate-180" : "rotate-0")} />
-                    </button>
+                        {group.items.map((item) => {
+                            const isActive = item.href === "/dashboard"
+                                ? pathname === "/dashboard"
+                                : pathname.startsWith(item.href);
 
-                    <div className={cn("overflow-hidden transition-all duration-300 ease-in-out", contentOpen ? "max-h-[300px] mt-1 opacity-100" : "max-h-0 opacity-0")}>
-                        <div className="flex flex-col space-y-1 pl-11 pr-2 pb-2">
-                            {contentNavItems.map((item) => {
-                                const isActive = pathname.startsWith(item.href);
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={() => setOpen(false)}
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => setOpen(false)}
+                                    className={cn(
+                                        "flex items-center gap-3.5 px-3.5 py-2.5 text-sm font-semibold rounded-xl transition-all group border-l-2",
+                                        isActive
+                                            ? "border-primary bg-primary/10 text-white shadow-[inset_0_0_20px_rgba(57,255,20,0.03)]"
+                                            : "border-transparent text-[#A3A3A3] hover:text-white hover:bg-white/5"
+                                    )}
+                                >
+                                    <item.icon
                                         className={cn(
-                                            "flex items-center py-2 text-[14px] font-medium transition-colors rounded-md px-3",
+                                            "h-4 w-4 transition-colors",
                                             isActive
-                                                ? "text-white bg-white/5"
-                                                : "text-[#A3A3A3] hover:text-white hover:bg-white/5"
+                                                ? "text-primary"
+                                                : "text-[#A3A3A3] group-hover:text-white"
                                         )}
-                                    >
-                                        <span>{item.label}</span>
-                                    </Link>
-                                );
-                            })}
-                        </div>
+                                    />
+                                    <span>{item.label}</span>
+                                </Link>
+                            );
+                        })}
                     </div>
-                </div>
-
-                <div className="my-4 border-t border-[#262626]/50 mx-4"></div>
-
-                {filteredBottomNavItems.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
-
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                                "flex items-center gap-4 px-4 py-3.5 text-[15px] font-semibold rounded-[1rem] transition-all group",
-                                isActive
-                                    ? "bg-[#262626] text-white"
-                                    : "text-[#A3A3A3] hover:text-white hover:bg-white/5"
-                            )}
-                        >
-                            <item.icon className={cn("h-[20px] w-[20px] stroke-[2.2px]", isActive ? "text-white" : "text-[#A3A3A3] group-hover:text-white")} />
-                            <span>{item.label}</span>
-                        </Link>
-                    );
-                })}
+                ))}
             </nav>
 
-            <div className="mt-auto shrink-0 space-y-1 pt-6 pb-2 border-t border-[#262626]/50 mx-2">
-                <Link href="#" className="flex items-center gap-4 px-4 py-3.5 text-[15px] font-semibold text-[#A3A3A3] hover:text-white transition-colors group rounded-[1rem] hover:bg-white/5">
-                    <HelpCircle className="h-[20px] w-[20px] stroke-[2.2px] text-[#A3A3A3] group-hover:text-white transition-colors" />
-                    Help & Information
+            {/* Bottom Actions */}
+            <div className="mt-auto shrink-0 space-y-1 pt-4 pb-2 border-t border-[#262626]/60 mx-1">
+                <Link
+                    href="/portal/services"
+                    className="flex items-center gap-3.5 px-3.5 py-2.5 text-sm font-semibold text-[#A3A3A3] hover:text-white transition-colors group rounded-xl hover:bg-white/5 border-l-2 border-transparent"
+                >
+                    <HelpCircle className="h-4 w-4 text-[#A3A3A3] group-hover:text-white transition-colors" />
+                    Client Portal
                 </Link>
                 <form action={handleSignOut}>
-                    <button type="submit" className="flex w-full items-center gap-4 px-4 py-3.5 text-[15px] font-semibold text-[#A3A3A3] hover:text-white transition-colors focus:outline-none group rounded-[1rem] hover:bg-white/5">
-                        <LogOut className="h-[20px] w-[20px] stroke-[2.2px] scale-x-[-1] text-[#A3A3A3] group-hover:text-white transition-colors" />
-                        Log out
+                    <button
+                        type="submit"
+                        className="flex w-full items-center gap-3.5 px-3.5 py-2.5 text-sm font-semibold text-[#A3A3A3] hover:text-red-400 transition-colors focus:outline-none group rounded-xl hover:bg-red-500/10 border-l-2 border-transparent"
+                    >
+                        <LogOut className="h-4 w-4 scale-x-[-1] text-[#A3A3A3] group-hover:text-red-400 transition-colors" />
+                        Log Out
                     </button>
                 </form>
             </div>
@@ -170,6 +177,9 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
 
     return (
         <>
+            {/* Command Palette Modal */}
+            <CommandPalette open={cmdOpen} setOpen={setCmdOpen} userRole={userRole} />
+
             {/* Desktop Sidebar */}
             <aside className="w-64 border-r border-[#262626] bg-[#050505] h-screen fixed left-0 top-0 hidden md:block z-40">
                 {renderNavContent()}
@@ -178,7 +188,8 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
             {/* Mobile Header */}
             <div className="md:hidden fixed top-0 left-0 w-full h-16 border-b border-[#262626] bg-[#050505] z-50 flex items-center px-4 justify-between">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-bold tracking-tight text-white">Optrizo Digital Solutions</h2>
+                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <h2 className="text-base font-bold tracking-tight text-white">Optrizo CRM</h2>
                 </div>
                 <div className="flex items-center gap-2">
                     <NotificationBell />

@@ -6,7 +6,7 @@ import { deleteImage } from "@/features/upload/actions";
 import { siteSettings, posts, projects, services, testimonials } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { auth } from "@/auth";
+import { auth, requireRole, hasRole } from "@/auth";
 import {
     siteSettingsSchema,
     postSchema,
@@ -28,18 +28,14 @@ function sanitizeSlug(input: string): string {
 
 async function requireAdmin() {
     const session = await auth();
-    if (session?.user?.role !== "admin") {
-        throw new Error("Unauthorized: Admin access required");
-    }
+    requireRole(session, ["superadmin"]);
     return session;
 }
 
 async function requireEditor() {
     const session = await auth();
-    if (session?.user?.role !== "admin") {
-        throw new Error("Unauthorized: Admin access required");
-    }
-    return session; // Returning session to get user ID
+    requireRole(session, ["superadmin", "content_editor"]);
+    return session; 
 }
 
 // --- Global Settings ---
@@ -112,7 +108,7 @@ export async function createPost(prevState: ActionState, formData: FormData) {
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
 
-        const isPublished = session.user.role === "admin" && formData.get("published") === "true";
+        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
 
         await db.insert(posts).values({
             title,
@@ -168,7 +164,7 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
 
         if (!id) return { success: false, message: "Missing Post ID" };
 
-        const isPublished = session.user.role === "admin" && formData.get("published") === "true";
+        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
 
         await db.update(posts)
             .set({
