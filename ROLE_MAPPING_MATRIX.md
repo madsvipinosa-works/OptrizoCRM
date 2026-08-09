@@ -3,41 +3,42 @@
 This matrix aligns the product roles described in Chapter 1 with the technical roles used by the implemented system.
 
 ### Technical Role Mapping
-- **Administrator (Chapter 1)** → technical role: `admin`
-- **General Staff (Chapter 1)** → technical role: `editor`
+- **Administrator (Chapter 1)** → technical roles: `superadmin`, `manager`
+- **General Staff (Chapter 1)** → technical roles: `sales`, `developer`, `content_editor`
 - **Client (Chapter 1)** → technical role: `client`
 
 ### Module-Level Permissions
 
 #### CRM (Leads, Lead Notes, Analytics, Deal Won)
 - View (Chapter intent):
-  - `admin`: can view all non-archived leads and analytics.
-  - `editor`: **locked out completely** (no access to CRM or Analytics).
+  - `superadmin`, `manager`, `sales`: can view all non-archived leads and analytics.
+  - `developer`, `content_editor`: **locked out completely** (no access to CRM or Analytics).
 - Mutate (Chapter intent):
-  - `admin`: allowed to update leads, add lead notes, mark deals won, and view CRM analytics.
-  - `editor`: **locked out completely**.
+  - `superadmin`, `manager`, `sales`: allowed to update leads, add lead notes, mark deals won, and view CRM analytics.
+  - `developer`, `content_editor`: **locked out completely**.
 
 #### Proposals (Draft/Sent/Approved/Rejected)
 - Mutate:
-  - `admin`: allowed to create/update proposals and send proposal emails.
-  - `editor`: **locked out completely**.
+  - `superadmin`, `manager`, `sales`: allowed to create/update proposals and send proposal emails.
+  - `developer`, `content_editor`: **locked out completely**.
 - Client-initiated:
   - `client`: can view the proposal only for the lead tied to their email, and can accept/reject proposals.
 
 #### CMS (Public Content Management)
 - Mutate:
-  - `admin` and `editor`: allowed to create/update/publish public site content (Portfolio, Services, Blog, Testimonials).
+  - `superadmin`, `manager`, `content_editor`: allowed to create/update/publish public site content (Portfolio, Services, Blog, Testimonials).
+  - `sales`, `developer`: restricted or no access to CMS publishing.
 - Public read:
   - All visitors can read published content according to CMS publishing state.
 
 #### Project Workflow Tracking (PM Engine)
 - Project board view:
-  - `admin` and `editor`: can view the board for a project they can access.
+  - `superadmin`, `manager`, `developer`, `content_editor`: can view the board for a project they can access.
 - Task execution (Chapter intent):
-  - `editor` can update task statuses **only if the task is assigned to them**.
-  - `editor` cannot create tasks, create/edit milestones, delete tasks/milestones, or change milestone workflow status.
+  - `developer`, `content_editor` (General Staff): can update task statuses **only if the task is assigned to them**.
+  - `developer`, `content_editor`: cannot create tasks, create/edit milestones, delete tasks/milestones, or change milestone workflow status.
 - Workflow structure changes:
-  - `admin` only: can create/edit/delete milestones and manage project/milestone statuses.
+  - `superadmin`, `manager` only: can create/edit/delete milestones and manage project/milestone statuses.
 
 #### Client Portal
 - `client`: can access the portal only with role `client` and can only see projects where they are listed as a stakeholder.
