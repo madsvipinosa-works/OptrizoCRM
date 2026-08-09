@@ -4,12 +4,13 @@
 Reduce lead leakage by automatically scheduling and triggering follow-ups for leads that stop responding after an initial inquiry or proposal cycle.
 
 ### Inputs (from current CRM data)
-- `leads.nextActionDate` (scheduled follow-up datetime)
-- `leads.status` (pipeline/terminal state)
-- `leads.updatedAt` (last staff action timestamp)
-- `leads.assignees` (optional: internal owners of the lead)
-- Lead identity:
-  - `leads.email`, `leads.name`, `leads.service`, `leads.budget`, `leads.subject`, `leads.message`
+  - `leads.status` (pipeline/terminal state)
+  - `leads.updatedAt` (last staff action timestamp)
+  - `leadAssignees` (resolved internal owners of the lead)
+  - Lead identity & details:
+    - User/Client data via `leads.clientId` (provides email, name)
+    - `leads.serviceId`, `leads.budget`
+    - (Note: The schema requires adding a `nextActionDate` field to `leads` for this automation to work)
 
 ### Cold Lead Definition (product rules)
 A lead is considered “cold” when:
@@ -39,10 +40,11 @@ Additionally, the system should treat any “reply captured” event as a stop c
 - Because external messaging import is out-of-scope, define “reply captured” as a staff action in the CRM (e.g., logging a call/email/note that indicates the client responded).
 
 ### Required State to Prevent Repeated Sends
-The current schema only has `nextActionDate` and does not include “follow-up already sent” metadata.
+The current schema lacks `nextActionDate` and does not include “follow-up already sent” metadata.
 
 To avoid repeated follow-ups on every automation run, implement one of these approaches:
 - Add fields to `leads`:
+  - `nextActionDate`
   - `lastColdFollowUpSentAt`
   - `coldFollowUpCount`
   - `coldFollowUpSuppressedUntil`

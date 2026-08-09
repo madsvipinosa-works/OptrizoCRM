@@ -4,18 +4,18 @@ This document defines the strict authorization boundaries implemented for Phase 
 
 ### Roles
 - `client`: external user who can access the client portal and submit milestone feedback / accept or reject proposals that belong to their lead.
-- `admin` / `editor`: internal agency users who can manage leads, proposals, and project workflows.
+- `superadmin`, `manager`, `sales`, `developer`, `content_editor`: internal agency users who can manage leads, proposals, and project workflows (subject to the Role Mapping Matrix).
 
 ### Proposal Viewing (login-only, client-scoped)
 - The proposal page requires authentication.
 - Only users with role `client` may access the page.
-- Ownership rule: the authenticated client must have the same email as the proposal’s linked lead email.
+- Ownership rule: the authenticated client's user ID must match the `clientId` on the proposal's linked lead.
 - If either authentication/role or ownership checks fail, the page returns `not found` (no disclosure).
 
 ### Proposal State Changes (client-initiated)
 - `acceptProposalByClient` and `rejectProposalByClient` require authentication.
 - Only role `client` may call these actions.
-- Ownership rule: the authenticated client’s email must match the linked lead email on the proposal.
+- Ownership rule: the authenticated client's user ID must match the `clientId` on the proposal's linked lead.
 - If checks fail, the action returns an authorization error without modifying proposal or lead state.
 
 ### Client Portal Access (strict-client-role)

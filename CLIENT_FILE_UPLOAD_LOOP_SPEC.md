@@ -8,7 +8,7 @@ Enable clients to upload revision/supporting assets directly from the Client Por
 2. In the `Document Hub` card, the client uploads a file via the portal upload control.
 3. The system:
    - uploads the file using the authenticated private-upload pipeline
-   - associates the uploaded file with the corresponding CRM `Lead` record (stored in `leads.files`)
+   - associates the uploaded file with the corresponding project (stored in `agencyProjects.documents`)
    - refreshes the portal view
 4. Admin/staff can later view the attached documents from the CRM lead view and use them during project delivery/revision.
 
@@ -21,7 +21,7 @@ Enable clients to upload revision/supporting assets directly from the Client Por
 
 ### Retention Class (chosen)
 - **Retained deliverables (default)**:
-  - uploaded revision/supporting documents are stored in `leads.files`
+  - uploaded revision/supporting documents are stored in `agencyProjects.documents`
   - files remain accessible to the client as part of their portal until removed/archived by internal staff.
 
 ### Auditability
@@ -30,11 +30,11 @@ Enable clients to upload revision/supporting assets directly from the Client Por
 
 ### Audit Link Model
 - Attachment is linked by business context:
-  - file is linked to `Lead` (the CRM entity that backs the proposal + the resulting project)
+  - file is linked to the active `agencyProject`
   - portal visibility is derived from project stakeholder membership (`projectStakeholders`)
 
 ### Admin Removal / Lifecycle
 - When staff needs to remove or supersede outdated uploads:
-  - internal staff should remove the file reference from `leads.files`
+  - internal staff should remove the file reference from `agencyProjects.documents`
   - and (optionally) delete the underlying blob via the existing deletion pipeline.
 
