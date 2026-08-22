@@ -77,32 +77,41 @@ export default async function ProposalPage({
 
     try {
         if (proposal.deliverables) {
-            if (Array.isArray(proposal.deliverables)) {
-                parsedDeliverables = proposal.deliverables as string[];
-            } else if (typeof proposal.deliverables === "string") {
-                parsedDeliverables = JSON.parse(proposal.deliverables);
+            let raw = proposal.deliverables;
+            if (typeof raw === "string") {
+                try { raw = JSON.parse(raw); } catch { raw = [raw]; }
+            }
+            if (Array.isArray(raw)) {
+                parsedDeliverables = raw.map((d: any) => {
+                    if (typeof d === "string") return d;
+                    if (d && typeof d === "object") {
+                        return d.title ? (d.description ? `${d.title}: ${d.description}` : d.title) : (d.description || JSON.stringify(d));
+                    }
+                    return String(d || "");
+                }).filter((s) => typeof s === "string" && s.trim() !== "");
             }
         }
         if (proposal.pricingStructure) {
-            if (Array.isArray(proposal.pricingStructure)) {
-                parsedPricing.items = proposal.pricingStructure as PricingLineItem[];
-            } else if (typeof proposal.pricingStructure === "object" && proposal.pricingStructure !== null) {
-                const p = proposal.pricingStructure as any;
-                parsedPricing.items = p.items || [];
-                if (p.total !== undefined) parsedPricing.total = p.total;
-                if (p.subtotal !== undefined) parsedPricing.subtotal = p.subtotal;
-            } else if (typeof proposal.pricingStructure === "string") {
-                const parsed = JSON.parse(proposal.pricingStructure);
-                if (Array.isArray(parsed)) {
-                    parsedPricing.items = parsed;
-                } else if (parsed.items) {
-                    parsedPricing.items = parsed.items;
-                    if (parsed.total !== undefined) parsedPricing.total = parsed.total;
-                }
+            let raw = proposal.pricingStructure;
+            if (typeof raw === "string") {
+                try { raw = JSON.parse(raw); } catch { /* ignore */ }
+            }
+            if (typeof raw === "object" && raw !== null && "items" in raw && Array.isArray((raw as any).items)) {
+                raw = (raw as any).items;
+            }
+            if (Array.isArray(raw)) {
+                parsedPricing.items = raw.map((i: any) => {
+                    const name = i.name || i.title || i.description || "Service Item";
+                    const description = i.description || "";
+                    const quantity = Number(i.quantity) || 1;
+                    const unitPrice = Number(i.unitPrice ?? i.amount ?? i.price) || 0;
+                    const total = Number(i.total) || quantity * unitPrice;
+                    return { name, description, quantity, unitPrice, total };
+                });
             }
         }
     } catch (e) {
-        console.error("Failed to parse proposal JSON", e);
+        console.error("Error parsing proposal data:", e);
     }
 
     return (

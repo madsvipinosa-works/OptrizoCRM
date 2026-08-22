@@ -4,16 +4,35 @@ import { useState, useOptimistic, startTransition } from "react";
 import { LeadsDataTable, type LeadItem } from "./LeadsDataTable";
 import { LeadsKanbanBoard } from "./LeadsKanbanBoard";
 import { LeadStatusValidationModal } from "./LeadStatusValidationModal";
-import { updateLeadStatusWithAudit, bulkUpdateLeadStatus, bulkAssignLeads } from "@/features/crm/actions";
+import { CloseLostModal } from "./CloseLostModal";
+import { LeadDetailsDrawer } from "./LeadDetailsDrawer";
+import { transitionLeadStage, updateLeadStatusWithAudit, bulkUpdateLeadStatus, bulkAssignLeads } from "@/features/crm/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutList, Columns, Search, Users, User, Filter, RefreshCw } from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    LayoutList,
+    Columns,
+    Search,
+    Users,
+    User,
+    RefreshCw,
+    AlertTriangle,
+    Flame,
+} from "lucide-react";
 import { toast } from "sonner";
+import type { LossReason } from "@/lib/schemas";
 
 interface LeadsPipelineViewProps {
     initialLeads: LeadItem[];
-    assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
+    assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null; role?: string | null }[];
     currentUserId: string;
     isAdmin?: boolean;
 }
@@ -24,13 +43,16 @@ export function LeadsPipelineView({
     currentUserId,
     isAdmin,
 }: LeadsPipelineViewProps) {
-    // Enterprise View Toggle state: "table" (Default) vs "kanban" (Secondary)
-    const [viewLayout, setViewLayout] = useState<"table" | "kanban">("table");
+    const [viewLayout, setViewLayout] = useState<"kanban" | "table">("kanban");
     const [scopeMode, setScopeMode] = useState<"all" | "mine">("all");
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedStageFilter, setSelectedStageFilter] = useState<string>("all");
+    const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>("all");
+    const [staleOnlyFilter, setStaleOnlyFilter] = useState(false);
 
-    // Intercept Validation Modal state
+    // Side-over drawer state
+    const [selectedLeadForDrawer, setSelectedLeadForDrawer] = useState<LeadItem | null>(null);
+
+    // Intercept Validation Modal state (for generic transitions)
     const [pendingValidation, setPendingValidation] = useState<{
         isOpen: boolean;
         leadId?: string;
@@ -44,21 +66,38 @@ export function LeadsPipelineView({
         fromStatus: "",
         toStatus: "",
     });
+
+    // Close Lost Modal state (for Closed Lost transitions)
+    const [closeLostModalState, setCloseLostModalState] = useState<{
+        isOpen: boolean;
+        leadId?: string;
+        leadTitle: string;
+    }>({
+        isOpen: false,
+        leadTitle: "",
+    });
+
     const [isSubmittingMutation, setIsSubmittingMutation] = useState(false);
 
     // React 19 Optimistic State Update Hook
     const [optimisticLeads, setOptimisticLeads] = useOptimistic(
         initialLeads,
-        (state: LeadItem[], update: { leadId: string; newStatus: string }) => {
+        (state: LeadItem[], update: { leadId: string; newStatus: string; lossReason?: string; lossNotes?: string }) => {
             return state.map((lead) =>
                 lead.id === update.leadId
-                    ? { ...lead, status: update.newStatus, updatedAt: new Date().toISOString() }
+                    ? {
+                          ...lead,
+                          status: update.newStatus,
+                          lossReason: update.lossReason || lead.lossReason,
+                          lossNotes: update.lossNotes || lead.lossNotes,
+                          updatedAt: new Date().toISOString(),
+                      }
                     : lead
             );
         }
     );
 
-    // Filter leads across both views without re-fetching from database
+    // Filter leads across both views
     const filteredLeads = optimisticLeads.filter((lead) => {
         // Staff assignment scope filter
         if (scopeMode === "mine") {
@@ -66,16 +105,30 @@ export function LeadsPipelineView({
             if (!isAssigned) return false;
         }
 
-        // Stage filter
-        if (selectedStageFilter !== "all" && lead.status !== selectedStageFilter) {
-            return false;
+        // Priority filter
+        if (selectedPriorityFilter !== "all") {
+            const score = lead.leadScore ?? 50;
+            const priority = lead.priority ?? (score >= 75 ? "Hot" : score < 45 ? "Cold" : "Warm");
+            if (priority !== selectedPriorityFilter) return false;
         }
 
-        // Search query filter (Business Name, Client Email, Industry)
+        // Stale-only filter (>5 days without contact, not in terminal stage)
+        if (staleOnlyFilter) {
+            if (["Closed Won", "Closed Lost"].includes(lead.status)) return false;
+            const lastActivity = lead.lastContactedAt
+                ? new Date(lead.lastContactedAt).getTime()
+                : lead.updatedAt
+                ? new Date(lead.updatedAt).getTime()
+                : new Date(lead.createdAt).getTime();
+            const daysIdle = Math.floor((Date.now() - lastActivity) / (1000 * 3600 * 24));
+            if (daysIdle < 5) return false;
+        }
+
+        // Search query filter
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
-            const matchName = (lead.businessName || lead.client?.name || "").toLowerCase().includes(q);
-            const matchEmail = (lead.client?.email || "").toLowerCase().includes(q);
+            const matchName = (lead.businessName || lead.contactName || lead.client?.name || "").toLowerCase().includes(q);
+            const matchEmail = (lead.contactEmail || lead.client?.email || "").toLowerCase().includes(q);
             const matchIndustry = (lead.industry || "").toLowerCase().includes(q);
             if (!matchName && !matchEmail && !matchIndustry) return false;
         }
@@ -90,16 +143,24 @@ export function LeadsPipelineView({
         fromStatus: string,
         toStatus: string
     ) => {
-        setPendingValidation({
-            isOpen: true,
-            leadId,
-            leadTitle,
-            fromStatus,
-            toStatus,
-        });
+        if (toStatus === "Closed Lost") {
+            setCloseLostModalState({
+                isOpen: true,
+                leadId,
+                leadTitle,
+            });
+        } else {
+            setPendingValidation({
+                isOpen: true,
+                leadId,
+                leadTitle,
+                fromStatus,
+                toStatus,
+            });
+        }
     };
 
-    // Execution of Mutating Server Action with Optimistic UI Feedback
+    // Execution of generic stage transition
     const handleConfirmStatusChange = async (reasonNotes?: string) => {
         const { leadId, leadIds, toStatus } = pendingValidation;
         if (!toStatus) return;
@@ -120,7 +181,7 @@ export function LeadsPipelineView({
                         toast.success(res.message);
                     }
                 } else {
-                    toast.error(res.message || "Failed to bulk update leads");
+                    toast.error(res.message || "Failed to bulk update deals");
                 }
             } catch (err) {
                 console.error(err);
@@ -135,17 +196,24 @@ export function LeadsPipelineView({
                 });
             }
         } else if (leadId) {
-            // Instant Optimistic Feedback
             startTransition(() => {
                 setOptimisticLeads({ leadId, newStatus: toStatus });
             });
 
             try {
-                const res = await updateLeadStatusWithAudit(leadId, toStatus as any, reasonNotes);
+                const res = await transitionLeadStage({
+                    leadId,
+                    newStatus: toStatus as any,
+                    reasonNotes,
+                });
                 if (res.success) {
-                    toast.success(res.message || `Moved lead stage to ${toStatus}`);
+                    toast.success(res.message || `Moved deal to ${toStatus}`);
+                    // Keep selected lead in drawer in sync if open
+                    if (selectedLeadForDrawer?.id === leadId) {
+                        setSelectedLeadForDrawer((prev) => prev ? { ...prev, status: toStatus } : null);
+                    }
                 } else {
-                    toast.error(res.message || "Failed to update lead status");
+                    toast.error(res.message || "Failed to update deal status");
                 }
             } catch (err) {
                 console.error(err);
@@ -162,18 +230,55 @@ export function LeadsPipelineView({
         }
     };
 
-    // Intercept Bulk Status Mutation
+    // Execution of Closed Lost transition with mandatory reason
+    const handleConfirmCloseLost = async (lossReason: LossReason, lossNotes?: string) => {
+        const { leadId } = closeLostModalState;
+        if (!leadId) return;
+
+        setIsSubmittingMutation(true);
+        startTransition(() => {
+            setOptimisticLeads({ leadId, newStatus: "Closed Lost", lossReason, lossNotes });
+        });
+
+        try {
+            const res = await transitionLeadStage({
+                leadId,
+                newStatus: "Closed Lost",
+                lossReason,
+                lossNotes,
+            });
+
+            if (res.success) {
+                toast.success(res.message || "Opportunity marked as Closed Lost");
+                if (selectedLeadForDrawer?.id === leadId) {
+                    setSelectedLeadForDrawer((prev) => prev ? { ...prev, status: "Closed Lost", lossReason, lossNotes } : null);
+                }
+            } else {
+                toast.error(res.message || "Failed to update deal status");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("An error occurred while marking deal as lost");
+        } finally {
+            setIsSubmittingMutation(false);
+            setCloseLostModalState({
+                isOpen: false,
+                leadId: undefined,
+                leadTitle: "",
+            });
+        }
+    };
+
     const handleBulkStatusChangeRequest = (leadIds: string[], toStatus: string) => {
         setPendingValidation({
             isOpen: true,
             leadIds,
-            leadTitle: `${leadIds.length} Selected Leads`,
+            leadTitle: `${leadIds.length} Selected Deals`,
             fromStatus: "Mixed",
             toStatus,
         });
     };
 
-    // Bulk Staff Assignment
     const handleBulkAssign = (leadIds: string[], assigneeUserId: string) => {
         startTransition(async () => {
             const res = await bulkAssignLeads(leadIds, [assigneeUserId]);
@@ -181,6 +286,21 @@ export function LeadsPipelineView({
                 toast.success(res.message);
             } else {
                 toast.error(res.message);
+            }
+        });
+    };
+
+    const handleAssignStaff = (leadId: string, assigneeUserIds: string[]) => {
+        startTransition(async () => {
+            // Optimistically update the local state for immediate UI feedback
+            setOptimisticLeads({ leadId, newStatus: optimisticLeads.find(l => l.id === leadId)?.status || "New Lead" }); // Note: We actually need a way to optimistically update assignees, but updating the timestamp via a generic trigger is a fallback. To properly optimistically update, we'd need to fetch the users or at least rely on the server action refresh.
+            
+            const res = await bulkAssignLeads([leadId], assigneeUserIds);
+            if (res.success) {
+                toast.success("Lead assignments updated");
+                // The server action revalidates the path, so the UI will refresh with the actual avatars.
+            } else {
+                toast.error(res.message || "Failed to update assignments");
             }
         });
     };
@@ -208,8 +328,21 @@ export function LeadsPipelineView({
                         </TabsList>
                     </Tabs>
 
-                    {/* Enterprise View Toggle Button Group */}
+                    {/* View Switcher: Kanban vs Table */}
                     <div className="flex items-center rounded-lg border border-white/10 p-1 bg-white/5">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setViewLayout("kanban")}
+                            className={`h-8 px-3 text-xs gap-1.5 font-medium ${
+                                viewLayout === "kanban"
+                                    ? "bg-primary text-black hover:bg-primary/90"
+                                    : "text-zinc-400 hover:text-white"
+                            }`}
+                        >
+                            <Columns className="h-3.5 w-3.5" />
+                            Kanban Pipeline
+                        </Button>
                         <Button
                             variant="ghost"
                             size="sm"
@@ -223,28 +356,43 @@ export function LeadsPipelineView({
                             <LayoutList className="h-3.5 w-3.5" />
                             Data Table
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setViewLayout("kanban")}
-                            className={`h-8 px-3 text-xs gap-1.5 font-medium ${
-                                viewLayout === "kanban"
-                                    ? "bg-primary text-black hover:bg-primary/90"
-                                    : "text-zinc-400 hover:text-white"
-                            }`}
-                        >
-                            <Columns className="h-3.5 w-3.5" />
-                            Kanban Flow
-                        </Button>
                     </div>
+
+                    {/* Priority Filter */}
+                    <Select value={selectedPriorityFilter} onValueChange={setSelectedPriorityFilter}>
+                        <SelectTrigger className="h-8 text-xs bg-white/5 border-white/10 text-zinc-300 w-32">
+                            <SelectValue placeholder="Priority" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-950 border-white/15 text-white">
+                            <SelectItem value="all" className="text-xs">All Priorities</SelectItem>
+                            <SelectItem value="Hot" className="text-xs">🔥 Hot Only</SelectItem>
+                            <SelectItem value="Warm" className="text-xs">⚡ Warm Only</SelectItem>
+                            <SelectItem value="Cold" className="text-xs">❄️ Cold Only</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* Stale Only Toggle */}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setStaleOnlyFilter((prev) => !prev)}
+                        className={`h-8 text-xs gap-1.5 border ${
+                            staleOnlyFilter
+                                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+                        }`}
+                    >
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                        {"Stale (>5d)"}
+                    </Button>
                 </div>
 
-                {/* Search & Quick Filter Input */}
+                {/* Search & Reset */}
                 <div className="flex items-center gap-3">
                     <div className="relative flex-1 md:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
                         <Input
-                            placeholder="Filter by lead, client email..."
+                            placeholder="Search company, contact, email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9 bg-black/40 border-white/15 text-xs text-white placeholder:text-zinc-600 focus:border-primary h-9"
@@ -256,17 +404,18 @@ export function LeadsPipelineView({
                         size="sm"
                         onClick={() => {
                             setSearchQuery("");
-                            setSelectedStageFilter("all");
+                            setSelectedPriorityFilter("all");
+                            setStaleOnlyFilter(false);
                         }}
                         className="h-9 px-3 border-white/15 text-xs text-zinc-400 hover:text-white bg-black/40"
+                        title="Reset Filters"
                     >
-                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                        Reset
+                        <RefreshCw className="h-3.5 w-3.5" />
                     </Button>
                 </div>
             </div>
 
-            {/* Active View Display */}
+            {/* Active Pipeline View */}
             {viewLayout === "table" ? (
                 <LeadsDataTable
                     leads={filteredLeads}
@@ -275,6 +424,7 @@ export function LeadsPipelineView({
                     onStatusChangeRequest={handleStatusChangeRequest}
                     onBulkStatusChange={handleBulkStatusChangeRequest}
                     onBulkAssign={handleBulkAssign}
+                    onSelectLead={(lead) => setSelectedLeadForDrawer(lead)}
                 />
             ) : (
                 <LeadsKanbanBoard
@@ -282,10 +432,31 @@ export function LeadsPipelineView({
                     assignableUsers={assignableUsers}
                     isAdmin={isAdmin}
                     onStatusChangeRequest={handleStatusChangeRequest}
+                    onSelectLead={(lead) => setSelectedLeadForDrawer(lead)}
                 />
             )}
 
-            {/* Accidental Drag & Drop / Mutation Intercept Modal */}
+            {/* Side-Over Lead Details Drawer */}
+            <LeadDetailsDrawer
+                lead={selectedLeadForDrawer}
+                isOpen={!!selectedLeadForDrawer}
+                onClose={() => setSelectedLeadForDrawer(null)}
+                assignableUsers={assignableUsers}
+                isAdmin={isAdmin}
+                onStatusChangeRequest={handleStatusChangeRequest}
+                onAssignStaff={handleAssignStaff}
+            />
+
+            {/* Closed Lost Mandatory Loss Modal */}
+            <CloseLostModal
+                isOpen={closeLostModalState.isOpen}
+                onClose={() => setCloseLostModalState({ isOpen: false, leadTitle: "", leadId: undefined })}
+                onConfirm={handleConfirmCloseLost}
+                leadTitle={closeLostModalState.leadTitle}
+                isSubmitting={isSubmittingMutation}
+            />
+
+            {/* Generic Stage Transition Confirmation Modal */}
             <LeadStatusValidationModal
                 isOpen={pendingValidation.isOpen}
                 onClose={() =>

@@ -5,7 +5,7 @@ import type { LeadItem } from "./LeadsDataTable";
 
 interface LeadsBoardProps {
     leads: any[];
-    assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
+    assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null; role?: string | null }[];
     currentUserId: string;
     query?: string;
     status?: string;

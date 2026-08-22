@@ -206,8 +206,8 @@ export async function rejectProposalByClient(id: string, reason?: string) {
             })
             .where(eq(proposals.id, id));
 
-        // Sync proposal rejection back to the Lead status ("In Review")
-        await db.update(leads).set({ status: "In Review", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
+        // Sync proposal rejection back to the Lead status ("In Negotiation")
+        await db.update(leads).set({ status: "In Negotiation", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
 
         if (proposal.lead) {
             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.businessName || "Client"}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);

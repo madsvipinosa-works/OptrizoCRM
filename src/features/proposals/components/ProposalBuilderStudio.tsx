@@ -141,41 +141,50 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
     // Initial state parser
     const initialDeliverables: string[] = useMemo(() => {
         if (!proposal.deliverables) return [""];
-        if (Array.isArray(proposal.deliverables)) return proposal.deliverables;
-        try {
-            const parsed = JSON.parse(proposal.deliverables);
-            return Array.isArray(parsed) ? parsed : [""];
-        } catch {
-            return [""];
+        let raw = proposal.deliverables;
+        if (typeof raw === "string") {
+            try {
+                raw = JSON.parse(raw);
+            } catch {
+                return [raw];
+            }
         }
+        if (Array.isArray(raw)) {
+            const list = raw.map((d: any) => {
+                if (typeof d === "string") return d;
+                if (d && typeof d === "object") {
+                    return d.title ? (d.description ? `${d.title}: ${d.description}` : d.title) : (d.description || JSON.stringify(d));
+                }
+                return String(d || "");
+            }).filter((s) => typeof s === "string" && s.trim() !== "");
+            return list.length > 0 ? list : [""];
+        }
+        return [""];
     }, [proposal.deliverables]);
 
     const initialPricingItems: PricingLineItem[] = useMemo(() => {
         if (!proposal.pricingStructure) return [{ name: "", description: "", quantity: 1, unitPrice: 0, total: 0 }];
-        if (Array.isArray(proposal.pricingStructure)) return proposal.pricingStructure;
-        if (typeof proposal.pricingStructure === "object" && proposal.pricingStructure.items) {
-            return proposal.pricingStructure.items.map((i: any) => ({
-                name: i.name || "",
-                description: i.description || "",
-                quantity: Number(i.quantity) || 1,
-                unitPrice: Number(i.price ?? i.unitPrice) || 0,
-                total: Number(i.total) || (Number(i.quantity) || 1) * (Number(i.price ?? i.unitPrice) || 0),
-            }));
-        }
-        try {
-            const parsed = JSON.parse(proposal.pricingStructure);
-            if (Array.isArray(parsed)) return parsed;
-            if (parsed.items && Array.isArray(parsed.items)) {
-                return parsed.items.map((i: any) => ({
-                    name: i.name || "",
-                    description: i.description || "",
-                    quantity: Number(i.quantity) || 1,
-                    unitPrice: Number(i.price ?? i.unitPrice) || 0,
-                    total: Number(i.total) || (Number(i.quantity) || 1) * (Number(i.price ?? i.unitPrice) || 0),
-                }));
+        let raw = proposal.pricingStructure;
+        if (typeof raw === "string") {
+            try {
+                raw = JSON.parse(raw);
+            } catch {
+                // ignore
             }
-        } catch {
-            // fallback
+        }
+        if (typeof raw === "object" && raw !== null && "items" in raw && Array.isArray((raw as any).items)) {
+            raw = (raw as any).items;
+        }
+        if (Array.isArray(raw)) {
+            const list = raw.map((i: any) => {
+                const name = i.name || i.title || i.description || "Service Item";
+                const description = i.description || "";
+                const quantity = Number(i.quantity) || 1;
+                const unitPrice = Number(i.unitPrice ?? i.amount ?? i.price) || 0;
+                const total = Number(i.total) || quantity * unitPrice;
+                return { name, description, quantity, unitPrice, total };
+            });
+            return list.length > 0 ? list : [{ name: "", description: "", quantity: 1, unitPrice: 0, total: 0 }];
         }
         return [{ name: "", description: "", quantity: 1, unitPrice: 0, total: 0 }];
     }, [proposal.pricingStructure]);
@@ -261,8 +270,10 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
         if (isSentAction) setIsPublishing(true);
         else setIsSaving(true);
 
-        const cleanDeliverables = deliverables.filter((d) => d.trim() !== "");
-        const cleanPricing = pricingItems.filter((p) => p.name.trim() !== "");
+        const cleanDeliverables = deliverables
+            .map((d) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? ((d as any).title || (d as any).description || "") : String(d || "")).trim())
+            .filter(Boolean);
+        const cleanPricing = pricingItems.filter((p) => (p?.name || "").trim() !== "");
 
         const payload: ProposalData = {
             proposalCode,
@@ -336,9 +347,11 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
         clientEmail: proposal.lead?.client?.email,
         scope,
         technicalApproach,
-        deliverables: deliverables.filter((d) => d.trim() !== ""),
+        deliverables: deliverables
+            .map((d) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? ((d as any).title || (d as any).description || "") : String(d || "")).trim())
+            .filter(Boolean),
         timeline,
-        pricingStructure: pricingItems.filter((p) => p.name.trim() !== ""),
+        pricingStructure: pricingItems.filter((p) => (p?.name || "").trim() !== ""),
         subtotal,
         discount,
         tax,
@@ -361,7 +374,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.push(`/dashboard/leads/${proposal.leadId}`)}
+                        onClick={() => router.push(`/dashboard/leads`)}
                         className="text-muted-foreground hover:text-foreground"
                     >
                         <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Lead

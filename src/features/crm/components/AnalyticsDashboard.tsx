@@ -18,6 +18,7 @@ interface AnalyticsDashboardProps {
             lostLeadsCount: number;
             totalClosedCount: number;
             activeProjectsCount: number;
+            staleDealsCount?: number;
             taskCompletionRate: string;
             doneTasksCount: number;
             totalTasksCount: number;

@@ -98,6 +98,13 @@ export function CommandPalette({ open, setOpen, userRole = "client" }: CommandPa
                                     <KanbanSquare className="h-4 w-4 text-amber-400" />
                                     <span>Sales Pipeline</span>
                                 </Command.Item>
+                                <Command.Item
+                                    onSelect={() => runCommand(() => router.push("/dashboard/proposals"))}
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+                                >
+                                    <FileText className="h-4 w-4 text-indigo-400" />
+                                    <span>Proposals &amp; SOWs</span>
+                                </Command.Item>
                             </Command.Group>
                         )}
 

@@ -48,14 +48,14 @@ export function LeadsFilter() {
             </div>
 
             <Tabs defaultValue={currentFilter} onValueChange={handleStatusChange} className="w-full">
-                <TabsList className="bg-white/5 border border-white/10">
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="New Inquiry">Inquiry</TabsTrigger>
-                    <TabsTrigger value="Qualified">Qualified</TabsTrigger>
-                    <TabsTrigger value="Proposal Sent">Proposal</TabsTrigger>
-                    <TabsTrigger value="Negotiation">Negotiation</TabsTrigger>
-                    <TabsTrigger value="Won">Won</TabsTrigger>
-                    <TabsTrigger value="Lost">Lost</TabsTrigger>
+                <TabsList className="bg-white/5 border border-white/10 flex-wrap h-auto p-1">
+                    <TabsTrigger value="all" className="text-xs">All Opportunities</TabsTrigger>
+                    <TabsTrigger value="New Lead" className="text-xs">New Lead</TabsTrigger>
+                    <TabsTrigger value="Discovery & Qualifying" className="text-xs">Discovery & Qualifying</TabsTrigger>
+                    <TabsTrigger value="Proposal Sent" className="text-xs">Proposal Sent</TabsTrigger>
+                    <TabsTrigger value="In Negotiation" className="text-xs">In Negotiation</TabsTrigger>
+                    <TabsTrigger value="Closed Won" className="text-xs">Closed Won</TabsTrigger>
+                    <TabsTrigger value="Closed Lost" className="text-xs">Closed Lost</TabsTrigger>
                 </TabsList>
             </Tabs>
         </div>

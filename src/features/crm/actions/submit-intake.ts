@@ -43,18 +43,35 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
     }
 
     try {
+        const estimatedValue = parseBudgetToEstimatedValue(validatedFields.data.budget);
+        const { calculateLeadScore } = await import("@/features/crm/utils/leadScoring");
+        const { score: leadScore, priority } = calculateLeadScore({
+            estimatedValue,
+            budget: validatedFields.data.budget,
+            timelineExpectation: validatedFields.data.timelineExpectation,
+            contactEmail: session.user.email,
+            contactPhone: null,
+            goals: validatedFields.data.goals,
+            serviceId: validatedFields.data.serviceId,
+        });
+
         await db.insert(leads).values({
             clientId: session.user.id,
             businessName: validatedFields.data.businessName,
+            contactName: session.user.name || undefined,
+            contactEmail: session.user.email || undefined,
             industry: validatedFields.data.industry,
             targetAudience: validatedFields.data.targetAudience,
             budget: validatedFields.data.budget,
-            estimatedValue: parseBudgetToEstimatedValue(validatedFields.data.budget),
+            estimatedValue,
+            leadScore,
+            priority,
             timelineExpectation: validatedFields.data.timelineExpectation,
             goals: validatedFields.data.goals,
             serviceId: validatedFields.data.serviceId,
-            status: "Pending Approval",
+            status: "New Lead",
             source: "Intake Form",
+            lastContactedAt: new Date(),
         });
 
         await notifyAllAdmins(`New lead intake from ${session.user.name || session.user.email}`, "lead", "/dashboard/leads");

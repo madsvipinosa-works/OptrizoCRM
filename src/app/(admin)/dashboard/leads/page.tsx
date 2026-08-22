@@ -1,10 +1,8 @@
 import { db } from "@/db";
 import { leads, users, leadAssignees } from "@/db/schema";
 import { desc, like, eq, and, or, inArray } from "drizzle-orm";
-import { LeadsFilter } from "@/features/crm/components/LeadsFilter";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
 import { CreateLeadModal } from "@/features/crm/components/CreateLeadModal";
-import { Suspense } from "react";
 import { auth, hasRole } from "@/auth";
 
 export const dynamic = 'force-dynamic';
@@ -74,7 +72,7 @@ export default async function LeadsPage({
 
     // Fetch potential assignees (Admins/Editors)
     const assignableUsers = await db.query.users.findMany({
-        columns: { id: true, name: true, image: true, jobTitle: true },
+        columns: { id: true, name: true, image: true, jobTitle: true, role: true },
         where: inArray(users.role, ["superadmin", "sales"]),
     });
 
@@ -83,6 +81,8 @@ export default async function LeadsPage({
         ...lead,
         createdAt: lead.createdAt.toISOString(),
         updatedAt: lead.updatedAt.toISOString(),
+        lastContactedAt: lead.lastContactedAt ? lead.lastContactedAt.toISOString() : null,
+        nextFollowUpDate: lead.nextFollowUpDate ? lead.nextFollowUpDate.toISOString() : null,
         assignees: lead.assignees?.map(a => a.user) || [],
     }));
 
@@ -99,10 +99,6 @@ export default async function LeadsPage({
                     <CreateLeadModal />
                 )}
             </div>
-
-            <Suspense fallback={<div className="h-10 w-full bg-white/5 animate-pulse rounded-md" />}>
-                <LeadsFilter />
-            </Suspense>
 
             <LeadsBoard
                 leads={serializedLeads as unknown as React.ComponentProps<typeof LeadsBoard>['leads']}

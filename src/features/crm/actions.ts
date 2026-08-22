@@ -4,7 +4,9 @@ import { db } from "@/db";
 import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks, proposals, passwordResetTokens } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq, inArray, and, sql } from "drizzle-orm";
-import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
+import { leadUpdateSchema, transitionLeadSchema, logLeadActivitySchema, type LeadUpdateValues, type TransitionLeadValues, type LogLeadActivityValues } from "@/lib/schemas";
+import { calculateLeadScore } from "@/features/crm/utils/leadScoring";
+import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { sendClientWelcomeEmail, sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth, hasRole } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
@@ -36,6 +38,93 @@ export async function createInquiry(data: { name: string, email: string, source:
         revalidatePath("/dashboard/leads");
         return { success: true, message: "Lead created successfully" };
     } catch(e) {
+        return { success: false, message: "Failed to create lead" };
+    }
+}
+
+export async function createLead(data: {
+    businessName: string;
+    contactName?: string;
+    contactEmail: string;
+    contactPhone?: string;
+    serviceId?: string;
+    budget?: string;
+    estimatedValue?: number;
+    timelineExpectation?: string;
+    goals?: string;
+    industry?: string;
+    source?: string;
+}): Promise<ActionState> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "sales"])) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        // 1. Find or create client user
+        let clientUser = await db.query.users.findFirst({
+            where: eq(users.email, data.contactEmail),
+        });
+
+        if (!clientUser) {
+            const randomPassword = crypto.randomBytes(16).toString("hex");
+            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+            const [newUser] = await db.insert(users).values({
+                email: data.contactEmail,
+                name: data.contactName || data.businessName,
+                password: hashedPassword,
+                role: "client",
+            }).returning();
+            clientUser = newUser;
+        }
+
+        // 2. Parse estimated value and calculate lead score
+        const estimatedValue = data.estimatedValue || (data.budget ? parseBudgetToEstimatedValue(data.budget) : 0);
+        const { score: leadScore, priority } = calculateLeadScore({
+            estimatedValue,
+            budget: data.budget,
+            timelineExpectation: data.timelineExpectation,
+            contactEmail: data.contactEmail,
+            contactPhone: data.contactPhone,
+            goals: data.goals,
+            serviceId: data.serviceId,
+        });
+
+        // 3. Create lead
+        const [newLead] = await db.insert(leads).values({
+            clientId: clientUser.id,
+            businessName: data.businessName,
+            contactName: data.contactName,
+            contactEmail: data.contactEmail,
+            contactPhone: data.contactPhone,
+            serviceId: data.serviceId || null,
+            budget: data.budget,
+            estimatedValue,
+            leadScore,
+            priority,
+            timelineExpectation: data.timelineExpectation,
+            goals: data.goals,
+            industry: data.industry,
+            status: "New Lead",
+            source: data.source || "Manual Entry",
+            lastContactedAt: new Date(),
+        }).returning();
+
+        // 4. Log initial creation note
+        await db.insert(leadActivityLogs).values({
+            leadId: newLead.id,
+            authorId: session.user.id || null,
+            activityType: "System",
+            content: `Lead created with initial score of ${leadScore} (${priority}).`,
+        });
+
+        await logAction("CREATE", "Lead", `Created lead "${data.businessName}" (${newLead.id})`);
+
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: `Lead "${data.businessName}" created successfully` };
+    } catch (e) {
+        console.error("Failed to create lead:", e);
         return { success: false, message: "Failed to create lead" };
     }
 }
@@ -85,13 +174,25 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
             });
         }
 
+        const { score: leadScore, priority } = calculateLeadScore({
+            contactEmail: inquiry.email,
+            contactPhone: null,
+            goals: inquiry.message,
+            estimatedValue: 0,
+        });
+
         // Create the lead
         const [newLead] = await db.insert(leads).values({
             clientId: clientUser.id,
-            businessName: inquiry.name, // Using name as fallback business name
+            businessName: inquiry.name,
+            contactName: inquiry.name,
+            contactEmail: inquiry.email,
             goals: inquiry.message,
-            source: inquiry.source,
-            status: "Pending Approval",
+            source: inquiry.source || "Website Form",
+            leadScore,
+            priority,
+            status: "New Lead",
+            lastContactedAt: new Date(),
         }).returning();
 
         // Update inquiry status
@@ -170,31 +271,128 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
     }
 }
 
-export async function addLeadNote(leadId: string, content: string, activityType: "Call" | "Email" | "Meeting" | "Note" = "Note"): Promise<ActionState> {
+export async function logLeadActivity(data: LogLeadActivityValues): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
-    if (!content.trim()) {
-        return { success: false, message: "Note cannot be empty" };
+    const validated = logLeadActivitySchema.safeParse(data);
+    if (!validated.success) {
+        return { success: false, message: "Invalid activity data", errors: validated.error.flatten().fieldErrors };
     }
 
     try {
-        await db.insert(leadActivityLogs).values({
-            leadId,
-            authorId: session.user.id!,
-            content: content.trim(),
-            activityType: activityType,
+        const { leadId, activityType, content, nextFollowUpDate } = validated.data;
+        const now = new Date();
+        const followUp = nextFollowUpDate ? new Date(nextFollowUpDate) : null;
+
+        await db.transaction(async (tx) => {
+            // 1. Insert activity log
+            await tx.insert(leadActivityLogs).values({
+                leadId,
+                authorId: session.user.id || null,
+                content: content.trim(),
+                activityType,
+            });
+
+            // 2. Update lead's lastContactedAt and nextFollowUpDate
+            await tx.update(leads)
+                .set({
+                    lastContactedAt: now,
+                    nextFollowUpDate: followUp,
+                    updatedAt: now,
+                })
+                .where(eq(leads.id, leadId));
         });
 
-        await logAction("CREATE", "Lead Note", `Logged ${activityType} for Lead ${leadId}`);
+        await logAction("CREATE", "Lead Activity", `Logged ${activityType} for lead ${leadId}`);
 
         revalidatePath("/dashboard/leads");
-        return { success: true, message: "Note added" };
+        revalidatePath(`/dashboard/leads/${leadId}`);
+        return { success: true, message: "Activity logged successfully" };
     } catch (error) {
-        console.error("Failed to add note:", error);
-        return { success: false, message: "Failed to add note" };
+        console.error("Failed to log lead activity:", error);
+        return { success: false, message: "Failed to log activity" };
+    }
+}
+
+export async function addLeadNote(leadId: string, content: string, activityType: "Call" | "Email" | "Meeting" | "Note" = "Note"): Promise<ActionState> {
+    return logLeadActivity({ leadId, content, activityType });
+}
+
+export async function transitionLeadStage(data: TransitionLeadValues): Promise<ActionState> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "sales"])) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    const validated = transitionLeadSchema.safeParse(data);
+    if (!validated.success) {
+        return {
+            success: false,
+            message: "Validation failed: " + (validated.error.issues[0]?.message || "Invalid input"),
+            errors: validated.error.flatten().fieldErrors,
+        };
+    }
+
+    const { leadId, newStatus, lossReason, lossNotes, reasonNotes } = validated.data;
+
+    try {
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId),
+        });
+
+        if (!lead) return { success: false, message: "Lead not found" };
+
+        const validation = await validateLeadTransition(leadId, newStatus);
+        if (!validation.valid) {
+            return { success: false, message: validation.error };
+        }
+
+        if (newStatus === "Closed Won") {
+            return await markLeadAsWon(leadId);
+        }
+
+        const oldStatus = lead.status;
+        const now = new Date();
+
+        await db.transaction(async (tx) => {
+            const updatePayload: any = {
+                status: newStatus,
+                updatedAt: now,
+            };
+
+            if (newStatus === "Closed Lost") {
+                updatePayload.lossReason = lossReason || "other";
+                updatePayload.lossNotes = lossNotes || null;
+            }
+
+            await tx.update(leads)
+                .set(updatePayload)
+                .where(eq(leads.id, leadId));
+
+            const logContent = newStatus === "Closed Lost"
+                ? `Lead marked as Closed Lost (Reason: ${lossReason?.replace(/_/g, " ") || "Not specified"})${lossNotes ? ` - Notes: ${lossNotes}` : ""}`
+                : `Stage transitioned from "${oldStatus}" to "${newStatus}"${reasonNotes ? `: ${reasonNotes}` : ""}`;
+
+            await tx.insert(leadActivityLogs).values({
+                leadId,
+                authorId: session.user.id || null,
+                activityType: "System",
+                content: logContent,
+            });
+        });
+
+        await logAction("UPDATE", "Lead", `Lead ${leadId} status changed from ${oldStatus} to ${newStatus}`);
+
+        revalidatePath("/dashboard/leads");
+        revalidatePath(`/dashboard/leads/${leadId}`);
+
+        return { success: true, message: `Lead moved to ${newStatus}` };
+    } catch (error) {
+        console.error("Failed to transition lead stage:", error);
+        return { success: false, message: "Failed to update lead status" };
     }
 }
 
@@ -215,7 +413,7 @@ export async function getUnifiedDashboardData() {
         // Parallel Drizzle Fetching
         const [analytics, allLeads, allProjects, allTasks, allProposals] = await Promise.all([
             db.select({
-                totalPipelineValue: sql<string>`COALESCE(SUM(${leads.estimatedValue}) FILTER (WHERE ${leads.status} IN ('Pending Approval', 'In Review', 'Proposal Sent')), 0)`,
+                totalPipelineValue: sql<string>`COALESCE(SUM(${leads.estimatedValue}) FILTER (WHERE ${leads.status} IN ('New Lead', 'Discovery & Qualifying', 'Proposal Sent', 'In Negotiation')), 0)`,
                 wonLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Won')`,
                 lostLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Lost')`,
                 activeLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} NOT IN ('Closed Won', 'Closed Lost'))`,
@@ -245,15 +443,27 @@ export async function getUnifiedDashboardData() {
 
         const kpi = analytics[0];
         let weightedPipelineValue = 0;
+        const now = new Date();
+        const staleThresholdMs = 5 * 24 * 60 * 60 * 1000; // 5 days
+
+        let staleDealsCount = 0;
 
         allLeads.forEach((l) => {
-            if (["Pending Approval", "In Review", "Proposal Sent"].includes(l.status)) {
-                if (l.status === "Pending Approval") {
+            if (["New Lead", "Discovery & Qualifying", "Proposal Sent", "In Negotiation"].includes(l.status)) {
+                if (l.status === "New Lead") {
                     weightedPipelineValue += l.estimatedValue * 0.10;
-                } else if (l.status === "In Review") {
-                    weightedPipelineValue += l.estimatedValue * 0.40;
+                } else if (l.status === "Discovery & Qualifying") {
+                    weightedPipelineValue += l.estimatedValue * 0.30;
                 } else if (l.status === "Proposal Sent") {
-                    weightedPipelineValue += l.estimatedValue * 0.80;
+                    weightedPipelineValue += l.estimatedValue * 0.60;
+                } else if (l.status === "In Negotiation") {
+                    weightedPipelineValue += l.estimatedValue * 0.85;
+                }
+
+                // Check stale status (>5 days uncontacted)
+                const lastActivity = l.lastContactedAt ? new Date(l.lastContactedAt).getTime() : new Date(l.createdAt).getTime();
+                if (now.getTime() - lastActivity > staleThresholdMs) {
+                    staleDealsCount++;
                 }
             }
         });
@@ -335,7 +545,6 @@ export async function getUnifiedDashboardData() {
         const trendData = Array.from(trendMap.values());
 
         // 3. "Action Required" Triage Queue
-        const now = new Date();
         const actionQueue: Array<{
             id: string;
             type: "blocked_task" | "pending_proposal" | "stale_lead";
@@ -381,18 +590,19 @@ export async function getUnifiedDashboardData() {
 
         // Stale Leads (Low / Orange)
         allLeads.forEach(l => {
-            if (["Pending Approval", "In Review"].includes(l.status)) {
-                const daysInactive = Math.floor((now.getTime() - new Date(l.updatedAt).getTime()) / (1000 * 3600 * 24));
-                if (daysInactive >= 2) {
+            if (["New Lead", "Discovery & Qualifying", "Proposal Sent", "In Negotiation"].includes(l.status)) {
+                const lastActivity = l.lastContactedAt ? new Date(l.lastContactedAt) : (l.updatedAt ? new Date(l.updatedAt) : new Date(l.createdAt));
+                const daysInactive = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 3600 * 24));
+                if (daysInactive >= 5) {
                     actionQueue.push({
                         id: `lead-${l.id}`,
                         type: "stale_lead",
-                        title: `Stale Lead: "${l.businessName || "Unnamed Lead"}"`,
-                        subtitle: `Status: ${l.status} — Inactive for ${daysInactive} day${daysInactive === 1 ? "" : "s"}`,
+                        title: `Stale Deal: "${l.businessName || l.contactName || "Unnamed Lead"}"`,
+                        subtitle: `Status: ${l.status} — No contact for ${daysInactive} days`,
                         urgency: "low",
                         link: `/dashboard/leads`,
                         badgeText: `${daysInactive}d Idle`,
-                        createdAt: new Date(l.updatedAt).toISOString(),
+                        createdAt: lastActivity.toISOString(),
                     });
                 }
             }
@@ -417,6 +627,7 @@ export async function getUnifiedDashboardData() {
                 lostLeadsCount: Number(kpi.lostLeadsCount),
                 totalClosedCount: totalClosed,
                 activeProjectsCount,
+                staleDealsCount,
                 taskCompletionRate,
                 doneTasksCount,
                 totalTasksCount,
@@ -460,20 +671,21 @@ export async function getAnalyticsData() {
 
         // Estimate Revenue (sum of estimated values)
         const pipelineValue = allLeads
-            .filter(l => !(["Closed Lost", "Pending Approval"] as string[]).includes(l.status || "")) // Filter out terminal or raw states
+            .filter(l => !(["Closed Lost"] as string[]).includes(l.status || ""))
             .reduce((acc, lead) => {
                 return acc + lead.estimatedValue;
             }, 0);
 
         // 3. Chart Data Preparation
 
-        // Pipeline Distribution
+        // Pipeline Distribution (6-stage model)
         const pipelineData = [
-            { name: "Pending", value: allLeads.filter(l => l.status === "Pending Approval").length, fill: "#3b82f6" },
-            { name: "In Review", value: allLeads.filter(l => l.status === "In Review").length, fill: "#a855f7" },
-            { name: "Proposal", value: allLeads.filter(l => l.status === "Proposal Sent").length, fill: "#eab308" },
-            { name: "Won", value: allLeads.filter(l => l.status === "Closed Won").length, fill: "#22c55e" },
-            { name: "Lost", value: allLeads.filter(l => l.status === "Closed Lost").length, fill: "#6b7280" },
+            { name: "New Lead", value: allLeads.filter(l => l.status === "New Lead").length, fill: "#3b82f6" },
+            { name: "Discovery", value: allLeads.filter(l => l.status === "Discovery & Qualifying").length, fill: "#8b5cf6" },
+            { name: "Proposal", value: allLeads.filter(l => l.status === "Proposal Sent").length, fill: "#f59e0b" },
+            { name: "Negotiation", value: allLeads.filter(l => l.status === "In Negotiation").length, fill: "#06b6d4" },
+            { name: "Won", value: allLeads.filter(l => l.status === "Closed Won").length, fill: "#10b981" },
+            { name: "Lost", value: allLeads.filter(l => l.status === "Closed Lost").length, fill: "#ef4444" },
         ];
 
         // Lead Sources
@@ -523,23 +735,23 @@ export async function getAnalyticsData() {
 
         allLeads.forEach(l => {
             const created = new Date(l.createdAt);
-            const updated = new Date(l.updatedAt);
+            const lastActivity = l.lastContactedAt ? new Date(l.lastContactedAt) : (l.updatedAt ? new Date(l.updatedAt) : created);
             const daysSinceCreation = (now.getTime() - created.getTime()) / (1000 * 3600 * 24);
-            const daysSinceUpdate = (now.getTime() - updated.getTime()) / (1000 * 3600 * 24);
+            const daysSinceActivity = (now.getTime() - lastActivity.getTime()) / (1000 * 3600 * 24);
 
-            // Lead Aging: How long a lead has been in raw inquiry state
-            if (l.status === "Pending Approval") {
+            // Lead Aging: How long a lead has been in raw new lead state
+            if (l.status === "New Lead") {
                 totalAgeDays += daysSinceCreation;
                 agedLeadsCount++;
             }
 
-            // Stale Leads: Not in terminal state AND untouched for > 2 days
-            if (!(["Closed Won", "Closed Lost"] as string[]).includes(l.status || "") && daysSinceUpdate > 2) {
+            // Stale Leads: Not in terminal state AND untouched for > 5 days
+            if (!(["Closed Won", "Closed Lost"] as string[]).includes(l.status || "") && daysSinceActivity > 5) {
                 staleLeadsCount++;
             }
 
-            // Response Rate: Leads moved out of initial inquiry
-            if (l.status !== "Pending Approval") {
+            // Response Rate: Leads moved out of initial new lead stage
+            if (l.status !== "New Lead") {
                 actionedLeadsCount++;
             }
         });
@@ -726,20 +938,24 @@ export async function archiveLead(leadId: string): Promise<ActionState> {
 
 async function validateLeadTransition(
     leadId: string,
-    newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost"
+    newStatus: "New Lead" | "Discovery & Qualifying" | "Proposal Sent" | "In Negotiation" | "Closed Won" | "Closed Lost"
 ): Promise<{ valid: boolean; error?: string }> {
-    if (newStatus === "Proposal Sent") {
+    if (newStatus === "Proposal Sent" || newStatus === "In Negotiation") {
         const proposal = await db.query.proposals.findFirst({
-            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "Sent"))
+            where: eq(proposals.leadId, leadId),
         });
-        if (!proposal) return { valid: false, error: "Cannot move to Proposal Sent. This lead requires a sent proposal." };
+        if (!proposal) {
+            return { valid: false, error: `Cannot move to "${newStatus}". A proposal/SOW must first be generated.` };
+        }
     }
 
     if (newStatus === "Closed Won") {
         const proposal = await db.query.proposals.findFirst({
-            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "Approved"))
+            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "Approved")),
         });
-        if (!proposal) return { valid: false, error: "Cannot move to Closed Won. This lead requires an approved proposal." };
+        if (!proposal) {
+            return { valid: false, error: "Cannot move to Closed Won. This deal requires an approved proposal." };
+        }
     }
     
     return { valid: true };
@@ -747,7 +963,7 @@ async function validateLeadTransition(
 
 export async function updateLeadStatusWithAudit(
     leadId: string,
-    newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost",
+    newStatus: "New Lead" | "Discovery & Qualifying" | "Proposal Sent" | "In Negotiation" | "Closed Won" | "Closed Lost",
     reasonNotes?: string
 ): Promise<ActionState> {
     const session = await auth();
@@ -800,7 +1016,7 @@ export async function updateLeadStatusWithAudit(
 
 export async function bulkUpdateLeadStatus(
     leadIds: string[],
-    newStatus: "Pending Approval" | "In Review" | "Proposal Sent" | "Closed Won" | "Closed Lost"
+    newStatus: "New Lead" | "Discovery & Qualifying" | "Proposal Sent" | "In Negotiation" | "Closed Won" | "Closed Lost"
 ): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "sales"])) {

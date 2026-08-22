@@ -225,7 +225,22 @@ export const inquiries = pgTable("inquiry", {
 });
 
 // 12. Leads (CRM Core - True Bottom of Funnel)
-export const leadEnum = pgEnum("lead_status", ["Pending Approval", "In Review", "Proposal Sent", "Closed Won", "Closed Lost"]);
+export const leadEnum = pgEnum("lead_status", [
+    "New Lead",
+    "Discovery & Qualifying",
+    "Proposal Sent",
+    "In Negotiation",
+    "Closed Won",
+    "Closed Lost"
+]);
+export const lossReasonEnum = pgEnum("loss_reason", [
+    "budget_too_low",
+    "competitor_chosen",
+    "scope_mismatch",
+    "timing_ghosted",
+    "internal_cancellation",
+    "other"
+]);
 export const activityEnum = pgEnum("activity_type", ["System", "Note", "Email", "Call", "Meeting"]);
 
 export const leads = pgTable("lead", {
@@ -238,20 +253,30 @@ export const leads = pgTable("lead", {
     serviceId: text("serviceId")
         .references(() => services.id, { onDelete: "set null" }), 
     businessName: text("business_name"),
+    contactName: text("contact_name"),
+    contactPhone: text("contact_phone"),
+    contactEmail: text("contact_email"),
     budget: text("budget"),
     estimatedValue: integer("estimated_value").default(0).notNull(),
+    leadScore: integer("lead_score").default(50).notNull(),
+    priority: text("priority").default("Warm").notNull(),
     goals: text("goals"),
     industry: text("industry"),
     targetAudience: text("target_audience"),
     timelineExpectation: text("timeline_expectation"),
-    status: leadEnum("status").default("Pending Approval").notNull(),
+    status: leadEnum("status").default("New Lead").notNull(),
     source: text("source").default("Client Portal Intake"),
+    lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
+    nextFollowUpDate: timestamp("next_follow_up_date", { withTimezone: true }),
+    lossReason: lossReasonEnum("loss_reason"),
+    lossNotes: text("loss_notes"),
     isArchived: boolean("isArchived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
     index("idx_lead_status_archived").on(t.status, t.isArchived),
     index("idx_lead_client").on(t.clientId),
+    index("idx_lead_last_contacted").on(t.lastContactedAt),
 ]);
 
 export const leadAssignees = pgTable("lead_assignee", {
