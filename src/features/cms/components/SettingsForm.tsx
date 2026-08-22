@@ -14,14 +14,14 @@ import { Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface SiteSettings {
-    heroTitle: string | null;
-    heroDescription: string | null;
-    aboutText: string | null;
-    logoUrl: string | null;
-    faviconUrl: string | null;
-    contactEmail: string | null;
-    notificationEmails: string | null;
-    demoVideoUrl: string | null;
+    heroTitle?: string | null;
+    heroDescription?: string | null;
+    aboutText?: string | null;
+    logoUrl?: string | null;
+    faviconUrl?: string | null;
+    contactEmail?: string | null;
+    notificationEmails?: string[] | string | null;
+    demoVideoUrl?: string | null;
 }
 
 export function SettingsForm({ initialData }: { initialData: SiteSettings | undefined }) {
@@ -33,9 +33,14 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
     const [aboutText, setAboutText] = useState(initialData?.aboutText || "<p>We are a team of passionate developers...</p>");
 
     // Email List States
-    const [emails, setEmails] = useState<string[]>(
-        initialData?.notificationEmails?.split(",").map(e => e.trim()).filter(Boolean) || []
-    );
+    const [emails, setEmails] = useState<string[]>(() => {
+        if (!initialData?.notificationEmails) return [];
+        if (Array.isArray(initialData.notificationEmails)) return initialData.notificationEmails;
+        if (typeof initialData.notificationEmails === "string") {
+            return initialData.notificationEmails.split(",").map(e => e.trim()).filter(Boolean);
+        }
+        return [];
+    });
     const [currEmail, setCurrEmail] = useState("");
 
     useEffect(() => {

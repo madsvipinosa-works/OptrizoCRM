@@ -189,6 +189,16 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
         if (!oldTask) return { success: false, message: "Task not found" };
 
+        // Server-side dependency enforcement: Cannot move task forward if parent task is incomplete
+        if (oldTask.dependsOnTaskId && ["In Progress", "In Review", "Done"].includes(status)) {
+            const parentTask = await db.query.tasks.findFirst({
+                where: eq(tasks.id, oldTask.dependsOnTaskId),
+            });
+            if (parentTask && parentTask.status !== "Done") {
+                return { success: false, message: `Cannot move task: Parent task "${parentTask.title}" is not completed yet.` };
+            }
+        }
+
         if (status === "Done" && oldTask.requiresProof && !hasRole(session, ["superadmin", "manager"])) {
             return { success: false, message: "Only Managers and Superadmins can approve tasks to Done." };
         }
@@ -206,9 +216,32 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             if (proofNotes !== undefined) updateData.proofNotes = proofNotes;
         }
 
-        await db.update(tasks)
-            .set(updateData)
-            .where(eq(tasks.id, taskId));
+        await db.transaction(async (tx) => {
+            await tx.update(tasks)
+                .set(updateData)
+                .where(eq(tasks.id, taskId));
+
+            // Status bubbling logic inside transaction
+            if (status === "Done" && oldTask.milestoneId) {
+                const { isNull } = await import("drizzle-orm");
+                const allTasks = await tx.query.tasks.findMany({
+                    where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
+                });
+                
+                const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
+                if (allDone) {
+                    await tx.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
+                    
+                    const allMilestones = await tx.query.milestones.findMany({
+                        where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
+                    });
+                    const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
+                    if (allMsCompleted) {
+                        await tx.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
+                    }
+                }
+            }
+        });
 
         if (!wasBlocked && isNowBlocked) {
             const stakeholders = oldTask.milestone?.project?.stakeholders || [];
@@ -217,27 +250,6 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             if (emails.length > 0) {
                 const { sendTaskBlockedEmail } = await import("@/lib/notifications");
                 await sendTaskBlockedEmail(emails, oldTask.milestone?.project?.title || "Your Project", oldTask.title);
-            }
-        }
-
-        // Status bubbling logic
-        if (status === "Done" && oldTask.milestoneId) {
-            const { isNull } = await import("drizzle-orm");
-            const allTasks = await db.query.tasks.findMany({
-                where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
-            });
-            
-            const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
-            if (allDone) {
-                await db.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
-                
-                const allMilestones = await db.query.milestones.findMany({
-                    where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
-                });
-                const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
-                if (allMsCompleted) {
-                    await db.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
-                }
             }
         }
 
@@ -279,6 +291,16 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
 
         if (!oldTask) return { success: false, message: "Task not found" };
 
+        // Server-side dependency enforcement
+        if (oldTask.dependsOnTaskId && ["In Progress", "In Review", "Done"].includes(newStatus)) {
+            const parentTask = await db.query.tasks.findFirst({
+                where: eq(tasks.id, oldTask.dependsOnTaskId),
+            });
+            if (parentTask && parentTask.status !== "Done") {
+                return { success: false, message: `Cannot move task: Parent task "${parentTask.title}" is not completed yet.` };
+            }
+        }
+
         if (newStatus === "Done" && oldTask.requiresProof && !hasRole(session, ["superadmin", "manager"])) {
             return { success: false, message: "Only Managers and Superadmins can approve tasks to Done." };
         }
@@ -301,34 +323,36 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
         const updatedProofLinks = proofLinks !== undefined ? proofLinks : oldTask.proofLinks;
         const updatedProofNotes = proofNotes !== undefined ? proofNotes : oldTask.proofNotes;
 
-        await db.update(tasks)
-            .set({ 
-                status: newStatus, 
-                proofLinks: updatedProofLinks || [],
-                proofNotes: updatedProofNotes,
-                updatedAt: new Date() 
-            })
-            .where(eq(tasks.id, taskId));
+        await db.transaction(async (tx) => {
+            await tx.update(tasks)
+                .set({ 
+                    status: newStatus, 
+                    proofLinks: updatedProofLinks || [],
+                    proofNotes: updatedProofNotes,
+                    updatedAt: new Date() 
+                })
+                .where(eq(tasks.id, taskId));
 
-        if (newStatus === "Done" && oldTask.milestoneId) {
-            const { isNull } = await import("drizzle-orm");
-            const allTasks = await db.query.tasks.findMany({
-                where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
-            });
-            
-            const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
-            if (allDone) {
-                await db.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
-                
-                const allMilestones = await db.query.milestones.findMany({
-                    where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
+            if (newStatus === "Done" && oldTask.milestoneId) {
+                const { isNull } = await import("drizzle-orm");
+                const allTasks = await tx.query.tasks.findMany({
+                    where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
                 });
-                const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
-                if (allMsCompleted) {
-                    await db.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
+                
+                const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
+                if (allDone) {
+                    await tx.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
+                    
+                    const allMilestones = await tx.query.milestones.findMany({
+                        where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
+                    });
+                    const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
+                    if (allMsCompleted) {
+                        await tx.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
+                    }
                 }
             }
-        }
+        });
 
         await logAction("UPDATE", "Task", `Task ${taskId} moved to ${newStatus} with proof`);
 
@@ -564,7 +588,7 @@ export async function deleteMilestone(milestoneId: string): Promise<ActionState>
 // --- Client Feedback Actions ---
 export async function submitMilestoneFeedback(milestoneId: string, status: "APPROVED" | "REVISION_REQUESTED", commentText?: string): Promise<ActionState> {
     const session = await auth();
-    if (!session?.user?.id || session.user.role !== "client") {
+    if (!session?.user?.id || !["client", "superadmin"].includes(session.user.role || "")) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -579,14 +603,15 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
         const milestone = await db.query.milestones.findFirst({ where: eq(milestones.id, milestoneId) });
         if (!milestone) return { success: false, message: "Milestone not found" };
 
-        // Ownership: only stakeholders for the milestone's project can submit feedback.
+        // Ownership: only stakeholders for the milestone's project can submit feedback (or superadmin).
+        const isSuperAdmin = session.user.role === "superadmin";
         const stakeholder = await db.query.projectStakeholders.findFirst({
             where: and(
                 eq(projectStakeholders.projectId, milestone.projectId),
                 eq(projectStakeholders.userId, session.user.id)
             )
         });
-        if (!stakeholder) return { success: false, message: "Unauthorized: Feedback ownership mismatch" };
+        if (!stakeholder && !isSuperAdmin) return { success: false, message: "Unauthorized: Feedback ownership mismatch" };
 
         // Find the latest feedback for version chaining (threading)
         const latestFeedback = await db.query.clientFeedback.findFirst({
@@ -594,24 +619,26 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
             orderBy: [desc(clientFeedback.createdAt)]
         });
 
-        await db.insert(clientFeedback).values({
-            milestoneId,
-            clientId: session.user.id,
-            status,
-            commentText: commentText?.trim() || null,
-            parentFeedbackId: latestFeedback?.id || null, // Create threaded version link
+        await db.transaction(async (tx) => {
+            await tx.insert(clientFeedback).values({
+                milestoneId,
+                clientId: session.user.id!,
+                status,
+                commentText: commentText?.trim() || null,
+                parentFeedbackId: latestFeedback?.id || null, // Create threaded version link
+            });
+
+            // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT
+            await tx.update(tasks)
+                .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
+                .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
+
+            // Client feedback should deterministically drive milestone status.
+            const newMilestoneStatus = status === "REVISION_REQUESTED" ? "In Progress" : "Completed";
+            await tx.update(milestones)
+                .set({ status: newMilestoneStatus, updatedAt: new Date() })
+                .where(eq(milestones.id, milestoneId));
         });
-
-        // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT
-        await db.update(tasks)
-            .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
-            .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
-
-        // Client feedback should deterministically drive milestone status.
-        const newMilestoneStatus = status === "REVISION_REQUESTED" ? "In Progress" : "Completed";
-        await db.update(milestones)
-            .set({ status: newMilestoneStatus, updatedAt: new Date() })
-            .where(eq(milestones.id, milestoneId));
 
         if (status === "REVISION_REQUESTED") {
             await notifyAllAdmins(`${session.user.name || "Client"} requested a revision for: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);

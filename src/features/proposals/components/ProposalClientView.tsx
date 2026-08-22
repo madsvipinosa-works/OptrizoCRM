@@ -1,46 +1,119 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, ChevronRight, FileCheck, Loader2, Info, ExternalLink, XCircle } from "lucide-react";
-import { acceptProposalByClient, rejectProposalByClient } from "@/features/proposals/actions";
+import React, { useState } from "react";
+import {
+    CheckCircle2,
+    FileCheck,
+    Loader2,
+    Info,
+    ExternalLink,
+    XCircle,
+    Printer,
+    CheckSquare,
+    AlertCircle,
+} from "lucide-react";
+import { rejectProposalByClient } from "@/features/proposals/actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+    ProposalDocumentSheet,
+    ProposalDocumentData,
+    PricingLineItem,
+} from "@/features/proposals/components/ProposalDocumentSheet";
+import { AcceptProposalDialog } from "@/features/proposals/components/AcceptProposalDialog";
 
 interface Props {
-    proposal: { id: string; status: string; fileUrl?: string | null; scope?: string | null; timeline?: string | null; };
+    proposal: {
+        id: string;
+        proposalCode?: string | null;
+        status: "Draft" | "Sent" | "Approved" | "Rejected";
+        fileUrl?: string | null;
+        scope?: string | null;
+        timeline?: string | null;
+        technicalApproach?: string | null;
+        terms?: string | null;
+        validUntil?: Date | string | null;
+        subtotal?: number | null;
+        discount?: number | null;
+        tax?: number | null;
+        total?: number | null;
+        acceptedByName?: string | null;
+        acceptedByTitle?: string | null;
+        acceptedAt?: Date | string | null;
+        signatureData?: string | null;
+        createdAt: Date | string;
+        lead?: {
+            businessName?: string | null;
+            client?: {
+                name: string | null;
+                email: string;
+            } | null;
+        } | null;
+    };
     parsedDeliverables: string[];
-    parsedPricing: { items: { name: string; price: number }[]; total: number };
+    parsedPricing: {
+        items: PricingLineItem[];
+        total: number;
+        subtotal?: number;
+        discount?: number;
+        tax?: number;
+    };
     isPreview?: boolean;
 }
 
-export function ProposalClientView({ proposal, parsedDeliverables, parsedPricing, isPreview }: Props) {
-    const [isLoading, setIsLoading] = useState(false);
+export function ProposalClientView({
+    proposal,
+    parsedDeliverables,
+    parsedPricing,
+    isPreview = false,
+}: Props) {
+    const router = useRouter();
     const [isRejecting, setIsRejecting] = useState(false);
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-    const router = useRouter();
-    
-    const isApproved = proposal.status === "Approved" || proposal.status === "Accepted";
+    const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+
+    const isApproved = proposal.status === "Approved";
     const isRejected = proposal.status === "Rejected";
 
-    const handleAccept = async () => {
-        setIsLoading(true);
+    const grandTotal = proposal.total || parsedPricing.total || 0;
+
+    const handleDownloadPdf = async () => {
         try {
-            const res = await acceptProposalByClient(proposal.id);
-            if (res.success) {
-                toast.success(res.message);
-                router.refresh();
-            } else {
-                toast.error(res.message || "Failed to accept proposal");
+            setIsDownloadingPdf(true);
+            toast.info("Generating executive Statement of Work PDF...");
+            const res = await fetch(`/api/proposals/${proposal.id}/pdf`);
+            if (!res.ok) {
+                window.print();
+                return;
             }
-        } catch {
-            toast.error("A system error occurred.");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Statement_of_Work_${proposal.proposalCode || proposal.id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success("Statement of Work PDF downloaded!");
+        } catch (e) {
+            console.error("PDF download error:", e);
+            window.print();
         } finally {
-            setIsLoading(false);
+            setIsDownloadingPdf(false);
         }
     };
 
@@ -66,205 +139,213 @@ export function ProposalClientView({ proposal, parsedDeliverables, parsedPricing
         }
     };
 
+    const documentData: ProposalDocumentData = {
+        proposalCode: proposal.proposalCode || `OPT-${proposal.id.split("-")[0].toUpperCase()}`,
+        businessName: proposal.lead?.businessName || proposal.lead?.client?.name || "Valued Client",
+        clientEmail: proposal.lead?.client?.email,
+        scope: proposal.scope,
+        technicalApproach: proposal.technicalApproach,
+        deliverables: parsedDeliverables,
+        timeline: proposal.timeline,
+        pricingStructure: parsedPricing.items,
+        subtotal: proposal.subtotal || parsedPricing.subtotal || grandTotal,
+        discount: proposal.discount || parsedPricing.discount || 0,
+        tax: proposal.tax || parsedPricing.tax || 0,
+        total: grandTotal,
+        terms: proposal.terms,
+        validUntil: proposal.validUntil,
+        status: proposal.status,
+        acceptedByName: proposal.acceptedByName,
+        acceptedByTitle: proposal.acceptedByTitle,
+        acceptedAt: proposal.acceptedAt,
+        signatureData: proposal.signatureData,
+        createdAt: proposal.createdAt,
+    };
+
+    const currencyFormatter = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 0,
+    });
+
     return (
-        <div className="space-y-12 pb-12">
+        <div className="space-y-8 pb-24">
+            {/* Staff Preview Banner */}
+            {isPreview && (
+                <div className="bg-sky-500/10 border border-sky-500/20 rounded-lg p-3 text-center text-xs text-sky-400 font-mono no-print flex items-center justify-center gap-2">
+                    <Info className="h-4 w-4 shrink-0" />
+                    <span>
+                        <strong>Staff Preview Mode:</strong> You are viewing this document with administrative privileges.
+                    </span>
+                </div>
+            )}
+
+            {/* Attached PDF Banner (if upload mode was used) */}
             {proposal.fileUrl && (
-                <section>
-                    <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 bg-primary/20 rounded-lg flex items-center justify-center text-primary shrink-0">
-                                <FileCheck className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-white">Attached Proposal Document</h3>
-                                <p className="text-sm text-muted-foreground">Please review the attached PDF for full proposal details.</p>
-                            </div>
+                <div className="bg-muted/40 border border-border/80 rounded-xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 no-print">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+                            <FileCheck className="h-6 w-6" />
                         </div>
-                        <a href={proposal.fileUrl} target="_blank" rel="noreferrer" className="shrink-0 w-full md:w-auto">
-                            <Button variant="outline" className="w-full bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50 text-primary transition-colors">
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                View Full Document
-                            </Button>
-                        </a>
-                    </div>
-                </section>
-            )}
-
-            {/* Scope */}
-            {proposal.scope && (
-                <section>
-                    <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
-                        <Info className="h-5 w-5 text-primary" /> Scope of Work
-                    </h2>
-                    <Card className="glass-card border-white/10">
-                        <CardContent className="pt-6 text-gray-300 leading-relaxed whitespace-pre-wrap">
-                            {proposal.scope}
-                        </CardContent>
-                    </Card>
-                </section>
-            )}
-
-            {/* Deliverables & Timeline Grid */}
-            <div className="grid md:grid-cols-2 gap-8">
-                {parsedDeliverables.length > 0 && (
-                    <section>
-                        <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
-                            <CheckCircle2 className="h-5 w-5 text-primary" /> Deliverables
-                        </h2>
-                        <ul className="space-y-3">
-                            {parsedDeliverables.map((item, idx) => (
-                                <li key={idx} className="flex items-start gap-3 bg-white/5 border border-white/10 p-3 rounded-lg">
-                                    <ChevronRight className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                                    <span className="text-gray-300 text-sm leading-tight">{item}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
-                )}
-
-                {proposal.timeline && (
-                    <section>
-                        <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
-                            <FileCheck className="h-5 w-5 text-primary" /> Timeline
-                        </h2>
-                        <Card className="glass-card border-white/10 h-full">
-                            <CardContent className="pt-6 flex flex-col justify-center h-full min-h-[120px]">
-                                <p className="text-3xl font-bold text-white text-center">{proposal.timeline}</p>
-                                <p className="text-center text-muted-foreground text-sm mt-2">Estimated Time to Completion</p>
-                            </CardContent>
-                        </Card>
-                    </section>
-                )}
-            </div>
-
-            {/* Investment / Pricing */}
-            {parsedPricing.items.length > 0 && (
-                <section>
-                    <h2 className="text-xl font-semibold mb-4 text-white">Investment details</h2>
-                    <div className="rounded-xl border border-white/10 overflow-hidden bg-white/[0.02]">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-white/5 border-b border-white/10 text-muted-foreground">
-                                <tr>
-                                    <th className="px-6 py-4 font-medium">Description</th>
-                                    <th className="px-6 py-4 font-medium text-right w-32">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5 text-gray-300">
-                                {parsedPricing.items.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-6 py-4">{item.name}</td>
-                                        <td className="px-6 py-4 text-right font-medium">${item.price.toLocaleString()}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot className="bg-primary/10 border-t border-primary/20 text-white font-semibold">
-                                <tr>
-                                    <td className="px-6 py-5 rounded-bl-xl text-primary tracking-wide uppercase text-xs">Total Estimate</td>
-                                    <td className="px-6 py-5 text-right rounded-br-xl text-primary text-xl">${parsedPricing.total.toLocaleString()}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </section>
-            )}
-
-            {/* Action Bar */}
-            <section className="pt-8 border-t border-white/10">
-                {isPreview && !isApproved && !isRejected ? (
-                    <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-8 text-center space-y-3">
-                        <div className="mx-auto h-12 w-12 bg-sky-500/20 rounded-full flex items-center justify-center mb-4 text-sky-400">
-                            <Info className="h-6 w-6" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-sky-400">Staff Preview Mode</h3>
-                        <p className="text-sky-200/80 max-w-sm mx-auto">
-                            You are previewing this proposal. Only the client who matches the Lead explicitly can formally accept or decline it from their account.
-                        </p>
-                    </div>
-                ) : isApproved ? (
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-8 text-center space-y-3">
-                        <div className="mx-auto h-12 w-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4 text-green-400">
-                            <CheckCircle2 className="h-6 w-6" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-green-400">Proposal Approved</h3>
-                        <p className="text-green-300/80 max-w-md mx-auto">
-                            Thank you for your business! This proposal was accepted. You will receive an onboarding email shortly with your Client Portal access.
-                        </p>
-                    </div>
-                ) : isRejected ? (
-                     <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-8 text-center space-y-3">
-                        <div className="mx-auto h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mb-4 text-red-500">
-                            <XCircle className="h-6 w-6" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-red-500">Proposal Declined</h3>
-                        <p className="text-red-300/80 max-w-md mx-auto">
-                            This proposal has been formally declined. Our team has been notified and we will follow up with you shortly.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
                         <div>
-                            <h3 className="text-xl font-bold text-white mb-1">Ready to start?</h3>
-                            <p className="text-muted-foreground text-sm">By accepting this proposal, you agree to the scope and pricing outlined above. We will automatically provision your project board and client portal.</p>
+                            <h3 className="text-base font-semibold text-foreground">Attached Document Available</h3>
+                            <p className="text-xs text-muted-foreground">
+                                An external PDF attachment was provided alongside this interactive specification.
+                            </p>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0 mt-4 md:mt-0">
-                            <Button
-                                onClick={() => window.print()}
-                                variant="outline"
-                                className="w-full sm:w-auto bg-transparent border-white/20 text-white hover:bg-white/10 h-12"
-                            >
-                                Download PDF
-                            </Button>
+                    </div>
+                    <a href={proposal.fileUrl} target="_blank" rel="noreferrer" className="shrink-0 w-full md:w-auto">
+                        <Button variant="outline" size="sm" className="w-full">
+                            <ExternalLink className="h-4 w-4 mr-2" /> View Attached PDF
+                        </Button>
+                    </a>
+                </div>
+            )}
 
+            {/* Main Shared Document Sheet */}
+            <ProposalDocumentSheet data={documentData} />
+
+            {/* Status Callout (Approved / Rejected) */}
+            {isApproved && (
+                <div className="max-w-[850px] mx-auto p-6 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2 no-print">
+                    <div className="mx-auto h-10 w-10 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500">
+                        <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-lg font-bold text-foreground">Agreement Executed & Active</h3>
+                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        This proposal has been accepted and digitally executed by{" "}
+                        <strong className="text-foreground">{proposal.acceptedByName || "Client"}</strong>. Project onboarding and sprint initialization are underway.
+                    </p>
+                    <div className="pt-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloadingPdf}
+                            className="items-center gap-1.5 font-mono text-xs"
+                        >
+                            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Printer className="h-3.5 w-3.5 mr-1" />}
+                            Download Signed SOW (PDF)
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {isRejected && (
+                <div className="max-w-[850px] mx-auto p-6 rounded-xl bg-destructive/10 border border-destructive/30 text-center space-y-2 no-print">
+                    <div className="mx-auto h-10 w-10 bg-destructive/20 rounded-full flex items-center justify-center text-destructive">
+                        <XCircle className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-lg font-bold text-destructive">Proposal Declined</h3>
+                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        This proposal was declined. Our agency team has been notified to follow up regarding revisions.
+                    </p>
+                </div>
+            )}
+
+            {/* Floating Action Bar (Pill Container) */}
+            {!isApproved && !isRejected && (
+                <div className="floating-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-background/90 backdrop-blur-md border border-border shadow-2xl rounded-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 sm:gap-6 no-print w-[92%] sm:w-auto max-w-xl">
+                    <div className="hidden sm:block text-left">
+                        <div className="text-[10px] uppercase font-mono text-muted-foreground tracking-wider">
+                            Total Investment
+                        </div>
+                        <div className="text-base font-bold font-mono text-primary leading-tight">
+                            {currencyFormatter.format(grandTotal)}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        {/* Download PDF Trigger */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloadingPdf}
+                            className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground hidden xs:flex items-center gap-1"
+                            title="Download Official SOW PDF"
+                        >
+                            {isDownloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                            <span className="hidden md:inline">Download SOW</span>
+                        </Button>
+
+                        {/* Decline Dialog Trigger (Only for Client) */}
+                        {!isPreview && (
                             <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button 
-                                        variant="outline" 
-                                        className="w-full sm:w-auto border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/10 hover:border-red-500/40 h-12"
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 px-3 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
                                     >
                                         Decline
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="glass-card border-white/10 text-white">
+                                <DialogContent className="glass-card border-border text-foreground">
                                     <DialogHeader>
                                         <DialogTitle>Decline Proposal</DialogTitle>
-                                        <DialogDescription>
-                                            Please let us know why you are declining this proposal so we can better assist you.
+                                        <DialogDescription className="text-xs text-muted-foreground">
+                                            Please share any feedback or requirements you would like us to revise.
                                         </DialogDescription>
                                     </DialogHeader>
-                                    <div className="py-4">
+                                    <div className="py-2">
                                         <Textarea
                                             value={rejectReason}
                                             onChange={(e) => setRejectReason(e.target.value)}
-                                            placeholder="e.g. Budget constraints, timing, missing requirements..."
-                                            className="bg-black/50 border-white/10 min-h-[100px]"
+                                            placeholder="e.g. Budget adjustments, timeline changes, additional deliverables..."
+                                            className="text-sm min-h-[100px]"
                                         />
                                     </div>
                                     <DialogFooter>
-                                        <Button variant="ghost" onClick={() => setIsRejectDialogOpen(false)}>Cancel</Button>
-                                        <Button 
-                                            variant="destructive" 
-                                            onClick={handleReject} 
+                                        <Button variant="ghost" size="sm" onClick={() => setIsRejectDialogOpen(false)}>
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={handleReject}
                                             disabled={isRejecting || !rejectReason.trim()}
                                         >
-                                            {isRejecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                            {isRejecting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
                                             Submit Decline
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
+                        )}
 
-                            <Button 
-                                onClick={handleAccept} 
-                                disabled={isLoading}
-                                className="w-full sm:w-auto bg-primary text-black hover:bg-primary/90 font-semibold h-12 px-8 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all"
+                        {/* Accept & Sign Button */}
+                        {!isPreview ? (
+                            <Button
+                                size="sm"
+                                onClick={() => setIsAcceptDialogOpen(true)}
+                                className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
                             >
-                                {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <FileCheck className="h-5 w-5 mr-2" />}
-                                Accept Proposal
+                                <CheckSquare className="h-4 w-4" />
+                                Accept & Sign
                             </Button>
-                        </div>
+                        ) : (
+                            <Button
+                                size="sm"
+                                onClick={() => router.push(`/dashboard/proposals/builder/${proposal.id}`)}
+                                className="h-9 px-4 text-xs font-semibold"
+                            >
+                                Edit in Studio
+                            </Button>
+                        )}
                     </div>
-                )}
-            </section>
+                </div>
+            )}
+
+            {/* Hybrid Digital Acceptance Dialog */}
+            <AcceptProposalDialog
+                open={isAcceptDialogOpen}
+                onOpenChange={setIsAcceptDialogOpen}
+                proposalId={proposal.id}
+                proposalCode={proposal.proposalCode}
+                totalAmount={grandTotal}
+                defaultName={proposal.lead?.client?.name || ""}
+            />
         </div>
     );
 }

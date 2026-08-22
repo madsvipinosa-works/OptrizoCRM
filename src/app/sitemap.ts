@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { posts, projects } from "@/db/schema";
+import { posts, caseStudies } from "@/db/schema";
 import { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -29,11 +29,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
     }));
 
-    // 3. Dynamic Projects
-    const allProjects = await db.select({ slug: projects.slug, createdAt: projects.createdAt }).from(projects);
+    // 3. Dynamic Case Studies (Portfolio Projects)
+    const allProjects = await db.select({ slug: caseStudies.slug, createdAt: caseStudies.createdAt }).from(caseStudies);
     const projectRoutes = allProjects.map((project) => ({
         url: `${baseUrl}/projects/${project.slug}`,
-        lastModified: project.createdAt, // Projects usually don't have updatedAt yet, using createdAt
+        lastModified: project.createdAt,
         changeFrequency: "monthly" as const,
         priority: 0.7,
     }));

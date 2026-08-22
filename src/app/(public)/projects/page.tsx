@@ -1,13 +1,13 @@
 import { db } from "@/db";
-import { projects } from "@/db/schema";
+import { caseStudies } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { NewsCards, type NewsCard } from "@/components/ui/news-cards";
 import { formatDistanceToNow } from "date-fns";
 
 export default async function ProjectsIndexPage() {
-    const publishedProjects = await db.query.projects.findMany({
-        where: eq(projects.status, "published"),
-        orderBy: [desc(projects.createdAt)],
+    const publishedProjects = await db.query.caseStudies.findMany({
+        where: eq(caseStudies.published, true),
+        orderBy: [desc(caseStudies.createdAt)],
     });
 
     const mappedProjects: NewsCard[] = publishedProjects.map((project) => ({

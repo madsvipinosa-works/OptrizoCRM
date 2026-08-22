@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
 import { proposals } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { format } from "date-fns";
+import { eq, or } from "drizzle-orm";
 import { ProposalClientView } from "@/features/proposals/components/ProposalClientView";
+import { PricingLineItem } from "@/features/proposals/components/ProposalDocumentSheet";
 
 export const metadata = {
     title: "Project Proposal | Optrizo",
-    description: "Review and approve your project proposal.",
+    description: "Review, download, and digitally sign your project proposal.",
 };
 
 export default async function ProposalPage({
@@ -21,19 +21,23 @@ export default async function ProposalPage({
     const session = await auth();
     if (!session?.user?.id) {
         return (
-            <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-                <div className="text-center space-y-4 max-w-md">
-                    <h1 className="text-2xl font-bold">Authentication Required</h1>
-                    <p className="text-muted-foreground">You must log in to view this proposal.</p>
+            <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+                <div className="text-center space-y-4 max-w-md p-8 rounded-xl border border-border bg-card shadow-lg">
+                    <h1 className="text-2xl font-serif font-bold">Authentication Required</h1>
+                    <p className="text-sm text-muted-foreground">You must sign in to review and execute this project proposal.</p>
                 </div>
             </div>
         );
     }
 
     const proposal = await db.query.proposals.findFirst({
-        where: eq(proposals.id, id),
+        where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),
         with: {
-            lead: true,
+            lead: {
+                with: {
+                    client: true,
+                },
+            },
         },
     });
 
@@ -42,22 +46,20 @@ export default async function ProposalPage({
     }
 
     // Access Control: 
-    // Allow if the user is an admin or editor (so they can preview proposals).
+    // Allow if the user is an admin or editor (staff preview).
     // Otherwise, require the user's ID to match the lead's clientId exactly.
     const isAdminOrEditor = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
     const isOwner = proposal.lead && session.user.id === proposal.lead.clientId;
 
     if (!isAdminOrEditor && !isOwner) {
         return (
-            <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-                <div className="text-center space-y-4 max-w-md bg-red-500/10 border border-red-500/20 p-8 rounded-xl">
-                    <h1 className="text-2xl font-bold text-red-400">Access Denied</h1>
-                    <p className="text-white/80">You do not have permission to view this proposal.</p>
-                    <div className="bg-black/50 p-4 rounded-lg text-sm text-left font-mono mt-4 space-y-2 text-white/60">
-                        <p><strong>Logged in as:</strong> {session.user.email} (Role: {session.user.role})</p>
-                        <p><strong>Proposal Lead Client ID:</strong> {proposal.lead?.clientId}</p>
+            <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+                <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
+                    <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
+                    <p className="text-foreground/80 text-sm">You do not have permission to view this proposal.</p>
+                    <div className="bg-background/80 p-3 rounded-lg text-xs text-left font-mono mt-4 space-y-1 text-muted-foreground">
+                        <p><strong>Signed in as:</strong> {session.user.email}</p>
                     </div>
-                    <p className="text-xs text-white/40 mt-4">You must be the client associated with this proposal.</p>
                 </div>
             </div>
         );
@@ -65,47 +67,47 @@ export default async function ProposalPage({
 
     // Parse the JSON data safely
     let parsedDeliverables: string[] = [];
-    let parsedPricing: { items: { name: string; price: number }[]; total: number } = { items: [], total: 0 };
+    let parsedPricing: { items: PricingLineItem[]; total: number; subtotal?: number; discount?: number; tax?: number } = {
+        items: [],
+        total: proposal.total || 0,
+        subtotal: proposal.subtotal || proposal.total || 0,
+        discount: proposal.discount || 0,
+        tax: proposal.tax || 0,
+    };
 
     try {
         if (proposal.deliverables) {
-            parsedDeliverables = JSON.parse(proposal.deliverables);
+            if (Array.isArray(proposal.deliverables)) {
+                parsedDeliverables = proposal.deliverables as string[];
+            } else if (typeof proposal.deliverables === "string") {
+                parsedDeliverables = JSON.parse(proposal.deliverables);
+            }
         }
         if (proposal.pricingStructure) {
-            parsedPricing = JSON.parse(proposal.pricingStructure);
+            if (Array.isArray(proposal.pricingStructure)) {
+                parsedPricing.items = proposal.pricingStructure as PricingLineItem[];
+            } else if (typeof proposal.pricingStructure === "object" && proposal.pricingStructure !== null) {
+                const p = proposal.pricingStructure as any;
+                parsedPricing.items = p.items || [];
+                if (p.total !== undefined) parsedPricing.total = p.total;
+                if (p.subtotal !== undefined) parsedPricing.subtotal = p.subtotal;
+            } else if (typeof proposal.pricingStructure === "string") {
+                const parsed = JSON.parse(proposal.pricingStructure);
+                if (Array.isArray(parsed)) {
+                    parsedPricing.items = parsed;
+                } else if (parsed.items) {
+                    parsedPricing.items = parsed.items;
+                    if (parsed.total !== undefined) parsedPricing.total = parsed.total;
+                }
+            }
         }
     } catch (e) {
         console.error("Failed to parse proposal JSON", e);
     }
 
     return (
-        <div className="min-h-screen bg-black text-white selection:bg-primary/30 py-12 md:py-24 px-4 sm:px-6 lg:px-8 bg-[url('/grid.svg')] bg-center backdrop-blur-3xl">
-            <div className="max-w-4xl mx-auto space-y-8 relative">
-                
-                {/* Background glows */}
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] -z-10 pointer-events-none" />
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[128px] -z-10 pointer-events-none" />
-
-                {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-white/10 pb-8">
-                    <div>
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="h-10 w-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30">
-                                <span className="font-bold text-xl text-primary flex items-center mb-0.5">O</span>
-                            </div>
-                            <span className="text-xl font-bold tracking-tight text-white">Optrizo</span>
-                        </div>
-                        <h1 className="text-4xl font-bold tracking-tight mb-2">Project Proposal</h1>
-                        <p className="text-muted-foreground">Prepared for <span className="text-white font-medium">{proposal.lead?.businessName || "Valued Client"}</span></p>
-                    </div>
-                    <div className="text-left md:text-right text-sm text-muted-foreground bg-white/5 border border-white/10 p-4 rounded-xl">
-                        <p className="font-medium text-white mb-1">Proposal Details</p>
-                        <p>ID: {proposal.id.split('-')[0].toUpperCase()}</p>
-                        <p>Date: {format(new Date(proposal.createdAt), "MMMM d, yyyy")}</p>
-                        <p>Status: <span className={proposal.status === "Approved" ? "text-green-400" : "text-yellow-400"}>{proposal.status}</span></p>
-                    </div>
-                </div>
-
+        <div className="min-h-screen bg-muted/20 text-foreground selection:bg-primary/30 py-8 md:py-14 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto">
                 <ProposalClientView 
                     proposal={proposal} 
                     parsedDeliverables={parsedDeliverables}

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { projects } from "@/db/schema";
+import { caseStudies } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
@@ -14,12 +14,12 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { slug } = await params;
-    const project = await db.query.projects.findFirst({
-        where: eq(projects.slug, slug),
+    const project = await db.query.caseStudies.findFirst({
+        where: eq(caseStudies.slug, slug),
     });
 
     if (!project) {
-        return { title: "Project Not Found" };
+        return { title: "Case Study Not Found" };
     }
 
     return {
@@ -36,8 +36,8 @@ export default async function ProjectDetailPage({ params }: Props) {
         const { slug } = await params;
         const decodedSlug = decodeURIComponent(slug);
 
-        project = await db.query.projects.findFirst({
-            where: eq(projects.slug, decodedSlug),
+        project = await db.query.caseStudies.findFirst({
+            where: eq(caseStudies.slug, decodedSlug),
         });
     } catch (e) {
         systemError = e as Error;

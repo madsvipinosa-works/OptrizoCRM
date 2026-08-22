@@ -46,12 +46,20 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                        setActiveTab("dynamic");
                        setScope(p.scope || "");
                        try {
-                           setDeliverables(p.deliverables ? JSON.parse(p.deliverables) : [""]);
+                           if (p.deliverables) {
+                               setDeliverables(Array.isArray(p.deliverables) ? p.deliverables : JSON.parse(p.deliverables as string));
+                           } else {
+                               setDeliverables([""]);
+                           }
                        } catch(e) { setDeliverables([""]); }
                        setTimeline(p.timeline || "");
                        try {
-                           const parsedPricing = p.pricingStructure ? JSON.parse(p.pricingStructure) : { items: [{ name: "", price: 0 }] };
-                           setPricingItems(parsedPricing.items || [{ name: "", price: 0 }]);
+                           if (p.pricingStructure) {
+                               const parsedPricing = typeof p.pricingStructure === "object" ? p.pricingStructure : JSON.parse(p.pricingStructure as string);
+                               setPricingItems((parsedPricing as any).items || [{ name: "", price: 0 }]);
+                           } else {
+                               setPricingItems([{ name: "", price: 0 }]);
+                           }
                        } catch(e) { setPricingItems([{ name: "", price: 0 }]); }
                    }
                 }

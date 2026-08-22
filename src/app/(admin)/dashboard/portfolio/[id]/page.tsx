@@ -1,6 +1,6 @@
 import { ProjectForm } from "@/features/cms/components/ProjectForm";
 import { db } from "@/db";
-import { projects } from "@/db/schema";
+import { caseStudies } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
@@ -11,8 +11,8 @@ interface Props {
 export default async function EditProjectPage({ params }: Props) {
     const { id } = await params;
 
-    const project = await db.query.projects.findFirst({
-        where: eq(projects.id, id),
+    const project = await db.query.caseStudies.findFirst({
+        where: eq(caseStudies.id, id),
     });
 
     if (!project) {

@@ -8,7 +8,7 @@ import { ServicesGrid } from "@/components/blocks/ServicesGrid";
 import GalleryHoverCarousel from "@/components/blocks/gallery-hover-carousel";
 import { TestimonialsSection } from "@/components/blocks/testimonials-with-marquee";
 import { db } from "@/db";
-import { posts, projects, testimonials } from "@/db/schema";
+import { posts, caseStudies, testimonials } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 
 import { PortfolioShowcase } from "@/components/public/PortfolioShowcase";
@@ -38,10 +38,10 @@ export default async function Home() {
         orderBy: [desc(testimonials.id)],
     });
 
-    // Fetch active projects for portfolio showcase
-    const activeProjects = await db.query.projects.findMany({
-        where: eq(projects.status, "published"),
-        orderBy: [desc(projects.createdAt)],
+    // Fetch active case studies for portfolio showcase
+    const activeProjects = await db.query.caseStudies.findMany({
+        where: eq(caseStudies.published, true),
+        orderBy: [desc(caseStudies.createdAt)],
         limit: 6,
     });
 

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { posts, projects, services, testimonials } from "@/db/schema";
+import { posts, caseStudies, services, testimonials } from "@/db/schema";
 import { desc, asc } from "drizzle-orm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostsTab } from "@/features/cms/components/PostsTab";
@@ -14,14 +14,14 @@ export default async function CMSDashboardPage() {
     // Parallel fetch for all content types
     const [allPosts, allProjects, allServices, allTestimonials] = await Promise.all([
         db.query.posts.findMany({ orderBy: [desc(posts.createdAt)] }),
-        db.query.projects.findMany({ orderBy: [desc(projects.createdAt)] }),
+        db.query.caseStudies.findMany({ orderBy: [desc(caseStudies.createdAt)] }),
         db.query.services.findMany({ orderBy: [asc(services.order)] }),
         db.query.testimonials.findMany({ orderBy: [desc(testimonials.id)] }),
     ]);
 
     // Analytics overview calculations
     const publishedPosts = allPosts.filter(p => p.published).length;
-    const publishedProjects = allProjects.filter(p => p.status === "published").length;
+    const publishedProjects = allProjects.filter(p => p.published).length;
     const avgRating = allTestimonials.length
         ? (allTestimonials.reduce((acc, t) => acc + (t.rating || 5), 0) / allTestimonials.length).toFixed(1)
         : "5.0";
@@ -106,42 +106,42 @@ export default async function CMSDashboardPage() {
 
             {/* Main Tabs Container */}
             <Tabs defaultValue="posts" className="w-full">
-                <div className="overflow-x-auto pb-1 scrollbar-none">
-                    <TabsList className="flex sm:grid w-full sm:grid-cols-2 md:grid-cols-4 bg-zinc-900/90 border border-white/10 p-1.5 rounded-xl gap-1.5 min-w-max sm:min-w-0">
+                <div className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-xl gap-1.5 h-auto">
                         <TabsTrigger 
                             value="posts" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-600/25 border border-transparent py-2.5 px-3.5 rounded-lg text-xs font-semibold text-zinc-400 flex items-center justify-center gap-2 transition-all flex-1"
+                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <FileText className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Blog Posts</span>
-                            <span className="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono">{allPosts.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allPosts.length}</span>
                         </TabsTrigger>
                         
                         <TabsTrigger 
                             value="portfolio" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-600/25 border border-transparent py-2.5 px-3.5 rounded-lg text-xs font-semibold text-zinc-400 flex items-center justify-center gap-2 transition-all flex-1"
+                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <FolderGit2 className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Portfolio</span>
-                            <span className="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono">{allProjects.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allProjects.length}</span>
                         </TabsTrigger>
                         
                         <TabsTrigger 
                             value="services" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-600/25 border border-transparent py-2.5 px-3.5 rounded-lg text-xs font-semibold text-zinc-400 flex items-center justify-center gap-2 transition-all flex-1"
+                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <Layers className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Services</span>
-                            <span className="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono">{allServices.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allServices.length}</span>
                         </TabsTrigger>
                         
                         <TabsTrigger 
                             value="testimonials" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-600/25 border border-transparent py-2.5 px-3.5 rounded-lg text-xs font-semibold text-zinc-400 flex items-center justify-center gap-2 transition-all flex-1"
+                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <MessageSquareQuote className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Testimonials</span>
-                            <span className="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono">{allTestimonials.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allTestimonials.length}</span>
                         </TabsTrigger>
                     </TabsList>
                 </div>

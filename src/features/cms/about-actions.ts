@@ -46,21 +46,23 @@ export async function updateAboutContent(prevState: ActionState, formData: FormD
             return { success: false, message: "Mission and Stats are required" };
         }
 
-        // Validate JSON
+        // Validate & parse JSON
+        let parsedCompanyStats = [];
+        let parsedTechItems = [];
         try {
-            JSON.parse(companyStatsStr);
-            if (aboutTechStackItemsStr) JSON.parse(aboutTechStackItemsStr);
+            parsedCompanyStats = JSON.parse(companyStatsStr);
+            if (aboutTechStackItemsStr) parsedTechItems = JSON.parse(aboutTechStackItemsStr);
         } catch {
              return { success: false, message: "Invalid JSON format" };
         }
 
         await db.insert(siteSettings)
             .values({
-                id: "1",
+                id: "singleton_root",
                 aboutHeroTitle,
                 missionStatement,
-                companyStats: companyStatsStr,
-                aboutTechStackItems: aboutTechStackItemsStr,
+                companyStats: parsedCompanyStats,
+                aboutTechStackItems: parsedTechItems,
                 aboutTechStack,
                 aboutCtaHeadline,
                 aboutCtaText
@@ -70,8 +72,8 @@ export async function updateAboutContent(prevState: ActionState, formData: FormD
                 set: {
                     aboutHeroTitle,
                     missionStatement,
-                    companyStats: companyStatsStr,
-                    aboutTechStackItems: aboutTechStackItemsStr,
+                    companyStats: parsedCompanyStats,
+                    aboutTechStackItems: parsedTechItems,
                     aboutTechStack,
                     aboutCtaHeadline,
                     aboutCtaText

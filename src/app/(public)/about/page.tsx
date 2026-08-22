@@ -23,7 +23,11 @@ export default async function AboutPage() {
     // Parse Stats JSON safely or use robust defaults
     let stats: { label: string, value: string }[] = [];
     if (settings?.companyStats) {
-        try { stats = JSON.parse(settings.companyStats); } catch {}
+        if (Array.isArray(settings.companyStats)) {
+            stats = settings.companyStats;
+        } else if (typeof settings.companyStats === 'string') {
+            try { stats = JSON.parse(settings.companyStats); } catch {}
+        }
     }
     if (!stats || stats.length === 0) {
         stats = [
@@ -35,9 +39,13 @@ export default async function AboutPage() {
     }
 
     // Parse Tech Stack JSON safely or use defaults
-    let techItems: { name: string, imageUrl: string }[] = [];
+    let techItems: { name: string; imageUrl?: string; iconUrl?: string }[] = [];
     if (settings?.aboutTechStackItems) {
-        try { techItems = JSON.parse(settings.aboutTechStackItems); } catch {}
+        if (Array.isArray(settings.aboutTechStackItems)) {
+            techItems = settings.aboutTechStackItems;
+        } else if (typeof settings.aboutTechStackItems === 'string') {
+            try { techItems = JSON.parse(settings.aboutTechStackItems); } catch {}
+        }
     }
     if (!techItems || techItems.length === 0) {
         techItems = [

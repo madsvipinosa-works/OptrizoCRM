@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks, proposals, passwordResetTokens } from "@/db/schema";
 import { revalidatePath } from "next/cache";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, sql } from "drizzle-orm";
 import { leadUpdateSchema, type LeadUpdateValues } from "@/lib/schemas";
 import { sendClientWelcomeEmail, sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth, hasRole } from "@/auth";
@@ -213,7 +213,18 @@ export async function getUnifiedDashboardData() {
 
     try {
         // Parallel Drizzle Fetching
-        const [allLeads, allProjects, allTasks, allProposals] = await Promise.all([
+        const [analytics, allLeads, allProjects, allTasks, allProposals] = await Promise.all([
+            db.select({
+                totalPipelineValue: sql<string>`COALESCE(SUM(${leads.estimatedValue}) FILTER (WHERE ${leads.status} IN ('Pending Approval', 'In Review', 'Proposal Sent')), 0)`,
+                wonLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Won')`,
+                lostLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Lost')`,
+                activeLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} NOT IN ('Closed Won', 'Closed Lost'))`,
+                winRate: sql<number>`
+                    CASE WHEN COUNT(${leads.id}) = 0 THEN 0
+                    ELSE ROUND((COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Won')::numeric / COUNT(${leads.id})::numeric) * 100, 2)
+                    END
+                `,
+            }).from(leads).where(eq(leads.isArchived, false)),
             db.select().from(leads),
             db.query.agencyProjects.findMany({
                 with: {
@@ -232,19 +243,11 @@ export async function getUnifiedDashboardData() {
             })
         ]);
 
-        // 1. KPI Calculations
-        let totalPipelineValue = 0;
+        const kpi = analytics[0];
         let weightedPipelineValue = 0;
-        let wonLeadsCount = 0;
-        let lostLeadsCount = 0;
 
         allLeads.forEach((l) => {
-            if (l.status === "Closed Won") wonLeadsCount++;
-            else if (l.status === "Closed Lost") lostLeadsCount++;
-            
             if (["Pending Approval", "In Review", "Proposal Sent"].includes(l.status)) {
-                totalPipelineValue += l.estimatedValue;
-                
                 if (l.status === "Pending Approval") {
                     weightedPipelineValue += l.estimatedValue * 0.10;
                 } else if (l.status === "In Review") {
@@ -256,10 +259,8 @@ export async function getUnifiedDashboardData() {
         });
 
         // Win/Loss Rate
-        const totalClosed = wonLeadsCount + lostLeadsCount;
-        const winRatePercentage = totalClosed > 0 
-            ? ((wonLeadsCount / totalClosed) * 100).toFixed(1) 
-            : "0.0";
+        const totalClosed = Number(kpi.wonLeadsCount) + Number(kpi.lostLeadsCount);
+        const winRatePercentage = Number(kpi.winRate).toFixed(1);
 
         // Active Projects
         const activeProjects = allProjects.filter(p => !["Completed", "Archived"].includes(p.status));
@@ -408,12 +409,12 @@ export async function getUnifiedDashboardData() {
 
         return {
             kpis: {
-                pipelineValue: totalPipelineValue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
+                pipelineValue: Number(kpi.totalPipelineValue).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
                 weightedPipelineValue: weightedPipelineValue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
-                rawPipelineValue: totalPipelineValue,
+                rawPipelineValue: Number(kpi.totalPipelineValue),
                 winRatePercentage,
-                wonLeadsCount,
-                lostLeadsCount,
+                wonLeadsCount: Number(kpi.wonLeadsCount),
+                lostLeadsCount: Number(kpi.lostLeadsCount),
                 totalClosedCount: totalClosed,
                 activeProjectsCount,
                 taskCompletionRate,
@@ -598,97 +599,100 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
         
         // VERY STRICT ROLE CHECK - NEVER DOWNGRADE AN ADMIN OR EDITOR TO CLIENT
         const internalRoles = ["superadmin", "sales", "manager", "developer", "content_editor"];
-        if (!internalRoles.includes(lead.client.role)) {
-            await db.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
-            console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.client.email}`);
-        } else {
-            console.log(`[SYS_LOG] 🛡️ Protected Agency Staff role: Existing User account kept role '${lead.client.role}' for ${lead.client.email}`);
-        }
-
-        // 3. Create Operational Project (PM Engine)
-        const [newProject] = await db.insert(agencyProjects).values({
-            title: lead.serviceId ? `${lead.businessName || lead.client.name} Project` : `${lead.businessName || lead.client.name} Project`,
-            description: lead.goals,
-            leadId: lead.id,
-            status: "Kickoff",
-        }).returning({ id: agencyProjects.id, title: agencyProjects.title });
         
-        // 3.5 Write to projectStakeholders Junction Table
-        await db.insert(projectStakeholders).values({
-            projectId: newProject.id,
-            userId: clientUserId
-        });
-        console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id} with Stakeholder ${clientUserId}`);
-
-        // 4. Create Default Milestone Scaffolding or Apply Templates
-        let templateApplied = false;
-        if (lead.serviceId) {
-            const template = await db.query.serviceTemplates.findFirst({
-                where: eq(serviceTemplates.id, lead.serviceId),
-                with: { tasks: true }
-            });
-            
-            if (template && template.tasks && template.tasks.length > 0) {
-                // Group by milestoneTitle and order
-                const milestonesMap = new Map<string, typeof template.tasks>();
-                for (const t of template.tasks) {
-                    const key = `${t.milestoneOrder}-${t.milestoneTitle}`;
-                    if (!milestonesMap.has(key)) milestonesMap.set(key, []);
-                    milestonesMap.get(key)!.push(t);
-                }
-
-                for (const [key, tskArr] of milestonesMap.entries()) {
-                    const splitIdx = key.indexOf('-');
-                    const order = parseInt(key.substring(0, splitIdx), 10);
-                    const title = key.substring(splitIdx + 1);
-
-                    const [newMs] = await db.insert(milestones).values({
-                        projectId: newProject.id,
-                        title,
-                        order,
-                        status: "Pending"
-                    }).returning({ id: milestones.id });
-
-                    const tasksToInsert = tskArr.map(t => ({
-                        projectId: newProject.id,
-                        milestoneId: newMs.id,
-                        title: t.title,
-                        description: t.description,
-                        requiresProof: t.requiresProof,
-                        status: "Todo" as const,
-                    }));
-                    await db.insert(tasks).values(tasksToInsert);
-                }
-                templateApplied = true;
-                console.log(`[SYS_LOG] 🗺️ Generated project milestones from template '${template.name}'.`);
+        await db.transaction(async (tx) => {
+            if (!internalRoles.includes(lead.client!.role)) {
+                await tx.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
+                console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.client!.email}`);
+            } else {
+                console.log(`[SYS_LOG] 🛡️ Protected Agency Staff role: Existing User account kept role '${lead.client!.role}' for ${lead.client!.email}`);
             }
-        }
 
-        if (!templateApplied) {
-            await db.insert(milestones).values([
-                { projectId: newProject.id, title: "Discovery", status: "Pending", order: 1 },
-                { projectId: newProject.id, title: "Design", status: "Pending", order: 2 },
-                { projectId: newProject.id, title: "Development", status: "Pending", order: 3 },
-                { projectId: newProject.id, title: "QA & Launch", status: "Pending", order: 4 },
-            ]);
-            console.log(`[SYS_LOG] 🗺️ Generated default project milestones.`);
-        }
+            // 3. Create Operational Project (PM Engine)
+            const [newProject] = await tx.insert(agencyProjects).values({
+                title: lead.serviceId ? `${lead.businessName || lead.client!.name} Project` : `${lead.businessName || lead.client!.name} Project`,
+                description: lead.goals,
+                leadId: lead.id,
+                status: "Kickoff",
+            }).returning({ id: agencyProjects.id, title: agencyProjects.title });
+            
+            // 3.5 Write to projectStakeholders Junction Table
+            await tx.insert(projectStakeholders).values({
+                projectId: newProject.id,
+                userId: clientUserId
+            });
+            console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id} with Stakeholder ${clientUserId}`);
 
-        // 5. Update Lead Status
-        await db.update(leads)
-            .set({ status: "Closed Won", updatedAt: new Date() })
-            .where(eq(leads.id, leadId));
+            // 4. Create Default Milestone Scaffolding or Apply Templates
+            let templateApplied = false;
+            if (lead.serviceId) {
+                const template = await tx.query.serviceTemplates.findFirst({
+                    where: eq(serviceTemplates.id, lead.serviceId),
+                    with: { tasks: true }
+                });
+                
+                if (template && template.tasks && template.tasks.length > 0) {
+                    // Group by milestoneTitle and order
+                    const milestonesMap = new Map<string, typeof template.tasks>();
+                    for (const t of template.tasks) {
+                        const key = `${t.milestoneOrder}-${t.milestoneTitle}`;
+                        if (!milestonesMap.has(key)) milestonesMap.set(key, []);
+                        milestonesMap.get(key)!.push(t);
+                    }
+
+                    for (const [key, tskArr] of milestonesMap.entries()) {
+                        const splitIdx = key.indexOf('-');
+                        const order = parseInt(key.substring(0, splitIdx), 10);
+                        const title = key.substring(splitIdx + 1);
+
+                        const [newMs] = await tx.insert(milestones).values({
+                            projectId: newProject.id,
+                            title,
+                            order,
+                            status: "Pending"
+                        }).returning({ id: milestones.id });
+
+                        const tasksToInsert = tskArr.map(t => ({
+                            projectId: newProject.id,
+                            milestoneId: newMs.id,
+                            title: t.title,
+                            description: t.description,
+                            requiresProof: t.requiresProof,
+                            status: "Todo" as const,
+                        }));
+                        await tx.insert(tasks).values(tasksToInsert);
+                    }
+                    templateApplied = true;
+                    console.log(`[SYS_LOG] 🗺️ Generated project milestones from template '${template.name}'.`);
+                }
+            }
+
+            if (!templateApplied) {
+                await tx.insert(milestones).values([
+                    { projectId: newProject.id, title: "Discovery", status: "Pending", order: 1 },
+                    { projectId: newProject.id, title: "Design", status: "Pending", order: 2 },
+                    { projectId: newProject.id, title: "Development", status: "Pending", order: 3 },
+                    { projectId: newProject.id, title: "QA & Launch", status: "Pending", order: 4 },
+                ]);
+                console.log(`[SYS_LOG] 🗺️ Generated default project milestones.`);
+            }
+
+            // 5. Update Lead Status
+            await tx.update(leads)
+                .set({ status: "Closed Won", updatedAt: new Date() })
+                .where(eq(leads.id, leadId));
+        });
 
         // 6. Send Client Portal Credentials via Email
         await sendClientWelcomeEmail({
             name: lead.client.name || "Client",
             email: lead.client.email,
-            projectName: newProject.title
+            projectName: lead.serviceId ? `${lead.businessName || lead.client.name} Project` : `${lead.businessName || lead.client.name} Project`
         });
 
-        await notifyAllAdmins(`Lead ${lead.businessName || lead.client.name} won! Project "${newProject.title}" provisioned.`, "deal_won", `/dashboard/pm/${newProject.id}`);
+        await notifyAllAdmins(`Lead ${lead.businessName || lead.client.name} won! Project provisioned.`, "deal_won", `/dashboard/pm`);
 
-        await logAction("UPDATE", "Lead", `Lead ${lead.id} marked as Won and Project ${newProject.id} provisioned.`);
+        await logAction("UPDATE", "Lead", `Lead ${lead.id} marked as Won and Project provisioned.`);
 
         revalidatePath("/dashboard/leads");
 
@@ -768,16 +772,18 @@ export async function updateLeadStatusWithAudit(
         }
 
         const oldStatus = lead.status;
-        await db.update(leads)
-            .set({ status: newStatus, updatedAt: new Date() })
-            .where(eq(leads.id, leadId));
+        await db.transaction(async (tx) => {
+            await tx.update(leads)
+                .set({ status: newStatus, updatedAt: new Date() })
+                .where(eq(leads.id, leadId));
 
-        const logContent = `Status updated from "${oldStatus}" to "${newStatus}"${reasonNotes ? `: ${reasonNotes}` : ""}`;
-        await db.insert(leadActivityLogs).values({
-            leadId,
-            authorId: session.user.id || null,
-            activityType: "System",
-            content: logContent,
+            const logContent = `Status updated from "${oldStatus}" to "${newStatus}"${reasonNotes ? `: ${reasonNotes}` : ""}`;
+            await tx.insert(leadActivityLogs).values({
+                leadId,
+                authorId: session.user.id || null,
+                activityType: "System",
+                content: logContent,
+            });
         });
 
         await logAction("UPDATE", "Lead", `Lead ${leadId} status changed from ${oldStatus} to ${newStatus}`);

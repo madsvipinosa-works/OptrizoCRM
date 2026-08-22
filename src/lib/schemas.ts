@@ -56,7 +56,7 @@ export const postSchema = z.object({
     coverImage: z.string().optional(),
 });
 
-export const projectSchema = z.object({
+export const caseStudySchema = z.object({
     id: z.string().optional(),
     title: z.string().min(1, "Title is required"),
     clientName: z.string().optional(),
@@ -65,6 +65,10 @@ export const projectSchema = z.object({
     content: z.string().optional(),
     coverImage: z.string().optional(),
 });
+
+export const projectSchema = caseStudySchema;
+export type CaseStudyValues = z.infer<typeof caseStudySchema>;
+export type ProjectValues = CaseStudyValues;
 
 export const serviceSchema = z.object({
     id: z.string().optional(),

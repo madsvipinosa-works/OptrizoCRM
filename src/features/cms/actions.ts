@@ -3,13 +3,15 @@
 import { db } from "@/db";
 import { deleteImage } from "@/features/upload/actions";
 
-import { siteSettings, posts, projects, services, testimonials } from "@/db/schema";
+import { siteSettings, posts, caseStudies, services, testimonials } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { auth, requireRole, hasRole } from "@/auth";
+import { sanitizeHtml } from "@/lib/sanitize";
 import {
     siteSettingsSchema,
     postSchema,
+    caseStudySchema,
     projectSchema,
     serviceSchema,
     testimonialSchema
@@ -65,11 +67,20 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
             };
         }
 
+        const notificationEmailsList = validated.data.notificationEmails
+            ? validated.data.notificationEmails.split(',').map(e => e.trim()).filter(Boolean)
+            : [];
+
+        const payload = {
+            ...validated.data,
+            notificationEmails: notificationEmailsList,
+        };
+
         await db.insert(siteSettings)
-            .values({ id: "1", ...validated.data })
+            .values({ id: "singleton_root", ...payload })
             .onConflictDoUpdate({
                 target: siteSettings.id,
-                set: validated.data,
+                set: payload,
             });
 
         revalidatePath("/");
@@ -107,13 +118,14 @@ export async function createPost(prevState: ActionState, formData: FormData) {
 
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
+        const sanitizedContent = content ? sanitizeHtml(content) : content;
 
         const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
 
         await db.insert(posts).values({
             title,
             slug: sanitizedSlug,
-            content,
+            content: sanitizedContent,
             coverImage,
             authorId: session.user.id!,
             published: isPublished,
@@ -161,6 +173,7 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
 
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
+        const sanitizedContent = content ? sanitizeHtml(content) : content;
 
         if (!id) return { success: false, message: "Missing Post ID" };
 
@@ -170,7 +183,7 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
             .set({
                 title,
                 slug: sanitizedSlug,
-                content,
+                content: sanitizedContent,
                 coverImage,
                 published: isPublished,
                 updatedAt: new Date(),
@@ -186,14 +199,14 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
     }
 }
 
-// --- Projects ---
+// --- Case Studies (Portfolio Projects) ---
 
-export async function createProject(prevState: ActionState, formData: FormData) {
+export async function createCaseStudy(prevState: ActionState, formData: FormData) {
     try {
         await requireEditor();
 
         const rawData = Object.fromEntries(formData.entries());
-        const validated = projectSchema.safeParse(rawData);
+        const validated = (caseStudySchema || projectSchema).safeParse(rawData);
 
         if (!validated.success) {
             return {
@@ -208,44 +221,49 @@ export async function createProject(prevState: ActionState, formData: FormData) 
 
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
+        const sanitizedContent = content ? sanitizeHtml(content) : content;
 
-        await db.insert(projects).values({
+        await db.insert(caseStudies).values({
             title,
             slug: sanitizedSlug,
             clientName,
             description,
-            content,
+            content: sanitizedContent,
             coverImage,
-            status: "published",
+            published: true,
         });
 
         revalidatePath("/dashboard/portfolio");
-        return { success: true, message: "Project created successfully!" };
+        revalidatePath("/projects");
+        return { success: true, message: "Case study created successfully!" };
     } catch (error) {
         console.error(error);
         return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
+export const createProject = createCaseStudy;
 
-export async function deleteProject(id: string) {
+export async function deleteCaseStudy(id: string) {
     await requireEditor();
 
     // Get image URL before deleting
-    const project = await db.query.projects.findFirst({ where: eq(projects.id, id) });
-    if (project?.coverImage) {
-        await deleteImage(project.coverImage);
+    const caseStudy = await db.query.caseStudies.findFirst({ where: eq(caseStudies.id, id) });
+    if (caseStudy?.coverImage) {
+        await deleteImage(caseStudy.coverImage);
     }
 
-    await db.delete(projects).where(eq(projects.id, id));
+    await db.delete(caseStudies).where(eq(caseStudies.id, id));
     revalidatePath("/dashboard/portfolio");
+    revalidatePath("/projects");
 }
+export const deleteProject = deleteCaseStudy;
 
-export async function updateProject(prevState: ActionState, formData: FormData) {
+export async function updateCaseStudy(prevState: ActionState, formData: FormData) {
     try {
         await requireEditor();
 
         const rawData = Object.fromEntries(formData.entries());
-        const validated = projectSchema.safeParse(rawData);
+        const validated = (caseStudySchema || projectSchema).safeParse(rawData);
 
         if (!validated.success) {
             return {
@@ -260,29 +278,32 @@ export async function updateProject(prevState: ActionState, formData: FormData) 
 
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
+        const sanitizedContent = content ? sanitizeHtml(content) : content;
 
-        if (!id) return { success: false, message: "Missing Project ID" };
+        if (!id) return { success: false, message: "Missing Case Study ID" };
 
-        await db.update(projects)
+        await db.update(caseStudies)
             .set({
                 title,
                 slug: sanitizedSlug,
                 clientName,
                 description,
-                content,
+                content: sanitizedContent,
                 coverImage,
-                status: "published",
+                published: true,
+                updatedAt: new Date(),
             })
-            .where(eq(projects.id, id));
+            .where(eq(caseStudies.id, id));
 
         revalidatePath("/dashboard/portfolio");
         revalidatePath(`/projects/${sanitizedSlug}`);
-        return { success: true, message: "Project updated successfully!" };
+        return { success: true, message: "Case study updated successfully!" };
     } catch (error) {
         console.error(error);
         return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
+export const updateProject = updateCaseStudy;
 
 // --- Services ---
 

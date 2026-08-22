@@ -380,10 +380,24 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                 </div>
 
                                 <div className="space-y-2 border-t border-white/10 pt-4">
-                                    <Label>Proposal & Files</Label>
+                                    <Label>Proposal & Documents</Label>
                                     <div className="bg-white/5 rounded-md p-3 border border-dashed border-white/20">
                                         <div className="mb-4">
-                                            <ProposalBuilderModal leadId={lead.id} leadName={lead.businessName || "Client"} />
+                                            <Button
+                                                onClick={async () => {
+                                                    const { getOrCreateDraftProposal } = await import("@/features/proposals/actions");
+                                                    const res = await getOrCreateDraftProposal(lead.id);
+                                                    if (res.success && res.proposalId) {
+                                                        router.push(`/dashboard/proposals/builder/${res.proposalId}`);
+                                                    } else {
+                                                        toast.error("Failed to open proposal studio.");
+                                                    }
+                                                }}
+                                                className="w-full bg-primary text-black hover:bg-primary/90 font-semibold py-2 rounded-md flex items-center justify-center transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.5)] border-0"
+                                            >
+                                                <FileText className="h-4 w-4 mr-2" />
+                                                Open Proposal Studio
+                                            </Button>
                                         </div>
                                         
                                         {lead.proposals && lead.proposals.length > 0 && (
@@ -396,11 +410,17 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             <CopyLinkButton proposalId={p.id} />
                                                             <SendEmailButton proposalId={p.id} />
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-muted-foreground hover:text-primary transition-colors"
+                                                                title="Edit in Proposal Studio"
+                                                                onClick={() => router.push(`/dashboard/proposals/builder/${p.id}`)}
+                                                            >
+                                                                <Pencil className="h-3 w-3" />
+                                                            </Button>
                                                             {p.status !== "Approved" && p.status !== "Accepted" && (
-                                                                <>
-                                                                    <ProposalBuilderModal leadId={lead.id} leadName={lead.businessName || "Client"} proposalId={p.id} />
-                                                                    <DeleteProposalButton proposalId={p.id} />
-                                                                </>
+                                                                <DeleteProposalButton proposalId={p.id} />
                                                             )}
                                                             <Badge variant="outline" className={`text-[10px] h-4 ${p.status === 'Approved' ? 'border-green-500 text-green-500' : p.status === 'Sent' ? 'border-yellow-500 text-yellow-500' : 'border-white/20'}`}>
                                                                 {p.status}
@@ -410,8 +430,6 @@ export function LeadCard({ lead, assignableUsers, isAdmin }: { lead: Lead; assig
                                                 ))}
                                             </div>
                                         )}
-
-
                                     </div>
                                 </div>
                             </div>

@@ -9,8 +9,10 @@ import {
     AnyPgColumn,
     foreignKey,
     index,
-    jsonb
+    jsonb,
+    check
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { AdapterAccount } from "next-auth/adapters";
 
 // 1. Enums (Single Source of Truth)
@@ -107,10 +109,12 @@ export const posts = pgTable("post", {
         .references(() => users.id, { onDelete: "set null" }), // Keep post if author deleted
     coverImage: text("coverImage"),
     excerpt: text("excerpt"),
-});
+}, (t) => [
+    index("idx_posts_published_created").on(t.published, t.createdAt),
+]);
 
-// 7. Projects / Case Studies
-export const projects = pgTable("project", {
+// 7. Case Studies (CMS)
+export const caseStudies = pgTable("case_study", {
     id: text("id")
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
@@ -120,10 +124,16 @@ export const projects = pgTable("project", {
     content: text("content"), // Full case study content
     clientName: text("clientName"),
     coverImage: text("coverImage"),
-    images: text("images").array(), // Array of image URLs
-    status: text("status").default("published"), // published, draft
+    galleryImages: jsonb("gallery_images").$type<string[]>().default([]).notNull(),
+    technologies: jsonb("technologies").$type<string[]>().default([]).notNull(),
+    published: boolean("published").default(true).notNull(),
+    order: text("order").default("0").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+    index("idx_case_studies_slug").on(t.slug),
+    index("idx_case_studies_published").on(t.published),
+]);
 
 // 8. Services
 export const services = pgTable("service", {
@@ -150,28 +160,42 @@ export const testimonials = pgTable("testimonial", {
     active: boolean("active").default(true),
 });
 
+export interface CompanyStat {
+    label: string;
+    value: string;
+    description?: string;
+}
+
+export interface TechStackItem {
+    name: string;
+    category?: "Frontend" | "Backend" | "Database" | "Cloud" | "AI" | string;
+    iconUrl?: string;
+    imageUrl?: string;
+}
+
 // 10. Site Settings (Singleton)
 export const siteSettings = pgTable("site_settings", {
-    id: text("id").primaryKey().default("1"), // Ensure single row usage pattern
+    id: text("id").primaryKey().default("singleton_root"), // Ensure single row usage pattern
     heroTitle: text("heroTitle").default("Build the Future"),
     heroDescription: text("heroDescription").default("Premium software development agency crafting high-performance websites."),
     aboutText: text("aboutText"),
     logoUrl: text("logoUrl"),
     faviconUrl: text("faviconUrl"),
     contactEmail: text("contactEmail"),
-    notificationEmails: text("notificationEmails"), // Comma-separated list of admin emails
+    notificationEmails: jsonb("notificationEmails").$type<string[]>().default([]).notNull(),
     demoVideoUrl: text("demoVideoUrl"), // URL for the homepage demo video (YouTube/Vimeo embed or direct)
 
-    // Phase 5 Intelligence Settings (REMOVED)
     // About Page Content
     aboutHeroTitle: text("about_hero_title").default("About Our Agency"),
     missionStatement: text("mission_statement"),
-    companyStats: text("company_stats"), // JSON string: [{"label":"...","value":"..."}]
+    companyStats: jsonb("company_stats").$type<CompanyStat[]>().default([]).notNull(),
     aboutTechStack: text("about_tech_stack").default("Powered By Next-Generation Technologies"),
-    aboutTechStackItems: text("about_tech_stack_items"), // JSON string: [{"name":"React", "imageUrl":"..."}]
+    aboutTechStackItems: jsonb("about_tech_stack_items").$type<TechStackItem[]>().default([]).notNull(),
     aboutCtaHeadline: text("about_cta_headline").default("Ready to start your next project?"),
     aboutCtaText: text("about_cta_text").default("Let's build something extraordinary together."),
-});
+}, (t) => [
+    check("site_settings_singleton_check", sql`${t.id} = 'singleton_root'`),
+]);
 
 // 10b. About Page Values (Bento Cards)
 export const aboutValues = pgTable("about_value", {
@@ -210,7 +234,7 @@ export const leads = pgTable("lead", {
         .$defaultFn(() => crypto.randomUUID()),
     clientId: text("clientId")
         .notNull()
-        .references(() => users.id, { onDelete: "cascade" }), 
+        .references(() => users.id, { onDelete: "set null" }), 
     serviceId: text("serviceId")
         .references(() => services.id, { onDelete: "set null" }), 
     businessName: text("business_name"),
@@ -279,19 +303,35 @@ export const proposals = pgTable("proposal", {
     leadId: text("leadId")
         .notNull()
         .references(() => leads.id, { onDelete: "cascade" }),
+    proposalCode: text("proposal_code"),
     scope: text("scope"),
-    deliverables: text("deliverables"),
+    deliverables: jsonb("deliverables"),
     timeline: text("timeline"),
     technicalApproach: text("technicalApproach"),
-    pricingStructure: text("pricingStructure"),
+    pricingStructure: jsonb("pricingStructure"),
+    subtotal: integer("subtotal").default(0),
+    discount: integer("discount").default(0),
+    tax: integer("tax").default(0),
+    total: integer("total").default(0),
+    terms: text("terms"),
+    validUntil: timestamp("valid_until"),
     status: proposalStatusEnum("status").default("Draft").notNull(),
     fileUrl: text("fileUrl"),
     rejectionReason: text("rejection_reason"),
+    // Hybrid Digital Signature Metadata
+    acceptedByName: text("accepted_by_name"),
+    acceptedByEmail: text("accepted_by_email"),
+    acceptedByTitle: text("accepted_by_title"),
+    signatureData: text("signature_data"),
+    acceptedAt: timestamp("accepted_at"),
+    acceptedIp: text("accepted_ip"),
+    acceptedUserAgent: text("accepted_user_agent"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
 }, (t) => [
     index("idx_proposal_lead").on(t.leadId),
+    index("idx_proposal_code").on(t.proposalCode),
 ]);
 
 // 15. Audit Logs
@@ -399,7 +439,7 @@ export const agencyProjects = pgTable("agency_project", {
     title: text("title").notNull(),
     description: text("description"),
     leadId: text("leadId")
-        .references(() => leads.id, { onDelete: "set null" }), // Link back to originating lead
+        .references(() => leads.id, { onDelete: "restrict" }), // Link back to originating lead
     status: agencyProjectStatusEnum("status").default("Kickoff").notNull(),
     startDate: timestamp("start_date", { mode: "date" }),
     targetDate: timestamp("target_date", { mode: "date" }),
@@ -469,6 +509,8 @@ export const tasks = pgTable("task", {
     }).onDelete("set null"),
     idxProjectDeleted: index("idx_task_project_deleted").on(t.projectId, t.deletedAt),
     idxMilestoneDeleted: index("idx_task_milestone_deleted").on(t.milestoneId, t.deletedAt),
+    idxTaskProjectStatus: index("idx_task_project_status").on(t.projectId, t.status),
+    idxTaskMilestoneStatus: index("idx_task_milestone_status").on(t.milestoneId, t.status),
 }));
 
 export const taskAssignees = pgTable("task_assignee", {

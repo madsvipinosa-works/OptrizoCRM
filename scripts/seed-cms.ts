@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "../src/db";
-import { users, services, projects, testimonials, posts, siteSettings } from "../src/db/schema";
+import { users, services, caseStudies, testimonials, posts, siteSettings } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 
 async function main() {
@@ -44,16 +44,16 @@ async function main() {
             }
         ]);
 
-        // 3. Seed Portfolio Projects
-        console.log("Seeding Portfolio Projects...");
-        await db.insert(projects).values([
+        // 3. Seed Portfolio Case Studies
+        console.log("Seeding Portfolio Case Studies...");
+        await db.insert(caseStudies).values([
             {
                 title: "Nexus Dashboard",
                 slug: "nexus-dashboard",
                 description: "A complete overhaul of an enterprise SaaS analytics dashboard.",
                 content: "<p>The client approached us with a legacy dashboard that was slow and difficult to use. We completely re-architected the frontend using Next.js and Tailwind CSS, improving load times by 400% and increasing user retention.</p>",
                 clientName: "Nexus Analytics Inc.",
-                status: "published"
+                published: true
             },
             {
                 title: "Aura E-Commerce",
@@ -61,7 +61,7 @@ async function main() {
                 description: "Headless Shopify integration for a sustainable fashion brand.",
                 content: "<p>Aura needed a blazing fast storefront that matched their premium brand identity. We built a custom Next.js frontend pulling from Shopify's Storefront API, resulting in a 60% increase in mobile conversion rates.</p>",
                 clientName: "Aura Fashion",
-                status: "published"
+                published: true
             }
         ]);
 
@@ -113,8 +113,8 @@ async function main() {
             .set({
                 aboutText: "Optrizo Digital Solutions is a premier software development and product design agency. We specialize in partnering with bold companies to build high-performance web applications, striking brand identities, and custom digital infrastructure that drives real business growth. Based in the cloud, serving the world."
             })
-            // Update the default row (ID 1)
-            .where(eq(siteSettings.id, "1"));
+            // Update the default row (ID singleton_root)
+            .where(eq(siteSettings.id, "singleton_root"));
 
         console.log("✅ CMS Mock Data Seed Complete!");
         process.exit(0);

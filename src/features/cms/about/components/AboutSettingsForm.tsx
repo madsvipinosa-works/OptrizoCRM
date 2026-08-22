@@ -14,9 +14,9 @@ import { ImageUpload } from "@/components/ui/image-upload";
 export interface AboutSettingsData {
     aboutHeroTitle?: string | null;
     missionStatement?: string | null;
-    companyStats?: string | null;
+    companyStats?: { label: string; value: string; description?: string }[] | string | null;
     aboutTechStack?: string | null;
-    aboutTechStackItems?: string | null;
+    aboutTechStackItems?: { name: string; imageUrl?: string; iconUrl?: string; category?: string }[] | string | null;
     aboutCtaHeadline?: string | null;
     aboutCtaText?: string | null;
 }
@@ -26,6 +26,7 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
 
     const [stats, setStats] = useState<{ label: string; value: string }[]>(() => {
         if (!initialData?.companyStats) return [];
+        if (Array.isArray(initialData.companyStats)) return initialData.companyStats;
         try {
             return JSON.parse(initialData.companyStats);
         } catch {
@@ -35,6 +36,7 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
 
     const [techStack, setTechStack] = useState<{ name: string; imageUrl: string }[]>(() => {
         if (!initialData?.aboutTechStackItems) return [];
+        if (Array.isArray(initialData.aboutTechStackItems)) return initialData.aboutTechStackItems;
         try {
             return JSON.parse(initialData.aboutTechStackItems);
         } catch {

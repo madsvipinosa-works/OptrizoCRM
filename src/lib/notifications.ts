@@ -19,18 +19,18 @@ export async function sendLeadNotification(leadData: {
         // 1. Fetch Notification Recipients from Site Settings
         const settings = await db.query.siteSettings.findFirst();
         console.log("DEBUG: Site Settings Found:", settings);
-        const recipientsRaw = settings?.notificationEmails || "";
+        const recipientsRaw = settings?.notificationEmails;
 
         console.log("DEBUG: Raw Recipients:", recipientsRaw);
         console.log("DEBUG: API Key Present:", !!process.env.RESEND_API_KEY);
 
         // Filter valid emails
-
-        // Filter valid emails
-        const recipients = recipientsRaw
-            .split(",")
-            .map((e) => e.trim())
-            .filter((e) => e.includes("@")); // Basic validation
+        let recipients: string[] = [];
+        if (Array.isArray(recipientsRaw)) {
+            recipients = (recipientsRaw as string[]).map((e: string) => e.trim()).filter((e: string) => e.includes("@"));
+        } else if (typeof recipientsRaw === "string") {
+            recipients = (recipientsRaw as string).split(",").map((e: string) => e.trim()).filter((e: string) => e.includes("@"));
+        }
 
         if (recipients.length === 0) {
             console.warn("No notification emails configured in Site Settings.");

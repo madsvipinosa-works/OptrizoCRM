@@ -5,21 +5,16 @@ import { z } from "zod";
 import { auth, hasRole } from "@/auth";
 import { logAction } from "@/features/audit/actions";
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
+const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB limit
 const ALLOWED_MIME_TYPES = [
     "image/jpeg",
     "image/png",
     "image/webp",
+    "image/svg+xml",
     "application/pdf",
     "application/zip",
     "application/x-zip-compressed"
-];
-
-const fileUploadSchema = z.object({
-    file: z.instanceof(File)
-        .refine((file) => file.size <= MAX_FILE_SIZE, `File size must be under 20MB.`)
-        .refine((file) => ALLOWED_MIME_TYPES.includes(file.type), `File type not allowed. Please upload PDF, PNG, JPG, or ZIP.`)
-});
+] as const;
 
 export async function deleteImage(url: string) {
     const session = await auth();
@@ -30,24 +25,10 @@ export async function deleteImage(url: string) {
     if (!url) return;
 
     try {
-        // New protected download URL format: /api/private-file?local=... or /api/private-file?blobUrl=...
         if (url.startsWith("/api/private-file")) {
             const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
             const u = new URL(url, baseUrl);
-
-            const local = u.searchParams.get("local");
             const blobUrl = u.searchParams.get("blobUrl");
-
-            const fs = await import("fs/promises");
-            const path = await import("path");
-
-            if (local) {
-                const safeName = local.replace(/[^a-zA-Z0-9._-]/g, "");
-                const filePath = path.join(process.cwd(), ".private-uploads", safeName);
-                await fs.unlink(filePath);
-                await logAction("DELETE", "Upload", `Deleted local private upload ${safeName}`, session.user.id);
-                return { success: true };
-            }
 
             if (blobUrl) {
                 await del(blobUrl);
@@ -58,21 +39,8 @@ export async function deleteImage(url: string) {
             return { success: false, message: "Missing deletion parameters" };
         }
 
-        // Backward compatibility: old local files in public/uploads
-        if (url.startsWith("/uploads/")) {
-            const fs = await import("fs/promises");
-            const path = await import("path");
-
-            const filename = url.replace("/uploads/", "");
-            const filePath = path.join(process.cwd(), "public", "uploads", filename);
-            await fs.unlink(filePath);
-            await logAction("DELETE", "Upload", `Deleted legacy public upload ${filename}`, session.user.id);
-            return { success: true };
-        }
-
-        // Legacy: assume `url` is a blob URL that `del()` can handle.
         await del(url);
-        await logAction("DELETE", "Upload", `Deleted legacy upload reference`, session.user.id);
+        await logAction("DELETE", "Upload", `Deleted upload reference`, session.user.id);
         return { success: true };
     } catch (error) {
         console.error("Failed to delete file:", error);
@@ -80,59 +48,52 @@ export async function deleteImage(url: string) {
     }
 }
 
-export async function uploadImage(formData: FormData) {
+export async function uploadSecureAsset(formData: FormData) {
     const session = await auth();
     if (!session?.user?.id) {
-        return { success: false, message: "Unauthorized" };
+        return { success: false, error: "Unauthorized access." };
     }
 
-    const file = formData.get("file") as File;
-    
-    if (!file) {
-        return { success: false, message: "No file uploaded." };
+    const file = formData.get("file") as File | null;
+    if (!file || !(file instanceof File)) {
+        return { success: false, error: "No valid file payload provided." };
     }
 
-    const validated = fileUploadSchema.safeParse({ file });
-    
-    if (!validated.success) {
-        return { 
-            success: false, 
-            message: validated.error.flatten().fieldErrors.file?.[0] || "Invalid file."
-        };
+    // 1. Enforce File Size Boundary
+    if (file.size > MAX_FILE_SIZE) {
+        return { success: false, error: `File exceeds maximum allowed size of 15MB (Received ${(file.size / (1024 * 1024)).toFixed(1)}MB).` };
     }
+
+    // 2. Enforce Strict MIME Validation
+    if (!ALLOWED_MIME_TYPES.includes(file.type as any)) {
+        return { success: false, error: `Disallowed file type: ${file.type}. Allowed: JPG, PNG, WEBP, SVG, PDF, ZIP.` };
+    }
+
+    // 3. Sanitize File Name
+    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const uniqueBlobPath = `tenants/${session.user.id}/${Date.now()}-${sanitizedFilename}`;
 
     try {
-        // Upload to a private Vercel Blob store so the content isn't publicly reachable.
-        const blob = await put(file.name, file, { access: "private" });
-        const downloadUrl = `/api/private-file?blobUrl=${encodeURIComponent(blob.url)}`;
-        await logAction("CREATE", "Upload", `Uploaded private file ${file.name}`, session.user.id);
+        const blob = await put(uniqueBlobPath, file, {
+            access: "public",
+            addRandomSuffix: true,
+        });
+
+        await logAction("CREATE", "Upload", `Uploaded secure asset ${file.name}`, session.user.id);
+        
         return {
             success: true,
-            url: downloadUrl,
+            url: blob.url,
+            downloadUrl: blob.downloadUrl,
+            size: file.size,
+            mimeType: file.type,
+            message: "Upload successful",
         };
     } catch (error) {
-        // Local/dev fallback: store into `.private-uploads` and serve via the protected route.
-        try {
-            const fs = await import("fs/promises");
-            const path = await import("path");
-            const crypto = await import("crypto");
-
-            const buffer = Buffer.from(await file.arrayBuffer());
-            const uniqueName = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "")}`;
-            const uploadDir = path.join(process.cwd(), ".private-uploads");
-
-            await fs.mkdir(uploadDir, { recursive: true });
-            await fs.writeFile(path.join(uploadDir, uniqueName), buffer);
-
-            await logAction("CREATE", "Upload", `Uploaded local private file ${uniqueName}`, session.user.id);
-            return {
-                success: true,
-                url: `/api/private-file?local=${encodeURIComponent(uniqueName)}`,
-            };
-        } catch (fallbackErr) {
-            const err = error as Error;
-            console.error("Upload failed:", err, fallbackErr);
-            return { success: false, message: `Upload failed: ${err.message || "Unknown error"}` };
-        }
+        console.error("[SECURE_UPLOAD_ERROR]:", error);
+        return { success: false, error: "Failed to upload asset to storage provider.", message: "Failed to upload asset." };
     }
 }
+
+export const uploadImage = uploadSecureAsset;
+
