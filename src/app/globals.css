@@ -284,3 +284,59 @@ body {
     visibility: hidden !important;
   }
 }
+
+/* --- Spatial 3D Experience Hero Styles --- */
+@keyframes loading-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-loading {
+  animation: loading-slide 2s ease-in-out infinite;
+}
+
+.text-outline {
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.45);
+  color: transparent;
+}
+
+.light .text-outline,
+[data-theme="light"] .text-outline,
+.theme-light .text-outline {
+  -webkit-text-stroke: 1.5px rgba(10, 10, 10, 0.45);
+  color: transparent;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+}
+
+.light .glass-panel,
+[data-theme="light"] .glass-panel,
+.theme-light .glass-panel {
+  background: rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 1rem;
+}
+
+.bento-mask {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.light .bento-mask,
+[data-theme="light"] .bento-mask,
+.theme-light .bento-mask {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

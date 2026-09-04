@@ -8,12 +8,7 @@ export default function PublicLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <div className="flex flex-col min-h-screen relative overflow-hidden bg-black text-white selection:bg-primary/30 print:bg-transparent">
-            {/* Global Interactive Mouse Effect Background */}
-            <div className="print:hidden">
-                <MouseEffectBackground className="fixed inset-0 z-0 opacity-40 pointer-events-auto" dotSize={1.5} dotSpacing={32} repulsionRadius={80} />
-            </div>
-
+        <div className="flex flex-col min-h-screen relative overflow-hidden bg-background text-foreground selection:bg-primary/30 print:bg-transparent transition-colors duration-500">
             <div className="print:hidden">
                  <Navbar />
             </div>
