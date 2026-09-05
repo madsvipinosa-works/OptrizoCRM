@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Float, MeshDistortMaterial, useGLTF, Center, ContactShadows } from "@react-three/drei";
+import { Float, MeshDistortMaterial, useGLTF, Center } from "@react-three/drei";
 import * as THREE from "three";
 import gsap from "gsap";
 import { Sun, Moon } from "lucide-react";
@@ -39,9 +39,11 @@ export const TypewriterHeadline: React.FC<TypewriterProps> = ({
     }
 
     if (isDeleting && subIndex === 0) {
-      setIsDeleting(false);
-      setIndex((prev) => (prev + 1) % words.length);
-      return;
+      const timeout = setTimeout(() => {
+        setIsDeleting(false);
+        setIndex((prev) => (prev + 1) % words.length);
+      }, 50);
+      return () => clearTimeout(timeout);
     }
 
     const timeout = setTimeout(
@@ -82,7 +84,7 @@ const LiquidBackground: React.FC<LiquidBackgroundProps> = ({ isDark }) => {
       uMouse: { value: new THREE.Vector2(0, 0) },
       uIsDark: { value: isDark ? 1.0 : 0.0 },
     }),
-    []
+    [isDark]
   );
 
   useEffect(() => {
@@ -135,16 +137,21 @@ const LiquidBackground: React.FC<LiquidBackgroundProps> = ({ isDark }) => {
             vec2 m = uMouse * 0.08;
             float color = smoothstep(0.0, 1.0, (sin(uv.x * 7.0 + t + m.x * 10.0) + sin(uv.y * 5.5 - t + m.y * 10.0)) * 0.5 + 0.5);
             
-            // Deep obsidian with Optrizo electric green caustic reflections
-            vec3 darkBase = mix(vec3(0.005, 0.006, 0.008), vec3(0.018, 0.03, 0.022), color);
-            vec3 greenGlow = vec3(0.0, 0.84, 0.22) * pow(color, 4.0) * 0.20;
-            vec3 darkColor = darkBase + greenGlow;
-            
-            // Alabaster with soft emerald pearl caustics
-            vec3 lightBase = mix(vec3(0.97, 0.97, 0.98), vec3(0.88, 0.91, 0.89), color);
-            vec3 lightGreenGlow = vec3(0.0, 0.84, 0.22) * pow(color, 3.5) * 0.07;
-            vec3 lightColor = lightBase + lightGreenGlow;
-            
+            // Dynamic vertical falloff: softly dissolve shader caustics and glow toward bottom
+            float bottomFalloff = smoothstep(0.08, 0.42, uv.y);
+
+            // Alabaster background matching oklch(97.02% 0.0020 148.67) ~ #F6F8F6
+            vec3 lightBg = vec3(0.965, 0.970, 0.966);
+            vec3 lightPearl = mix(lightBg, vec3(0.945, 0.958, 0.948), color * 0.4);
+            vec3 lightGreenGlow = vec3(0.0, 0.84, 0.22) * pow(color, 3.5) * 0.05 * bottomFalloff;
+            vec3 lightColor = mix(lightBg, lightPearl + lightGreenGlow, bottomFalloff);
+
+            // Noir dark background matching oklch(12.00% 0.0020 148.67) ~ #0A0D0B
+            vec3 darkBg = vec3(0.035, 0.038, 0.036);
+            vec3 darkCaustics = mix(darkBg, vec3(0.050, 0.065, 0.055), color);
+            vec3 darkGreenGlow = vec3(0.0, 0.84, 0.22) * pow(color, 4.0) * 0.18 * bottomFalloff;
+            vec3 darkColor = mix(darkBg, darkCaustics + darkGreenGlow, bottomFalloff);
+
             vec3 finalColor = mix(lightColor, darkColor, uIsDark);
             gl_FragColor = vec4(finalColor, 1.0);
           }
@@ -247,7 +254,7 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
     <Float speed={1.8} rotationIntensity={0.5} floatIntensity={1.2}>
       <group ref={groupRef} rotation={[0.36, Math.PI / 6, 0]} scale={[1.15, 1.15, 1.15]}>
         {/* Outer Hexagonal Frame in Optrizo Electric Green & Chrome */}
-        <mesh ref={frameRef} geometry={frameGeometry}>
+        <mesh ref={frameRef} geometry={frameGeometry} castShadow receiveShadow>
           <MeshDistortMaterial
             color="#00D639"
             speed={1.5}
@@ -260,7 +267,7 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
         {/* Interior Ascending Pillars */}
         <group ref={pillarsRef} position={[0, -0.6, 0]}>
           {/* Pillar 1 (Left) */}
-          <mesh position={[-2.4, -0.8, 0]} geometry={pillar1Geo}>
+          <mesh position={[-2.4, -0.8, 0]} geometry={pillar1Geo} castShadow receiveShadow>
             <meshStandardMaterial
               color="#00D639"
               roughness={0.2}
@@ -269,7 +276,7 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
           </mesh>
 
           {/* Pillar 2 (Center - Tallest) */}
-          <mesh position={[0, 0.9, 0]} geometry={pillar2Geo}>
+          <mesh position={[0, 0.9, 0]} geometry={pillar2Geo} castShadow receiveShadow>
             <meshStandardMaterial
               color="#00D639"
               roughness={0.15}
@@ -280,7 +287,7 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
           </mesh>
 
           {/* Pillar 3 (Right) */}
-          <mesh position={[2.4, 0.0, 0]} geometry={pillar3Geo}>
+          <mesh position={[2.4, 0.0, 0]} geometry={pillar3Geo} castShadow receiveShadow>
             <meshStandardMaterial
               color="#00D639"
               roughness={0.2}
@@ -307,7 +314,6 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
 const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
   const { scene } = useGLTF("/models/optrizo-3d-model.glb");
   const groupRef = useRef<THREE.Group>(null);
-  const { viewport } = useThree();
 
   const posX = 0;
   const posY = 0;
@@ -320,13 +326,13 @@ const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
         const mesh = child as THREE.Mesh;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        // Rich high-contrast material with deep shadow definition
+        // Rich high-contrast material with deep shadow definition & self-shadowing
         const mat = new THREE.MeshStandardMaterial({
           color: new THREE.Color("#00D639"),
-          roughness: isDark ? 0.30 : 0.34,
-          metalness: isDark ? 0.38 : 0.22,
-          emissive: new THREE.Color(isDark ? "#001405" : "#000802"),
-          emissiveIntensity: isDark ? 0.10 : 0.04, // Lower emissive so shadows in crevices and bevels are deep and dramatic
+          roughness: isDark ? 0.26 : 0.28,
+          metalness: isDark ? 0.42 : 0.32,
+          emissive: new THREE.Color("#000000"),
+          emissiveIntensity: 0.0, // Zero self-illumination in crevices so shadows are deep and rich
           transparent: false,
           opacity: 1.0,
           side: THREE.DoubleSide,
@@ -359,16 +365,15 @@ const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark }) => {
         </group>
       </Float>
 
-      {/* Dramatic Contact Shadow floating underneath the 3D sculpture */}
-      <ContactShadows
-        position={[posX, posY - 15, 0]}
-        opacity={isDark ? 0.92 : 0.65}
-        scale={36}
-        blur={2.5}
-        far={25}
-        resolution={512}
-        color={isDark ? "#000000" : "#002008"}
-      />
+      {/* Architectural Wall Shadow Receiver directly behind the 3D sculpture */}
+      <mesh position={[posX, posY, -6]} receiveShadow>
+        <planeGeometry args={[60, 60]} />
+        <shadowMaterial
+          transparent
+          opacity={isDark ? 0.40 : 0.15}
+          color={isDark ? "#000000" : "#001a06"}
+        />
+      </mesh>
     </>
   );
 };
@@ -410,7 +415,7 @@ export const Component: React.FC<ExperienceHeroProps> = ({
   description = "We engineer bespoke web platforms, enterprise software, and scalable digital infrastructure through modern architecture.",
   ctaText = "Start a Project",
   ctaHref = "/contact",
-  initialTheme = "dark",
+  initialTheme = "light",
   stats = [
     { id: "001", title: "AVAILABILITY", val: "Open", type: "progress" },
     { id: "002", title: "STUDIO STATS", val: "50+ Shipped", type: "data" },
@@ -431,21 +436,43 @@ export const Component: React.FC<ExperienceHeroProps> = ({
   const [isDark, setIsDark] = useState(initialTheme === "dark");
 
   useEffect(() => {
-    setMounted(true);
-    if (typeof document !== "undefined") {
-      const isDocLight = document.documentElement.classList.contains("light");
-      if (isDocLight) {
-        setIsDark(false);
-      } else {
-        setIsDark(true);
+    requestAnimationFrame(() => {
+      setMounted(true);
+      if (typeof document !== "undefined") {
+        try {
+          const savedTheme = localStorage.getItem("optrizo-theme");
+          if (savedTheme === "dark") {
+            setIsDark(true);
+            document.documentElement.classList.add("dark");
+            document.documentElement.classList.remove("light");
+            document.body.classList.add("dark");
+            document.body.classList.remove("light");
+            return;
+          } else if (savedTheme === "light") {
+            setIsDark(false);
+            document.documentElement.classList.remove("dark");
+            document.documentElement.classList.add("light");
+            document.body.classList.remove("dark");
+            document.body.classList.add("light");
+            return;
+          }
+        } catch {
+          // ignore localStorage access error
+        }
       }
-    }
+    });
   }, []);
 
   const toggleTheme = useCallback(() => {
     const nextDark = !isDark;
     setIsDark(nextDark);
     if (typeof document !== "undefined") {
+      try {
+        localStorage.setItem("optrizo-theme", nextDark ? "dark" : "light");
+      } catch {
+        // Ignore storage errors
+      }
+
       if (nextDark) {
         document.documentElement.classList.add("dark");
         document.documentElement.classList.remove("light");
@@ -548,16 +575,17 @@ export const Component: React.FC<ExperienceHeroProps> = ({
   return (
     <section
       ref={containerRef}
-      className={`relative min-h-screen w-full transition-colors duration-500 flex flex-col overflow-hidden will-change-auto ${
+      className={`relative min-h-screen w-full transition-colors duration-500 flex flex-col overflow-hidden will-change-auto bg-background ${
         isDark
-          ? "bg-[#020202] text-white selection:bg-[#00D639] selection:text-black"
-          : "bg-[#f8f9fa] text-neutral-900 selection:bg-[#00D639] selection:text-black"
+          ? "text-white selection:bg-[#00D639] selection:text-black"
+          : "text-neutral-900 selection:bg-[#00D639] selection:text-black"
       }`}
     >
       {/* Optimized 3D WebGL Canvas Layer */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         {mounted && (
           <Canvas
+            shadows
             dpr={[1, 1.5]}
             gl={{
               powerPreference: "high-performance",
@@ -568,24 +596,35 @@ export const Component: React.FC<ExperienceHeroProps> = ({
             }}
             camera={{ position: [0, 0, 60], fov: 35 }}
           >
-            <ambientLight intensity={isDark ? 0.35 : 0.85} />
+            <ambientLight intensity={isDark ? 0.22 : 0.45} />
             <directionalLight
-              position={[40, 50, 40]}
-              intensity={isDark ? 3.2 : 4.0}
+              position={[12, 26, 48]}
+              intensity={isDark ? 3.4 : 3.8}
+              castShadow
+              shadow-mapSize={[1024, 1024]}
+              shadow-camera-near={10}
+              shadow-camera-far={90}
+              shadow-camera-left={-22}
+              shadow-camera-right={22}
+              shadow-camera-top={22}
+              shadow-camera-bottom={-22}
+              shadow-bias={-0.0002}
+              shadow-normalBias={0.03}
+              shadow-radius={4.0}
             />
             <directionalLight
-              position={[0, 15, 45]}
-              intensity={isDark ? 2.4 : 2.8}
+              position={[-15, 10, 35]}
+              intensity={isDark ? 1.0 : 1.2}
             />
             <pointLight
               position={[25, -10, 20]}
-              intensity={isDark ? 2.5 : 2.0}
+              intensity={isDark ? 2.0 : 1.4}
               color="#00D639"
               distance={90}
             />
             <pointLight
               position={[-30, 20, 15]}
-              intensity={isDark ? 1.4 : 1.6}
+              intensity={isDark ? 1.0 : 1.0}
               color="#ffffff"
             />
             <LiquidBackground isDark={isDark} />
@@ -595,6 +634,12 @@ export const Component: React.FC<ExperienceHeroProps> = ({
           </Canvas>
         )}
       </div>
+
+      {/* Seamless Bottom Blend Gradient: melts 3D lighting, contact shadows, & canvas into page background */}
+      <div
+        className="pointer-events-none absolute bottom-0 left-0 right-0 h-44 md:h-64 bg-gradient-to-t from-background via-background/80 to-transparent z-[2]"
+        aria-hidden="true"
+      />
 
       {/* Hero Foreground Content */}
       <div
@@ -691,7 +736,7 @@ export const Component: React.FC<ExperienceHeroProps> = ({
                 }`}
               >
                 {taglineBold}
-                <span className="text-[#00D639] font-black"> //</span>
+                <span className="text-[#00D639] font-black">{" //"}</span>
               </p>
               <p
                 className={`font-mono text-[11px] uppercase tracking-[0.28em] leading-relaxed ${
@@ -762,7 +807,7 @@ export const Component: React.FC<ExperienceHeroProps> = ({
                   isDark ? "text-white/30" : "text-neutral-700 font-semibold"
                 }`}
               >
-                {item.id} // {item.title}
+                {item.id}{" // "}{item.title}
               </span>
 
               {item.type === "progress" ? (

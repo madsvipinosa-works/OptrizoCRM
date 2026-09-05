@@ -11,7 +11,7 @@ interface SectionHeadingProps {
 export function SectionHeading({ text, className }: SectionHeadingProps) {
     const words = text.split(" ").map((word) => ({
         text: word,
-        className: "text-white dark:text-white",
+        className: "text-foreground dark:text-white",
     }));
 
     return (

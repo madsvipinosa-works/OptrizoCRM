@@ -88,10 +88,9 @@ export function SpotlightServiceCard({
             }}
             className={cn(
                 "group relative flex flex-col gap-5 overflow-hidden rounded-2xl border p-6 h-full",
-                // Dark-first (your site is dark)
-                "border-white/8 bg-white/3 shadow-none",
-                "transition-[border-color] duration-300",
-                "hover:border-white/20"
+                "border-neutral-200/80 dark:border-white/8 bg-white/80 dark:bg-white/3 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] dark:shadow-none",
+                "transition-[border-color,box-shadow] duration-300",
+                "hover:border-neutral-300 dark:hover:border-white/20 hover:shadow-md dark:hover:shadow-none backdrop-blur-sm"
             )}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -126,7 +125,7 @@ export function SpotlightServiceCard({
             {/* Shimmer sweep */}
             <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 left-0 w-[55%] -translate-x-full -skew-x-12 bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[280%]"
+                className="pointer-events-none absolute inset-y-0 left-0 w-[55%] -translate-x-full -skew-x-12 bg-gradient-to-r from-transparent via-black/5 dark:via-white/5 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[280%]"
             />
 
             {/* Icon badge */}
@@ -142,10 +141,10 @@ export function SpotlightServiceCard({
 
             {/* Text */}
             <div className="relative z-10 flex flex-col gap-2">
-                <h3 className="font-semibold text-[15px] text-white tracking-tight">
+                <h3 className="font-semibold text-[15px] text-neutral-900 dark:text-white tracking-tight">
                     {title}
                 </h3>
-                <p className="text-[13px] text-white/45 leading-relaxed">
+                <p className="text-[13px] text-neutral-600 dark:text-white/45 leading-relaxed">
                     {description}
                 </p>
             </div>

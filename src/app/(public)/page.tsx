@@ -137,16 +137,8 @@ export default async function Home() {
                     </ContainerScroll>
                 )}
 
-                {/* Services Section (Dynamic) */}
-                <section className="container px-4 mx-auto py-32">
-                    <ScrollReveal className="flex flex-col items-center mb-16 text-center">
-                        <Badge variant="secondary" className="mb-4 text-primary">Our Expertise</Badge>
-                        <SectionHeading text="End-to-End Digital Solutions" className="text-4xl mb-4" />
-                        <p className="text-muted-foreground max-w-2xl mx-auto">We don&apos;t just write code; we build digital assets that drive growth.</p>
-                    </ScrollReveal>
-
-                    <ServicesGrid />
-                </section>
+                {/* Services Section with Interactive Animated Hover Modal */}
+                <ServicesGrid />
 
                 {/* Portfolio Showcase Section */}
                 <section className="container px-4 mx-auto py-16">

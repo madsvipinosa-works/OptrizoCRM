@@ -33,27 +33,27 @@ export function CTAScrollScale({ startScale = 0.85 }: CTAScrollScaleProps) {
                 style={shouldAnimate ? { scale, transformOrigin: "center center" } : undefined}
             >
                 <SpotlightCard
-                    spotlightColor="rgba(57, 255, 20, 0.12)"
-                    className="!bg-white/3 !border-white/10 !rounded-xl !py-16 md:!py-24 !px-8 md:!px-32 w-full max-w-[1200px] mx-auto min-h-[400px] flex flex-col justify-center text-center"
+                    spotlightColor="rgba(57, 255, 20, 0.15)"
+                    className="!bg-white/80 dark:!bg-white/3 !border-neutral-200 dark:!border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:!shadow-none backdrop-blur-xl !rounded-2xl !py-16 md:!py-24 !px-8 md:!px-32 w-full max-w-[1200px] mx-auto min-h-[400px] flex flex-col justify-center text-center"
                 >
                     {/* Subtle dot grid */}
                     <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 rounded-xl opacity-20"
+                        className="pointer-events-none absolute inset-0 rounded-2xl opacity-20"
                         style={{
-                            backgroundImage: "radial-gradient(circle, rgba(57,255,20,0.15) 1px, transparent 1px)",
+                            backgroundImage: "radial-gradient(circle, rgba(57,255,20,0.2) 1px, transparent 1px)",
                             backgroundSize: "28px 28px",
                         }}
                     />
 
                     {/* Headline */}
-                    <h2 className="text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tight text-white mb-6 leading-tight max-w-[900px] mx-auto">
+                    <h2 className="text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-6 leading-tight max-w-[900px] mx-auto">
                         Ready to Build{" "}
                         <span className="text-primary drop-shadow-[0_0_24px_rgba(57,255,20,0.5)]">
                             Something Great?
                         </span>
                     </h2>
-                    <p className="text-xl md:text-2xl text-white/50 max-w-3xl mx-auto mb-12 relative z-10 text-center">
+                    <p className="text-xl md:text-2xl text-neutral-600 dark:text-white/50 max-w-3xl mx-auto mb-12 relative z-10 text-center">
                         Join the businesses that trust Optrizo to turn complex ideas into high-performance digital products — on time, on budget, and beyond expectation.
                     </p>
 

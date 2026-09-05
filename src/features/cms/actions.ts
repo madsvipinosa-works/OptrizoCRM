@@ -322,16 +322,21 @@ export async function createService(prevState: ActionState, formData: FormData) 
             };
         }
 
-        const { title, description, icon } = validated.data;
+        const { title, description, category, image, color, link, icon, order } = validated.data;
 
         await db.insert(services).values({
             title,
             description,
+            category,
+            image,
+            color: color || "#05160b",
+            link: link || "/contact",
             icon,
-            order: 0,
+            order: order ?? 0,
         });
 
         revalidatePath("/dashboard/services");
+        revalidatePath("/dashboard/cms");
         revalidatePath("/");
         return { success: true, message: "Service created successfully!" };
     } catch (error) {
@@ -355,7 +360,7 @@ export async function updateService(prevState: ActionState, formData: FormData) 
             };
         }
 
-        const { id, title, description, icon } = validated.data;
+        const { id, title, description, category, image, color, link, icon, order } = validated.data;
 
         if (!id) return { success: false, message: "Missing Service ID" };
 
@@ -363,11 +368,17 @@ export async function updateService(prevState: ActionState, formData: FormData) 
             .set({
                 title,
                 description,
+                category,
+                image,
+                color: color || "#05160b",
+                link: link || "/contact",
                 icon,
+                order: order ?? 0,
             })
             .where(eq(services.id, id));
 
         revalidatePath("/dashboard/services");
+        revalidatePath("/dashboard/cms");
         revalidatePath("/");
         return { success: true, message: "Service updated successfully!" };
     } catch (error) {

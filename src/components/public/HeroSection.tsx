@@ -18,7 +18,6 @@ interface HeroSectionProps {
 export function HeroSection({
     title,
     titleLine1 = "OPTRIZO",
-    titleLine2 = "CUSTOM SOLUTIONS",
     typewriterWords = [
         "CUSTOM SOLUTIONS",
         "DIGITAL PLATFORMS",
@@ -76,6 +75,12 @@ export function HeroSection({
             />
             {/* Bento ambient grid mask */}
             <div className="pointer-events-none absolute inset-0 bento-mask opacity-15 z-[5]" />
+
+            {/* Seamless Bottom Transition Gradient: dissolves bento mask and canvas into the page background */}
+            <div
+                className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 md:h-56 bg-gradient-to-t from-background via-background/70 to-transparent z-[6]"
+                aria-hidden="true"
+            />
         </div>
     );
 }

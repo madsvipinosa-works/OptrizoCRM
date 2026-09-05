@@ -27,10 +27,10 @@ export default function GalleryHoverCarousel({
             {items.map((item) => (
                 <div key={item.id} className="w-full">
                     <Link href={item.url} className="group block relative w-full h-[450px]">
-                        <Card className="relative h-full w-full overflow-hidden rounded-[2rem] border border-transparent bg-transparent hover:bg-[#0a0a0a] hover:border-white/5 transition-all duration-500">
+                        <Card className="relative h-full w-full overflow-hidden rounded-[2rem] border border-neutral-200/80 dark:border-transparent bg-white/70 dark:bg-transparent hover:bg-white dark:hover:bg-[#0a0a0a] hover:border-neutral-300 dark:hover:border-white/5 shadow-sm hover:shadow-xl dark:shadow-none transition-all duration-500">
 
                             {/* Image (Starts full height, shrinks to 55% on hover) */}
-                            <div className="absolute top-0 left-0 w-full h-full group-hover:h-[55%] transition-all duration-500 ease-in-out z-10 overflow-hidden bg-white/5">
+                            <div className="absolute top-0 left-0 w-full h-full group-hover:h-[55%] transition-all duration-500 ease-in-out z-10 overflow-hidden bg-neutral-100 dark:bg-white/5">
                                 <Image
                                     fill
                                     src={item.image}
@@ -40,9 +40,9 @@ export default function GalleryHoverCarousel({
                             </div>
 
                             {/* Text Section (Hidden by default, reveals on hover in the bottom 45%) */}
-                            <div className="absolute bottom-0 left-0 w-full h-[45%] p-6 md:p-8 flex flex-col justify-end translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out z-0 bg-[#0a0a0a]">
+                            <div className="absolute bottom-0 left-0 w-full h-[45%] p-6 md:p-8 flex flex-col justify-end translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out z-0 bg-white dark:bg-[#0a0a0a]">
                                 <div>
-                                    <h3 className="text-xl md:text-2xl font-semibold tracking-tight text-white mb-2">{item.title}</h3>
+                                    <h3 className="text-xl md:text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white mb-2">{item.title}</h3>
                                     <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 md:line-clamp-3">
                                         {item.summary}
                                     </p>
@@ -50,7 +50,7 @@ export default function GalleryHoverCarousel({
 
                                 {/* Action Button */}
                                 <div className="absolute bottom-6 right-6">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-transparent group-hover:bg-white/5 transition-colors text-white">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-transparent group-hover:bg-neutral-200 dark:group-hover:bg-white/5 transition-colors text-neutral-900 dark:text-white">
                                         <ArrowRight className="h-4 w-4" />
                                     </div>
                                 </div>

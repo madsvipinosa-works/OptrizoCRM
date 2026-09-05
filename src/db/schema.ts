@@ -6,7 +6,6 @@ import {
     primaryKey,
     integer,
     pgEnum,
-    AnyPgColumn,
     foreignKey,
     index,
     jsonb,
@@ -142,6 +141,10 @@ export const services = pgTable("service", {
         .$defaultFn(() => crypto.randomUUID()),
     title: text("title").notNull(),
     description: text("description").notNull(),
+    category: text("category"),
+    image: text("image"),
+    color: text("color").default("#05160b"),
+    link: text("link").default("/contact"),
     icon: text("icon"), // Name of Lucide icon
     order: integer("order").default(0),
 });
