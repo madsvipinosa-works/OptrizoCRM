@@ -18,6 +18,7 @@ export interface ServiceItem {
     link?: string | null;
     icon?: string | null;
     order?: number | null;
+    isFeatured?: boolean | null;
 }
 
 export interface ServicesHoverModalProps {

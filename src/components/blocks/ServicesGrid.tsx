@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { services } from "@/db/schema";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { ServicesWithAnimatedHoverModal, ServiceItem } from "@/components/ui/services-with-animated-hover-modal";
 
 const defaultFallbackServices: ServiceItem[] = [
@@ -40,24 +40,26 @@ const defaultFallbackServices: ServiceItem[] = [
         color: "#0b1928",
         link: "/contact",
     },
-    {
-        id: "default-5",
-        title: "AI & Intelligent Automation",
-        category: "Intelligent Systems",
-        description: "Custom AI agents, automated workflow orchestration, and generative intelligence integrated into enterprise logic.",
-        image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop",
-        color: "#160728",
-        link: "/contact",
-    },
 ];
 
 export async function ServicesGrid() {
-    const dbServices = await db.query.services.findMany({
+    // Only query up to 4 services that have been explicitly chosen for the landing page showcase
+    let dbServices = await db.query.services.findMany({
+        where: eq(services.isFeatured, true),
         orderBy: [asc(services.order)],
+        limit: 4,
     });
 
+    // Graceful fallback: If no services are currently flagged as featured, fallback to top 4 services
+    if (dbServices.length === 0) {
+        dbServices = await db.query.services.findMany({
+            orderBy: [asc(services.order)],
+            limit: 4,
+        });
+    }
+
     const items: ServiceItem[] = dbServices.length > 0
-        ? dbServices.map((service, index) => ({
+        ? dbServices.slice(0, 4).map((service, index) => ({
             id: service.id,
             title: service.title,
             description: service.description,

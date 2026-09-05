@@ -5,7 +5,7 @@ import { deleteImage } from "@/features/upload/actions";
 
 import { siteSettings, posts, caseStudies, services, testimonials } from "@/db/schema";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { auth, requireRole, hasRole } from "@/auth";
 import { sanitizeHtml } from "@/lib/sanitize";
 import {
@@ -322,7 +322,19 @@ export async function createService(prevState: ActionState, formData: FormData) 
             };
         }
 
-        const { title, description, category, image, color, link, icon, order } = validated.data;
+        const { title, description, category, image, color, link, icon, order, isFeatured } = validated.data;
+
+        if (isFeatured) {
+            const featured = await db.query.services.findMany({
+                where: eq(services.isFeatured, true),
+            });
+            if (featured.length >= 4) {
+                return {
+                    success: false,
+                    message: "You can only feature up to 4 services on the landing page. Please unselect another service first.",
+                };
+            }
+        }
 
         await db.insert(services).values({
             title,
@@ -333,6 +345,7 @@ export async function createService(prevState: ActionState, formData: FormData) 
             link: link || "/contact",
             icon,
             order: order ?? 0,
+            isFeatured: isFeatured ?? false,
         });
 
         revalidatePath("/dashboard/services");
@@ -360,9 +373,21 @@ export async function updateService(prevState: ActionState, formData: FormData) 
             };
         }
 
-        const { id, title, description, category, image, color, link, icon, order } = validated.data;
+        const { id, title, description, category, image, color, link, icon, order, isFeatured } = validated.data;
 
         if (!id) return { success: false, message: "Missing Service ID" };
+
+        if (isFeatured) {
+            const otherFeatured = await db.query.services.findMany({
+                where: and(eq(services.isFeatured, true), ne(services.id, id)),
+            });
+            if (otherFeatured.length >= 4) {
+                return {
+                    success: false,
+                    message: "You can only feature up to 4 services on the landing page. Please unselect another service first.",
+                };
+            }
+        }
 
         await db.update(services)
             .set({
@@ -374,6 +399,7 @@ export async function updateService(prevState: ActionState, formData: FormData) 
                 link: link || "/contact",
                 icon,
                 order: order ?? 0,
+                isFeatured: isFeatured ?? false,
             })
             .where(eq(services.id, id));
 
@@ -387,10 +413,47 @@ export async function updateService(prevState: ActionState, formData: FormData) 
     }
 }
 
+export async function toggleServiceFeatured(id: string, isFeatured: boolean) {
+    try {
+        await requireEditor();
+
+        if (isFeatured) {
+            const otherFeatured = await db.query.services.findMany({
+                where: and(eq(services.isFeatured, true), ne(services.id, id)),
+            });
+            if (otherFeatured.length >= 4) {
+                return {
+                    success: false,
+                    message: "Maximum of 4 services can be displayed on the landing page. Please unselect another service first.",
+                };
+            }
+        }
+
+        await db.update(services)
+            .set({ isFeatured })
+            .where(eq(services.id, id));
+
+        revalidatePath("/dashboard/services");
+        revalidatePath("/dashboard/cms");
+        revalidatePath("/");
+
+        return {
+            success: true,
+            message: isFeatured
+                ? "Service selected for landing page display (up to 4 max)."
+                : "Service removed from landing page display.",
+        };
+    } catch (error) {
+        console.error("Failed to toggle service featured status:", error);
+        return { success: false, message: "Failed to update service featured status." };
+    }
+}
+
 export async function deleteService(id: string) {
     await requireEditor();
     await db.delete(services).where(eq(services.id, id));
     revalidatePath("/dashboard/services");
+    revalidatePath("/dashboard/cms");
     revalidatePath("/");
 }
 

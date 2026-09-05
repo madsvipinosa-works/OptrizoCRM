@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { Switch } from "@/components/ui/switch";
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Sparkles } from "lucide-react";
 
 interface ServiceFormProps {
     initialData?: {
@@ -23,6 +24,7 @@ interface ServiceFormProps {
         link?: string | null;
         icon?: string | null;
         order?: number | null;
+        isFeatured?: boolean | null;
     };
 }
 
@@ -31,6 +33,7 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
     const [state, formAction, isPending] = useActionState(action, { message: "", success: false });
     const [image, setImage] = useState(initialData?.image || "");
     const [color, setColor] = useState(initialData?.color || "#05160b");
+    const [isFeatured, setIsFeatured] = useState(initialData?.isFeatured ?? false);
     const router = useRouter();
 
     useEffect(() => {
@@ -39,7 +42,7 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
                 toast.success(state.message);
                 router.push("/dashboard/cms");
             } else {
-                toast.error(state.message);
+                toast.warning(state.message);
             }
         }
     }, [state, router]);
@@ -48,9 +51,29 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
         <form action={formAction} className="space-y-8">
             {initialData && <input type="hidden" name="id" value={initialData.id} />}
             <input type="hidden" name="image" value={image} />
+            <input type="hidden" name="isFeatured" value={isFeatured ? "true" : "false"} />
 
             <Card className="bg-black/40 border-primary/20">
                 <CardContent className="pt-6 space-y-6">
+                    {/* Landing Page Showcase Toggle */}
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-primary" />
+                                <Label className="text-sm font-semibold text-white">
+                                    Show on Landing Page Showcase
+                                </Label>
+                            </div>
+                            <p className="text-xs text-zinc-400">
+                                Feature this service in the landing page interactive modal section (up to 4 services allowed).
+                            </p>
+                        </div>
+                        <Switch
+                            checked={isFeatured}
+                            onCheckedChange={(checked) => setIsFeatured(checked)}
+                        />
+                    </div>
+
                     {/* Service Preview Image for Animated Hover Modal */}
                     <div className="space-y-2">
                         <Label>Service Preview Image (Shown in Hover Modal)</Label>

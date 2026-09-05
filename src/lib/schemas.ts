@@ -130,6 +130,10 @@ export const serviceSchema = z.object({
     link: z.string().optional(),
     icon: z.string().optional(),
     order: z.coerce.number().optional().default(0),
+    isFeatured: z.preprocess(
+        (val) => val === true || val === "true" || val === "on" || val === 1 || val === "1",
+        z.boolean()
+    ).optional().default(false),
 });
 
 export const testimonialSchema = z.object({

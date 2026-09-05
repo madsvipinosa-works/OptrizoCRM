@@ -147,6 +147,7 @@ export const services = pgTable("service", {
     link: text("link").default("/contact"),
     icon: text("icon"), // Name of Lucide icon
     order: integer("order").default(0),
+    isFeatured: boolean("is_featured").default(false).notNull(),
 });
 
 // 9. Testimonials
