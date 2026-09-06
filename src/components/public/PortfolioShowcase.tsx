@@ -59,7 +59,7 @@ export function PortfolioShowcase({ projects }: { projects: Project[] }) {
                                     {project.description}
                                 </p>
                             )}
-                            <Link 
+                            <Link
                                 href={`/portfolio/${project.slug}`}
                                 className="inline-flex items-center text-white font-medium hover:text-primary transition-colors opacity-0 group-hover:opacity-100 duration-300 delay-150"
                             >

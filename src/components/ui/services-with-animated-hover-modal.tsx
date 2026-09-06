@@ -80,29 +80,29 @@ export function ServicesWithAnimatedHoverModal({
         if (!modalContainer.current || !cursor.current || !cursorLabel.current) return;
 
         const xMoveContainer = gsap.quickTo(modalContainer.current, "left", {
-            duration: 0.55,
+            duration: 0.6,
             ease: "power3",
         });
         const yMoveContainer = gsap.quickTo(modalContainer.current, "top", {
-            duration: 0.55,
+            duration: 0.6,
             ease: "power3",
         });
 
         const xMoveCursor = gsap.quickTo(cursor.current, "left", {
-            duration: 0.35,
+            duration: 0.38,
             ease: "power3",
         });
         const yMoveCursor = gsap.quickTo(cursor.current, "top", {
-            duration: 0.35,
+            duration: 0.38,
             ease: "power3",
         });
 
         const xMoveCursorLabel = gsap.quickTo(cursorLabel.current, "left", {
-            duration: 0.3,
+            duration: 0.35,
             ease: "power3",
         });
         const yMoveCursorLabel = gsap.quickTo(cursorLabel.current, "top", {
-            duration: 0.3,
+            duration: 0.35,
             ease: "power3",
         });
 
@@ -126,8 +126,16 @@ export function ServicesWithAnimatedHoverModal({
             yMoveCursorLabel(clientY);
         };
 
+        const handleMouseLeave = () => {
+            setModal((prev) => ({ ...prev, active: false }));
+        };
+
         window.addEventListener("mousemove", handleMouseMove, { passive: true });
-        return () => window.removeEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseleave", handleMouseLeave);
+        return () => {
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseleave", handleMouseLeave);
+        };
     }, []);
 
     const toggleMobile = (id: string) => {
@@ -159,33 +167,67 @@ export function ServicesWithAnimatedHoverModal({
                     </p>
                 </div>
 
-                {/* Desktop Interactive Typographic List */}
+                {/* Desktop Interactive Typographic List with Dennis Snellenberg Dimming */}
                 <div className="hidden md:flex flex-col w-full">
                     {services.map((service, index) => {
                         const href = service.link || "/contact";
+                        const isHovered = modal.active && modal.index === index;
+                        const isOtherHovered = modal.active && modal.index !== index;
+
                         return (
                             <Link
                                 key={service.id}
                                 href={href}
-                                className="group relative flex w-full items-center justify-between border-t border-border/70 py-10 lg:py-14 px-4 transition-all duration-300 hover:border-primary/50 hover:bg-muted/10 last:border-b"
+                                className={cn(
+                                    "group relative flex w-full items-center justify-between border-t border-border/70 py-10 lg:py-14 px-4 transition-all duration-500 last:border-b",
+                                    isOtherHovered && "opacity-30",
+                                    isHovered && "border-primary/50"
+                                )}
                                 onMouseEnter={() => setModal({ active: true, index })}
-                                onMouseLeave={() => setModal({ active: false, index })}
+                                onMouseLeave={() => setModal({ active: false, index: 0 })}
                             >
                                 <div className="flex items-baseline gap-6 lg:gap-10">
-                                    <span className="font-mono text-xs text-muted-foreground/60 group-hover:text-primary transition-colors">
+                                    <span
+                                        className={cn(
+                                            "font-mono text-xs transition-colors duration-300",
+                                            isHovered ? "text-[#00D639] font-bold" : "text-muted-foreground/60"
+                                        )}
+                                    >
                                         {(index + 1).toString().padStart(2, "0")}
                                     </span>
-                                    <h3 className="m-0 font-bold text-3xl lg:text-5xl tracking-tight uppercase text-foreground group-hover:text-primary transition-all duration-300 group-hover:translate-x-3">
+                                    <h3
+                                        className={cn(
+                                            "m-0 font-bold text-3xl lg:text-5xl tracking-tight uppercase transition-all duration-300",
+                                            isHovered ? "text-[#00D639] translate-x-4" : "text-foreground"
+                                        )}
+                                    >
                                         {service.title}
                                     </h3>
                                 </div>
 
                                 <div className="flex items-center gap-6">
-                                    <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-all duration-300 group-hover:translate-x-2">
+                                    <span
+                                        className={cn(
+                                            "font-mono text-xs uppercase tracking-widest transition-all duration-300",
+                                            isHovered ? "text-foreground font-semibold translate-x-2" : "text-muted-foreground"
+                                        )}
+                                    >
                                         {service.category || "Architecture & Systems"}
                                     </span>
-                                    <div className="w-10 h-10 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground group-hover:border-primary group-hover:text-primary group-hover:bg-primary/10 transition-all duration-300 group-hover:scale-110">
-                                        <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                    <div
+                                        className={cn(
+                                            "w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-300",
+                                            isHovered
+                                                ? "border-[#00D639] bg-[#00D639] text-black shadow-[0_0_20px_rgba(0,214,57,0.4)] scale-110"
+                                                : "border-border/60 text-muted-foreground"
+                                        )}
+                                    >
+                                        <ArrowUpRight
+                                            className={cn(
+                                                "w-4 h-4 transition-transform duration-300",
+                                                isHovered && "translate-x-0.5 -translate-y-0.5"
+                                            )}
+                                        />
                                     </div>
                                 </div>
                             </Link>

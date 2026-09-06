@@ -11,7 +11,7 @@ import { db } from "@/db";
 import { posts, caseStudies, testimonials } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 
-import { PortfolioShowcase } from "@/components/public/PortfolioShowcase";
+import { Gallery4, type Gallery4Item } from "@/components/ui/gallery4";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -19,6 +19,7 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import { CTAScrollScale } from "@/components/blocks/cta-scroll-scale";
+import { PinnedPanelsLayout, PinnedPanel } from "@/components/ui/pinned-panels-layout";
 
 // ... existing imports
 
@@ -45,6 +46,16 @@ export default async function Home() {
         limit: 6,
     });
 
+    const featuredProjects: Gallery4Item[] = activeProjects.map((project) => ({
+        id: project.id.toString(),
+        title: project.title,
+        clientName: project.clientName || "Enterprise Partner",
+        description: project.description || "Detailed case study of enterprise software and scalable cloud architecture.",
+        href: `/projects/${project.slug}`,
+        image: project.coverImage || "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop",
+        technologies: Array.isArray(project.technologies) ? project.technologies : [],
+    }));
+
     const testimonialItems = allTestimonials.map((t) => ({
         author: {
             name: t.name,
@@ -58,7 +69,7 @@ export default async function Home() {
     const carouselItems = publishedPosts.map((post) => ({
         id: post.id.toString(),
         title: post.title,
-        summary: post.slug, // Using slug as excerpt for now
+        summary: post.excerpt || post.title,
         url: `/blog/${post.slug}`,
         image: post.coverImage || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2670&auto=format&fit=crop",
     }));
@@ -88,96 +99,116 @@ export default async function Home() {
     };
 
     return (
-        <div className="relative z-10 w-full">
-            {/* Animated 3D WebGL Hero Section */}
-            <HeroSection
-                titleLine1="OPTRIZO"
-                titleLine2="CUSTOM SOLUTIONS"
-                badgeText="OPTRIZO // CUSTOM SOLUTIONS"
-                taglineBold="POWERED BY INNOVATION."
-                description={settings?.heroDescription || "We engineer bespoke web platforms, enterprise software, and scalable digital infrastructure through modern architecture."}
-            />
-
-            <div className="relative z-10 w-full max-w-[1400px] mx-auto">
-                {/* Demo Video Scroll Section */}
-                {settings?.demoVideoUrl && (
-                    <ContainerScroll
-                        titleComponent={
-                            <div className="mb-4">
-                                <SectionHeading
-                                    text="See Optrizo in Action"
-                                    className="text-3xl md:text-5xl mb-4"
-                                />
-                                <p className="text-muted-foreground text-lg mt-4">
-                                    Watch how we transform ideas into high-performance digital products.
-                                </p>
-                            </div>
-                        }
-                    >
-                        <div className="relative w-full h-full">
-                            {settings.demoVideoUrl.endsWith(".mp4") ? (
-                                <video
-                                    src={settings.demoVideoUrl}
-                                    autoPlay
-                                    muted
-                                    loop
-                                    playsInline
-                                    className="w-full h-full object-cover rounded-2xl"
-                                />
-                            ) : (
-                                <iframe
-                                    src={toEmbedUrl(settings.demoVideoUrl)}
-                                    className="w-full h-full rounded-2xl"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    title="Optrizo Demo Video"
-                                />
-                            )}
-                        </div>
-                    </ContainerScroll>
-                )}
-
-                {/* Services Section with Interactive Animated Hover Modal */}
-                <ServicesGrid />
-
-                {/* Portfolio Showcase Section */}
-                <section className="container px-4 mx-auto py-16">
-                    <ScrollReveal className="flex justify-between items-end mb-12">
-                        <div>
-                            <Badge variant="secondary" className="mb-4 text-primary">Our Work</Badge>
-                            <SectionHeading text="Featured Case Studies" className="text-3xl tracking-tight" />
-                        </div>
-                        <Button variant="outline" asChild>
-                            <Link href="/portfolio">View Portfolio</Link>
-                        </Button>
-                    </ScrollReveal>
-                    <PortfolioShowcase projects={activeProjects} />
-                </section>
-
-                {/* Testimonials Section */}
-                <TestimonialsSection
-                    title="Trusted by Market Leaders"
-                    description="See what our partners are achieving with Optrizo."
-                    testimonials={testimonialItems}
+        <PinnedPanelsLayout className="relative z-10 w-full">
+            {/* Panel 1: Hero Section */}
+            <PinnedPanel id="hero" hasTopRounding={false}>
+                <HeroSection
+                    titleLine1="OPTRIZO"
+                    titleLine2="CUSTOM SOLUTIONS"
+                    badgeText="OPTRIZO // CUSTOM SOLUTIONS"
+                    taglineBold="POWERED BY INNOVATION."
+                    description={settings?.heroDescription || "We engineer bespoke web platforms, enterprise software, and scalable digital infrastructure through modern architecture."}
                 />
+            </PinnedPanel>
 
-                {/* Blog Teaser Section */}
-                <section className="container px-4 mx-auto py-32">
-                    <ScrollReveal className="flex justify-between items-end mb-12">
-                        <div>
-                            <Badge variant="secondary" className="mb-4 text-primary">Latest Insights</Badge>
-                            <SectionHeading text="From The Blog" className="text-3xl tracking-tight" />
-                        </div>
-                        <Button variant="outline" asChild>
-                            <Link href="/blog">View All Articles</Link>
-                        </Button>
-                    </ScrollReveal>
-                    <GalleryHoverCarousel items={carouselItems} />
-                </section>
+            {/* Panel 2: Demo Video Scroll Section (if enabled) */}
+            {settings?.demoVideoUrl && (
+                <PinnedPanel id="demo-video">
+                    <div className="relative z-10 w-full max-w-[1400px] mx-auto py-12 md:py-20">
+                        <ContainerScroll
+                            titleComponent={
+                                <div className="mb-4">
+                                    <SectionHeading
+                                        text="See Optrizo in Action"
+                                        className="text-3xl md:text-5xl mb-4"
+                                    />
+                                    <p className="text-muted-foreground text-lg mt-4">
+                                        Watch how we transform ideas into high-performance digital products.
+                                    </p>
+                                </div>
+                            }
+                        >
+                            <div className="relative w-full h-full">
+                                {settings.demoVideoUrl.endsWith(".mp4") ? (
+                                    <video
+                                        src={settings.demoVideoUrl}
+                                        autoPlay
+                                        muted
+                                        loop
+                                        playsInline
+                                        className="w-full h-full object-cover rounded-2xl"
+                                    />
+                                ) : (
+                                    <iframe
+                                        src={toEmbedUrl(settings.demoVideoUrl)}
+                                        className="w-full h-full rounded-2xl"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                        title="Optrizo Demo Video"
+                                    />
+                                )}
+                            </div>
+                        </ContainerScroll>
+                    </div>
+                </PinnedPanel>
+            )}
 
-                {/* CTA Section (Scroll Scaling) */}
-                <CTAScrollScale />
-            </div>
-        </div>
+            {/* Panel 3: Services Section with Interactive Animated Hover Modal */}
+            <PinnedPanel id="services">
+                <div className="relative z-10 w-full max-w-[1400px] mx-auto">
+                    <ServicesGrid />
+                </div>
+            </PinnedPanel>
+
+            {/* Panel 4: Featured Case Studies / Projects (Gallery4 Carousel) */}
+            <PinnedPanel id="projects">
+                <div className="relative z-10 w-full max-w-[1400px] mx-auto py-12 md:py-16">
+                    <Gallery4
+                        badge="OPTRIZO // SELECTED WORKS"
+                        title="Featured Case Studies"
+                        description="Discover how we partner with ambitious companies to engineer high-performance web applications, striking digital experiences, and mission-critical cloud infrastructure."
+                        items={featuredProjects}
+                        viewAllHref="/projects"
+                        viewAllText="View All Projects"
+                    />
+                </div>
+            </PinnedPanel>
+
+            {/* Panel 5: Testimonials Section */}
+            <PinnedPanel id="testimonials">
+                <div className="relative z-10 w-full max-w-[1400px] mx-auto py-12 md:py-16">
+                    <TestimonialsSection
+                        title="Trusted by Market Leaders"
+                        description="See what our partners are achieving with Optrizo."
+                        testimonials={testimonialItems}
+                    />
+                </div>
+            </PinnedPanel>
+
+            {/* Panel 6: Blog Teaser Section */}
+            <PinnedPanel id="blog">
+                <div className="relative z-10 w-full max-w-[1400px] mx-auto">
+                    <section className="container px-4 mx-auto py-24 md:py-32">
+                        <ScrollReveal className="flex justify-between items-end mb-12">
+                            <div>
+                                <Badge variant="secondary" className="mb-4 text-primary">Latest Insights</Badge>
+                                <SectionHeading text="From The Blog" className="text-3xl tracking-tight" />
+                            </div>
+                            <Button variant="outline" asChild>
+                                <Link href="/blog">View All Articles</Link>
+                            </Button>
+                        </ScrollReveal>
+                        <GalleryHoverCarousel items={carouselItems} />
+                    </section>
+                </div>
+            </PinnedPanel>
+
+            {/* Panel 7 (Terminal): CTA Section (Scroll Scaling) */}
+            <PinnedPanel id="cta" isLast={true}>
+                <div className="relative z-10 w-full max-w-[1400px] mx-auto">
+                    <CTAScrollScale />
+                </div>
+            </PinnedPanel>
+        </PinnedPanelsLayout>
     );
 }
