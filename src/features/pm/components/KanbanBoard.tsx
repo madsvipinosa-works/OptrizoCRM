@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, submitTaskBlockedReasonAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Users, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
 import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
@@ -69,6 +70,8 @@ export function KanbanBoard({
     const [editTaskDesc, setEditTaskDesc] = useState("");
     const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
     const [editDueDate, setEditDueDate] = useState("");
+    const [editTaskWeight, setEditTaskWeight] = useState<number>(1);
+    const [editTaskHours, setEditTaskHours] = useState<string>("");
     const [isSavingEdit, setIsSavingEdit] = useState(false);
 
     // Delete Task State
@@ -78,6 +81,47 @@ export function KanbanBoard({
     const [newTaskTitle, setNewTaskTitle] = useState("");
     const [newTaskDesc, setNewTaskDesc] = useState("");
     const [newAssigneeIds, setNewAssigneeIds] = useState<string[]>([]);
+    const [newTaskWeight, setNewTaskWeight] = useState<number>(1);
+    const [newTaskHours, setNewTaskHours] = useState<string>("");
+
+    // Workload & Capacity Guardrail constants and calculations
+    const STANDARD_WEEKLY_CAPACITY = 40;
+
+    const memberWorkloadMap = useMemo(() => {
+        const map = new Map<string, { totalHours: number; taskCount: number }>();
+        teamMembers.forEach((m) => map.set(m.id, { totalHours: 0, taskCount: 0 }));
+
+        optimisticTasks.forEach((t) => {
+            if (t.status !== "Done" && t.assignees) {
+                const hours = t.estimatedHours || 0;
+                t.assignees.forEach((a) => {
+                    const current = map.get(a.user.id) || { totalHours: 0, taskCount: 0 };
+                    map.set(a.user.id, {
+                        totalHours: current.totalHours + hours,
+                        taskCount: current.taskCount + 1,
+                    });
+                });
+            }
+        });
+        return map;
+    }, [optimisticTasks, teamMembers]);
+
+    const overloadedMembers = useMemo(() => {
+        const overloaded: { member: TeamMemberItem; hours: number; percentage: number; overHours: number }[] = [];
+        teamMembers.forEach((m) => {
+            const stats = memberWorkloadMap.get(m.id);
+            const hours = stats?.totalHours || 0;
+            if (hours > STANDARD_WEEKLY_CAPACITY) {
+                overloaded.push({
+                    member: m,
+                    hours,
+                    percentage: Math.round((hours / STANDARD_WEEKLY_CAPACITY) * 100),
+                    overHours: hours - STANDARD_WEEKLY_CAPACITY,
+                });
+            }
+        });
+        return overloaded;
+    }, [memberWorkloadMap, teamMembers]);
 
     // Task Proof Intercept state
     const [proofingTask, setProofingTask] = useState<{
@@ -86,7 +130,7 @@ export function KanbanBoard({
     } | null>(null);
 
     // Task Proof Viewing state
-    const [viewingProofsTask, setViewingProofsTask] = useState<PmTask | null>(null);
+    const [viewingProofsTask, setViewingProofsTask] = useState<{ task: PmTask; initialTab?: "proofs" | "audit" } | null>(null);
 
     // Task Blocked Intercept state
     const [blockingTask, setBlockingTask] = useState<{
@@ -97,8 +141,6 @@ export function KanbanBoard({
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
     const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
     const [isSavingMilestone, setIsSavingMilestone] = useState(false);
-    const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
-    const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
 
     const activeMilestone = optimisticMilestones?.find((m) => m.id === activeMilestoneId);
     if (!activeMilestone && optimisticMilestones.length > 0) {
@@ -166,6 +208,8 @@ export function KanbanBoard({
             if (!res.success) {
                 toast.error(res.message || "Failed to update task status");
                 setOptimisticTasks(optimisticTasks); // Revert
+            } else {
+                router.refresh();
             }
         });
     };
@@ -193,7 +237,17 @@ export function KanbanBoard({
             toast.error(res.message || "Failed to submit task proof");
             setOptimisticTasks(optimisticTasks); // Revert
         } else {
-            toast.success("Task proof submitted & status updated!");
+            const msg = res.message || "Task proof submitted & status updated!";
+            if (msg.includes("Changes requested") || msg.includes("Changes Requested") || msg.includes("unverified")) {
+                toast.warning(msg);
+                setOptimisticTasks((prev) =>
+                    prev.map((t) =>
+                        t.id === task.id ? { ...t, status: "Changes Requested" as const } : t
+                    )
+                );
+            } else {
+                toast.success(msg);
+            }
             router.refresh();
         }
 
@@ -255,14 +309,25 @@ export function KanbanBoard({
             activeMilestoneId,
             newTaskTitle,
             newTaskDesc,
-            newAssigneeIds
+            newAssigneeIds,
+            newTaskWeight,
+            newTaskHours ? parseInt(newTaskHours) : undefined
         );
         if (res.success && res.task) {
             toast.success("Task added");
-            setOptimisticTasks([...optimisticTasks, res.task as unknown as PmTask]);
+            const optimisticNewTask: PmTask = {
+                ...(res.task as unknown as PmTask),
+                assignees: teamMembers
+                    .filter((m) => newAssigneeIds.includes(m.id))
+                    .map((m) => ({ user: m })),
+            };
+            setOptimisticTasks([...optimisticTasks, optimisticNewTask]);
             setNewTaskTitle("");
             setNewTaskDesc("");
             setNewAssigneeIds([]);
+            setNewTaskWeight(1);
+            setNewTaskHours("");
+            router.refresh();
         } else {
             toast.error(res.message || "Failed to create task");
         }
@@ -277,6 +342,8 @@ export function KanbanBoard({
         setEditDueDate(
             task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""
         );
+        setEditTaskWeight(task.weight ?? 1);
+        setEditTaskHours(task.estimatedHours != null ? String(task.estimatedHours) : "");
     };
 
     const handleEditTaskSubmit = async (e: React.FormEvent) => {
@@ -285,6 +352,7 @@ export function KanbanBoard({
         setIsSavingEdit(true);
 
         const dueToSubmit = editDueDate ? new Date(editDueDate) : null;
+        const hoursToSubmit = editTaskHours ? parseInt(editTaskHours) : null;
 
         const updatedTasks = optimisticTasks.map((t) =>
             t.id === editingTask.id
@@ -296,6 +364,8 @@ export function KanbanBoard({
                         .filter((m) => editAssigneeIds.includes(m.id))
                         .map((m) => ({ user: m })),
                     dueDate: dueToSubmit,
+                    weight: editTaskWeight,
+                    estimatedHours: hoursToSubmit,
                 }
                 : t
         );
@@ -307,6 +377,8 @@ export function KanbanBoard({
             description: editTaskDesc,
             assigneeIds: editAssigneeIds,
             dueDate: dueToSubmit,
+            weight: editTaskWeight,
+            estimatedHours: hoursToSubmit,
         });
 
         if (!res.success) {
@@ -314,6 +386,7 @@ export function KanbanBoard({
             setOptimisticTasks(optimisticTasks);
         } else {
             toast.success("Task details updated");
+            router.refresh();
         }
         setIsSavingEdit(false);
     };
@@ -440,7 +513,7 @@ export function KanbanBoard({
     return (
         <div className="h-full flex flex-col pt-2">
             {/* Milestone Tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 shrink-0 items-center scrollbar-none">
+            <div className="flex gap-2 mb-2.5 overflow-x-auto pb-1 shrink-0 items-center scrollbar-none">
                 {optimisticMilestones.map((m) => (
                     <button
                         key={m.id}
@@ -489,10 +562,10 @@ export function KanbanBoard({
                 )}
             </div>
 
-            {/* Active Milestone Context Bar */}
-            <div className="flex items-center justify-between bg-zinc-900/60 p-4 rounded-xl border border-zinc-800 mb-4 shrink-0 flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-lg text-zinc-100 flex items-center gap-2">
+            {/* Active Milestone Context Bar & Toolbar */}
+            <div className="flex items-center justify-between bg-zinc-900/60 px-3.5 py-2 rounded-xl border border-zinc-800 mb-3 shrink-0 flex-wrap gap-2.5">
+                <div className="flex items-center gap-2.5">
+                    <h3 className="font-bold text-base text-zinc-100 flex items-center gap-2">
                         {activeMilestone.title}
                         {["superadmin", "manager"].includes(currentUserRole || "") && (
                             <DropdownMenu>
@@ -550,87 +623,149 @@ export function KanbanBoard({
                     )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    {/* Team Capacity Tracker Popover */}
                     {["superadmin", "manager"].includes(currentUserRole || "") && (
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/20">
-                                    <Plus className="h-4 w-4 mr-1.5" /> Add Task
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                        "h-8 text-xs border-zinc-800 bg-zinc-900/90 gap-1.5",
+                                        overloadedMembers.length > 0
+                                            ? "text-rose-300 hover:text-rose-200 border-rose-500/30 hover:bg-rose-500/10"
+                                            : "text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800"
+                                    )}
+                                    title="View team workload & capacity allocation"
+                                >
+                                    <Users className="w-3.5 h-3.5 text-indigo-400" />
+                                    <span className="hidden sm:inline">Capacity</span>
+                                    {overloadedMembers.length > 0 ? (
+                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                            {overloadedMembers.length} Over
+                                        </span>
+                                    ) : (
+                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                                            Balanced
+                                        </span>
+                                    )}
                                 </Button>
-                            </DialogTrigger>
-                            <DialogContent className="bg-zinc-950 border-zinc-800 text-zinc-100 sm:max-w-[480px]">
-                                <DialogHeader>
-                                    <DialogTitle>Add Task to {activeMilestone.title}</DialogTitle>
-                                </DialogHeader>
-                                <form onSubmit={handleCreateTask} className="space-y-4 pt-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Task Title</Label>
-                                        <Input
-                                            className="bg-zinc-900 border-zinc-800 focus:border-indigo-500"
-                                            value={newTaskTitle}
-                                            onChange={(e) => setNewTaskTitle(e.target.value)}
-                                            placeholder="e.g. Implement OAuth Flow"
-                                            required
-                                        />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 bg-zinc-950 border-zinc-800 text-zinc-100 p-4 shadow-2xl space-y-3 z-50">
+                                <div className="border-b border-zinc-800/80 pb-2">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
+                                            <Users className="w-3.5 h-3.5 text-indigo-400" />
+                                            Weekly Capacity Guardrail
+                                        </h4>
+                                        <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">
+                                            40h / week
+                                        </span>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Description (Optional)</Label>
-                                        <Textarea
-                                            className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 resize-none"
-                                            rows={3}
-                                            value={newTaskDesc}
-                                            onChange={(e) => setNewTaskDesc(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Assign Staff</Label>
-                                        <AssigneeCombobox
-                                            teamMembers={teamMembers}
-                                            selectedIds={newAssigneeIds}
-                                            onSelectionChange={setNewAssigneeIds}
-                                            placeholder="Select assigned staff..."
-                                        />
-                                    </div>
-                                    <Button
-                                        type="submit"
-                                        disabled={isAddingTask}
-                                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
-                                    >
-                                        Create Task
-                                    </Button>
-                                </form>
-                            </DialogContent>
-                        </Dialog>
+                                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                                        Active workload across all ongoing tasks
+                                    </p>
+                                </div>
+                                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                                    {teamMembers.map((member) => {
+                                        const stats = memberWorkloadMap.get(member.id);
+                                        const hours = stats?.totalHours || 0;
+                                        const pct = Math.round((hours / STANDARD_WEEKLY_CAPACITY) * 100);
+                                        const isOver = hours > STANDARD_WEEKLY_CAPACITY;
+                                        return (
+                                            <div
+                                                key={member.id}
+                                                className={cn(
+                                                    "space-y-1.5 p-2.5 rounded-lg border transition-colors cursor-pointer",
+                                                    filterAssignee === member.id
+                                                        ? "bg-zinc-800/80 border-indigo-500/40"
+                                                        : "bg-zinc-900/60 border-zinc-800/80 hover:bg-zinc-900"
+                                                )}
+                                                onClick={() => {
+                                                    setFilterAssignee(member.id);
+                                                    setMyTasksOnly(false);
+                                                }}
+                                                title="Click to filter board by this developer"
+                                            >
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="font-medium text-zinc-200 truncate max-w-[140px]">
+                                                        {member.name || member.id}
+                                                    </span>
+                                                    <span
+                                                        className={cn(
+                                                            "font-mono text-[11px] font-bold",
+                                                            isOver
+                                                                ? "text-rose-400"
+                                                                : hours >= 32
+                                                                ? "text-amber-400"
+                                                                : "text-emerald-400"
+                                                        )}
+                                                    >
+                                                        {hours}h / 40h ({pct}%)
+                                                    </span>
+                                                </div>
+                                                <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                                                    <div
+                                                        className={cn(
+                                                            "h-full rounded-full transition-all",
+                                                            isOver ? "bg-rose-500" : hours >= 32 ? "bg-amber-500" : "bg-indigo-500"
+                                                        )}
+                                                        style={{ width: `${Math.min(100, pct)}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                     )}
-                </div>
-            </div>
 
-            {/* Filter Bar */}
-            {["superadmin", "manager"].includes(currentUserRole || "") && (
-                <div className="flex items-center gap-4 mb-4 bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/60 shrink-0">
-                    <div className="flex items-center gap-2">
-                        <Label className="text-xs text-zinc-400 font-medium">Filter Assignee:</Label>
-                        <Select
-                            value={filterAssignee}
-                            onValueChange={(val) => {
-                                setFilterAssignee(val);
-                                if (val !== "all") setMyTasksOnly(false);
-                            }}
-                        >
-                            <SelectTrigger className="w-[180px] h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-200">
-                                <SelectValue placeholder="All Tasks" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
-                                <SelectItem value="all">All Assignees</SelectItem>
-                                <SelectItem value="unassigned">Unassigned</SelectItem>
-                                {teamMembers.map((member) => (
-                                    <SelectItem key={member.id} value={member.id}>
-                                        {member.name || member.id}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {/* Filter Assignee */}
+                    {["superadmin", "manager"].includes(currentUserRole || "") && (
+                        <div className="flex items-center gap-1.5">
+                            <Select
+                                value={filterAssignee}
+                                onValueChange={(val) => {
+                                    setFilterAssignee(val);
+                                    if (val !== "all") setMyTasksOnly(false);
+                                }}
+                            >
+                                <SelectTrigger className="w-[155px] h-8 bg-zinc-900/90 border-zinc-800 text-xs text-zinc-200">
+                                    <SelectValue placeholder="All Tasks" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
+                                    <SelectItem value="all">All Assignees</SelectItem>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    {teamMembers.map((member) => {
+                                        const stats = memberWorkloadMap.get(member.id);
+                                        const hours = stats?.totalHours || 0;
+                                        const isOver = hours > STANDARD_WEEKLY_CAPACITY;
+                                        return (
+                                            <SelectItem key={member.id} value={member.id}>
+                                                <div className="flex items-center justify-between gap-2 w-full">
+                                                    <span className="truncate max-w-[90px]">{member.name || member.id}</span>
+                                                    <span
+                                                        className={cn(
+                                                            "text-[10px] font-mono px-1 rounded shrink-0",
+                                                            isOver
+                                                                ? "text-rose-400 font-bold bg-rose-500/10 border border-rose-500/30"
+                                                                : hours >= 32
+                                                                ? "text-amber-400 font-medium bg-amber-500/10"
+                                                                : "text-zinc-500"
+                                                        )}
+                                                    >
+                                                        {hours}h{isOver ? " ⚠️" : ""}
+                                                    </span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
                     {currentUserId && (
                         <Button
@@ -648,20 +783,155 @@ export function KanbanBoard({
                             My Tasks
                         </Button>
                     )}
+
+                    {["superadmin", "manager"].includes(currentUserRole || "") && (
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button size="sm" className="h-8 bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/20 text-xs">
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Task
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-zinc-950 border-zinc-800 text-zinc-100 shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
+                                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur z-10">
+                                    <DialogTitle className="text-lg font-bold text-white tracking-tight">Add Task to {activeMilestone.title}</DialogTitle>
+                                </DialogHeader>
+                                <form onSubmit={handleCreateTask} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                                    <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Task Title</Label>
+                                            <Input
+                                                className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-600 text-xs sm:text-sm"
+                                                value={newTaskTitle}
+                                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                                placeholder="e.g. Implement OAuth Flow"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Description (Optional)</Label>
+                                            <Textarea
+                                                className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 resize-none text-zinc-100 placeholder:text-zinc-600 text-xs sm:text-sm"
+                                                rows={3}
+                                                value={newTaskDesc}
+                                                onChange={(e) => setNewTaskDesc(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Effort Weight</Label>
+                                                <div className="flex gap-1.5">
+                                                    {[1, 2, 3, 5, 8].map((pts) => (
+                                                        <button
+                                                            key={pts}
+                                                            type="button"
+                                                            onClick={() => setNewTaskWeight(pts)}
+                                                            className={`flex-1 py-1.5 rounded-md text-xs font-mono font-bold border transition-all ${
+                                                                newTaskWeight === pts
+                                                                    ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20"
+                                                                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                                                            }`}
+                                                        >
+                                                            {pts}p
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Est. Hours</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    max="500"
+                                                    placeholder="e.g. 8"
+                                                    value={newTaskHours}
+                                                    onChange={(e) => setNewTaskHours(e.target.value)}
+                                                    className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-600 text-xs"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Assign Staff</Label>
+                                            <AssigneeCombobox
+                                                teamMembers={teamMembers}
+                                                selectedIds={newAssigneeIds}
+                                                onSelectionChange={setNewAssigneeIds}
+                                                placeholder="Select assigned staff..."
+                                            />
+                                        </div>
+
+                                        {/* Workload & Capacity Guardrail Alert */}
+                                        {(() => {
+                                            const hours = parseInt(newTaskHours) || 0;
+                                            if (newAssigneeIds.length === 0 || hours <= 0) return null;
+
+                                            const warnings = newAssigneeIds
+                                                .map((id) => {
+                                                    const member = teamMembers.find((m) => m.id === id);
+                                                    const currentHours = memberWorkloadMap.get(id)?.totalHours || 0;
+                                                    const projectedHours = currentHours + hours;
+                                                    if (projectedHours > STANDARD_WEEKLY_CAPACITY || hours > STANDARD_WEEKLY_CAPACITY) {
+                                                        return {
+                                                            name: member?.name || "Developer",
+                                                            currentHours,
+                                                            projectedHours,
+                                                            overHours: projectedHours - STANDARD_WEEKLY_CAPACITY,
+                                                            percentage: Math.round((projectedHours / STANDARD_WEEKLY_CAPACITY) * 100),
+                                                        };
+                                                    }
+                                                    return null;
+                                                })
+                                                .filter(Boolean);
+
+                                            if (warnings.length === 0) return null;
+
+                                            return (
+                                                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-1.5 animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-400">
+                                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                                                        <span>Workload & Capacity Guardrail Alert</span>
+                                                    </div>
+                                                    {warnings.map((w, i) => (
+                                                        <p key={i} className="text-[11px] text-zinc-300 leading-relaxed pl-5">
+                                                            Assigning <strong className="text-white">{hours}h</strong> puts <strong className="text-white">{w?.name}</strong> at{" "}
+                                                            <strong className="text-rose-400">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
+                                                            <span className="text-rose-400 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                    <div className="shrink-0 p-4 sm:p-5 border-t border-zinc-800/80 bg-zinc-950/95 backdrop-blur">
+                                        <Button
+                                            type="submit"
+                                            disabled={isAddingTask}
+                                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm"
+                                        >
+                                            Create Task
+                                        </Button>
+                                    </div>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </div>
-            )}
+            </div>
 
             {/* dnd-kit PmKanbanBoard */}
-            <PmKanbanBoard
-                tasks={tasksForMilestone}
-                teamMembers={teamMembers}
-                currentUserId={currentUserId}
-                currentUserRole={currentUserRole}
-                onStatusChangeRequest={handleStatusChangeRequest}
-                onEditTask={openEditModal}
-                onDeleteTask={(task) => setDeletingTask(task)}
-                onViewProofs={(task) => setViewingProofsTask(task)}
-            />
+            <div className="flex-1 min-h-0 flex flex-col">
+                <PmKanbanBoard
+                    tasks={tasksForMilestone}
+                    teamMembers={teamMembers}
+                    currentUserId={currentUserId}
+                    currentUserRole={currentUserRole}
+                    onStatusChangeRequest={handleStatusChangeRequest}
+                    onEditTask={openEditModal}
+                    onDeleteTask={(task) => setDeletingTask(task)}
+                    onViewProofs={(task, initialTab) => setViewingProofsTask({ task, initialTab })}
+                />
+            </div>
 
             {/* Task Proof Intercept Modal */}
             <TaskProofValidationModal
@@ -680,20 +950,22 @@ export function KanbanBoard({
                 onOpenChange={(open) => {
                     if (!open) setViewingProofsTask(null);
                 }}
-                task={viewingProofsTask}
-                targetStatus={viewingProofsTask?.status as "In Review" | "Done" || "In Review"}
+                task={viewingProofsTask?.task || null}
+                targetStatus={(viewingProofsTask?.task?.status as "In Review" | "Done") || "In Review"}
                 mode="edit"
+                initialTab={viewingProofsTask?.initialTab || "proofs"}
                 isViewOnly={
                     !(
                         ["superadmin", "manager"].includes(currentUserRole || "") ||
-                        viewingProofsTask?.assignees?.some(a => a.user.id === currentUserId)
+                        viewingProofsTask?.task?.assignees?.some((a) => a.user.id === currentUserId)
                     )
                 }
                 onConfirm={async (proofLinks, proofNotes) => {
-                    if (!viewingProofsTask) return;
+                    if (!viewingProofsTask?.task) return;
+                    const taskId = viewingProofsTask.task.id;
                     const res = await submitTaskProofAndMove(
-                        viewingProofsTask.id,
-                        viewingProofsTask.status as "In Review" | "Done",
+                        taskId,
+                        viewingProofsTask.task.status as "In Review" | "Done",
                         proofLinks,
                         proofNotes
                     );
@@ -703,12 +975,12 @@ export function KanbanBoard({
                     } else {
                         toast.success("Task proofs updated!");
                         const updated = optimisticTasks.map((t) =>
-                            t.id === viewingProofsTask.id
+                            t.id === taskId
                                 ? {
-                                    ...t,
-                                    proofLinks,
-                                    proofNotes,
-                                }
+                                      ...t,
+                                      proofLinks,
+                                      proofNotes,
+                                  }
                                 : t
                         );
                         setOptimisticTasks(updated);
@@ -740,53 +1012,138 @@ export function KanbanBoard({
             {/* Task Edit Modal */}
             {editingTask && (
                 <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
-                    <DialogContent className="bg-zinc-950 border-zinc-800 text-zinc-100 sm:max-w-[480px]">
-                        <DialogHeader>
-                            <DialogTitle>Edit Task Details</DialogTitle>
+                    <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-zinc-950 border-zinc-800 text-zinc-100 shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
+                        <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur z-10">
+                            <DialogTitle className="text-lg font-bold text-white tracking-tight">Edit Task Details</DialogTitle>
                         </DialogHeader>
-                        <form onSubmit={handleEditTaskSubmit} className="space-y-4 pt-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Title</Label>
-                                <Input
-                                    className="bg-zinc-900 border-zinc-800"
-                                    value={editTaskTitle}
-                                    onChange={(e) => setEditTaskTitle(e.target.value)}
-                                    required
-                                />
+                        <form onSubmit={handleEditTaskSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                            <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Title</Label>
+                                    <Input
+                                        className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 text-xs sm:text-sm"
+                                        value={editTaskTitle}
+                                        onChange={(e) => setEditTaskTitle(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Description</Label>
+                                    <Textarea
+                                        className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 resize-none text-zinc-100 text-xs sm:text-sm"
+                                        rows={3}
+                                        value={editTaskDesc}
+                                        onChange={(e) => setEditTaskDesc(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Assignees</Label>
+                                    <AssigneeCombobox
+                                        teamMembers={teamMembers}
+                                        selectedIds={editAssigneeIds}
+                                        onSelectionChange={setEditAssigneeIds}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Effort Weight</Label>
+                                        <div className="flex gap-1.5">
+                                            {[1, 2, 3, 5, 8].map((pts) => (
+                                                <button
+                                                    key={pts}
+                                                    type="button"
+                                                    onClick={() => setEditTaskWeight(pts)}
+                                                    className={`flex-1 py-1.5 rounded-md text-xs font-mono font-bold border transition-all ${
+                                                        editTaskWeight === pts
+                                                            ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20"
+                                                            : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                                                    }`}
+                                                >
+                                                    {pts}p
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Est. Hours</Label>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            max="500"
+                                            placeholder="e.g. 8"
+                                            value={editTaskHours}
+                                            onChange={(e) => setEditTaskHours(e.target.value)}
+                                            className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-600 text-xs"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Due Date</Label>
+                                    <Input
+                                        type="date"
+                                        className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-200 text-xs sm:text-sm"
+                                        value={editDueDate}
+                                        onChange={(e) => setEditDueDate(e.target.value)}
+                                    />
+                                </div>
+
+                                {/* Workload & Capacity Guardrail Alert for Edit Task */}
+                                {(() => {
+                                    const hours = parseInt(editTaskHours) || 0;
+                                    if (editAssigneeIds.length === 0 || hours <= 0) return null;
+
+                                    const oldHours = editingTask?.estimatedHours || 0;
+
+                                    const warnings = editAssigneeIds
+                                        .map((id) => {
+                                            const member = teamMembers.find((m) => m.id === id);
+                                            const totalHours = memberWorkloadMap.get(id)?.totalHours || 0;
+                                            const wasAssignedBefore = editingTask?.assignees?.some((a) => a.user.id === id);
+                                            const baseHours = wasAssignedBefore ? Math.max(0, totalHours - oldHours) : totalHours;
+                                            const projectedHours = baseHours + hours;
+
+                                            if (projectedHours > STANDARD_WEEKLY_CAPACITY || hours > STANDARD_WEEKLY_CAPACITY) {
+                                                return {
+                                                    name: member?.name || "Developer",
+                                                    projectedHours,
+                                                    overHours: projectedHours - STANDARD_WEEKLY_CAPACITY,
+                                                    percentage: Math.round((projectedHours / STANDARD_WEEKLY_CAPACITY) * 100),
+                                                };
+                                            }
+                                            return null;
+                                        })
+                                        .filter(Boolean);
+
+                                    if (warnings.length === 0) return null;
+
+                                    return (
+                                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-1.5 animate-in fade-in duration-200">
+                                            <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-400">
+                                                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                                                <span>Workload & Capacity Guardrail Alert</span>
+                                            </div>
+                                            {warnings.map((w, i) => (
+                                                <p key={i} className="text-[11px] text-zinc-300 leading-relaxed pl-5">
+                                                    Setting <strong className="text-white">{hours}h</strong> puts <strong className="text-white">{w?.name}</strong> at{" "}
+                                                    <strong className="text-rose-400">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
+                                                    <span className="text-rose-400 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
+                                                </p>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Description</Label>
-                                <Textarea
-                                    className="bg-zinc-900 border-zinc-800 resize-none"
-                                    rows={3}
-                                    value={editTaskDesc}
-                                    onChange={(e) => setEditTaskDesc(e.target.value)}
-                                />
+                            <div className="shrink-0 p-4 sm:p-5 border-t border-zinc-800/80 bg-zinc-950/95 backdrop-blur">
+                                <Button
+                                    type="submit"
+                                    disabled={isSavingEdit}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm"
+                                >
+                                    Save Changes
+                                </Button>
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Assignees</Label>
-                                <AssigneeCombobox
-                                    teamMembers={teamMembers}
-                                    selectedIds={editAssigneeIds}
-                                    onSelectionChange={setEditAssigneeIds}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Due Date</Label>
-                                <Input
-                                    type="date"
-                                    className="bg-zinc-900 border-zinc-800 text-zinc-200"
-                                    value={editDueDate}
-                                    onChange={(e) => setEditDueDate(e.target.value)}
-                                />
-                            </div>
-                            <Button
-                                type="submit"
-                                disabled={isSavingEdit}
-                                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
-                            >
-                                Save Changes
-                            </Button>
                         </form>
                     </DialogContent>
                 </Dialog>

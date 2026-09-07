@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
+import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
-import { eq, and, desc, inArray, ne } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
@@ -119,7 +119,15 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
 }
 
 // --- Task Actions ---
-export async function createTask(projectId: string, milestoneId: string, title: string, description?: string, assigneeIds?: string[]): Promise<ActionState> {
+export async function createTask(
+    projectId: string, 
+    milestoneId: string, 
+    title: string, 
+    description?: string, 
+    assigneeIds?: string[],
+    weight: number = 1,
+    estimatedHours?: number
+): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "manager"])) {
         return { success: false, message: "Unauthorized" };
@@ -143,7 +151,9 @@ export async function createTask(projectId: string, milestoneId: string, title: 
             title,
             description,
             status: isParentBlocked ? "Blocked" : "Todo",
-            isBlockedByClient: isParentBlocked
+            isBlockedByClient: isParentBlocked,
+            weight: weight || 1,
+            estimatedHours: estimatedHours || null
         }).returning();
 
         if (cleanAssigneeIds.length > 0) {
@@ -163,7 +173,7 @@ export async function createTask(projectId: string, milestoneId: string, title: 
     }
 }
 
-export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
+export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "Changes Requested" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
@@ -320,6 +330,36 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             }
         }
 
+        if (newStatus === "In Review") {
+            const firstUrl = proofLinks && proofLinks[0]?.url ? proofLinks[0].url : "";
+            const { submitTaskForVerification } = await import("@/actions/task-quality-gate");
+            const gateRes = await submitTaskForVerification({
+                taskId,
+                proofUrl: firstUrl,
+                submissionNotes: proofNotes || "",
+            });
+
+            if (!gateRes.success) {
+                const errMsg = typeof gateRes.error === "string"
+                    ? gateRes.error
+                    : "Proof validation failed: Valid URL and minimum 25 characters of deliverable notes required.";
+                return { success: false, message: errMsg };
+            }
+
+            await logAction(
+                "UPDATE",
+                "Task",
+                `Task ${taskId} evaluated by Quality Gate (Score: ${gateRes.score}%, Status: ${gateRes.passed ? "In Review" : "Changes Requested"})`
+            );
+
+            return {
+                success: true,
+                message: gateRes.passed
+                    ? `Quality Gate Passed (${gateRes.score}%)! Task queued for PM sign-off.`
+                    : `Quality Gate unverified (${gateRes.score}%). Changes requested.`,
+            };
+        }
+
         const updatedProofLinks = proofLinks !== undefined ? proofLinks : oldTask.proofLinks;
         const updatedProofNotes = proofNotes !== undefined ? proofNotes : oldTask.proofNotes;
 
@@ -366,6 +406,11 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
         console.error("Failed to submit task proof:", error);
         return { success: false, message: "Database Error" };
     }
+}
+
+export async function getTaskAuditReport(taskId: string) {
+    const { getLatestTaskSubmission } = await import("@/actions/task-quality-gate");
+    return getLatestTaskSubmission(taskId);
 }
 
 export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReason: string): Promise<ActionState> {
@@ -430,7 +475,14 @@ export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReas
 
 export async function updateTaskDetails(
     taskId: string,
-    data: { title?: string; description?: string; assigneeIds?: string[]; dueDate?: Date | null }
+    data: {
+        title?: string;
+        description?: string;
+        assigneeIds?: string[];
+        dueDate?: Date | null;
+        weight?: number;
+        estimatedHours?: number | null;
+    }
 ): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "manager", "developer"])) {
@@ -460,13 +512,17 @@ export async function updateTaskDetails(
             ? Array.from(new Set((data.assigneeIds || []).filter(Boolean)))
             : undefined;
 
+        const updateData: Record<string, unknown> = {
+            updatedAt: new Date(),
+        };
+        if (data.title !== undefined) updateData.title = data.title;
+        if (data.description !== undefined) updateData.description = data.description;
+        if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
+        if (data.weight !== undefined) updateData.weight = data.weight;
+        if (data.estimatedHours !== undefined) updateData.estimatedHours = data.estimatedHours;
+
         const [updatedTask] = await db.update(tasks)
-            .set({
-                title: data.title,
-                description: data.description,
-                dueDate: data.dueDate,
-                updatedAt: new Date()
-            })
+            .set(updateData)
             .where(eq(tasks.id, taskId))
             .returning();
 

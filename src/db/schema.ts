@@ -452,7 +452,8 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 // 13. Operational Project Management (PM Engine)
 export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff", "In Progress", "In Review", "Completed"]);
 export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Client Approval", "Completed"]);
-export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "In Review", "Done"]);
+export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "Changes Requested", "In Review", "Done"]);
+export const qualityGateStatusEnum = pgEnum("quality_gate_status", ["Pending", "Passed", "Failed"]);
 
 export type ProjectDocumentItem = {
     id: string;
@@ -466,6 +467,7 @@ export const agencyProjects = pgTable("agency_project", {
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
     title: text("title").notNull(),
+    progressPercentage: integer("progress_percentage").default(0).notNull(),
     description: text("description"),
     leadId: text("leadId")
         .references(() => leads.id, { onDelete: "restrict" }), // Link back to originating lead
@@ -521,6 +523,8 @@ export const tasks = pgTable("task", {
     dependsOnTaskId: text("dependsOnTaskId"),
     dueDate: timestamp("due_date", { mode: "date" }),
     status: taskStatusEnum("status").default("Todo").notNull(),
+    weight: integer("weight").notNull().default(1),
+    estimatedHours: integer("estimated_hours"),
     proofLinks: jsonb("proof_links").$type<{ label: string; url: string }[]>().default([]),
     proofNotes: text("proof_notes"),
     requiresProof: boolean("requires_proof").default(true).notNull(),
@@ -550,6 +554,31 @@ export const taskAssignees = pgTable("task_assignee", {
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
 }, (t) => ({ pk: primaryKey({ columns: [t.taskId, t.userId] }) }));
+
+export const taskSubmissions = pgTable("task_submission", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    taskId: text("taskId")
+        .notNull()
+        .references(() => tasks.id, { onDelete: "cascade" }),
+    submittedBy: text("submitted_by"),
+    proofUrl: text("proof_url").notNull(),
+    submissionNotes: text("submission_notes").notNull(),
+    aiConfidenceScore: integer("ai_confidence_score").notNull(),
+    gateStatus: qualityGateStatusEnum("gate_status").notNull(),
+    aiSummary: text("ai_summary").notNull(),
+    criteriaBreakdown: jsonb("criteria_breakdown").$type<
+        Array<{
+            criterion: string;
+            status: "PASS" | "FAIL" | "PARTIAL";
+            notes: string;
+        }>
+    >().default([]).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+    idxTaskSubmissionTaskCreated: index("idx_task_submission_task_created").on(t.taskId, t.createdAt),
+}));
 
 // 14. Client Feedback
 export const feedbackStatusEnum = pgEnum("feedback_status", ["APPROVED", "REVISION_REQUESTED"]);
@@ -641,6 +670,14 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
         relationName: "taskDependencies",
     }),
     dependents: many(tasks, { relationName: "taskDependencies" }),
+    submissions: many(taskSubmissions),
+}));
+
+export const taskSubmissionsRelations = relations(taskSubmissions, ({ one }) => ({
+    task: one(tasks, {
+        fields: [taskSubmissions.taskId],
+        references: [tasks.id],
+    }),
 }));
 
 export const taskAssigneesRelations = relations(taskAssignees, ({ one }) => ({

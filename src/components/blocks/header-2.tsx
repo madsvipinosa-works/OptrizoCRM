@@ -108,7 +108,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 key={link.href}
                                 className={cn(
                                     buttonVariants({ variant: 'ghost' }),
-                                    'font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
+                                    'font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
                                 )}
                                 href={link.href}
                             >
@@ -134,7 +134,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 <LoginModal>
                                     <Button
                                         variant="ghost"
-                                        className="font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all"
+                                        className="font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all"
                                     >
                                         Login
                                     </Button>
@@ -173,7 +173,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 key={link.label}
                                 className={cn(
                                     buttonVariants({ variant: 'ghost' }),
-                                    'justify-start text-lg font-semibold tracking-tight rounded-xl h-12 border border-transparent hover:border-[#34E513]/60 hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
+                                    'justify-start text-lg font-semibold tracking-tight rounded-xl h-12 border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
                                 )}
                                 href={link.href}
                                 onClick={() => setOpen(false)}
@@ -188,7 +188,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
                                     <Link href="/portal" onClick={() => setOpen(false)}>My Dashboard</Link>
                                 </Button>
-                                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-zinc-800 bg-zinc-900/50 text-zinc-200">
+                                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card/60 dark:border-zinc-800 dark:bg-zinc-900/50 text-foreground dark:text-zinc-200">
                                     <Link href="/portal/services" onClick={() => setOpen(false)}>Availed Services</Link>
                                 </Button>
                                 {isAdmin && (

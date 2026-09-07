@@ -41,30 +41,30 @@ export function ProjectSettingsModal({
                     Settings
                 </Button>
             </DialogTrigger>
-            <DialogContent className="glass-card border-white/10 text-white max-w-sm">
-                <DialogHeader>
-                    <DialogTitle>Project Settings</DialogTitle>
-                    <DialogDescription className="text-zinc-400">
+            <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-zinc-950 border-zinc-800 text-white shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
+                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur z-10">
+                    <DialogTitle className="text-lg font-bold text-white tracking-tight">Project Settings</DialogTitle>
+                    <DialogDescription className="text-zinc-400 text-xs sm:text-sm mt-1">
                         Configuration and lifecycle management for this project.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-6 pt-4">
-                    <div className="space-y-3 p-4 rounded-lg border border-rose-500/20 bg-rose-500/5">
+                <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
+                    <div className="space-y-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5">
                         <div className="flex items-center gap-2 text-rose-400">
-                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
                             <h4 className="text-sm font-semibold">Danger Zone</h4>
                         </div>
                         <p className="text-xs text-zinc-400 leading-relaxed">
-                            Archiving this project will hide it from the active active delivery board. You can restore it later from the archives.
+                            Archiving this project will hide it from the active delivery board. You can restore it later from the archives.
                         </p>
                         <Button 
                             type="button" 
                             variant="destructive" 
-                            className="w-full text-xs" 
+                            className="w-full text-xs font-semibold" 
                             onClick={handleArchive}
                             disabled={isArchiving}
                         >
-                            <Archive className="h-3 w-3 mr-2" />
+                            <Archive className="h-3.5 w-3.5 mr-2" />
                             {isArchiving ? "Archiving..." : "Archive Project"}
                         </Button>
                     </div>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/features/pm/components/KanbanBoard";
 import { ProjectSettingsModal } from "@/features/pm/components/ProjectSettingsModal";
 import { ProjectResourcesSidebar } from "@/features/pm/components/ProjectResourcesSidebar";
+import { ProjectProgressCard } from "@/components/projects/weighted-progress-bar";
 
 export default async function KanbanBoardPage(props: { params: Promise<{ id: string }> }) {
     const session = await auth();
@@ -54,8 +55,8 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
     });
 
     return (
-        <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500">
-            <div className="flex items-center justify-between gap-4">
+        <div className="space-y-3 h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500 w-full max-w-full min-w-0">
+            <div className="flex items-center justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild className="hover:bg-white/10">
                         <Link href="/dashboard/pm">
@@ -75,8 +76,13 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                 </div>
             </div>
 
+            {/* Real-time Weighted Progress Engine Card */}
+            <div className="shrink-0">
+                <ProjectProgressCard projectId={project.id} />
+            </div>
+
             {/* The Kanban Board gets the rest of the height */}
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                 <KanbanBoard
                     project={project as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
                     teamMembers={internalUsers as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
