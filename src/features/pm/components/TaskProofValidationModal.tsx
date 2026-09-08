@@ -22,7 +22,7 @@ import {
     RotateCcw,
     ClipboardList,
 } from "lucide-react";
-import { AIAuditCard } from "@/components/tasks/ai-audit-card";
+import { AIAuditCard, type CriteriaItem } from "@/components/tasks/ai-audit-card";
 import { getTaskAuditReport } from "@/features/pm/actions";
 import { polishDeliveryNotes } from "@/actions/task-quality-gate";
 import { cn } from "@/lib/utils";
@@ -57,11 +57,16 @@ export function TaskProofValidationModal({
 }: TaskProofValidationModalProps) {
     const [proofLinks, setProofLinks] = useState<{ label: string; url: string }[]>([{ label: "", url: "" }]);
     const [proofNotes, setProofNotes] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [auditReport, setAuditReport] = useState<{
-        summary?: string;
-        criteriaBreakdown?: Array<{ criterion: string; status: string; notes?: string }>;
-        gateStatus?: string;
-        aiConfidenceScore?: number;
+        aiConfidenceScore?: number | null;
+        gateStatus?: "Passed" | "Failed" | string | null;
+        aiSummary?: string | null;
+        criteriaBreakdown?: CriteriaItem[] | unknown;
+        submittedBy?: string | null;
+        proofUrl?: string | null;
+        createdAt?: Date | string | null;
     } | null>(null);
     const [isLoadingAudit, setIsLoadingAudit] = useState(false);
     const [activeTab, setActiveTab] = useState<"proofs" | "audit">(initialTab);
@@ -751,10 +756,10 @@ export function TaskProofValidationModal({
                                 {!isLoadingAudit && auditReport && (
                                     <div className="space-y-2">
                                         <AIAuditCard
-                                            score={auditReport.aiConfidenceScore}
-                                            status={auditReport.gateStatus}
-                                            summary={auditReport.aiSummary}
-                                            criteria={auditReport.criteriaBreakdown || []}
+                                            score={auditReport.aiConfidenceScore ?? 0}
+                                            status={auditReport.gateStatus === "Passed" ? "Passed" : "Failed"}
+                                            summary={auditReport.aiSummary || ""}
+                                            criteria={(auditReport.criteriaBreakdown as CriteriaItem[]) || []}
                                             submittedBy={auditReport.submittedBy}
                                             proofUrl={auditReport.proofUrl}
                                             createdAt={auditReport.createdAt}

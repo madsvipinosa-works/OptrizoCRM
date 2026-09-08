@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, submitTaskBlockedReasonAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { Plus, Users, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -141,6 +142,8 @@ export function KanbanBoard({
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
     const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
     const [isSavingMilestone, setIsSavingMilestone] = useState(false);
+    const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+    const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
 
     const activeMilestone = optimisticMilestones?.find((m) => m.id === activeMilestoneId);
     if (!activeMilestone && optimisticMilestones.length > 0) {
