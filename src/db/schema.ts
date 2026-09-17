@@ -246,6 +246,7 @@ export const lossReasonEnum = pgEnum("loss_reason", [
     "other"
 ]);
 export const activityEnum = pgEnum("activity_type", ["System", "Note", "Email", "Call", "Meeting"]);
+export const qualificationStatusEnum = pgEnum("qualification_status", ["Lead", "MQL", "SQL"]);
 
 export const leads = pgTable("lead", {
     id: text("id")
@@ -263,6 +264,7 @@ export const leads = pgTable("lead", {
     budget: text("budget"),
     estimatedValue: integer("estimated_value").default(0).notNull(),
     leadScore: integer("lead_score").default(50).notNull(),
+    qualificationStatus: qualificationStatusEnum("qualification_status").default("Lead").notNull(),
     priority: text("priority").default("Warm").notNull(),
     goals: text("goals"),
     industry: text("industry"),
@@ -379,6 +381,49 @@ export const auditLogs = pgTable("audit_log", {
 });
 
 
+// 15b. CRM Tasks
+export const crmTaskStatusEnum = pgEnum("crm_task_status", [
+  "Pending",
+  "In Progress",
+  "Completed",
+  "Canceled",
+]);
+export const crmTaskTypeEnum = pgEnum("crm_task_type", [
+  "Call",
+  "Email",
+  "Meeting",
+  "To-do",
+]);
+export const crmTaskPriorityEnum = pgEnum("crm_task_priority", [
+  "Low",
+  "Medium",
+  "High",
+]);
+
+export const crmTasks = pgTable("crm_task", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  leadId: text("leadId")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  assignedTo: text("assignedTo")
+    .references(() => users.id, { onDelete: "set null" }), // Sales Rep
+  title: text("title").notNull(),
+  description: text("description"),
+  taskType: crmTaskTypeEnum("task_type").default("To-do").notNull(),
+  status: crmTaskStatusEnum("status").default("Pending").notNull(),
+  priority: crmTaskPriorityEnum("priority").default("Medium").notNull(),
+  dueDate: timestamp("due_date", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_crm_task_lead").on(t.leadId),
+  index("idx_crm_task_assignee_status").on(t.assignedTo, t.status),
+  index("idx_crm_task_due_status").on(t.dueDate, t.status),
+]);
+
 // --- RELATIONS ---
 import { relations } from "drizzle-orm";
 
@@ -386,6 +431,7 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
     activityLogs: many(leadActivityLogs),
     assignees: many(leadAssignees),
     proposals: many(proposals),
+    crmTasks: many(crmTasks),
     client: one(users, {
         fields: [leads.clientId],
         references: [users.id],
@@ -423,6 +469,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     authoredActivityLogs: many(leadActivityLogs),
     projectStakeholds: many(projectStakeholders),
     taskAssignments: many(taskAssignees),
+    crmTaskAssignments: many(crmTasks),
     notifications: many(notifications),
     clientFeedback: many(clientFeedback),
     auditLogs: many(auditLogs),
@@ -439,6 +486,17 @@ export const proposalsRelations = relations(proposals, ({ one }) => ({
     lead: one(leads, {
         fields: [proposals.leadId],
         references: [leads.id],
+    }),
+}));
+
+export const crmTasksRelations = relations(crmTasks, ({ one }) => ({
+    lead: one(leads, {
+        fields: [crmTasks.leadId],
+        references: [leads.id],
+    }),
+    assignee: one(users, {
+        fields: [crmTasks.assignedTo],
+        references: [users.id],
     }),
 }));
 
@@ -469,6 +527,7 @@ export const agencyProjects = pgTable("agency_project", {
     title: text("title").notNull(),
     progressPercentage: integer("progress_percentage").default(0).notNull(),
     description: text("description"),
+    sourceBrief: text("source_brief"), // NEW: The raw text that generated this project
     leadId: text("leadId")
         .references(() => leads.id, { onDelete: "restrict" }), // Link back to originating lead
     status: agencyProjectStatusEnum("status").default("Kickoff").notNull(),

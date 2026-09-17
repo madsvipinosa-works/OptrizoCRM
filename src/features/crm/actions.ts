@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks, proposals, passwordResetTokens } from "@/db/schema";
+import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks, proposals, passwordResetTokens, crmTasks } from "@/db/schema";
 import { revalidatePath } from "next/cache";
-import { eq, inArray, and, sql } from "drizzle-orm";
+import { eq, inArray, and, sql, not } from "drizzle-orm";
 import { leadUpdateSchema, transitionLeadSchema, logLeadActivitySchema, type LeadUpdateValues, type TransitionLeadValues, type LogLeadActivityValues } from "@/lib/schemas";
 import { calculateLeadScore } from "@/features/crm/utils/leadScoring";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
@@ -61,65 +61,134 @@ export async function createLead(data: {
     }
 
     try {
-        // 1. Find or create client user
-        let clientUser = await db.query.users.findFirst({
-            where: eq(users.email, data.contactEmail),
-        });
+        const result = await db.transaction(async (tx) => {
+            // 1. Find or create client user
+            let clientUser = await tx.query.users.findFirst({
+                where: eq(users.email, data.contactEmail),
+            });
 
-        if (!clientUser) {
-            const randomPassword = crypto.randomBytes(16).toString("hex");
-            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+            if (!clientUser) {
+                const randomPassword = crypto.randomBytes(16).toString("hex");
+                const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-            const [newUser] = await db.insert(users).values({
-                email: data.contactEmail,
-                name: data.contactName || data.businessName,
-                password: hashedPassword,
-                role: "client",
+                const [newUser] = await tx.insert(users).values({
+                    email: data.contactEmail,
+                    name: data.contactName || data.businessName,
+                    password: hashedPassword,
+                    role: "client",
+                }).returning();
+                clientUser = newUser;
+            }
+
+            // 2. Parse estimated value and calculate lead score
+            const estimatedValue = data.estimatedValue || (data.budget ? parseBudgetToEstimatedValue(data.budget) : 0);
+            const { score: leadScore, priority } = calculateLeadScore({
+                estimatedValue,
+                budget: data.budget,
+                timelineExpectation: data.timelineExpectation,
+                contactEmail: data.contactEmail,
+                contactPhone: data.contactPhone,
+                goals: data.goals,
+                serviceId: data.serviceId,
+            });
+            const qualificationStatus = leadScore >= 80 ? "SQL" : (leadScore >= 50 ? "MQL" : "Lead");
+
+            // 3. Create lead
+            const [newLead] = await tx.insert(leads).values({
+                clientId: clientUser.id,
+                businessName: data.businessName,
+                contactName: data.contactName,
+                contactEmail: data.contactEmail,
+                contactPhone: data.contactPhone,
+                serviceId: data.serviceId || null,
+                budget: data.budget,
+                estimatedValue,
+                leadScore,
+                qualificationStatus,
+                priority,
+                timelineExpectation: data.timelineExpectation,
+                goals: data.goals,
+                industry: data.industry,
+                status: "New Lead",
+                source: data.source || "Manual Entry",
+                lastContactedAt: new Date(),
             }).returning();
-            clientUser = newUser;
-        }
 
-        // 2. Parse estimated value and calculate lead score
-        const estimatedValue = data.estimatedValue || (data.budget ? parseBudgetToEstimatedValue(data.budget) : 0);
-        const { score: leadScore, priority } = calculateLeadScore({
-            estimatedValue,
-            budget: data.budget,
-            timelineExpectation: data.timelineExpectation,
-            contactEmail: data.contactEmail,
-            contactPhone: data.contactPhone,
-            goals: data.goals,
-            serviceId: data.serviceId,
+            // 4. Round-Robin Lead Routing
+            const salesReps = await tx.query.users.findMany({
+                where: eq(users.role, "sales"),
+            });
+
+            let assignedRepId = null;
+            if (salesReps.length > 0) {
+                const repsWithCounts = await Promise.all(salesReps.map(async (rep) => {
+                    const activeCount = await tx.select({ count: sql<number>`count(*)` })
+                        .from(leadAssignees)
+                        .innerJoin(leads, eq(leadAssignees.leadId, leads.id))
+                        .where(and(
+                            eq(leadAssignees.userId, rep.id),
+                            not(inArray(leads.status, ["Closed Won", "Closed Lost"]))
+                        ));
+                    return { repId: rep.id, count: Number(activeCount[0].count) };
+                }));
+
+                repsWithCounts.sort((a, b) => a.count - b.count);
+                assignedRepId = repsWithCounts[0].repId;
+            } else {
+                // Fallback to superadmin
+                const superAdmins = await tx.query.users.findMany({
+                    where: eq(users.role, "superadmin"),
+                });
+                if (superAdmins.length > 0) assignedRepId = superAdmins[0].id;
+            }
+
+            if (assignedRepId) {
+                await tx.insert(leadAssignees).values({
+                    leadId: newLead.id,
+                    userId: assignedRepId,
+                });
+            }
+
+            // 5. Automated Sales Playbook (Task Provisioning)
+            const now = new Date();
+            const discoveryDueDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +24h
+            const proposalDueDate = new Date(now.getTime() + 72 * 60 * 60 * 1000); // +72h
+
+            await tx.insert(crmTasks).values([
+                {
+                    leadId: newLead.id,
+                    assignedTo: assignedRepId,
+                    title: "Initial Discovery Call",
+                    description: "Automatically provisioned task: Reach out to the new lead to qualify their budget and timeline.",
+                    taskType: "Call",
+                    priority: "High",
+                    status: "Pending",
+                    dueDate: discoveryDueDate,
+                },
+                {
+                    leadId: newLead.id,
+                    assignedTo: assignedRepId,
+                    title: "Send Tailored Scope & Proposal",
+                    description: "Automatically provisioned task: Prepare and send a tailored proposal.",
+                    taskType: "Email",
+                    priority: "Medium",
+                    status: "Pending",
+                    dueDate: proposalDueDate,
+                }
+            ]);
+
+            // 6. Log initial creation note
+            await tx.insert(leadActivityLogs).values({
+                leadId: newLead.id,
+                authorId: session.user.id || null,
+                activityType: "System",
+                content: `Lead created with initial score of ${leadScore} (${priority}). Assigned to ${assignedRepId ? "rep" : "unassigned"}.`,
+            });
+            
+            return newLead;
         });
 
-        // 3. Create lead
-        const [newLead] = await db.insert(leads).values({
-            clientId: clientUser.id,
-            businessName: data.businessName,
-            contactName: data.contactName,
-            contactEmail: data.contactEmail,
-            contactPhone: data.contactPhone,
-            serviceId: data.serviceId || null,
-            budget: data.budget,
-            estimatedValue,
-            leadScore,
-            priority,
-            timelineExpectation: data.timelineExpectation,
-            goals: data.goals,
-            industry: data.industry,
-            status: "New Lead",
-            source: data.source || "Manual Entry",
-            lastContactedAt: new Date(),
-        }).returning();
-
-        // 4. Log initial creation note
-        await db.insert(leadActivityLogs).values({
-            leadId: newLead.id,
-            authorId: session.user.id || null,
-            activityType: "System",
-            content: `Lead created with initial score of ${leadScore} (${priority}).`,
-        });
-
-        await logAction("CREATE", "Lead", `Created lead "${data.businessName}" (${newLead.id})`);
+        await logAction("CREATE", "Lead", `Created lead "${data.businessName}" (${result.id})`);
 
         revalidatePath("/dashboard/leads");
         return { success: true, message: `Lead "${data.businessName}" created successfully` };

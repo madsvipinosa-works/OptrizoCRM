@@ -51,7 +51,6 @@ export default async function LeadsPage({
             : undefined
     );
 
-    // Fetch leads descending by creation date
     const leadsList = await db.query.leads.findMany({
         where: whereClause,
         with: {
@@ -66,6 +65,10 @@ export default async function LeadsPage({
             proposals: {
                 orderBy: (p, { desc }) => [desc(p.createdAt)]
             },
+            crmTasks: {
+                with: { assignee: true },
+                orderBy: (t, { asc }) => [asc(t.dueDate)]
+            }
         },
         orderBy: [desc(leads.createdAt)],
     });
@@ -84,6 +87,13 @@ export default async function LeadsPage({
         lastContactedAt: lead.lastContactedAt ? lead.lastContactedAt.toISOString() : null,
         nextFollowUpDate: lead.nextFollowUpDate ? lead.nextFollowUpDate.toISOString() : null,
         assignees: lead.assignees?.map(a => a.user) || [],
+        crmTasks: lead.crmTasks?.map(t => ({
+            ...t,
+            dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+            completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+            createdAt: t.createdAt.toISOString(),
+            updatedAt: t.updatedAt.toISOString()
+        })) || []
     }));
 
     return (

@@ -60,9 +60,10 @@ export type LeadItem = {
     isArchived?: boolean;
     createdAt: Date | string;
     updatedAt: Date | string;
-    assignees?: { id: string; name: string | null; image: string | null; jobTitle?: string | null }[];
     activityLogs?: any[];
     proposals?: any[];
+    crmTasks?: any[];
+    assignees?: any[];
 };
 
 interface LeadsDataTableProps {

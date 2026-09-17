@@ -43,6 +43,9 @@ export function LeadCard({
     const daysSinceContact = Math.floor((Date.now() - lastContactTime.getTime()) / (1000 * 3600 * 24));
     const isStale = !["Closed Won", "Closed Lost"].includes(lead.status) && daysSinceContact >= 5;
 
+    const overdueTasksCount = lead.crmTasks?.filter((t: any) => t.dueDate && new Date(t.dueDate).getTime() < Date.now() && t.status !== "Completed").length || 0;
+    const dueTodayTasksCount = lead.crmTasks?.filter((t: any) => t.dueDate && new Date(t.dueDate).toDateString() === new Date().toDateString() && t.status !== "Completed").length || 0;
+
     const getPriorityIcon = (p: string) => {
         if (p === "Hot") return <Flame className="h-3 w-3 text-rose-400" />;
         if (p === "Cold") return <Snowflake className="h-3 w-3 text-cyan-400" />;
@@ -77,16 +80,28 @@ export function LeadCard({
                     )}
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                    <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1.5 py-0.5 gap-1 font-semibold ${getPriorityBadgeClass(priority)}`}
-                    >
-                        {getPriorityIcon(priority)} {priority}
-                    </Badge>
-                    <span className="text-[10px] font-mono text-zinc-500 font-bold bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
-                        {score}
-                    </span>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex items-center gap-1">
+                        <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0.5 gap-1 font-semibold ${getPriorityBadgeClass(priority)}`}
+                        >
+                            {getPriorityIcon(priority)} {priority}
+                        </Badge>
+                        <span className="text-[10px] font-mono text-zinc-500 font-bold bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+                            {score}
+                        </span>
+                    </div>
+                    {overdueTasksCount > 0 && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            {overdueTasksCount} Overdue
+                        </Badge>
+                    )}
+                    {overdueTasksCount === 0 && dueTodayTasksCount > 0 && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                            {dueTodayTasksCount} Due Today
+                        </Badge>
+                    )}
                 </div>
             </div>
 

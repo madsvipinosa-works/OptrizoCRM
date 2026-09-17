@@ -10,7 +10,8 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:capstone": "npx tsx test-crm-routing.ts && npx tsx tests/test-scope-engine.ts && npx tsx tests/test-quality-gate.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.64",

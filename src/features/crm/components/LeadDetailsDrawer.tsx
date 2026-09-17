@@ -42,9 +42,11 @@ import {
     Loader2,
     CheckCircle2,
     Search,
+    CheckSquare,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { logLeadActivity } from "@/features/crm/actions";
+import { completeCrmTask } from "@/actions/crm-tasks";
 import { toast } from "sonner";
 import type { LeadItem } from "./LeadsDataTable";
 import Link from "next/link";
@@ -77,7 +79,7 @@ export function LeadDetailsDrawer({
     onStatusChangeRequest,
     onAssignStaff,
 }: LeadDetailsDrawerProps) {
-    const [activeTab, setActiveTab] = useState<"overview" | "timeline">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "timeline" | "tasks">("overview");
     const [activityType, setActivityType] = useState<"Call" | "Meeting" | "Email" | "Note">("Call");
     const [activityContent, setActivityContent] = useState("");
     const [followUpDate, setFollowUpDate] = useState("");
@@ -139,6 +141,20 @@ export function LeadDetailsDrawer({
             toast.error("An error occurred while logging activity");
         } finally {
             setIsLogging(false);
+        }
+    };
+
+    const handleCompleteTask = async (taskId: string) => {
+        try {
+            const res = await completeCrmTask(taskId);
+            if (res.success) {
+                toast.success("Task completed!");
+            } else {
+                toast.error(res.message || "Failed to complete task");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("An error occurred");
         }
     };
 
@@ -372,6 +388,10 @@ export function LeadDetailsDrawer({
                                 <TabsTrigger value="overview" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">
                                     Commercial Overview
                                 </TabsTrigger>
+                                <TabsTrigger value="tasks" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black flex items-center gap-1">
+                                    <CheckSquare className="h-3.5 w-3.5" />
+                                    Sales Tasks ({lead.crmTasks?.filter((t: any) => t.status !== "Completed").length || 0})
+                                </TabsTrigger>
                                 <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">
                                     Activity & Audit ({lead.activityLogs?.length || 0})
                                 </TabsTrigger>
@@ -524,6 +544,71 @@ export function LeadDetailsDrawer({
                             ) : (
                                 <div className="text-center py-12 text-zinc-500 text-xs">
                                     No activity logs recorded yet. Use the composer below to log your first call or note.
+                                </div>
+                            )}
+                        </TabsContent>
+
+                        {/* TAB 3: TASKS */}
+                        <TabsContent value="tasks" className="flex-1 overflow-y-auto p-6 space-y-4 m-0">
+                            {lead.crmTasks && lead.crmTasks.length > 0 ? (
+                                <div className="space-y-3">
+                                    {lead.crmTasks.map((task: any) => {
+                                        const isOverdue = task.dueDate && new Date(task.dueDate).getTime() < Date.now() && task.status !== "Completed";
+                                        const isDueToday = task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString() && task.status !== "Completed";
+
+                                        return (
+                                            <div key={task.id} className={`p-4 rounded-xl border ${task.status === "Completed" ? "bg-white/5 border-white/10 opacity-70" : "bg-zinc-900 border-white/10"}`}>
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="space-y-1.5 flex-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <h4 className={`text-sm font-semibold ${task.status === "Completed" ? "line-through text-zinc-500" : "text-white"}`}>
+                                                                {task.title}
+                                                            </h4>
+                                                            <Badge variant="outline" className="text-[10px] py-0 h-4 bg-white/5">{task.taskType}</Badge>
+                                                            {isOverdue && <Badge variant="outline" className="text-[10px] py-0 h-4 bg-rose-500/10 text-rose-400 border-rose-500/20">Overdue</Badge>}
+                                                            {isDueToday && <Badge variant="outline" className="text-[10px] py-0 h-4 bg-amber-500/10 text-amber-400 border-amber-500/20">Due Today</Badge>}
+                                                        </div>
+                                                        {task.description && (
+                                                            <p className="text-xs text-zinc-400 line-clamp-2">
+                                                                {task.description}
+                                                            </p>
+                                                        )}
+                                                        <div className="flex items-center gap-3 text-[10px] text-zinc-500 mt-2">
+                                                            {task.dueDate && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <Calendar className="h-3 w-3" />
+                                                                    Due: {format(new Date(task.dueDate), "MMM d, yyyy")}
+                                                                </span>
+                                                            )}
+                                                            <span className="flex items-center gap-1">
+                                                                <Users className="h-3 w-3" />
+                                                                Assigned: {task.assignee?.name || "Unassigned"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="shrink-0 flex flex-col items-end gap-2">
+                                                        <Badge variant="outline" className={`text-[10px] ${task.status === "Completed" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>
+                                                            {task.status}
+                                                        </Badge>
+                                                        {task.status !== "Completed" && isAdmin && (
+                                                            <Button 
+                                                                size="sm" 
+                                                                variant="ghost" 
+                                                                className="h-6 px-2 text-[10px] text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                                                onClick={() => handleCompleteTask(task.id)}
+                                                            >
+                                                                <CheckCircle2 className="h-3 w-3 mr-1" /> Complete
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 text-zinc-500 text-xs">
+                                    No sales tasks created for this lead yet.
                                 </div>
                             )}
                         </TabsContent>

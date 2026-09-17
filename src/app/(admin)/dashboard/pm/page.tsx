@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
 import { Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { ScopeDeconstructorModal } from "@/features/pm/components/ScopeDeconstructorModal";
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,9 @@ export default async function PMEnginePage() {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-glow">Agency PM Engine</h2>
                     <p className="text-muted-foreground">Manage ongoing client projects, milestones, and tasks.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <ScopeDeconstructorModal />
                 </div>
             </div>
 
