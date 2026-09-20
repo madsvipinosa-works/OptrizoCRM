@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 // Force Restart: Attempt 3 (Fix Syntax Error)
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: __dirname,
+  },
   images: {
     remotePatterns: [
       {
