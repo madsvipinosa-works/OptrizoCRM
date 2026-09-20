@@ -15,9 +15,7 @@ export default function ClientLayout({
                 <MouseEffectBackground className="fixed inset-0 z-0 opacity-40 pointer-events-auto" dotSize={1.5} dotSpacing={32} repulsionRadius={80} />
             </div>
 
-            <div className="print:hidden">
-                <Navbar />
-            </div>
+            <Navbar />
 
             <main className="flex-1 relative z-10 w-full max-w-7xl mx-auto px-4 md:px-6 pt-24 md:pt-28 pb-12 flex flex-col md:flex-row gap-8 print:m-0 print:p-0">
                 <div className="print:hidden">
@@ -28,9 +26,7 @@ export default function ClientLayout({
                 </div>
             </main>
 
-            <div className="print:hidden">
-                <Footer className="relative z-10" />
-            </div>
+            <Footer className="relative z-10 print:hidden" />
         </div>
     );
 }

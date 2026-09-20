@@ -99,6 +99,7 @@ export const siteSettingsSchema = z.object({
     heroDescription: z.string().optional(),
     aboutText: z.string().optional(),
     logoUrl: z.string().optional(),
+    logoDarkUrl: z.string().optional(),
     faviconUrl: z.string().optional(),
     contactEmail: z.string().email().optional().or(z.literal("")),
     notificationEmails: z.string().optional(),

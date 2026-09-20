@@ -18,6 +18,7 @@ interface SiteSettings {
     heroDescription?: string | null;
     aboutText?: string | null;
     logoUrl?: string | null;
+    logoDarkUrl?: string | null;
     faviconUrl?: string | null;
     contactEmail?: string | null;
     notificationEmails?: string[] | string | null;
@@ -29,6 +30,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
 
     // Image States
     const [logo, setLogo] = useState(initialData?.logoUrl || "");
+    const [logoDark, setLogoDark] = useState(initialData?.logoDarkUrl || "");
     const [favicon, setFavicon] = useState(initialData?.faviconUrl || "");
     const [aboutText, setAboutText] = useState(initialData?.aboutText || "<p>We are a team of passionate developers...</p>");
 
@@ -124,12 +126,17 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                     <CardTitle className="text-foreground">Branding & Contact</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                            <Label className="text-foreground">Logo</Label>
+                            <Label className="text-foreground">Logo (Light Mode)</Label>
                             {/* Hidden Input to send data to server action */}
                             <input type="hidden" name="logoUrl" value={logo} />
-                            <ImageUpload value={logo} onChange={setLogo} label="Upload Logo" />
+                            <ImageUpload value={logo} onChange={setLogo} label="Upload Light Logo" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-foreground">Logo (Dark Mode)</Label>
+                            <input type="hidden" name="logoDarkUrl" value={logoDark} />
+                            <ImageUpload value={logoDark} onChange={setLogoDark} label="Upload Dark Logo" />
                         </div>
                         <div className="space-y-2">
                             <Label className="text-foreground">Favicon</Label>

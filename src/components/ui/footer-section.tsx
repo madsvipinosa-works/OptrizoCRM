@@ -71,7 +71,7 @@ interface FooterProps {
 
 export function FooterSection({ contactEmail = 'hello@optrizo.com', className }: FooterProps) {
     return (
-        <footer className={cn("relative w-full max-w-6xl mx-auto flex flex-col items-center justify-center px-6 py-12 lg:py-16 transition-colors duration-500", className)}>
+        <footer className={cn("md:rounded-t-6xl relative w-full max-w-6xl mx-auto flex flex-col items-center justify-center rounded-t-4xl border-t border-border/40 px-6 py-12 lg:py-16 transition-colors duration-500", className)}>
             <div className="grid w-full gap-8 xl:grid-cols-3 xl:gap-8">
                 {/* Brand Column */}
                 <AnimatedContainer className="space-y-4">

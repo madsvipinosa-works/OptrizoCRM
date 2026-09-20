@@ -26,6 +26,7 @@ export type HeaderProps = {
     isAdmin: boolean;
     settings: {
         logoUrl?: string | null;
+        logoDarkUrl?: string | null;
     } | null;
     navLinks: { href: string; label: string }[];
     onSignOut: () => Promise<void>;
@@ -50,7 +51,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
     return (
         <header
             className={cn(
-                'fixed top-0 z-50 left-0 right-0 mx-auto w-full transition-all duration-500 ease-out',
+                'fixed top-0 z-50 left-0 right-0 mx-auto w-full transition-all duration-500 ease-out print:hidden',
                 {
                     'max-w-[1400px] md:top-0': !scrolled,
                     'md:max-w-5xl md:top-4': scrolled && !open,
@@ -81,14 +82,34 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                 >
                     {/* Logo */}
                     <Link href="/" className="flex items-center space-x-2 group">
-                        {settings?.logoUrl ? (
+                        {settings?.logoUrl || settings?.logoDarkUrl ? (
                             <div className="relative h-9 w-28">
-                                <Image
-                                    src={settings.logoUrl}
-                                    alt="Logo"
-                                    fill
-                                    className="object-contain object-left"
-                                />
+                                {settings.logoUrl && (
+                                    <Image
+                                        src={settings.logoUrl}
+                                        alt="Logo"
+                                        fill
+                                        priority
+                                        className={cn(
+                                            "object-contain object-left",
+                                            settings.logoDarkUrl
+                                                ? "dark:hidden"
+                                                : "dark:[filter:drop-shadow(0_0_1px_rgba(255,255,255,0.95))_drop-shadow(0_0_4px_rgba(255,255,255,0.4))] transition-[filter] duration-300"
+                                        )}
+                                    />
+                                )}
+                                {settings.logoDarkUrl && (
+                                    <Image
+                                        src={settings.logoDarkUrl}
+                                        alt="Logo Dark"
+                                        fill
+                                        priority
+                                        className={cn(
+                                            "object-contain object-left",
+                                            settings.logoUrl ? "hidden dark:block" : ""
+                                        )}
+                                    />
+                                )}
                             </div>
                         ) : (
                             <>

@@ -184,6 +184,7 @@ export const siteSettings = pgTable("site_settings", {
     heroDescription: text("heroDescription").default("Premium software development agency crafting high-performance websites."),
     aboutText: text("aboutText"),
     logoUrl: text("logoUrl"),
+    logoDarkUrl: text("logoDarkUrl"),
     faviconUrl: text("faviconUrl"),
     contactEmail: text("contactEmail"),
     notificationEmails: jsonb("notificationEmails").$type<string[]>().default([]).notNull(),
