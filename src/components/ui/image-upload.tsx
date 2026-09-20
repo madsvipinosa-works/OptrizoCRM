@@ -74,12 +74,12 @@ export function ImageUpload({ value, onChange, label = "Cover Image" }: ImageUpl
                             <p className="mb-2 text-sm text-muted-foreground">
                                 <span className="font-semibold">Click to upload</span>
                             </p>
-                            <p className="text-xs text-muted-foreground">PNG, JPG, WEBP (MAX. 5MB)</p>
+                            <p className="text-xs text-muted-foreground">PNG, JPG, SVG, WEBP, GIF (MAX. 15MB)</p>
                         </div>
                         <Input
                             type="file"
                             className="hidden"
-                            accept="image/*"
+                            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/x-icon,image/vnd.microsoft.icon,image/*"
                             onChange={handleFileChange}
                             disabled={isUploading}
                         />
