@@ -68,13 +68,13 @@ export function ScopeDeconstructorModal() {
           Auto-Generate Project
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl glass-card border-white/10 bg-black/80 backdrop-blur-xl">
+      <DialogContent className="max-w-3xl bg-card border-border text-foreground shadow-2xl backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
             Autonomous Scope & Effort Deconstructor
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-muted-foreground">
             Paste an unstructured client email or brief. The AI will instantly generate a weighted Agile Kanban board.
           </DialogDescription>
         </DialogHeader>
@@ -83,7 +83,7 @@ export function ScopeDeconstructorModal() {
           <div className="space-y-4 py-4">
             <Textarea
               placeholder="e.g., 'We need a marketplace for local artists. It needs user profiles, an image gallery, Stripe payments, and a shopping cart...'"
-              className="min-h-[200px] bg-black/50 border-white/10 focus-visible:ring-primary/50 resize-none font-mono text-sm"
+              className="min-h-[200px] bg-background border-border text-foreground focus-visible:ring-primary/50 resize-none font-mono text-sm placeholder:text-muted-foreground"
               value={rawBrief}
               onChange={(e) => setRawBrief(e.target.value)}
             />
@@ -91,7 +91,7 @@ export function ScopeDeconstructorModal() {
               <Button 
                 onClick={handleAnalyze} 
                 disabled={isAnalyzing || !rawBrief.trim()}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-black font-bold cursor-pointer"
               >
                 {isAnalyzing ? (
                   <>
@@ -110,7 +110,7 @@ export function ScopeDeconstructorModal() {
         ) : (
           <div className="space-y-6 py-4 animate-in fade-in slide-in-from-bottom-4">
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-              <h3 className="font-semibold text-lg flex items-center gap-2">
+              <h3 className="font-semibold text-lg flex items-center gap-2 text-foreground">
                 <LayoutDashboard className="w-5 h-5 text-primary" />
                 {parsedScope.projectTitle}
               </h3>
@@ -122,18 +122,18 @@ export function ScopeDeconstructorModal() {
             <div className="max-h-[400px] overflow-y-auto space-y-6 pr-2 custom-scrollbar">
               {parsedScope.milestones.map((milestone, i) => (
                 <div key={i} className="space-y-3">
-                  <h4 className="font-medium text-sm text-white/90 flex items-center gap-2 sticky top-0 bg-black/90 py-2 z-10">
-                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white/10 text-xs">
+                  <h4 className="font-medium text-sm text-foreground flex items-center gap-2 sticky top-0 bg-card py-2 z-10 border-b border-border/50">
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary font-mono text-xs font-bold">
                       {milestone.order}
                     </span>
                     {milestone.title}
                   </h4>
-                  <div className="space-y-2 pl-4 border-l border-white/10 ml-2">
+                  <div className="space-y-2 pl-4 border-l border-border ml-2">
                     {milestone.tasks.map((task, j) => (
-                      <div key={j} className="bg-white/5 border border-white/10 rounded p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:bg-white/10 transition-colors">
+                      <div key={j} className="bg-muted/30 border border-border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:bg-muted/60 transition-colors">
                         <div>
-                          <div className="font-medium text-sm flex items-center gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          <div className="font-medium text-sm text-foreground flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
                             {task.title}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1 ml-5">
@@ -141,10 +141,10 @@ export function ScopeDeconstructorModal() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="outline" className="bg-white/5 border-white/10 text-xs">
+                          <Badge variant="outline" className="bg-background border-border text-xs text-foreground font-mono">
                             {task.weight} pts
                           </Badge>
-                          <Badge variant="outline" className="bg-white/5 border-white/10 text-xs text-blue-400">
+                          <Badge variant="outline" className="bg-background border-border text-xs text-primary font-mono">
                             {task.estimatedHours} hrs
                           </Badge>
                         </div>
@@ -155,16 +155,16 @@ export function ScopeDeconstructorModal() {
               ))}
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4 border-t border-white/10">
-              <Button variant="ghost" onClick={() => setParsedScope(null)} disabled={isProvisioning}>
+            <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4 border-t border-border">
+              <Button variant="ghost" onClick={() => setParsedScope(null)} disabled={isProvisioning} className="hover:bg-muted text-foreground">
                 Back to Edit
               </Button>
               <div className="flex items-center gap-3">
-                <div className="text-xs text-muted-foreground text-right hidden sm:block">
+                <div className="text-xs text-muted-foreground text-right hidden sm:block font-mono">
                   Total Tasks: {parsedScope.milestones.reduce((acc, m) => acc + m.tasks.length, 0)} <br/>
                   Total Effort: {parsedScope.milestones.reduce((acc, m) => acc + m.tasks.reduce((sum, t) => sum + t.estimatedHours, 0), 0)} hrs
                 </div>
-                <Button onClick={handleProvision} disabled={isProvisioning} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto">
+                <Button onClick={handleProvision} disabled={isProvisioning} className="bg-primary hover:bg-primary/90 text-black font-bold w-full sm:w-auto cursor-pointer">
                   {isProvisioning ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (

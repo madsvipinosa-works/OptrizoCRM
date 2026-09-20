@@ -6,7 +6,14 @@ import { LeadsKanbanBoard } from "./LeadsKanbanBoard";
 import { LeadStatusValidationModal } from "./LeadStatusValidationModal";
 import { CloseLostModal } from "./CloseLostModal";
 import { LeadDetailsDrawer } from "./LeadDetailsDrawer";
-import { transitionLeadStage, updateLeadStatusWithAudit, bulkUpdateLeadStatus, bulkAssignLeads } from "@/features/crm/actions";
+import { EditLeadModal } from "./EditLeadModal";
+import {
+    transitionLeadStage,
+    bulkUpdateLeadStatus,
+    bulkAssignLeads,
+    archiveLead,
+    unarchiveLead,
+} from "@/features/crm/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +32,9 @@ import {
     User,
     RefreshCw,
     AlertTriangle,
-    Flame,
+    CalendarClock,
+    Archive,
+    UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { LossReason } from "@/lib/schemas";
@@ -43,11 +52,18 @@ export function LeadsPipelineView({
     currentUserId,
     isAdmin,
 }: LeadsPipelineViewProps) {
+    const [leadsList, setLeadsList] = useState<LeadItem[]>(initialLeads);
     const [viewLayout, setViewLayout] = useState<"kanban" | "table">("kanban");
     const [scopeMode, setScopeMode] = useState<"all" | "mine">("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>("all");
+    const [selectedAssigneeFilter, setSelectedAssigneeFilter] = useState<string>("all");
     const [staleOnlyFilter, setStaleOnlyFilter] = useState(false);
+    const [overdueTasksOnly, setOverdueTasksOnly] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
+
+    // Edit modal state
+    const [editingLead, setEditingLead] = useState<LeadItem | null>(null);
 
     // Side-over drawer state
     const [selectedLeadForDrawer, setSelectedLeadForDrawer] = useState<LeadItem | null>(null);
@@ -81,7 +97,7 @@ export function LeadsPipelineView({
 
     // React 19 Optimistic State Update Hook
     const [optimisticLeads, setOptimisticLeads] = useOptimistic(
-        initialLeads,
+        leadsList,
         (state: LeadItem[], update: { leadId: string; newStatus: string; lossReason?: string; lossNotes?: string }) => {
             return state.map((lead) =>
                 lead.id === update.leadId
@@ -99,10 +115,27 @@ export function LeadsPipelineView({
 
     // Filter leads across both views
     const filteredLeads = optimisticLeads.filter((lead) => {
+        // Archived filter (hide archived by default; if showArchived is true, view only archived)
+        if (showArchived) {
+            if (!lead.isArchived) return false;
+        } else {
+            if (lead.isArchived) return false;
+        }
+
         // Staff assignment scope filter
         if (scopeMode === "mine") {
             const isAssigned = lead.assignees?.some((a) => a.id === currentUserId);
             if (!isAssigned) return false;
+        }
+
+        // Specific Assignee filter
+        if (selectedAssigneeFilter !== "all") {
+            if (selectedAssigneeFilter === "unassigned") {
+                if (lead.assignees && lead.assignees.length > 0) return false;
+            } else {
+                const hasRep = lead.assignees?.some((a) => a.id === selectedAssigneeFilter);
+                if (!hasRep) return false;
+            }
         }
 
         // Priority filter
@@ -110,6 +143,17 @@ export function LeadsPipelineView({
             const score = lead.leadScore ?? 50;
             const priority = lead.priority ?? (score >= 75 ? "Hot" : score < 45 ? "Cold" : "Warm");
             if (priority !== selectedPriorityFilter) return false;
+        }
+
+        // Overdue tasks filter
+        if (overdueTasksOnly) {
+            const now = Date.now();
+            const hasOverdue = lead.crmTasks?.some((t: any) => {
+                if (t.status === "Completed") return false;
+                if (!t.dueDate) return false;
+                return new Date(t.dueDate).getTime() < now;
+            });
+            if (!hasOverdue) return false;
         }
 
         // Stale-only filter (>5 days without contact, not in terminal stage)
@@ -135,6 +179,51 @@ export function LeadsPipelineView({
 
         return true;
     });
+
+    // Handle editing a deal
+    const handleLeadUpdated = (updatedData: Partial<LeadItem> & { id: string }) => {
+        setLeadsList((prev) =>
+            prev.map((lead) => (lead.id === updatedData.id ? { ...lead, ...updatedData } : lead))
+        );
+        if (selectedLeadForDrawer?.id === updatedData.id) {
+            setSelectedLeadForDrawer((prev) => (prev ? { ...prev, ...updatedData } : null));
+        }
+    };
+
+    // Handle archiving / unarchiving a deal
+    const handleArchiveLead = async (leadId: string) => {
+        const lead = leadsList.find((l) => l.id === leadId);
+        if (!lead) return;
+
+        const willArchive = !lead.isArchived;
+
+        // Optimistic update
+        setLeadsList((prev) =>
+            prev.map((l) => (l.id === leadId ? { ...l, isArchived: willArchive } : l))
+        );
+        if (selectedLeadForDrawer?.id === leadId) {
+            setSelectedLeadForDrawer((prev) => (prev ? { ...prev, isArchived: willArchive } : null));
+        }
+
+        try {
+            const res = willArchive ? await archiveLead(leadId) : await unarchiveLead(leadId);
+            if (res.success) {
+                toast.success(res.message || (willArchive ? "Deal archived" : "Deal restored to pipeline"));
+            } else {
+                toast.error(res.message || "Failed to update deal status");
+                // Revert
+                setLeadsList((prev) =>
+                    prev.map((l) => (l.id === leadId ? { ...l, isArchived: !willArchive } : l))
+                );
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to archive/unarchive deal");
+            setLeadsList((prev) =>
+                prev.map((l) => (l.id === leadId ? { ...l, isArchived: !willArchive } : l))
+            );
+        }
+    };
 
     // Intercept Callback: Triggered by Drag-and-Drop or Quick Status Dropdown
     const handleStatusChangeRequest = (
@@ -180,6 +269,9 @@ export function LeadsPipelineView({
                     } else {
                         toast.success(res.message);
                     }
+                    setLeadsList((prev) =>
+                        prev.map((l) => (leadIds.includes(l.id) ? { ...l, status: toStatus } : l))
+                    );
                 } else {
                     toast.error(res.message || "Failed to bulk update deals");
                 }
@@ -208,9 +300,11 @@ export function LeadsPipelineView({
                 });
                 if (res.success) {
                     toast.success(res.message || `Moved deal to ${toStatus}`);
-                    // Keep selected lead in drawer in sync if open
+                    setLeadsList((prev) =>
+                        prev.map((l) => (l.id === leadId ? { ...l, status: toStatus } : l))
+                    );
                     if (selectedLeadForDrawer?.id === leadId) {
-                        setSelectedLeadForDrawer((prev) => prev ? { ...prev, status: toStatus } : null);
+                        setSelectedLeadForDrawer((prev) => (prev ? { ...prev, status: toStatus } : null));
                     }
                 } else {
                     toast.error(res.message || "Failed to update deal status");
@@ -250,8 +344,15 @@ export function LeadsPipelineView({
 
             if (res.success) {
                 toast.success(res.message || "Opportunity marked as Closed Lost");
+                setLeadsList((prev) =>
+                    prev.map((l) =>
+                        l.id === leadId ? { ...l, status: "Closed Lost", lossReason, lossNotes } : l
+                    )
+                );
                 if (selectedLeadForDrawer?.id === leadId) {
-                    setSelectedLeadForDrawer((prev) => prev ? { ...prev, status: "Closed Lost", lossReason, lossNotes } : null);
+                    setSelectedLeadForDrawer((prev) =>
+                        prev ? { ...prev, status: "Closed Lost", lossReason, lossNotes } : null
+                    );
                 }
             } else {
                 toast.error(res.message || "Failed to update deal status");
@@ -284,6 +385,16 @@ export function LeadsPipelineView({
             const res = await bulkAssignLeads(leadIds, [assigneeUserId]);
             if (res.success) {
                 toast.success(res.message);
+                const assignedUser = assignableUsers.find((u) => u.id === assigneeUserId);
+                if (assignedUser) {
+                    setLeadsList((prev) =>
+                        prev.map((l) =>
+                            leadIds.includes(l.id)
+                                ? { ...l, assignees: [assignedUser as any] }
+                                : l
+                        )
+                    );
+                }
             } else {
                 toast.error(res.message);
             }
@@ -292,13 +403,18 @@ export function LeadsPipelineView({
 
     const handleAssignStaff = (leadId: string, assigneeUserIds: string[]) => {
         startTransition(async () => {
-            // Optimistically update the local state for immediate UI feedback
-            setOptimisticLeads({ leadId, newStatus: optimisticLeads.find(l => l.id === leadId)?.status || "New Lead" }); // Note: We actually need a way to optimistically update assignees, but updating the timestamp via a generic trigger is a fallback. To properly optimistically update, we'd need to fetch the users or at least rely on the server action refresh.
-            
             const res = await bulkAssignLeads([leadId], assigneeUserIds);
             if (res.success) {
                 toast.success("Lead assignments updated");
-                // The server action revalidates the path, so the UI will refresh with the actual avatars.
+                const matchedUsers = assignableUsers.filter((u) => assigneeUserIds.includes(u.id));
+                setLeadsList((prev) =>
+                    prev.map((l) => (l.id === leadId ? { ...l, assignees: matchedUsers as any } : l))
+                );
+                if (selectedLeadForDrawer?.id === leadId) {
+                    setSelectedLeadForDrawer((prev) =>
+                        prev ? { ...prev, assignees: matchedUsers as any } : null
+                    );
+                }
             } else {
                 toast.error(res.message || "Failed to update assignments");
             }
@@ -308,16 +424,16 @@ export function LeadsPipelineView({
     return (
         <div className="space-y-6">
             {/* Control Bar: View Toggle, Filters, Search */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-zinc-950/80 backdrop-blur-xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-border glass-card">
                 <div className="flex flex-wrap items-center gap-3">
                     {/* View Scope Tabs */}
                     <Tabs value={scopeMode} onValueChange={(v) => setScopeMode(v as "all" | "mine")}>
-                        <TabsList className="bg-white/5 border border-white/10 p-1">
+                        <TabsList className="bg-muted/50 border border-border p-1">
                             <TabsTrigger
                                 value="all"
                                 className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black font-medium"
                             >
-                                <Users className="h-3.5 w-3.5 mr-1.5" /> All Pipeline ({optimisticLeads.length})
+                                <Users className="h-3.5 w-3.5 mr-1.5" /> All Pipeline ({leadsList.filter(l => !l.isArchived).length})
                             </TabsTrigger>
                             <TabsTrigger
                                 value="mine"
@@ -329,7 +445,7 @@ export function LeadsPipelineView({
                     </Tabs>
 
                     {/* View Switcher: Kanban vs Table */}
-                    <div className="flex items-center rounded-lg border border-white/10 p-1 bg-white/5">
+                    <div className="flex items-center rounded-lg border border-border p-1 bg-muted/50">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -337,7 +453,7 @@ export function LeadsPipelineView({
                             className={`h-8 px-3 text-xs gap-1.5 font-medium ${
                                 viewLayout === "kanban"
                                     ? "bg-primary text-black hover:bg-primary/90"
-                                    : "text-zinc-400 hover:text-white"
+                                    : "text-muted-foreground hover:text-foreground"
                             }`}
                         >
                             <Columns className="h-3.5 w-3.5" />
@@ -350,7 +466,7 @@ export function LeadsPipelineView({
                             className={`h-8 px-3 text-xs gap-1.5 font-medium ${
                                 viewLayout === "table"
                                     ? "bg-primary text-black hover:bg-primary/90"
-                                    : "text-zinc-400 hover:text-white"
+                                    : "text-muted-foreground hover:text-foreground"
                             }`}
                         >
                             <LayoutList className="h-3.5 w-3.5" />
@@ -358,18 +474,50 @@ export function LeadsPipelineView({
                         </Button>
                     </div>
 
+                    {/* Assignee Filter Dropdown */}
+                    <Select value={selectedAssigneeFilter} onValueChange={setSelectedAssigneeFilter}>
+                        <SelectTrigger className="h-8 text-xs bg-muted/50 border-border text-foreground w-36">
+                            <SelectValue placeholder="Assignee" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border text-foreground">
+                            <SelectItem value="all" className="text-xs font-medium">All Assignees</SelectItem>
+                            <SelectItem value="unassigned" className="text-xs text-muted-foreground">⚪ Unassigned Only</SelectItem>
+                            {assignableUsers.map((user) => (
+                                <SelectItem key={user.id} value={user.id} className="text-xs">
+                                    👤 {user.name || "Staff"}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
                     {/* Priority Filter */}
                     <Select value={selectedPriorityFilter} onValueChange={setSelectedPriorityFilter}>
-                        <SelectTrigger className="h-8 text-xs bg-white/5 border-white/10 text-zinc-300 w-32">
+                        <SelectTrigger className="h-8 text-xs bg-muted/50 border-border text-foreground w-32">
                             <SelectValue placeholder="Priority" />
                         </SelectTrigger>
-                        <SelectContent className="bg-zinc-950 border-white/15 text-white">
+                        <SelectContent className="bg-card border-border text-foreground">
                             <SelectItem value="all" className="text-xs">All Priorities</SelectItem>
                             <SelectItem value="Hot" className="text-xs">🔥 Hot Only</SelectItem>
                             <SelectItem value="Warm" className="text-xs">⚡ Warm Only</SelectItem>
                             <SelectItem value="Cold" className="text-xs">❄️ Cold Only</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    {/* Overdue Tasks Quick Toggle */}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOverdueTasksOnly((prev) => !prev)}
+                        className={`h-8 text-xs gap-1.5 border ${
+                            overdueTasksOnly
+                                ? "bg-rose-500/15 text-rose-500 dark:text-rose-400 border-rose-500/40"
+                                : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                        title="Filter deals with overdue tasks"
+                    >
+                        <CalendarClock className="h-3.5 w-3.5 text-rose-500" />
+                        Overdue Tasks
+                    </Button>
 
                     {/* Stale Only Toggle */}
                     <Button
@@ -378,24 +526,40 @@ export function LeadsPipelineView({
                         onClick={() => setStaleOnlyFilter((prev) => !prev)}
                         className={`h-8 text-xs gap-1.5 border ${
                             staleOnlyFilter
-                                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                                : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40"
+                                : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
                         }`}
                     >
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                         {"Stale (>5d)"}
+                    </Button>
+
+                    {/* Show Archived Deals Toggle */}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowArchived((prev) => !prev)}
+                        className={`h-8 text-xs gap-1.5 border ${
+                            showArchived
+                                ? "bg-primary/20 text-primary border-primary/50 font-semibold"
+                                : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                        title="View archived deals"
+                    >
+                        <Archive className="h-3.5 w-3.5" />
+                        {showArchived ? "Viewing Archived" : "Archived Deals"}
                     </Button>
                 </div>
 
                 {/* Search & Reset */}
                 <div className="flex items-center gap-3">
                     <div className="relative flex-1 md:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input
                             placeholder="Search company, contact, email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 bg-black/40 border-white/15 text-xs text-white placeholder:text-zinc-600 focus:border-primary h-9"
+                            className="pl-9 bg-card border-border text-xs text-foreground placeholder:text-muted-foreground focus:border-primary h-9"
                         />
                     </div>
 
@@ -405,9 +569,12 @@ export function LeadsPipelineView({
                         onClick={() => {
                             setSearchQuery("");
                             setSelectedPriorityFilter("all");
+                            setSelectedAssigneeFilter("all");
                             setStaleOnlyFilter(false);
+                            setOverdueTasksOnly(false);
+                            setShowArchived(false);
                         }}
-                        className="h-9 px-3 border-white/15 text-xs text-zinc-400 hover:text-white bg-black/40"
+                        className="h-9 px-3 border-border text-xs text-muted-foreground hover:text-foreground bg-card"
                         title="Reset Filters"
                     >
                         <RefreshCw className="h-3.5 w-3.5" />
@@ -425,6 +592,8 @@ export function LeadsPipelineView({
                     onBulkStatusChange={handleBulkStatusChangeRequest}
                     onBulkAssign={handleBulkAssign}
                     onSelectLead={(lead) => setSelectedLeadForDrawer(lead)}
+                    onEditLead={(lead) => setEditingLead(lead)}
+                    onArchiveLead={handleArchiveLead}
                 />
             ) : (
                 <LeadsKanbanBoard
@@ -433,6 +602,8 @@ export function LeadsPipelineView({
                     isAdmin={isAdmin}
                     onStatusChangeRequest={handleStatusChangeRequest}
                     onSelectLead={(lead) => setSelectedLeadForDrawer(lead)}
+                    onEditLead={(lead) => setEditingLead(lead)}
+                    onArchiveLead={handleArchiveLead}
                 />
             )}
 
@@ -445,6 +616,16 @@ export function LeadsPipelineView({
                 isAdmin={isAdmin}
                 onStatusChangeRequest={handleStatusChangeRequest}
                 onAssignStaff={handleAssignStaff}
+                onEditLead={(lead) => setEditingLead(lead)}
+                onArchiveLead={handleArchiveLead}
+            />
+
+            {/* Edit Lead Modal */}
+            <EditLeadModal
+                lead={editingLead}
+                isOpen={!!editingLead}
+                onClose={() => setEditingLead(null)}
+                onLeadUpdated={handleLeadUpdated}
             />
 
             {/* Closed Lost Mandatory Loss Modal */}

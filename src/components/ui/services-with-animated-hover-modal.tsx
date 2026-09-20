@@ -4,9 +4,10 @@ import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import gsap from "gsap";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TypewriterHeader, TypewriterParagraph } from "@/components/ui/typewriter-text";
 
 export interface ServiceItem {
     id: string;
@@ -55,6 +56,46 @@ const scaleAnimation = {
     },
 };
 
+const listContainerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.14,
+            delayChildren: 0.18,
+        },
+    },
+};
+
+const listItemVariants = {
+    hidden: {
+        opacity: 0,
+        y: 28,
+        filter: "blur(4px)",
+    },
+    visible: {
+        opacity: 1,
+        y: 0,
+        filter: "blur(0px)",
+        transition: {
+            duration: 0.7,
+            ease: [0.16, 1, 0.3, 1] as const,
+        },
+    },
+};
+
+const lineSweepVariants = {
+    hidden: { scaleX: 0, opacity: 0 },
+    visible: {
+        scaleX: 1,
+        opacity: 1,
+        transition: {
+            duration: 0.85,
+            ease: [0.16, 1, 0.3, 1] as const,
+        },
+    },
+};
+
 const MODAL_HEIGHT = 320;
 
 export function ServicesWithAnimatedHoverModal({
@@ -69,6 +110,7 @@ export function ServicesWithAnimatedHoverModal({
         index: 0,
     });
     const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+    const shouldReduceMotion = useReducedMotion();
 
     const modalContainer = useRef<HTMLDivElement>(null);
     const cursor = useRef<HTMLDivElement>(null);
@@ -145,114 +187,185 @@ export function ServicesWithAnimatedHoverModal({
     return (
         <section
             className={cn(
-                "relative w-full py-24 md:py-32 overflow-hidden transition-colors duration-500",
+                "relative w-full pt-16 md:pt-20 pb-28 sm:pb-32 md:pb-44 lg:pb-48 overflow-hidden transition-colors duration-500",
                 className
             )}
             onMouseLeave={() => setModal({ active: false, index: 0 })}
         >
             <div className="mx-auto max-w-7xl px-6 md:px-12">
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16 md:mb-24">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 md:mb-16">
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-mono tracking-widest uppercase mb-4">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                             {badgeText}
                         </div>
-                        <h2 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight uppercase text-foreground">
-                            {heading}
-                        </h2>
+                        <TypewriterHeader
+                            text={heading}
+                            as="h2"
+                            className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight uppercase text-foreground"
+                        />
                     </div>
-                    <p className="max-w-md font-mono text-xs md:text-sm uppercase tracking-wider text-muted-foreground leading-relaxed">
-                        {subheading}
-                    </p>
+                    <TypewriterParagraph
+                        text={subheading}
+                        as="p"
+                        className="max-w-md font-mono text-xs md:text-sm uppercase tracking-wider text-muted-foreground leading-relaxed"
+                    />
                 </div>
 
-                {/* Desktop Interactive Typographic List with Dennis Snellenberg Dimming */}
-                <div className="hidden md:flex flex-col w-full">
+                {/* Desktop Interactive Typographic List with Staggered Entrance & Dennis Snellenberg Dimming */}
+                <motion.div
+                    variants={shouldReduceMotion ? undefined : listContainerVariants}
+                    initial={shouldReduceMotion ? "visible" : "hidden"}
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-60px" }}
+                    className="hidden md:flex flex-col w-full"
+                >
                     {services.map((service, index) => {
                         const href = service.link || "/contact";
                         const isHovered = modal.active && modal.index === index;
                         const isOtherHovered = modal.active && modal.index !== index;
+                        const isLast = index === services.length - 1;
 
                         return (
-                            <Link
+                            <motion.div
                                 key={service.id}
-                                href={href}
-                                className={cn(
-                                    "group relative flex w-full items-center justify-between border-t border-border/70 py-10 lg:py-14 px-4 transition-all duration-500 last:border-b",
-                                    isOtherHovered && "opacity-30",
-                                    isHovered && "border-primary/50"
-                                )}
-                                onMouseEnter={() => setModal({ active: true, index })}
-                                onMouseLeave={() => setModal({ active: false, index: 0 })}
+                                variants={shouldReduceMotion ? undefined : listItemVariants}
+                                className="relative w-full"
                             >
-                                <div className="flex items-baseline gap-6 lg:gap-10">
-                                    <span
-                                        className={cn(
-                                            "font-mono text-xs transition-colors duration-300",
-                                            isHovered ? "text-[#00D639] font-bold" : "text-muted-foreground/60"
-                                        )}
-                                    >
-                                        {(index + 1).toString().padStart(2, "0")}
-                                    </span>
-                                    <h3
-                                        className={cn(
-                                            "m-0 font-bold text-3xl lg:text-5xl tracking-tight uppercase transition-all duration-300",
-                                            isHovered ? "text-[#00D639] translate-x-4" : "text-foreground"
-                                        )}
-                                    >
-                                        {service.title}
-                                    </h3>
-                                </div>
+                                {/* Animated Top Dividing Border Line (Circuit Sweep) */}
+                                <motion.div
+                                    variants={shouldReduceMotion ? undefined : lineSweepVariants}
+                                    style={{ originX: 0 }}
+                                    className={cn(
+                                        "absolute top-0 left-0 right-0 h-[1px] transition-colors duration-500",
+                                        isHovered
+                                            ? "bg-primary shadow-[0_0_12px_rgba(0,214,57,0.6)] z-20"
+                                            : "bg-border/70 z-10"
+                                    )}
+                                />
 
-                                <div className="flex items-center gap-6">
-                                    <span
-                                        className={cn(
-                                            "font-mono text-xs uppercase tracking-widest transition-all duration-300",
-                                            isHovered ? "text-foreground font-semibold translate-x-2" : "text-muted-foreground"
-                                        )}
-                                    >
-                                        {service.category || "Architecture & Systems"}
-                                    </span>
+                                <Link
+                                    href={href}
+                                    className={cn(
+                                        "group relative flex w-full items-center justify-between py-8 lg:py-10 px-4 transition-all duration-500 overflow-hidden",
+                                        isOtherHovered && "opacity-30",
+                                        isHovered && "bg-gradient-to-r from-primary/[0.05] via-primary/[0.015] to-transparent"
+                                    )}
+                                    onMouseEnter={() => setModal({ active: true, index })}
+                                    onMouseLeave={() => setModal({ active: false, index: 0 })}
+                                >
+                                    {/* Ambient Hover Spotlight */}
                                     <div
                                         className={cn(
-                                            "w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-300",
+                                            "absolute inset-0 pointer-events-none transition-opacity duration-500",
                                             isHovered
-                                                ? "border-[#00D639] bg-[#00D639] text-black shadow-[0_0_20px_rgba(0,214,57,0.4)] scale-110"
-                                                : "border-border/60 text-muted-foreground"
+                                                ? "opacity-100 bg-gradient-to-r from-primary/[0.08] via-transparent to-transparent"
+                                                : "opacity-0"
                                         )}
-                                    >
-                                        <ArrowUpRight
+                                    />
+
+                                    <div className="relative z-10 flex items-baseline gap-6 lg:gap-10">
+                                        <div className="flex items-center gap-2.5">
+                                            <span
+                                                className={cn(
+                                                    "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                                                    isHovered
+                                                        ? "bg-primary scale-125 shadow-[0_0_8px_rgba(0,214,57,0.8)]"
+                                                        : "bg-muted-foreground/30"
+                                                )}
+                                            />
+                                            <span
+                                                className={cn(
+                                                    "font-mono text-xs transition-colors duration-300",
+                                                    isHovered ? "text-[#00D639] font-bold" : "text-muted-foreground/60"
+                                                )}
+                                            >
+                                                {(index + 1).toString().padStart(2, "0")}
+                                            </span>
+                                        </div>
+                                        <h3
                                             className={cn(
-                                                "w-4 h-4 transition-transform duration-300",
-                                                isHovered && "translate-x-0.5 -translate-y-0.5"
+                                                "m-0 font-bold text-3xl lg:text-5xl tracking-tight uppercase transition-all duration-500",
+                                                isHovered
+                                                    ? "text-[#00D639] translate-x-4 drop-shadow-[0_0_24px_rgba(0,214,57,0.25)]"
+                                                    : "text-foreground"
                                             )}
-                                        />
+                                        >
+                                            {service.title}
+                                        </h3>
                                     </div>
-                                </div>
-                            </Link>
+
+                                    <div className="relative z-10 flex items-center gap-6">
+                                        <span
+                                            className={cn(
+                                                "font-mono text-xs uppercase tracking-widest transition-all duration-300 px-3 py-1 rounded-full border",
+                                                isHovered
+                                                    ? "text-primary border-primary/40 bg-primary/10 font-semibold translate-x-1"
+                                                    : "text-muted-foreground border-transparent bg-transparent"
+                                            )}
+                                        >
+                                            {service.category || "Architecture & Systems"}
+                                        </span>
+                                        <div
+                                            className={cn(
+                                                "w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-300",
+                                                isHovered
+                                                    ? "border-[#00D639] bg-[#00D639] text-black shadow-[0_0_20px_rgba(0,214,57,0.4)] scale-110"
+                                                    : "border-border/60 text-muted-foreground"
+                                            )}
+                                        >
+                                            <ArrowUpRight
+                                                className={cn(
+                                                    "w-4 h-4 transition-transform duration-300",
+                                                    isHovered && "translate-x-0.5 -translate-y-0.5"
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+                                </Link>
+
+                                {/* Bottom Border Sweep for the Last Item */}
+                                {isLast && (
+                                    <motion.div
+                                        variants={shouldReduceMotion ? undefined : lineSweepVariants}
+                                        style={{ originX: 0 }}
+                                        className="absolute bottom-0 left-0 right-0 h-[1px] bg-border/70 z-10"
+                                    />
+                                )}
+                            </motion.div>
                         );
                     })}
-                </div>
+                </motion.div>
 
                 {/* Mobile / Tablet Responsive Fallback */}
-                <div className="flex md:hidden flex-col w-full divide-y divide-border/60 border-y border-border/60">
+                <motion.div
+                    variants={shouldReduceMotion ? undefined : listContainerVariants}
+                    initial={shouldReduceMotion ? "visible" : "hidden"}
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-40px" }}
+                    className="flex md:hidden flex-col w-full divide-y divide-border/60 border-y border-border/60"
+                >
                     {services.map((service, index) => {
                         const isExpanded = mobileExpanded === service.id;
                         const imgSrc = service.image || fallbackImages[index % fallbackImages.length];
 
                         return (
-                            <div key={service.id} className="py-6">
+                            <motion.div
+                                key={service.id}
+                                variants={shouldReduceMotion ? undefined : listItemVariants}
+                                className="py-6"
+                            >
                                 <button
                                     onClick={() => toggleMobile(service.id)}
                                     type="button"
-                                    className="w-full flex items-center justify-between text-left gap-4"
+                                    className="w-full flex items-center justify-between text-left gap-4 group"
                                 >
                                     <div>
                                         <span className="font-mono text-[10px] text-primary block mb-1">
                                             {(index + 1).toString().padStart(2, "0")}{" // "}{service.category || "Services"}
                                         </span>
-                                        <h3 className="text-xl font-bold uppercase tracking-tight text-foreground">
+                                        <h3 className="text-xl font-bold uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">
                                             {service.title}
                                         </h3>
                                     </div>
@@ -294,10 +407,10 @@ export function ServicesWithAnimatedHoverModal({
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                            </div>
+                            </motion.div>
                         );
                     })}
-                </div>
+                </motion.div>
             </div>
 
             {/* Floating Desktop Animated Hover Modal Window */}

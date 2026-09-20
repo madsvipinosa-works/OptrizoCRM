@@ -54,15 +54,15 @@ export default async function ProposalsPage() {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <FileText className="w-5 h-5 text-indigo-400" />
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                        <FileText className="w-5 h-5 text-primary" />
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                             Proposals &amp; Statements of Work
                         </h1>
                     </div>
-                    <p className="text-sm text-zinc-400">
+                    <p className="text-sm text-muted-foreground">
                         Create, customize, and track executive agency proposals and legal contracts.
                     </p>
                 </div>
@@ -75,67 +75,67 @@ export default async function ProposalsPage() {
 
             {/* Summary KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-black/40 border-white/10 backdrop-blur-md">
+                <Card className="glass-card border-border shadow-xs">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs uppercase font-semibold text-zinc-400">Total Proposals</CardTitle>
+                        <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Total Proposals</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-white">{allProposals.length}</div>
-                        <p className="text-xs text-zinc-500 mt-1">{draftCount} Drafts, {sentCount} Sent</p>
+                        <div className="text-2xl font-bold font-mono text-foreground">{allProposals.length}</div>
+                        <p className="text-xs text-muted-foreground mt-1">{draftCount} Drafts, {sentCount} Sent</p>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-black/40 border-white/10 backdrop-blur-md">
+                <Card className="glass-card border-border shadow-xs">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs uppercase font-semibold text-zinc-400">Total SOW Value</CardTitle>
+                        <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Total SOW Value</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-400 font-mono">${totalValue.toLocaleString()}</div>
-                        <p className="text-xs text-zinc-500 mt-1">Across all authoring stages</p>
+                        <div className="text-2xl font-bold text-emerald-500 dark:text-emerald-400 font-mono">${totalValue.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Across all authoring stages</p>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-black/40 border-white/10 backdrop-blur-md">
+                <Card className="glass-card border-border shadow-xs">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs uppercase font-semibold text-zinc-400">Approved Contracts</CardTitle>
+                        <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Approved Contracts</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-indigo-400">{approvedCount}</div>
-                        <p className="text-xs text-zinc-500 mt-1">Executed client contracts</p>
+                        <div className="text-2xl font-bold font-mono text-primary">{approvedCount}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Executed client contracts</p>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-black/40 border-white/10 backdrop-blur-md">
+                <Card className="glass-card border-border shadow-xs">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs uppercase font-semibold text-zinc-400">Approval Rate</CardTitle>
+                        <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Approval Rate</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-white">
+                        <div className="text-2xl font-bold font-mono text-foreground">
                             {allProposals.length > 0 ? `${Math.round((approvedCount / allProposals.length) * 100)}%` : "0%"}
                         </div>
-                        <p className="text-xs text-zinc-500 mt-1">Win rate across issued SOWs</p>
+                        <p className="text-xs text-muted-foreground mt-1">Win rate across issued SOWs</p>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Proposals Table */}
-            <div className="rounded-xl border border-white/10 bg-zinc-950/80 overflow-hidden shadow-xl backdrop-blur-md">
+            <div className="rounded-xl border border-border glass-card overflow-hidden shadow-xs">
                 <Table>
-                    <TableHeader className="bg-white/5">
-                        <TableRow className="border-white/10">
-                            <TableHead className="text-zinc-400">SOW Code</TableHead>
-                            <TableHead className="text-zinc-400">Client / Opportunity</TableHead>
-                            <TableHead className="text-zinc-400">Status</TableHead>
-                            <TableHead className="text-zinc-400">Total ($)</TableHead>
-                            <TableHead className="text-zinc-400">Timeline</TableHead>
-                            <TableHead className="text-zinc-400">Created</TableHead>
-                            <TableHead className="text-right text-zinc-400">Actions</TableHead>
+                    <TableHeader className="bg-muted/40">
+                        <TableRow className="border-border">
+                            <TableHead className="text-muted-foreground">SOW Code</TableHead>
+                            <TableHead className="text-muted-foreground">Client / Opportunity</TableHead>
+                            <TableHead className="text-muted-foreground">Status</TableHead>
+                            <TableHead className="text-muted-foreground">Total ($)</TableHead>
+                            <TableHead className="text-muted-foreground">Timeline</TableHead>
+                            <TableHead className="text-muted-foreground">Created</TableHead>
+                            <TableHead className="text-right text-muted-foreground">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {allProposals.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center py-12 text-zinc-500 text-xs">
+                                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs">
                                     No proposals created yet. Create a deal in the sales pipeline to generate a proposal.
                                 </TableCell>
                             </TableRow>
@@ -143,14 +143,14 @@ export default async function ProposalsPage() {
                             allProposals.map((proposal) => {
                                 const clientName = proposal.lead?.businessName || proposal.lead?.contactName || proposal.lead?.client?.name || "Unnamed Opportunity";
                                 return (
-                                    <TableRow key={proposal.id} className="border-white/10 hover:bg-white/5 transition-colors">
+                                    <TableRow key={proposal.id} className="border-border hover:bg-muted/40 transition-colors">
                                         <TableCell className="font-mono text-xs font-semibold text-primary">
                                             {proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
-                                                <span className="font-semibold text-white text-xs">{clientName}</span>
-                                                <span className="text-[11px] text-zinc-400">{proposal.lead?.contactEmail || proposal.lead?.client?.email}</span>
+                                                <span className="font-semibold text-foreground text-xs">{clientName}</span>
+                                                <span className="text-[11px] text-muted-foreground">{proposal.lead?.contactEmail || proposal.lead?.client?.email}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -158,13 +158,13 @@ export default async function ProposalsPage() {
                                                 {proposal.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="font-mono text-xs font-bold text-emerald-400">
+                                        <TableCell className="font-mono text-xs font-bold text-emerald-500 dark:text-emerald-400">
                                             ${(Number(proposal.total) || 0).toLocaleString()}
                                         </TableCell>
-                                        <TableCell className="text-xs text-zinc-300">
+                                        <TableCell className="text-xs text-muted-foreground">
                                             {proposal.timeline || "4-6 Weeks"}
                                         </TableCell>
-                                        <TableCell className="text-xs text-zinc-400">
+                                        <TableCell className="text-xs text-muted-foreground">
                                             {format(new Date(proposal.createdAt), "MMM d, yyyy")}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -178,7 +178,7 @@ export default async function ProposalsPage() {
                                                 <Link
                                                     href={`/proposal/${proposal.id}`}
                                                     target="_blank"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 text-xs border border-white/10 transition-colors"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground text-xs border border-border transition-colors"
                                                 >
                                                     <ExternalLink className="h-3 w-3" /> Client View
                                                 </Link>
@@ -198,14 +198,14 @@ export default async function ProposalsPage() {
 function getStatusBadge(status: string) {
     switch (status) {
         case "Draft":
-            return "bg-zinc-800 text-zinc-300 border-zinc-700 text-[10px]";
+            return "bg-muted text-muted-foreground border-border text-[10px]";
         case "Sent":
-            return "bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]";
+            return "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30 text-[10px]";
         case "Approved":
-            return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px]";
+            return "bg-primary/10 text-primary border-primary/30 text-[10px]";
         case "Rejected":
-            return "bg-rose-500/10 text-rose-400 border-rose-500/30 text-[10px]";
+            return "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30 text-[10px]";
         default:
-            return "bg-zinc-800 text-zinc-300 border-zinc-700 text-[10px]";
+            return "bg-muted text-muted-foreground border-border text-[10px]";
     }
 }

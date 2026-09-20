@@ -144,13 +144,13 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="glass-card border-white/10 text-white max-w-3xl max-h-[90vh] overflow-y-auto w-full sm:max-w-4xl">
+            <DialogContent className="bg-card border-border text-foreground max-w-3xl max-h-[90vh] overflow-y-auto w-full sm:max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle className="text-xl">{proposalId ? "Edit" : "Create"} Proposal for {leadName}</DialogTitle>
+                    <DialogTitle className="text-xl text-foreground font-bold">{proposalId ? "Edit" : "Create"} Proposal for {leadName}</DialogTitle>
                 </DialogHeader>
                 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-                    <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-white/5">
+                    <TabsList className="grid w-full grid-cols-2 bg-muted/50 border border-border">
                         <TabsTrigger value="dynamic">✨ Build Dynamic</TabsTrigger>
                         <TabsTrigger value="upload">📄 Upload PDF</TabsTrigger>
                     </TabsList>
@@ -159,21 +159,21 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                         <TabsContent value="dynamic" className="space-y-6 mt-0">
                             {/* Scope */}
                             <div className="space-y-2">
-                                <Label>Project Scope & Objectives</Label>
+                                <Label className="text-foreground font-medium">Project Scope & Objectives</Label>
                                 <Textarea 
                                     required={activeTab === "dynamic"}
                                     placeholder="Describe what the project aims to achieve..." 
-                                    className="bg-black/50 border-white/10 min-h-[100px]"
+                                    className="bg-card border-border text-foreground min-h-[100px]"
                                     value={scope}
                                     onChange={(e) => setScope(e.target.value)}
                                 />
                             </div>
 
                             {/* Deliverables */}
-                            <div className="space-y-2 border-t border-white/5 pt-4">
-                                <Label className="flex justify-between items-center">
+                            <div className="space-y-2 border-t border-border pt-4">
+                                <Label className="flex justify-between items-center text-foreground font-medium">
                                     Deliverables
-                                    <Button type="button" variant="ghost" size="sm" onClick={addDeliverable} className="h-6 px-2 text-xs">
+                                    <Button type="button" variant="ghost" size="sm" onClick={addDeliverable} className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground">
                                         <Plus className="h-3 w-3 mr-1" /> Add Item
                                     </Button>
                                 </Label>
@@ -182,7 +182,7 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                         <div key={idx} className="flex gap-2">
                                             <Input 
                                                 placeholder={`Deliverable ${idx + 1}`} 
-                                                className="bg-black/50 border-white/10"
+                                                className="bg-card border-border text-foreground"
                                                 value={item}
                                                 onChange={(e) => updateDeliverable(idx, e.target.value)}
                                                 required={activeTab === "dynamic"}
@@ -198,31 +198,31 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                             </div>
 
                             {/* Timeline */}
-                            <div className="space-y-2 border-t border-white/5 pt-4">
-                                <Label>Estimated Timeline</Label>
+                            <div className="space-y-2 border-t border-border pt-4">
+                                <Label className="text-foreground font-medium">Estimated Timeline</Label>
                                 <Input 
                                     required={activeTab === "dynamic"}
                                     placeholder="e.g., 4-6 Weeks" 
-                                    className="bg-black/50 border-white/10"
+                                    className="bg-card border-border text-foreground"
                                     value={timeline}
                                     onChange={(e) => setTimeline(e.target.value)}
                                 />
                             </div>
 
                             {/* Pricing */}
-                            <div className="space-y-2 border-t border-white/5 pt-4">
-                                <Label className="flex justify-between items-center">
+                            <div className="space-y-2 border-t border-border pt-4">
+                                <Label className="flex justify-between items-center text-foreground font-medium">
                                     Pricing Structure
-                                    <Button type="button" variant="ghost" size="sm" onClick={addPricingItem} className="h-6 px-2 text-xs">
+                                    <Button type="button" variant="ghost" size="sm" onClick={addPricingItem} className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground">
                                         <Plus className="h-3 w-3 mr-1" /> Add Line Item
                                     </Button>
                                 </Label>
-                                <div className="space-y-2 bg-black/20 p-3 rounded-lg border border-white/5">
+                                <div className="space-y-2 bg-muted/40 p-3 rounded-lg border border-border">
                                     {pricingItems.map((item, idx) => (
                                         <div key={idx} className="flex gap-2 items-center">
                                             <Input 
                                                 placeholder="Item Name (e.g. Design Phase)" 
-                                                className="bg-black/50 border-white/10 flex-1"
+                                                className="bg-card border-border text-foreground flex-1"
                                                 value={item.name}
                                                 onChange={(e) => updatePricingItem(idx, "name", e.target.value)}
                                                 required={activeTab === "dynamic"}
@@ -231,7 +231,7 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                                 <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
                                                 <Input 
                                                     type="number"
-                                                    className="bg-black/50 border-white/10 pl-7"
+                                                    className="bg-card border-border text-foreground pl-7 font-mono"
                                                     value={item.price}
                                                     onChange={(e) => updatePricingItem(idx, "price", parseFloat(e.target.value) || 0)}
                                                     required={activeTab === "dynamic"}
@@ -245,18 +245,18 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                             )}
                                         </div>
                                     ))}
-                                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/10 px-1">
+                                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-border px-1">
                                         <span className="text-sm font-medium text-muted-foreground">Total Estimate:</span>
-                                        <span className="text-lg font-bold text-green-400">${totalAmount.toLocaleString()}</span>
+                                        <span className="text-lg font-bold text-primary font-mono">${totalAmount.toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>
                         </TabsContent>
 
                         <TabsContent value="upload" className="space-y-6 mt-0">
-                            <div className="bg-primary/5 border border-primary/10 rounded-xl p-6 text-center">
+                            <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-center">
                                 <UploadCloud className="h-10 w-10 text-primary mx-auto mb-3" />
-                                <h3 className="text-lg font-semibold text-white mb-2">Upload Pre-made PDF</h3>
+                                <h3 className="text-lg font-semibold text-foreground mb-2">Upload Pre-made PDF</h3>
                                 <p className="text-sm text-muted-foreground mb-6">
                                     If your client sent a signed PDF or you generated one using an external tool, you can upload it here to integrate it with the Deal Won automations.
                                 </p>
@@ -269,9 +269,9 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                             </div>
                         </TabsContent>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                        <div className="flex justify-end gap-3 pt-4 border-t border-border">
                             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={isLoading || (activeTab === "upload" && !fileUrl)} className="bg-primary text-black hover:bg-primary/90">
+                            <Button type="submit" disabled={isLoading || (activeTab === "upload" && !fileUrl)} className="bg-primary text-black hover:bg-primary/90 font-semibold">
                                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                 {proposalId ? "Update" : "Generate"} Proposal Link
                             </Button>

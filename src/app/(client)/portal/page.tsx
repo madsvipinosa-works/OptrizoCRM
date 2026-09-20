@@ -9,11 +9,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function ClientPortalPage() {
     const session = await auth();
-    // Allow logged in users. Admins/editors can view/preview client project progress.
-    if (!session?.user?.id) notFound();
+    // Redirect unauthenticated clients to customized login
+    if (!session?.user?.id) {
+        redirect("/login?callbackUrl=/portal");
+    }
 
     if (!hasRole(session, ["client", "superadmin", "manager", "sales", "developer", "content_editor"])) {
-        redirect("/api/auth/signin");
+        redirect("/login?callbackUrl=/portal");
     }
 
     const isAdminOrStaff = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
@@ -98,10 +100,10 @@ export default async function ClientPortalPage() {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                     Project Dashboard
                 </h1>
-                <p className="text-sm text-zinc-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                     Track delivery progress, review deliverables & proof of work, and access staging environments.
                 </p>
             </div>

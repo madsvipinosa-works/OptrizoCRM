@@ -66,7 +66,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                 </div>
             )}
 
-            <Card className="max-w-md w-full glass-card border-primary/20 bg-black/90 shadow-2xl">
+            <Card className="max-w-md w-full glass-card border-border bg-card shadow-2xl">
                 <CardHeader className="text-center">
                     <CardTitle className="text-3xl font-bold tracking-tight text-primary text-glow">
                         {isLogin ? "Sign In to Optrizo" : "Create an Account"}
@@ -94,7 +94,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                     name="name"
                                     placeholder="John Doe"
                                     required
-                                    className="bg-white/5 border-white/10"
+                                    className="bg-background border-border text-foreground"
                                 />
                             </div>
                         )}
@@ -107,7 +107,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 type="email"
                                 placeholder="you@company.com"
                                 required
-                                className="bg-white/5 border-white/10"
+                                className="bg-background border-border text-foreground"
                             />
                         </div>
 
@@ -119,7 +119,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 type="password"
                                 placeholder="••••••••"
                                 required
-                                className="bg-white/5 border-white/10"
+                                className="bg-background border-border text-foreground"
                             />
                         </div>
 
@@ -138,7 +138,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                         </Button>
                     </form>
 
-                    <div className="mt-6 text-center text-sm text-gray-400">
+                    <div className="mt-6 text-center text-sm text-muted-foreground">
                         {isLogin ? (
                             <p>
                                 Don&apos;t have an account?{" "}

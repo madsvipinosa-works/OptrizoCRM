@@ -78,28 +78,50 @@ export function PinnedPanelsLayout({
           panel.style.zIndex = `${i + 2}`;
         });
 
+        // Function to update panel margins based on actual content dimensions
+        const applyPanelMetrics = () => {
+          panels.forEach((panel) => {
+            const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
+            if (!inner) return;
+
+            const panelHeight = inner.offsetHeight;
+            const windowHeight = window.innerHeight;
+            const difference = Math.max(0, panelHeight - windowHeight);
+            // Generous dwell cushion (scroll distance where panel rests fully visible before flipping)
+            const dwellDistance = Math.round(Math.max(windowHeight * 0.45, 340));
+
+            panel.style.marginBottom = `${difference + dwellDistance}px`;
+          });
+        };
+
+        // Apply initial margins
+        applyPanelMetrics();
+
+        // Listen for refreshInit to recalculate margins before ScrollTrigger updates
+        ScrollTrigger.addEventListener("refreshInit", applyPanelMetrics);
+
         panels.forEach((panel) => {
           const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
           if (!inner) return;
 
           const panelHeight = inner.offsetHeight;
           const windowHeight = window.innerHeight;
-          const difference = panelHeight - windowHeight;
-          const fakeScrollRatio =
-            difference > 0 ? difference / (difference + windowHeight) : 0;
-
-          if (fakeScrollRatio > 0) {
-            panel.style.marginBottom = `${panelHeight * fakeScrollRatio}px`;
-          } else {
-            panel.style.marginBottom = "0px";
-          }
+          const difference = Math.max(0, panelHeight - windowHeight);
+          const dwellDistance = Math.round(Math.max(windowHeight * 0.45, 340));
+          const transitionDistance = windowHeight;
+          const totalScroll = difference + dwellDistance + transitionDistance;
 
           const tl = gsap.timeline({
             scrollTrigger: {
               trigger: panel,
               start: "bottom bottom",
-              end: () =>
-                fakeScrollRatio ? `+=${panelHeight}` : "bottom top",
+              end: () => {
+                const pHeight = inner.offsetHeight;
+                const wHeight = window.innerHeight;
+                const diff = Math.max(0, pHeight - wHeight);
+                const dwell = Math.round(Math.max(wHeight * 0.45, 340));
+                return `+=${diff + dwell + wHeight}`;
+              },
               pinSpacing: false,
               pin: true,
               scrub: 0.5,
@@ -107,27 +129,32 @@ export function PinnedPanelsLayout({
             },
           });
 
-          // If the section is taller than the viewport, scroll through the inner content smoothly first
-          if (fakeScrollRatio > 0) {
+          // 1. If section is taller than viewport, smoothly scroll inner content to bottom 1:1
+          if (difference > 0) {
             tl.to(inner, {
-              yPercent: -100,
-              y: windowHeight,
-              duration: 1 / (1 - fakeScrollRatio) - 1,
+              y: () => -(Math.max(0, inner.offsetHeight - window.innerHeight)),
+              duration: difference,
               ease: "none",
             });
           }
 
-          // As the next panel slides up, scale down and dim the outgoing panel with 3D depth
+          // 2. Dwell / Hold cushion: keep the section resting fully visible at 100% scale and opacity
+          // This gives the user time to read, inspect, and hover without any sudden flipping
+          if (dwellDistance > 0) {
+            tl.to({}, { duration: dwellDistance });
+          }
+
+          // 3. Flip transition: as next panel enters from bottom, scale down and dim outgoing panel
           tl.fromTo(
             panel,
             { scale: 1, opacity: 1 },
             {
               scale: 0.88,
               opacity: 0.35,
-              duration: 0.9,
+              duration: transitionDistance * 0.9,
               ease: "power1.inOut",
             }
-          ).to(panel, { opacity: 0, duration: 0.1 });
+          ).to(panel, { opacity: 0, duration: transitionDistance * 0.1 });
         });
 
         // Refresh triggers once all measurements settle
@@ -135,7 +162,18 @@ export function PinnedPanelsLayout({
           ScrollTrigger.refresh();
         }, 600);
 
-        return () => clearTimeout(timer);
+        return () => {
+          clearTimeout(timer);
+          ScrollTrigger.removeEventListener("refreshInit", applyPanelMetrics);
+          panels.forEach((panel) => {
+            panel.style.marginBottom = "";
+            const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
+            if (inner) {
+              gsap.set(inner, { clearProps: "all" });
+            }
+            gsap.set(panel, { clearProps: "all" });
+          });
+        };
       });
 
       return () => {

@@ -17,11 +17,11 @@ const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const item = payload[0];
         return (
-            <div className="bg-zinc-950/90 border border-zinc-800 p-2.5 rounded-lg shadow-xl backdrop-blur-md text-xs">
+            <div className="bg-card/95 border border-border p-2.5 rounded-xl shadow-2xl backdrop-blur-md text-xs text-foreground">
                 <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.payload.fill }} />
-                    <span className="font-semibold text-zinc-200">{item.name}:</span>
-                    <span className="font-bold text-white">{item.value} tasks</span>
+                    <span className="font-semibold text-foreground">{item.name}:</span>
+                    <span className="font-bold font-mono text-primary">{item.value} tasks</span>
                 </div>
             </div>
         );
@@ -33,17 +33,17 @@ export function TaskDonutChart({ data }: TaskDonutChartProps) {
     const totalTasks = data.reduce((acc, curr) => acc + curr.value, 0);
 
     return (
-        <Card className="bg-black/40 border-white/10 backdrop-blur-md relative overflow-hidden flex flex-col justify-between">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
-                    <PieChartIcon className="w-4 h-4 text-amber-400" />
+        <Card className="glass-card border-border shadow-xs relative overflow-hidden flex flex-col justify-between">
+            <CardHeader className="pb-2 border-b border-border/50">
+                <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <PieChartIcon className="w-4 h-4 text-primary" />
                     Task Delivery Load
                 </CardTitle>
-                <CardDescription className="text-xs text-zinc-400">
+                <CardDescription className="text-xs text-muted-foreground">
                     Distribution across all active project Kanban boards
                 </CardDescription>
             </CardHeader>
-            <CardContent className="pt-2">
+            <CardContent className="pt-3">
                 <div className="h-[200px] w-full relative">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -66,20 +66,20 @@ export function TaskDonutChart({ data }: TaskDonutChartProps) {
                     </ResponsiveContainer>
                     {/* Centered label */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-2xl font-bold text-white">{totalTasks}</span>
-                        <span className="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">Total Tasks</span>
+                        <span className="text-2xl font-bold font-mono text-foreground">{totalTasks}</span>
+                        <span className="text-[10px] uppercase font-mono font-medium text-muted-foreground tracking-wider">Total Tasks</span>
                     </div>
                 </div>
 
                 {/* Legend */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 mt-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/50 mt-2 text-xs">
                     {data.map((item) => (
-                        <div key={item.name} className="flex items-center justify-between p-1.5 rounded-md bg-white/5">
+                        <div key={item.name} className="flex items-center justify-between p-1.5 rounded-lg bg-muted/40 border border-border/40">
                             <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }} />
-                                <span className="text-zinc-300 font-medium text-[11px]">{item.name}</span>
+                                <span className="text-foreground font-medium text-[11px]">{item.name}</span>
                             </div>
-                            <span className="font-semibold text-white text-[11px]">{item.value}</span>
+                            <span className="font-mono font-semibold text-foreground text-[11px]">{item.value}</span>
                         </div>
                     ))}
                 </div>

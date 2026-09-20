@@ -89,35 +89,35 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
     return (
         <div className="space-y-6">
             {/* Action & Search Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-900/40 p-4 rounded-xl border border-white/5 backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-4 rounded-xl border border-border">
                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search service offerings..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 bg-zinc-900/80 border-white/10 text-sm focus:border-primary rounded-lg text-white placeholder:text-zinc-500"
+                        className="pl-9 bg-card border-border text-sm focus:border-primary rounded-lg text-foreground placeholder:text-muted-foreground"
                     />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Featured on Landing Page Counter Badge */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-zinc-950/60 backdrop-blur-sm text-xs">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card/60 backdrop-blur-sm text-xs">
                         <Sparkles className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-zinc-400">Landing Showcase:</span>
+                        <span className="text-muted-foreground">Landing Showcase:</span>
                         <Badge
                             variant={featuredCount === 4 ? "default" : "secondary"}
                             className={cn(
                                 "text-xs font-semibold px-2 py-0.5",
                                 featuredCount === 4
-                                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                    ? "bg-amber-500/20 text-amber-500 dark:text-amber-300 border border-amber-500/30"
                                     : "bg-primary/10 text-primary border border-primary/20"
                             )}
                         >
                             {featuredCount} / 4 Selected
                         </Badge>
                         {featuredCount >= 4 && (
-                            <span className="text-[11px] text-amber-400/90 font-medium hidden md:inline">
+                            <span className="text-[11px] text-amber-500 dark:text-amber-400 font-medium hidden md:inline">
                                 (Max reached)
                             </span>
                         )}
@@ -137,7 +137,7 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                     <Card
                         key={service.id}
                         className={cn(
-                            "glass-card border-white/10 hover:border-primary/40 transition-all flex flex-col justify-between group overflow-hidden relative",
+                            "glass-card border-border hover:border-primary/40 transition-all flex flex-col justify-between group overflow-hidden relative",
                             service.isFeatured && "ring-1 ring-primary/40 border-primary/30"
                         )}
                     >
@@ -146,14 +146,14 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                                 "absolute top-0 left-0 right-0 h-1 bg-gradient-to-r transition-opacity",
                                 service.isFeatured
                                     ? "from-primary via-emerald-400 to-primary opacity-100"
-                                    : "from-zinc-700 via-zinc-600 to-zinc-700 opacity-30"
+                                    : "from-border via-border/50 to-border opacity-30"
                             )}
                         />
 
                         <div>
                             {/* Service Image Preview */}
                             {service.image ? (
-                                <div className="relative w-full h-36 overflow-hidden bg-black/40 border-b border-white/5">
+                                <div className="relative w-full h-36 overflow-hidden bg-muted/40 border-b border-border">
                                     <Image
                                         src={service.image}
                                         alt={service.title}
@@ -162,7 +162,7 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                                     />
                                     <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
                                         {service.category && (
-                                            <Badge variant="secondary" className="bg-black/70 backdrop-blur-md text-primary text-[10px] border border-white/10">
+                                            <Badge variant="secondary" className="bg-background/80 backdrop-blur-md text-primary text-[10px] border border-border">
                                                 {service.category}
                                             </Badge>
                                         )}
@@ -174,7 +174,7 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="w-full h-24 bg-white/5 flex items-center justify-center text-zinc-500 border-b border-white/5 relative">
+                                <div className="w-full h-24 bg-muted/30 flex items-center justify-center text-muted-foreground border-b border-border relative">
                                     <div className="flex items-center gap-2 text-xs">
                                         <ImageIcon className="w-4 h-4" />
                                         <span>No preview image</span>
@@ -195,7 +195,7 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                                         <Cuboid className="h-5 w-5" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <CardTitle className="text-base font-bold text-white group-hover:text-primary transition-colors truncate">
+                                        <CardTitle className="text-base font-bold text-foreground group-hover:text-primary transition-colors truncate">
                                             {service.title}
                                         </CardTitle>
                                         <div className="flex items-center gap-2 mt-0.5">
@@ -203,13 +203,13 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                                                 <span className="text-[10px] text-primary font-mono">{service.category}</span>
                                             )}
                                             {service.icon && (
-                                                <span className="text-[10px] font-mono text-zinc-400">Icon: {service.icon}</span>
+                                                <span className="text-[10px] font-mono text-muted-foreground">Icon: {service.icon}</span>
                                             )}
                                         </div>
                                     </div>
                                 </div>
 
-                                <CardDescription className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                                <CardDescription className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                                     {service.description}
                                 </CardDescription>
                             </CardHeader>
@@ -217,15 +217,15 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
 
                         <div>
                             {/* Landing Page Showcase Chooser Toggle */}
-                            <div className="flex items-center justify-between px-6 py-2.5 bg-black/40 border-t border-white/5">
+                            <div className="flex items-center justify-between px-6 py-2.5 bg-muted/40 border-t border-border">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs text-zinc-300 font-medium">Show on Landing</span>
+                                    <span className="text-xs text-foreground font-medium">Show on Landing</span>
                                     {service.isFeatured ? (
                                         <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-primary/10 text-primary border-primary/30">
                                             Active
                                         </Badge>
                                     ) : (
-                                        <span className="text-[11px] text-zinc-500">Hidden</span>
+                                        <span className="text-[11px] text-muted-foreground">Hidden</span>
                                     )}
                                 </div>
                                 <Switch
@@ -236,21 +236,21 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                                 />
                             </div>
 
-                            <CardFooter className="flex items-center justify-between border-t border-white/5 pt-3 bg-zinc-950/40 px-6 py-3">
+                            <CardFooter className="flex items-center justify-between border-t border-border pt-3 bg-muted/30 px-6 py-3">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-mono text-zinc-400">
+                                    <span className="text-[11px] font-mono text-muted-foreground">
                                         #{service.order ?? 0}
                                     </span>
                                     {service.color && (
                                         <span
-                                            className="w-3 h-3 rounded-full border border-white/20 inline-block"
+                                            className="w-3 h-3 rounded-full border border-border inline-block"
                                             style={{ backgroundColor: service.color }}
                                             title={`Card color: ${service.color}`}
                                         />
                                     )}
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-white/10">
+                                    <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted">
                                         <Link href={`/dashboard/services/${service.id}`}>
                                             <Edit className="h-3.5 w-3.5" />
                                         </Link>
@@ -263,12 +263,12 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                 ))}
 
                 {filteredServices.length === 0 && (
-                    <div className="col-span-full py-16 text-center glass-card border-dashed border-white/10 rounded-xl space-y-3">
-                        <div className="w-12 h-12 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto text-zinc-400">
+                    <div className="col-span-full py-16 text-center glass-card border-dashed border-border rounded-xl space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
                             <Layers className="w-6 h-6" />
                         </div>
-                        <h3 className="text-sm font-semibold text-white">No services found</h3>
-                        <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                        <h3 className="text-sm font-semibold text-foreground">No services found</h3>
+                        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                             {search ? `No services matching "${search}". Try clearing your search filter.` : "Define agency services to feature on your public homepage."}
                         </p>
                         {!search && (

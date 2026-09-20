@@ -20,7 +20,7 @@ export default async function AuditLogsPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Security & Audit</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Security & Audit</h1>
                 <p className="text-muted-foreground">
                     Review critical system events, entity modifications, and administrative actions.
                 </p>

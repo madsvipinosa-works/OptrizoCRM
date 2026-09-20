@@ -71,15 +71,22 @@ export type LogLeadActivityValues = z.infer<typeof logLeadActivitySchema>;
 
 export const leadUpdateSchema = z.object({
     status: leadStatusEnum.optional(),
-    notes: z.string().optional(),
-    assigneeIds: z.array(z.string()).optional(),
-    files: z.array(z.string()).optional(),
-    score: z.number().optional(),
-    priority: z.enum(["Hot", "Warm", "Cold"]).optional(),
-    estimatedValue: z.number().optional(),
+    businessName: z.string().optional(),
     contactName: z.string().optional(),
     contactPhone: z.string().optional(),
     contactEmail: z.string().optional(),
+    budget: z.string().optional(),
+    estimatedValue: z.number().optional(),
+    leadScore: z.number().optional(),
+    score: z.number().optional(),
+    priority: z.enum(["Hot", "Warm", "Cold"]).optional(),
+    qualificationStatus: z.enum(["Lead", "MQL", "SQL"]).optional(),
+    goals: z.string().optional(),
+    industry: z.string().optional(),
+    timelineExpectation: z.string().optional(),
+    notes: z.string().optional(),
+    assigneeIds: z.array(z.string()).optional(),
+    files: z.array(z.string()).optional(),
     activityType: z.enum(["Call", "Email", "Meeting", "Note"]).optional(),
 });
 

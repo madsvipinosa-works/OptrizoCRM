@@ -38,10 +38,10 @@ export function MilestoneStatusDropdown({ status, onStatusChange }: MilestoneSta
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-md shadow-sm transition-all focus:outline-none h-8",
-          status === "Completed" ? "border-green-500/50 text-green-500 bg-green-500/10 hover:bg-green-500/20" :
-          status === "Client Approval" ? "border-yellow-500/50 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 animate-pulse" :
+          status === "Completed" ? "border-emerald-500/50 text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20" :
+          status === "Client Approval" ? "border-amber-500/50 text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 animate-pulse" :
           status === "In Progress" ? "border-primary/50 text-primary bg-primary/10 hover:bg-primary/20" :
-          "border-white/10 text-white bg-white/5 hover:bg-white/10"
+          "border-border text-foreground bg-muted/60 hover:bg-muted"
         )}
       >
         <span>{status}</span>
@@ -53,8 +53,8 @@ export function MilestoneStatusDropdown({ status, onStatusChange }: MilestoneSta
         <div
           className={cn(
             "absolute left-[calc(100%+0.5rem)] top-0 w-48 rounded-xl overflow-hidden z-[100]",
-            "bg-zinc-950/95 backdrop-blur-xl text-zinc-200",
-            "shadow-2xl border border-white/10",
+            "bg-card/95 backdrop-blur-xl text-foreground",
+            "shadow-2xl border border-border",
             "animate-in fade-in zoom-in-95 slide-in-from-left-2 duration-200"
           )}
         >
@@ -70,7 +70,7 @@ export function MilestoneStatusDropdown({ status, onStatusChange }: MilestoneSta
                 "flex items-center gap-2 w-full px-3 py-2 text-sm text-left transition-all",
                 status === s.value
                   ? "font-semibold text-primary bg-primary/10"
-                  : "text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <span className="flex-1">{s.label}</span>

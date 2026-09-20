@@ -50,13 +50,13 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
     };
 
     return (
-        <Card className="glass-card border-white/10 text-white mt-6">
+        <Card className="glass-card border-border mt-6">
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle className="flex items-center gap-2 text-xl">
-                        <ShieldAlert className="h-5 w-5 text-red-400" /> System Audit Trail
+                    <CardTitle className="flex items-center gap-2 text-xl text-foreground">
+                        <ShieldAlert className="h-5 w-5 text-destructive" /> System Audit Trail
                     </CardTitle>
-                    <CardDescription className="text-gray-400">
+                    <CardDescription className="text-muted-foreground">
                         Immutable ledger of all system transactions and administrative actions.
                     </CardDescription>
                 </div>
@@ -65,49 +65,49 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
                     size="sm" 
                     onClick={() => fetchLogs(pagination.page)}
                     disabled={loading}
-                    className="border-white/10 hover:bg-white/10 hover:text-white"
+                    className="border-border hover:bg-muted text-foreground"
                 >
                     <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                     Refresh
                 </Button>
             </CardHeader>
             <CardContent>
-                <div className="rounded-md border border-white/10 overflow-hidden bg-black/40">
+                <div className="rounded-md border border-border overflow-hidden bg-card/60">
                     <Table>
-                        <TableHeader className="bg-white/5 border-b border-white/10">
+                        <TableHeader className="bg-muted/40 border-b border-border">
                             <TableRow className="hover:bg-transparent">
-                                <TableHead className="text-gray-300">Timestamp</TableHead>
-                                <TableHead className="text-gray-300">Actor</TableHead>
-                                <TableHead className="text-gray-300">Action</TableHead>
-                                <TableHead className="text-gray-300">Entity</TableHead>
-                                <TableHead className="text-gray-300">Details</TableHead>
+                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Timestamp</TableHead>
+                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Actor</TableHead>
+                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Action</TableHead>
+                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Entity</TableHead>
+                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Details</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {logs.map((log) => (
-                                <TableRow key={log.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                <TableRow key={log.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
                                         {format(new Date(log.createdAt), "MMM d, yyyy HH:mm:ss")}
                                     </TableCell>
-                                    <TableCell className="font-medium text-sm whitespace-nowrap">
+                                    <TableCell className="font-medium text-sm whitespace-nowrap text-foreground">
                                         {log.user ? (
                                             <div className="flex flex-col">
                                                 <span>{log.user.name || "Unknown Admin"}</span>
-                                                <span className="text-[10px] text-muted-foreground">{log.user.email}</span>
+                                                <span className="text-[10px] text-muted-foreground font-mono">{log.user.email}</span>
                                             </div>
                                         ) : (
                                             <span className="text-muted-foreground italic text-xs">System / Deleted User</span>
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className={`text-[10px] ${actionColors[log.action] || actionColors.OTHER}`}>
+                                        <Badge variant="outline" className={`text-[10px] font-mono ${actionColors[log.action] || actionColors.OTHER}`}>
                                             {log.action}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-xs font-semibold text-gray-300">
+                                    <TableCell className="text-xs font-semibold text-foreground font-mono">
                                         {log.entity}
                                     </TableCell>
-                                    <TableCell className="text-xs text-gray-400 max-w-[300px] truncate" title={log.details || ""}>
+                                    <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate" title={log.details || ""}>
                                         {log.details || "-"}
                                     </TableCell>
                                 </TableRow>
@@ -134,7 +134,7 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
                             size="sm"
                             onClick={() => fetchLogs(pagination.page - 1)}
                             disabled={pagination.page <= 1 || loading}
-                            className="bg-black/50 border-white/10 hover:bg-white/10 h-8"
+                            className="border-border hover:bg-muted text-foreground h-8"
                         >
                             <ChevronLeft className="h-4 w-4 mr-1" /> Prev
                         </Button>
@@ -143,7 +143,7 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
                             size="sm"
                             onClick={() => fetchLogs(pagination.page + 1)}
                             disabled={pagination.page >= pagination.totalPages || loading}
-                            className="bg-black/50 border-white/10 hover:bg-white/10 h-8"
+                            className="border-border hover:bg-muted text-foreground h-8"
                         >
                             Next <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>

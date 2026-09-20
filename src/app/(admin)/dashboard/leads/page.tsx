@@ -106,7 +106,7 @@ export default async function LeadsPage({
                     </p>
                 </div>
                 {isSuperAdmin && (
-                    <CreateLeadModal />
+                    <CreateLeadModal assignableUsers={assignableUsers} />
                 )}
             </div>
 

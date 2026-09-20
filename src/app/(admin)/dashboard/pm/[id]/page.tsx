@@ -58,15 +58,15 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
         <div className="space-y-3 h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500 w-full max-w-full min-w-0">
             <div className="flex items-center justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild className="hover:bg-white/10">
+                    <Button variant="ghost" size="icon" asChild className="hover:bg-muted text-foreground">
                         <Link href="/dashboard/pm">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>
                     <div>
-                        <h2 className="text-2xl font-bold text-glow-sm">{project.title}</h2>
+                        <h2 className="text-2xl font-bold tracking-tight text-foreground">{project.title}</h2>
                         <p className="text-sm text-muted-foreground hidden sm:flex items-center gap-2">
-                            {project.stakeholders?.[0]?.user?.name || "Unknown Client"} • Status: <span className="text-white">{project.status}</span>
+                            {project.stakeholders?.[0]?.user?.name || "Unknown Client"} • Status: <span className="text-foreground font-semibold font-mono">{project.status}</span>
                         </p>
                     </div>
                 </div>

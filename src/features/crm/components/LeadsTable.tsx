@@ -44,10 +44,10 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
     if (leads.length === 0) return null;
 
     return (
-        <div className="rounded-md border border-white/10 bg-black/20 overflow-hidden">
+        <div className="rounded-xl border border-border glass-card overflow-hidden">
             <Table>
-                <TableHeader className="bg-white/5">
-                    <TableRow className="hover:bg-transparent border-white/10">
+                <TableHeader className="bg-muted/40">
+                    <TableRow className="hover:bg-transparent border-border">
                         <TableHead className="w-[200px]">Lead / Contact</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Industry / Service</TableHead>
@@ -60,10 +60,10 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                     {leads.map((lead) => (
                         <Dialog key={lead.id}>
                             <DialogTrigger asChild>
-                                <TableRow className="cursor-pointer hover:bg-white/5 border-white/10 transition-colors group">
+                                <TableRow className="cursor-pointer hover:bg-muted/40 border-border transition-colors group">
                                     <TableCell>
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-white group-hover:text-primary transition-colors">{lead.businessName || lead.client?.name || "Unknown Lead"}</span>
+                                            <span className="font-medium text-foreground group-hover:text-primary transition-colors">{lead.businessName || lead.client?.name || "Unknown Lead"}</span>
                                             <span className="text-xs text-muted-foreground">{lead.client?.email || "No Email"}</span>
                                         </div>
                                     </TableCell>
@@ -84,7 +84,7 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                                     <TableCell>
                                         <div className="flex flex-col gap-1">
                                             {lead.budget && (
-                                                <div className="flex items-center gap-1 text-xs text-green-400 font-medium">
+                                                <div className="flex items-center gap-1 text-xs text-primary font-medium font-mono">
                                                     <DollarSign className="h-3 w-3" /> {lead.budget}
                                                 </div>
                                             )}
@@ -95,12 +95,12 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                                             <div className="flex items-center gap-2 text-xs">
                                                 <div className="flex -space-x-1.5 mr-1">
                                                     {lead.assignees.slice(0, 3).map((assignee, idx) => (
-                                                        <div key={idx} className="w-6 h-6 rounded-full bg-black border border-white/20 text-primary flex items-center justify-center font-bold text-[10px] z-10" title={assignee.name || "User"}>
+                                                        <div key={idx} className="w-6 h-6 rounded-full bg-card border border-border text-primary flex items-center justify-center font-bold text-[10px] z-10" title={assignee.name || "User"}>
                                                             {assignee.name?.[0]?.toUpperCase() || 'U'}
                                                         </div>
                                                     ))}
                                                     {lead.assignees.length > 3 && (
-                                                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-white/20 text-muted-foreground flex items-center justify-center font-bold text-[9px] z-0">
+                                                        <div className="w-6 h-6 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center font-bold text-[9px] z-0">
                                                             +{lead.assignees.length - 3}
                                                         </div>
                                                     )}
@@ -123,7 +123,7 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
                                     </TableCell>
                                 </TableRow>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl bg-black/90 border-white/10 p-0 overflow-hidden outline-none">
+                            <DialogContent className="max-w-2xl bg-card border-border text-foreground p-0 overflow-hidden outline-none">
                                 <DialogHeader className="sr-only">
                                     <DialogTitle>Lead Details: {lead.businessName || lead.client?.name}</DialogTitle>
                                     <DialogDescription>
@@ -146,12 +146,12 @@ export function LeadsTable({ leads, assignableUsers, isAdmin }: LeadsTableProps)
 
 function getStatusColor(status: string) {
     switch (status) {
-        case "New Inquiry": return "bg-blue-500/10 text-blue-400 border-blue-500/50";
-        case "Qualified": return "bg-purple-500/10 text-purple-400 border-purple-500/50";
-        case "Proposal Sent": return "bg-yellow-500/10 text-yellow-400 border-yellow-500/50";
-        case "Negotiation": return "bg-orange-500/10 text-orange-400 border-orange-500/50";
-        case "Won": return "bg-green-500/10 text-green-400 border-green-500/50";
-        case "Lost": return "bg-gray-500/10 text-gray-400 border-gray-500/50";
-        default: return "bg-white/5 text-muted-foreground border-white/10";
+        case "New Inquiry": return "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/30";
+        case "Qualified": return "bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/30";
+        case "Proposal Sent": return "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30";
+        case "Negotiation": return "bg-orange-500/10 text-orange-500 dark:text-orange-400 border-orange-500/30";
+        case "Won": return "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/30";
+        case "Lost": return "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30";
+        default: return "bg-muted text-muted-foreground border-border";
     }
 }

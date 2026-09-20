@@ -700,26 +700,42 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       if (typeof document !== "undefined") {
         try {
           const savedTheme = localStorage.getItem("optrizo-theme");
-          if (savedTheme === "dark") {
-            setIsDark(true);
+          const activeDark = savedTheme === "dark";
+          setIsDark(activeDark);
+          if (activeDark) {
             document.documentElement.classList.add("dark");
             document.documentElement.classList.remove("light");
-            document.body.classList.add("dark");
-            document.body.classList.remove("light");
-            return;
-          } else if (savedTheme === "light") {
-            setIsDark(false);
+            document.body?.classList.add("dark");
+            document.body?.classList.remove("light");
+          } else {
             document.documentElement.classList.remove("dark");
             document.documentElement.classList.add("light");
-            document.body.classList.remove("dark");
-            document.body.classList.add("light");
-            return;
+            document.body?.classList.remove("dark");
+            document.body?.classList.add("light");
           }
         } catch {
           // ignore localStorage access error
         }
       }
     });
+
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isDark: boolean }>;
+      if (customEvent.detail && typeof customEvent.detail.isDark === "boolean") {
+        setIsDark(customEvent.detail.isDark);
+      } else {
+        const saved = localStorage.getItem("optrizo-theme");
+        setIsDark(saved === "dark");
+      }
+    };
+
+    window.addEventListener("optrizo-theme-change", handleThemeChange);
+    window.addEventListener("storage", handleThemeChange);
+
+    return () => {
+      window.removeEventListener("optrizo-theme-change", handleThemeChange);
+      window.removeEventListener("storage", handleThemeChange);
+    };
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -735,14 +751,18 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       if (nextDark) {
         document.documentElement.classList.add("dark");
         document.documentElement.classList.remove("light");
-        document.body.classList.add("dark");
-        document.body.classList.remove("light");
+        document.body?.classList.add("dark");
+        document.body?.classList.remove("light");
       } else {
         document.documentElement.classList.remove("dark");
         document.documentElement.classList.add("light");
-        document.body.classList.remove("dark");
-        document.body.classList.add("light");
+        document.body?.classList.remove("dark");
+        document.body?.classList.add("light");
       }
+
+      window.dispatchEvent(
+        new CustomEvent("optrizo-theme-change", { detail: { isDark: nextDark } })
+      );
     }
   }, [isDark]);
 

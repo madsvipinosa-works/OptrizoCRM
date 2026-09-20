@@ -10,6 +10,7 @@ export type ActionState = {
     message?: string;
     success?: boolean;
     errors?: Record<string, string[]>;
+    data?: any;
 };
 
 export async function completeCrmTask(taskId: string): Promise<ActionState> {
@@ -73,7 +74,7 @@ export async function createCrmTask(data: {
     }
 
     try {
-        await db.insert(crmTasks).values({
+        const [newTask] = await db.insert(crmTasks).values({
             leadId: data.leadId,
             assignedTo: data.assignedTo || null,
             title: data.title,
@@ -82,10 +83,10 @@ export async function createCrmTask(data: {
             priority: data.priority || "Medium",
             status: "Pending",
             dueDate: data.dueDate || null,
-        });
+        }).returning();
 
         revalidatePath("/dashboard/leads");
-        return { success: true, message: "Sales task created successfully" };
+        return { success: true, message: "Sales task created successfully", data: newTask };
     } catch (e) {
         console.error("Failed to create task:", e);
         return { success: false, message: "Database Error" };
@@ -120,6 +121,23 @@ export async function updateCrmTask(
         return { success: true, message: "Sales task updated successfully" };
     } catch (e) {
         console.error("Failed to update task:", e);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function deleteCrmTask(taskId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "sales"])) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        await db.delete(crmTasks).where(eq(crmTasks.id, taskId));
+
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: "Sales task deleted successfully" };
+    } catch (e) {
+        console.error("Failed to delete task:", e);
         return { success: false, message: "Database Error" };
     }
 }

@@ -20,7 +20,16 @@ const pool =
         ssl: connectionString && !connectionString.includes("localhost") && !connectionString.includes("127.0.0.1")
             ? { rejectUnauthorized: false }
             : undefined,
+        max: 10,
+        idleTimeoutMillis: 15000,
+        connectionTimeoutMillis: 10000,
+        keepAlive: true,
     });
+
+// Catch errors on idle clients to prevent unhandled exceptions when remote server closes idle connections
+pool.on("error", (err) => {
+    console.warn("⚠️ [DB Pool] Idle client warning (connection will auto-refresh):", err.message);
+});
 
 if (process.env.NODE_ENV !== "production") {
     globalForDb.conn = pool;

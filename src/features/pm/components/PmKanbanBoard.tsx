@@ -75,11 +75,11 @@ const COLUMNS: {
     dotColor: string;
     badgeColor: string;
 }[] = [
-    { id: "Todo", title: "To Do", dotColor: "bg-zinc-400", badgeColor: "bg-zinc-800/80 text-zinc-300 border-zinc-700/60" },
-    { id: "In Progress", title: "In Progress", dotColor: "bg-blue-400", badgeColor: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-    { id: "Blocked", title: "Blocked", dotColor: "bg-rose-500", badgeColor: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
-    { id: "In Review", title: "In Review", dotColor: "bg-amber-400", badgeColor: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-    { id: "Done", title: "Done", dotColor: "bg-emerald-400", badgeColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+    { id: "Todo", title: "To Do", dotColor: "bg-muted-foreground", badgeColor: "bg-muted text-foreground border-border" },
+    { id: "In Progress", title: "In Progress", dotColor: "bg-blue-500", badgeColor: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30" },
+    { id: "Blocked", title: "Blocked", dotColor: "bg-rose-500", badgeColor: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30" },
+    { id: "In Review", title: "In Review", dotColor: "bg-amber-500", badgeColor: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30" },
+    { id: "Done", title: "Done", dotColor: "bg-emerald-500", badgeColor: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30" },
 ];
 
 export function PmKanbanBoard({
@@ -222,15 +222,15 @@ function PmKanbanColumn({
         <div
             ref={setNodeRef}
             className={cn(
-                "bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-3.5 sm:p-4 flex flex-col h-full min-h-[460px] transition-all",
-                isOver && "border-indigo-500/60 bg-indigo-500/10 ring-1 ring-indigo-500/20"
+                "bg-card/75 border border-border rounded-2xl p-3.5 sm:p-4 flex flex-col h-full min-h-[460px] transition-all shadow-xs",
+                isOver && "border-primary/60 bg-primary/10 ring-1 ring-primary/20"
             )}
         >
             {/* Column Header */}
             <div className="flex items-center justify-between mb-3.5 px-1">
                 <div className="flex items-center gap-2">
                     <span className={cn("w-2.5 h-2.5 rounded-full shrink-0 shadow-sm", column.dotColor)} />
-                    <h3 className="font-bold text-zinc-100 text-sm tracking-tight">
+                    <h3 className="font-bold text-foreground text-sm tracking-tight">
                         {column.title}
                     </h3>
                     <span className={cn("text-xs px-2 py-0.5 rounded-full font-mono font-semibold border", column.badgeColor)}>
@@ -243,7 +243,7 @@ function PmKanbanColumn({
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-17rem)] pr-1 scrollbar-thin">
                     {tasks.length === 0 ? (
-                        <div className="h-24 rounded-xl border-2 border-dashed border-zinc-800/60 flex items-center justify-center text-xs text-zinc-500 font-medium">
+                        <div className="h-24 rounded-xl border-2 border-dashed border-border/70 flex items-center justify-center text-xs text-muted-foreground font-medium">
                             No tasks
                         </div>
                     ) : (
@@ -294,7 +294,7 @@ function SortableTaskCard({
             <div
                 ref={setNodeRef}
                 style={style}
-                className="h-28 rounded-xl border-2 border-dashed border-indigo-500/40 bg-indigo-500/5 opacity-50"
+                className="h-28 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 opacity-50"
             />
         );
     }
@@ -343,10 +343,10 @@ function TaskCardContent({
     return (
         <div
             className={cn(
-                "group relative flex flex-col w-full rounded-xl border shadow-md hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing p-3.5 gap-2.5",
+                "group relative flex flex-col w-full rounded-xl border shadow-xs hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing p-3.5 gap-2.5",
                 isChangesRequested
                     ? "bg-orange-500/[0.08] border-orange-500/50 hover:border-orange-500/80 shadow-orange-950/20"
-                    : "bg-zinc-900/95 border-zinc-800/90 hover:border-zinc-700"
+                    : "bg-card border-border hover:border-primary/40 text-foreground"
             )}
         >
             {/* Header: Grip Handle, Title & Action Menu */}
@@ -354,14 +354,14 @@ function TaskCardContent({
                 <div className="flex items-start gap-1.5 flex-1 min-w-0">
                     <div
                         {...dragHandleProps}
-                        className="cursor-grab text-zinc-500 hover:text-zinc-300 p-0.5 shrink-0 mt-0.5 transition-colors"
+                        className="cursor-grab text-muted-foreground/60 hover:text-foreground p-0.5 shrink-0 mt-0.5 transition-colors"
                     >
                         <GripVertical className="w-3.5 h-3.5" />
                     </div>
                     <h4
                         className={cn(
                             "font-semibold text-sm leading-snug truncate",
-                            isChangesRequested ? "text-orange-200" : "text-zinc-100"
+                            isChangesRequested ? "text-orange-600 dark:text-orange-300" : "text-foreground"
                         )}
                         title={task.title}
                     >
@@ -377,7 +377,7 @@ function TaskCardContent({
                                 e.stopPropagation();
                                 onEditTask();
                             }}
-                            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors"
+                            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                             title="Edit task"
                         >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -389,7 +389,7 @@ function TaskCardContent({
                                 e.stopPropagation();
                                 onDeleteTask();
                             }}
-                            className="p-1 rounded hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition-colors"
+                            className="p-1 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-500 transition-colors"
                             title="Delete task"
                         >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -400,7 +400,7 @@ function TaskCardContent({
 
             {/* Description */}
             {task.description && (
-                <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 pl-5">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 pl-5">
                     {task.description}
                 </p>
             )}
@@ -408,7 +408,7 @@ function TaskCardContent({
             {/* Badges / Status Indicators */}
             <div className="flex flex-wrap gap-1.5 items-center pl-5">
                 {/* Effort Weight Badge */}
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-primary/10 text-foreground dark:text-primary border border-primary/25">
                     {task.weight ?? 1} pts
                 </span>
 
@@ -418,10 +418,10 @@ function TaskCardContent({
                         className={cn(
                             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border transition-colors",
                             task.estimatedHours > 40
-                                ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
                                 : task.estimatedHours > 30
-                                ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                                : "bg-zinc-800/80 text-zinc-300 border-zinc-700/60"
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+                                : "bg-muted text-muted-foreground border-border"
                         )}
                         title={
                             task.estimatedHours > 40
@@ -430,13 +430,13 @@ function TaskCardContent({
                         }
                     >
                         {task.estimatedHours > 40 ? (
-                            <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                            <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
                         ) : (
-                            <Clock className="w-3 h-3 text-zinc-400 shrink-0" />
+                            <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
                         )}
                         <span>{task.estimatedHours}h</span>
                         {task.estimatedHours > 40 && (
-                            <span className="text-[9px] uppercase tracking-wider font-semibold text-rose-400">Over</span>
+                            <span className="text-[9px] uppercase tracking-wider font-semibold text-rose-500">Over</span>
                         )}
                     </span>
                 )}
@@ -449,18 +449,18 @@ function TaskCardContent({
                             e.stopPropagation();
                             if (onViewProofs) onViewProofs("audit");
                         }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/40 hover:bg-orange-500/30 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-orange-500/15 text-orange-600 dark:text-orange-300 border border-orange-500/40 hover:bg-orange-500/25 transition-colors cursor-pointer"
                         title="View AI quality audit review & feedback"
                     >
-                        <AlertTriangle className="w-3 h-3 text-orange-400 shrink-0" />
+                        <AlertTriangle className="w-3 h-3 text-orange-500 shrink-0" />
                         <span>Changes Requested</span>
                     </button>
                 )}
 
                 {/* Locked Badge */}
                 {isLocked && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                        <Lock className="w-3 h-3 text-amber-400" />
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                        <Lock className="w-3 h-3 text-amber-500" />
                         <span>Locked</span>
                     </span>
                 )}
@@ -478,8 +478,8 @@ function TaskCardContent({
                         className={cn(
                             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border transition-colors cursor-pointer",
                             task.status === "In Review"
-                                ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30"
-                                : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30"
+                                ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/25"
+                                : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/25"
                         )}
                         title="View quality audit & proofs"
                     >
@@ -497,25 +497,25 @@ function TaskCardContent({
 
             {/* Blocked Reason */}
             {task.status === "Blocked" && task.blockedReason && (
-                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs leading-tight ml-5">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400 mt-0.5" />
+                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs leading-tight ml-5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500 mt-0.5" />
                     <span className="line-clamp-2" title={task.blockedReason}>
-                        <span className="font-semibold text-rose-400">Blocked:</span> {task.blockedReason}
+                        <span className="font-semibold text-rose-500">Blocked:</span> {task.blockedReason}
                     </span>
                 </div>
             )}
 
             {/* Footer: Due Date & Assignees */}
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80 mt-1 pl-5">
-                <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <div className="flex items-center justify-between pt-2 border-t border-border mt-1 pl-5">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {task.dueDate && (
                         <div
                             className={cn(
                                 "flex items-center gap-1 text-[11px]",
-                                isOverdue ? "text-rose-400 font-semibold" : "text-zinc-400"
+                                isOverdue ? "text-rose-500 font-semibold" : "text-muted-foreground"
                             )}
                         >
-                            <Calendar className={cn("w-3.5 h-3.5", isOverdue ? "text-rose-400" : "text-zinc-500")} />
+                            <Calendar className={cn("w-3.5 h-3.5", isOverdue ? "text-rose-500" : "text-muted-foreground")} />
                             <span>{format(new Date(task.dueDate), "MMM d")}</span>
                         </div>
                     )}
@@ -525,9 +525,9 @@ function TaskCardContent({
                 {task.assignees && task.assignees.length > 0 && (
                     <div className="flex items-center -space-x-2 shrink-0 ml-auto">
                         {task.assignees.map((a) => (
-                            <Avatar key={a.user.id} className="w-6 h-6 border-2 border-zinc-900 ring-1 ring-zinc-700">
+                            <Avatar key={a.user.id} className="w-6 h-6 border-2 border-card ring-1 ring-border">
                                 {a.user.image && <AvatarImage src={a.user.image} alt={a.user.name || "User"} />}
-                                <AvatarFallback className="text-[9px] bg-indigo-600 text-white font-semibold">
+                                <AvatarFallback className="text-[9px] bg-primary text-black font-bold">
                                     {a.user.name ? a.user.name.substring(0, 2).toUpperCase() : "U"}
                                 </AvatarFallback>
                             </Avatar>

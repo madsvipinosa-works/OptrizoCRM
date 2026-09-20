@@ -69,9 +69,9 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
                     <MessageSquare className="h-4 w-4 mr-2" /> Review & Action
                 </Button>
             </DialogTrigger>
-            <DialogContent className="glass-card border-white/10 text-white sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="glass-card border-border text-foreground sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                    <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
                         <FileCheck className="h-5 w-5 text-primary" /> Review Milestone: {milestoneTitle}
                     </DialogTitle>
                 </DialogHeader>
@@ -83,18 +83,18 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
                         </p>
 
                         {tasks && tasks.length > 0 && (
-                            <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-3 max-h-[300px] overflow-y-auto override-scrollbar">
-                                <h4 className="text-xs font-semibold text-white/70 uppercase tracking-wider border-b border-white/10 pb-2 mb-2">
+                            <div className="bg-muted/30 border border-border rounded-xl p-4 space-y-3 max-h-[300px] overflow-y-auto override-scrollbar">
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-2 mb-2 font-mono">
                                     Completed Deliverables & Proof of Work
                                 </h4>
                                 <ul className="space-y-3.5">
                                     {tasks.map(task => (
-                                        <li key={task.id} className="text-sm flex flex-col gap-1.5 p-2.5 rounded-lg bg-white/5 border border-white/5">
+                                        <li key={task.id} className="text-sm flex flex-col gap-1.5 p-2.5 rounded-lg bg-card border border-border">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="flex items-start gap-2.5">
-                                                    <CheckCircle className={`h-4 w-4 shrink-0 mt-0.5 ${task.status === "Done" ? "text-green-500" : "text-muted-foreground"}`} />
+                                                    <CheckCircle className={`h-4 w-4 shrink-0 mt-0.5 ${task.status === "Done" ? "text-primary" : "text-muted-foreground"}`} />
                                                     <div className="flex flex-col">
-                                                        <span className={`font-semibold ${task.status === "Done" ? "text-white" : "text-muted-foreground"}`}>{task.title}</span>
+                                                        <span className={`font-semibold ${task.status === "Done" ? "text-foreground" : "text-muted-foreground"}`}>{task.title}</span>
                                                         {task.description && <span className="text-muted-foreground text-xs mt-0.5 leading-snug">{task.description}</span>}
                                                     </div>
                                                 </div>
@@ -107,7 +107,7 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
                                                                 href={link.url} 
                                                                 target="_blank" 
                                                                 rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-2 py-0.5 rounded transition-colors"
+                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-2 py-0.5 rounded transition-colors font-mono"
                                                             >
                                                                 <span>{link.label || "Proof"}</span>
                                                                 <ExternalLink className="h-3 w-3" />
@@ -118,8 +118,8 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
                                             </div>
 
                                             {task.proofNotes && (
-                                                <div className="mt-1 ml-6 p-2 rounded bg-black/40 border border-white/5 text-xs text-white/80">
-                                                    <span className="font-semibold text-primary/90">Proof Notes: </span>
+                                                <div className="mt-1 ml-6 p-2 rounded bg-muted/40 border border-border text-xs text-foreground">
+                                                    <span className="font-semibold text-primary">Proof Notes: </span>
                                                     {task.proofNotes}
                                                 </div>
                                             )}
@@ -132,14 +132,14 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
                         <div className="flex gap-4 pt-2">
                             <Button 
                                 variant={status === "APPROVED" ? "default" : "outline"} 
-                                className={`flex-1 ${status === "APPROVED" ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : "border-white/10 hover:border-green-500/50 hover:text-green-500"}`}
+                                className={`flex-1 ${status === "APPROVED" ? "bg-primary hover:bg-primary/90 text-black font-semibold border-primary" : "border-border hover:border-primary/50 hover:text-primary text-foreground"}`}
                                 onClick={() => setStatus("APPROVED")}
                             >
                                 <CheckCircle className="h-4 w-4 mr-2" /> Approve Deliverables
                             </Button>
                             <Button 
                                 variant={status === "REVISION_REQUESTED" ? "default" : "outline"}
-                                className={`flex-1 ${status === "REVISION_REQUESTED" ? "bg-red-600 hover:bg-red-700 text-white border-red-600" : "border-white/10 hover:border-red-500/50 hover:text-red-500"}`}
+                                className={`flex-1 ${status === "REVISION_REQUESTED" ? "bg-destructive hover:bg-destructive/90 text-white border-destructive" : "border-border hover:border-destructive/50 hover:text-destructive text-foreground"}`}
                                 onClick={() => setStatus("REVISION_REQUESTED")}
                             >
                                 <XCircle className="h-4 w-4 mr-2" /> Request Revisions
@@ -149,20 +149,20 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
 
                     {(status === "REVISION_REQUESTED" || status === "APPROVED") && (
                         <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                            <label className="text-sm font-medium">
+                            <label className="text-sm font-medium text-foreground">
                                 {status === "APPROVED" ? "Additional Comments (Optional)" : "Revision Details (Required)"}
                             </label>
                             <Textarea 
                                 placeholder={status === "APPROVED" ? "Everything looks great! Ready to move forward." : "Please revise the following items..."}
-                                className="bg-black/50 border-white/10 min-h-[100px]"
+                                className="bg-card border-border text-foreground min-h-[100px]"
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
                             />
                         </div>
                     )}
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-                        <Button variant="ghost" onClick={() => setOpen(false)} disabled={isSubmitting}>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                        <Button variant="ghost" onClick={() => setOpen(false)} disabled={isSubmitting} className="hover:bg-muted text-foreground">
                             Cancel
                         </Button>
                         <Button 

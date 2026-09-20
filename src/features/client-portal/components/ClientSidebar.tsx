@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Layers, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Layers, ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 interface ClientSidebarProps {
     className?: string;
@@ -28,14 +29,15 @@ export function ClientSidebar({ className }: ClientSidebarProps) {
     ];
 
     return (
-        <aside className={cn("w-full md:w-64 shrink-0 space-y-6", className)}>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 backdrop-blur-md">
-                <div className="mb-4 px-2">
-                    <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+        <aside className={cn("w-full md:w-64 shrink-0 space-y-4", className)}>
+            <div className="glass-card rounded-2xl border border-border p-4 shadow-sm">
+                <div className="mb-4 px-2 flex items-center justify-between">
+                    <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
                         Client Workspace
                     </h2>
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_6px_#00D639]" />
                 </div>
-                <nav className="space-y-1">
+                <nav className="space-y-1.5">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive =
@@ -48,10 +50,10 @@ export function ClientSidebar({ className }: ClientSidebarProps) {
                                 key={item.href}
                                 href={item.href}
                                 className={cn(
-                                    "group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                    "group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 border-l-2",
                                     isActive
-                                        ? "bg-zinc-800/80 text-white shadow-sm border border-zinc-700/60"
-                                        : "text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200"
+                                        ? "bg-primary/10 text-foreground border-primary shadow-xs"
+                                        : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                                 )}
                             >
                                 <div className="flex items-center gap-3">
@@ -60,7 +62,7 @@ export function ClientSidebar({ className }: ClientSidebarProps) {
                                             "h-4 w-4 transition-colors",
                                             isActive
                                                 ? "text-primary"
-                                                : "text-zinc-500 group-hover:text-zinc-300"
+                                                : "text-muted-foreground group-hover:text-foreground"
                                         )}
                                     />
                                     <span>{item.title}</span>
@@ -72,6 +74,10 @@ export function ClientSidebar({ className }: ClientSidebarProps) {
                         );
                     })}
                 </nav>
+
+                <div className="pt-4 mt-4 border-t border-border">
+                    <ThemeToggle variant="pill" />
+                </div>
             </div>
         </aside>
     );

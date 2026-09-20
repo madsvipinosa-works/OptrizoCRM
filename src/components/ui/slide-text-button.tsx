@@ -30,8 +30,8 @@ export default function SlideTextButton({
 
     const variantStyles =
         variant === "ghost"
-            ? "border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/60"
-            : "bg-primary text-black hover:bg-primary/90 hover:shadow-[0_0_32px_rgba(57,255,20,0.45)]";
+            ? "border border-border bg-card text-foreground hover:bg-primary hover:text-black hover:border-primary shadow-sm"
+            : "bg-primary text-black hover:bg-primary/90 hover:shadow-[0_0_32px_rgba(0,214,57,0.45)]";
 
     return (
         <motion.div
@@ -42,7 +42,7 @@ export default function SlideTextButton({
             <Link
                 href={href}
                 className={cn(
-                    "group relative inline-flex h-12 items-center justify-center overflow-hidden rounded-xl px-8 font-semibold text-base tracking-tight transition-all duration-300 md:min-w-48",
+                    "group relative inline-flex h-12 items-center justify-center overflow-hidden rounded-xl px-8 font-mono text-xs uppercase tracking-wider font-bold transition-all duration-300 md:min-w-48",
                     variantStyles,
                     className
                 )}

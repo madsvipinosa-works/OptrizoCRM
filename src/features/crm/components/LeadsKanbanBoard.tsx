@@ -28,6 +28,8 @@ interface LeadsKanbanBoardProps {
     isAdmin?: boolean;
     onStatusChangeRequest: (leadId: string, leadTitle: string, fromStatus: string, toStatus: string) => void;
     onSelectLead?: (lead: LeadItem) => void;
+    onEditLead?: (lead: LeadItem) => void;
+    onArchiveLead?: (leadId: string) => void;
 }
 
 const STAGES = [
@@ -45,6 +47,8 @@ export function LeadsKanbanBoard({
     isAdmin,
     onStatusChangeRequest,
     onSelectLead,
+    onEditLead,
+    onArchiveLead,
 }: LeadsKanbanBoardProps) {
     const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
@@ -111,6 +115,8 @@ export function LeadsKanbanBoard({
                             assignableUsers={assignableUsers}
                             isAdmin={isAdmin}
                             onSelectLead={onSelectLead}
+                            onEditLead={onEditLead}
+                            onArchiveLead={onArchiveLead}
                         />
                     );
                 })}
@@ -134,6 +140,8 @@ function KanbanColumn({
     assignableUsers,
     isAdmin,
     onSelectLead,
+    onEditLead,
+    onArchiveLead,
 }: {
     stage: string;
     leads: LeadItem[];
@@ -141,6 +149,8 @@ function KanbanColumn({
     assignableUsers: any[];
     isAdmin?: boolean;
     onSelectLead?: (lead: LeadItem) => void;
+    onEditLead?: (lead: LeadItem) => void;
+    onArchiveLead?: (leadId: string) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: stage,
@@ -149,22 +159,22 @@ function KanbanColumn({
     return (
         <div
             ref={setNodeRef}
-            className={`flex flex-col rounded-xl border border-white/10 bg-zinc-950/70 p-3 min-h-[550px] transition-colors ${
+            className={`flex flex-col rounded-xl border border-border bg-card/60 backdrop-blur-xs p-3 min-h-[550px] transition-colors ${
                 isOver ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30" : ""
             }`}
         >
             {/* Column Header */}
-            <div className="flex flex-col gap-1 pb-3 mb-3 border-b border-white/10">
+            <div className="flex flex-col gap-1 pb-3 mb-3 border-b border-border">
                 <div className="flex items-center justify-between">
                     <Badge variant="secondary" className={`font-semibold ${getStageBadgeStyle(stage)}`}>
                         {stage}
                     </Badge>
-                    <span className="text-[11px] font-bold text-zinc-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+                    <span className="text-[11px] font-bold font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border">
                         {leads.length}
                     </span>
                 </div>
                 {totalValue > 0 && (
-                    <div className="text-[11px] font-mono text-emerald-400 font-semibold flex items-center justify-end">
+                    <div className="text-[11px] font-mono text-emerald-500 dark:text-emerald-400 font-semibold flex items-center justify-end">
                         ${totalValue >= 1000 ? `${(totalValue / 1000).toFixed(0)}k` : totalValue.toLocaleString()}
                     </div>
                 )}
@@ -174,7 +184,7 @@ function KanbanColumn({
             <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-2.5 flex-1">
                     {leads.length === 0 ? (
-                        <div className="flex-1 flex items-center justify-center border border-dashed border-white/5 rounded-lg p-6 text-center text-xs text-zinc-600 select-none">
+                        <div className="flex-1 flex items-center justify-center border border-dashed border-border/60 rounded-lg p-6 text-center text-xs text-muted-foreground/60 select-none">
                             Drop deals here
                         </div>
                     ) : (
@@ -185,6 +195,8 @@ function KanbanColumn({
                                 assignableUsers={assignableUsers}
                                 isAdmin={isAdmin}
                                 onSelectLead={onSelectLead}
+                                onEditLead={onEditLead}
+                                onArchiveLead={onArchiveLead}
                             />
                         ))
                     )}
@@ -199,11 +211,15 @@ function DraggableKanbanCard({
     assignableUsers,
     isAdmin,
     onSelectLead,
+    onEditLead,
+    onArchiveLead,
 }: {
     lead: LeadItem;
     assignableUsers: any[];
     isAdmin?: boolean;
     onSelectLead?: (lead: LeadItem) => void;
+    onEditLead?: (lead: LeadItem) => void;
+    onArchiveLead?: (leadId: string) => void;
 }) {
     const {
         attributes,
@@ -234,6 +250,8 @@ function DraggableKanbanCard({
                 assignableUsers={assignableUsers}
                 isAdmin={isAdmin}
                 onSelect={onSelectLead}
+                onEdit={onEditLead}
+                onArchive={onArchiveLead}
             />
         </div>
     );
@@ -242,18 +260,18 @@ function DraggableKanbanCard({
 function getStageBadgeStyle(stage: string) {
     switch (stage) {
         case "New Lead":
-            return "bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px]";
+            return "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/30 text-[10px]";
         case "Discovery & Qualifying":
-            return "bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]";
+            return "bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/30 text-[10px]";
         case "Proposal Sent":
-            return "bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]";
+            return "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30 text-[10px]";
         case "In Negotiation":
-            return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30 text-[10px]";
+            return "bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border-cyan-500/30 text-[10px]";
         case "Closed Won":
-            return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px]";
+            return "bg-primary/10 text-primary border-primary/30 text-[10px]";
         case "Closed Lost":
-            return "bg-rose-500/10 text-rose-400 border-rose-500/30 text-[10px]";
+            return "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30 text-[10px]";
         default:
-            return "bg-zinc-800 text-zinc-300 text-[10px]";
+            return "bg-muted text-muted-foreground border-border text-[10px]";
     }
 }

@@ -29,45 +29,51 @@ export function TestimonialCard({
         <Card
             {...(href ? { href } : {})}
             className={cn(
-                "flex flex-col rounded-lg border-t shrink-0 w-[320px] max-w-none",
-                "bg-gradient-to-b from-muted/50 to-muted/10",
-                "p-4 text-start sm:p-6",
-                "hover:from-muted/60 hover:to-muted/20",
-                "transition-colors duration-300",
+                "flex flex-col justify-between rounded-3xl border border-border/80 shrink-0 w-[320px] sm:w-[360px] max-w-none overflow-hidden min-h-[270px] sm:min-h-[290px]",
+                "bg-card shadow-sm hover:shadow-xl hover:border-primary/50",
+                "p-6 sm:p-7 text-start",
+                "transition-all duration-300 group",
                 className
             )}
         >
-            {/* Star Rating */}
-            <div className="flex gap-0.5 mb-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                        key={i}
-                        className={cn(
-                            "h-4 w-4",
-                            i < rating
-                                ? "fill-primary text-primary"
-                                : "fill-muted text-muted-foreground/30"
-                        )}
-                    />
-                ))}
+            <div className="overflow-hidden">
+                {/* Star Rating & Verified Monospace Pill */}
+                <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="flex gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                                key={i}
+                                className={cn(
+                                    "h-3.5 w-3.5",
+                                    i < rating
+                                        ? "fill-primary text-primary"
+                                        : "fill-muted text-muted-foreground/30"
+                                )}
+                            />
+                        ))}
+                    </div>
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-primary font-bold px-2.5 py-0.5 rounded-full border border-primary/20 bg-primary/5">
+                        VERIFIED
+                    </span>
+                </div>
+
+                <p className="text-sm sm:text-[15px] text-foreground/90 leading-relaxed italic mb-6">
+                    &ldquo;{text}&rdquo;
+                </p>
             </div>
 
-            <p className="sm:text-md mb-4 text-sm text-foreground/90 leading-relaxed">
-                &ldquo;{text}&rdquo;
-            </p>
-
-            <div className="mt-auto flex items-center gap-3">
-                <Avatar className="h-10 w-10 shrink-0">
+            <div className="mt-auto pt-4 border-t border-border/60 flex items-center gap-3.5 w-full min-w-0 overflow-hidden">
+                <Avatar className="h-10 w-10 shrink-0 border border-border/80 ring-2 ring-primary/20">
                     <AvatarImage src={author.avatar} alt={author.name} />
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                    <AvatarFallback className="bg-primary/10 text-primary font-mono text-xs font-bold">
                         {author.name.charAt(0)}
                     </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col items-start min-w-0">
-                    <h3 className="text-sm font-semibold leading-none truncate">
+                <div className="flex flex-col items-start min-w-0 flex-1 overflow-hidden">
+                    <h4 className="text-sm font-black uppercase tracking-tight text-foreground truncate w-full block">
                         {author.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                    </h4>
+                    <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mt-0.5 line-clamp-2 break-words leading-snug w-full block">
                         {author.handle}
                     </p>
                 </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { TypewriterHeader, TypewriterParagraph } from "@/components/ui/typewriter-text";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -119,35 +120,46 @@ const Gallery4 = ({
   }, [carouselApi]);
 
   return (
-    <section className="py-20 md:py-28 relative overflow-hidden">
-      {/* Background glow consistent with Hero section */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+    <section className="pt-16 md:pt-20 pb-20 md:pb-28 relative overflow-hidden transition-colors duration-500">
+      {/* Background ambient glow consistent with Hero & Services */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" />
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="mb-10 flex flex-col md:flex-row items-start md:items-end justify-between gap-6 md:mb-14">
+        <div className="mb-12 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div className="flex flex-col gap-3 max-w-2xl">
             {badge && (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 w-fit tracking-widest uppercase">
-                <Sparkles className="w-3.5 h-3.5" /> {badge}
+              <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-mono tracking-widest uppercase w-fit mb-1 shadow-xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                </span>
+                <span>{badge}</span>
               </div>
             )}
-            <h2 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl lg:text-5xl text-glow leading-tight">
-              {title}
-            </h2>
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-              {description}
-            </p>
+            <TypewriterHeader
+              text={title}
+              as="h2"
+              className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight uppercase text-foreground leading-[0.95]"
+            />
+            <TypewriterParagraph
+              text={description}
+              as="p"
+              className="text-muted-foreground text-sm md:text-base leading-relaxed mt-2 max-w-xl"
+            />
           </div>
 
-          {/* Navigation controls */}
+          {/* Navigation controls matching Hero & Services tactile design */}
           <div className="shrink-0 flex items-center gap-3">
             {viewAllHref && (
               <Button
                 variant="outline"
                 asChild
-                className="border-white/10 bg-black/40 backdrop-blur-md text-white hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium mr-1"
+                className="rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-black hover:border-primary transition-all duration-300 font-mono text-xs uppercase tracking-wider px-4 py-2.5 shadow-xs"
               >
-                <Link href={viewAllHref}>{viewAllText}</Link>
+                <Link href={viewAllHref} className="flex items-center gap-2">
+                  <span>{viewAllText}</span>
+                  <ArrowRight className="size-3.5" />
+                </Link>
               </Button>
             )}
             <div className="hidden sm:flex items-center gap-2">
@@ -158,7 +170,7 @@ const Gallery4 = ({
                   carouselApi?.scrollPrev();
                 }}
                 disabled={!canScrollPrev}
-                className="h-10 w-10 rounded-full border-white/10 bg-black/40 backdrop-blur-md text-white hover:bg-primary hover:text-black hover:border-primary transition-all disabled:opacity-30 disabled:pointer-events-none shadow-lg"
+                className="h-10 w-10 rounded-full border border-border bg-card text-foreground hover:bg-primary hover:text-black hover:border-primary transition-all duration-300 disabled:opacity-30 disabled:pointer-events-none shadow-xs cursor-pointer"
                 aria-label="Previous slide"
               >
                 <ArrowLeft className="size-4" />
@@ -170,7 +182,7 @@ const Gallery4 = ({
                   carouselApi?.scrollNext();
                 }}
                 disabled={!canScrollNext}
-                className="h-10 w-10 rounded-full border-white/10 bg-black/40 backdrop-blur-md text-white hover:bg-primary hover:text-black hover:border-primary transition-all disabled:opacity-30 disabled:pointer-events-none shadow-lg"
+                className="h-10 w-10 rounded-full border border-border bg-card text-foreground hover:bg-primary hover:text-black hover:border-primary transition-all duration-300 disabled:opacity-30 disabled:pointer-events-none shadow-xs cursor-pointer"
                 aria-label="Next slide"
               >
                 <ArrowRight className="size-4" />
@@ -201,7 +213,7 @@ const Gallery4 = ({
                 className="basis-full sm:basis-[360px] md:basis-[420px] lg:basis-[460px] pl-4 md:pl-6"
               >
                 <Link href={item.href} className="group block h-full">
-                  <div className="group relative h-full min-h-[30rem] overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md transition-all duration-500 group-hover:border-primary/50 group-hover:shadow-[0_0_30px_rgba(57,255,20,0.15)] flex flex-col justify-end">
+                  <div className="group relative h-full min-h-[32rem] overflow-hidden rounded-3xl border border-border/80 dark:border-white/10 bg-card transition-all duration-500 group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(0,214,57,0.15)] flex flex-col justify-end">
                     {/* Background Image */}
                     <img
                       src={item.image}
@@ -210,17 +222,18 @@ const Gallery4 = ({
                     />
 
                     {/* Gradient Overlays consistent with Hero section */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90" />
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(57,255,20,0.1)_0%,_transparent_70%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent opacity-95" />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(0,214,57,0.15)_0%,_transparent_70%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                     {/* Content overlay */}
                     <div className="relative z-10 flex flex-col items-start p-6 md:p-8 text-white">
                       {item.clientName && (
-                        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-primary">
-                          {item.clientName}
+                        <div className="mb-2.5 text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                          <span>{item.clientName}</span>
                         </div>
                       )}
-                      <h3 className="mb-3 text-xl md:text-2xl font-bold tracking-tight text-white group-hover:text-primary transition-colors line-clamp-2">
+                      <h3 className="mb-3 text-xl md:text-2xl font-black uppercase tracking-tight text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">
                         {item.title}
                       </h3>
                       <p className="mb-6 text-sm text-neutral-300/90 line-clamp-3 leading-relaxed">
@@ -233,22 +246,22 @@ const Gallery4 = ({
                           {item.technologies.slice(0, 3).map((tech, idx) => (
                             <span
                               key={idx}
-                              className="px-2 py-0.5 text-[11px] font-mono rounded bg-white/10 text-white/90 border border-white/10"
+                              className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-lg bg-black/60 text-neutral-200 border border-white/15 backdrop-blur-md"
                             >
                               {tech}
                             </span>
                           ))}
                           {item.technologies.length > 3 && (
-                            <span className="px-2 py-0.5 text-[11px] font-mono rounded bg-white/5 text-white/60">
+                            <span className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-lg bg-black/60 text-neutral-400 border border-white/10 backdrop-blur-md">
                               +{item.technologies.length - 3}
                             </span>
                           )}
                         </div>
                       )}
 
-                      <div className="inline-flex items-center text-sm font-semibold text-primary group-hover:text-white transition-colors">
-                        Explore Case Study
-                        <ArrowRight className="ml-2 size-4 transition-transform duration-300 group-hover:translate-x-1.5" />
+                      <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-primary group-hover:text-white transition-colors">
+                        <span>Explore Case Study</span>
+                        <ArrowRight className="size-3.5 transition-transform duration-300 group-hover:translate-x-1.5" />
                       </div>
                     </div>
                   </div>
@@ -258,15 +271,15 @@ const Gallery4 = ({
           </CarouselContent>
         </Carousel>
 
-        {/* Dynamic Pagination Indicators */}
-        <div className="mt-10 flex justify-center items-center gap-2">
+        {/* Dynamic Pagination Indicators with high-contrast in Alabaster and Noir */}
+        <div className="mt-8 flex justify-center items-center gap-2">
           {items.map((_, index) => (
             <button
               key={index}
-              className={`h-2 transition-all duration-300 rounded-full ${
+              className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${
                 currentSlide === index
-                  ? "w-8 bg-primary shadow-[0_0_12px_rgba(57,255,20,0.8)]"
-                  : "w-2 bg-white/20 hover:bg-white/40"
+                  ? "w-8 bg-primary shadow-[0_0_12px_rgba(0,214,57,0.7)]"
+                  : "w-2 bg-foreground/20 hover:bg-foreground/40"
               }`}
               onClick={() => carouselApi?.scrollTo(index)}
               aria-label={`Go to slide ${index + 1}`}

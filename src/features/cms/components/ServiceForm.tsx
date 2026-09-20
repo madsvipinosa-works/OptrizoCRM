@@ -53,18 +53,18 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
             <input type="hidden" name="image" value={image} />
             <input type="hidden" name="isFeatured" value={isFeatured ? "true" : "false"} />
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardContent className="pt-6 space-y-6">
                     {/* Landing Page Showcase Toggle */}
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-muted/40 border border-border">
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-primary" />
-                                <Label className="text-sm font-semibold text-white">
+                                <Label className="text-sm font-semibold text-foreground">
                                     Show on Landing Page Showcase
                                 </Label>
                             </div>
-                            <p className="text-xs text-zinc-400">
+                            <p className="text-xs text-muted-foreground">
                                 Feature this service in the landing page interactive modal section (up to 4 services allowed).
                             </p>
                         </div>
@@ -76,7 +76,7 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
 
                     {/* Service Preview Image for Animated Hover Modal */}
                     <div className="space-y-2">
-                        <Label>Service Preview Image (Shown in Hover Modal)</Label>
+                        <Label className="text-foreground">Service Preview Image (Shown in Hover Modal)</Label>
                         <ImageUpload
                             value={image}
                             onChange={setImage}
@@ -89,33 +89,33 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Service Title</Label>
+                            <Label className="text-foreground">Service Title</Label>
                             <Input
                                 name="title"
                                 defaultValue={initialData?.title}
                                 placeholder="e.g. Custom Web Application Development"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Category / Subtitle Tag</Label>
+                            <Label className="text-foreground">Category / Subtitle Tag</Label>
                             <Input
                                 name="category"
                                 defaultValue={initialData?.category || ""}
                                 placeholder="e.g. Design & Architecture"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Description</Label>
+                        <Label className="text-foreground">Description</Label>
                         <Textarea
                             name="description"
                             defaultValue={initialData?.description}
                             placeholder="Describe the service offering..."
-                            className="bg-white/5 border-white/10"
+                            className="bg-card border-border text-foreground"
                             rows={3}
                             required
                         />
@@ -123,48 +123,48 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <Label>Modal Accent Color</Label>
+                            <Label className="text-foreground">Modal Accent Color</Label>
                             <div className="flex items-center gap-2">
                                 <input
                                     type="color"
                                     value={color}
                                     onChange={(e) => setColor(e.target.value)}
-                                    className="w-10 h-10 rounded border border-white/20 bg-transparent cursor-pointer"
+                                    className="w-10 h-10 rounded border border-border bg-transparent cursor-pointer"
                                 />
                                 <Input
                                     name="color"
                                     value={color}
                                     onChange={(e) => setColor(e.target.value)}
                                     placeholder="#05160b"
-                                    className="bg-white/5 border-white/10 font-mono text-xs"
+                                    className="bg-card border-border text-foreground font-mono text-xs"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Destination Link</Label>
+                            <Label className="text-foreground">Destination Link</Label>
                             <Input
                                 name="link"
                                 defaultValue={initialData?.link || "/contact"}
                                 placeholder="/contact"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Display Order</Label>
+                            <Label className="text-foreground">Display Order</Label>
                             <Input
                                 name="order"
                                 type="number"
                                 defaultValue={initialData?.order ?? 0}
                                 placeholder="0"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>
+                        <Label className="text-foreground">
                             Icon Name (Lucide)
                             <a
                                 href="https://lucide.dev/icons"
@@ -179,15 +179,15 @@ export function ServiceForm({ initialData }: ServiceFormProps) {
                             name="icon"
                             defaultValue={initialData?.icon || "Code"}
                             placeholder="e.g. Code, Smartphone, Rocket, Cpu"
-                            className="bg-white/5 border-white/10"
+                            className="bg-card border-border text-foreground"
                         />
                     </div>
                 </CardContent>
             </Card>
 
             <div className="flex justify-end gap-4">
-                <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
-                <Button type="submit" disabled={isPending} className="bg-primary text-black font-bold">
+                <Button type="button" variant="ghost" onClick={() => router.back()} className="hover:bg-muted text-foreground">Cancel</Button>
+                <Button type="submit" disabled={isPending} className="bg-primary text-black font-semibold hover:bg-primary/90">
                     {isPending ? "Saving..." : (initialData ? "Update Service" : "Create Service")}
                 </Button>
             </div>

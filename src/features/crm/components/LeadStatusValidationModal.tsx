@@ -43,27 +43,27 @@ export function LeadStatusValidationModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !isSubmitting) onClose(); }}>
-            <DialogContent className="max-w-md bg-zinc-950 border-white/10 text-white rounded-xl shadow-2xl">
+            <DialogContent className="max-w-md bg-card border-border text-foreground rounded-xl shadow-2xl">
                 <DialogHeader className="space-y-2">
-                    <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+                    <div className="flex items-center gap-2 text-amber-500 font-semibold text-sm">
                         <ShieldAlert className="h-4 w-4" />
                         Stage Transition Audit & Intercept
                     </div>
-                    <DialogTitle className="text-xl font-bold">
+                    <DialogTitle className="text-xl font-bold text-foreground">
                         Confirm Pipeline Move
                     </DialogTitle>
-                    <DialogDescription className="text-zinc-400 text-xs leading-relaxed">
-                        Moving <span className="text-white font-medium">"{leadTitle}"</span> requires staff confirmation to maintain pipeline integrity.
+                    <DialogDescription className="text-muted-foreground text-xs leading-relaxed">
+                        Moving <span className="text-foreground font-medium">"{leadTitle}"</span> requires staff confirmation to maintain pipeline integrity.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 my-2">
                     {/* Stage Transition Visual */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border">
                         <Badge variant="secondary" className={getStatusColor(fromStatus)}>
                             {fromStatus}
                         </Badge>
-                        <ArrowRight className="h-4 w-4 text-zinc-500" />
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         <Badge variant="secondary" className={getStatusColor(toStatus)}>
                             {toStatus}
                         </Badge>
@@ -71,7 +71,7 @@ export function LeadStatusValidationModal({
 
                     {/* Reason / Audit Note Input */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-300">
+                        <label className="text-xs font-medium text-foreground">
                             Activity Note / Reason (Optional)
                         </label>
                         <Textarea
@@ -79,7 +79,7 @@ export function LeadStatusValidationModal({
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
-                            className="bg-black/40 border-white/15 focus:border-primary text-xs placeholder:text-zinc-600 resize-none"
+                            className="bg-muted/30 border-border focus:border-primary text-xs text-foreground placeholder:text-muted-foreground resize-none"
                         />
                     </div>
                 </div>
@@ -89,7 +89,7 @@ export function LeadStatusValidationModal({
                         variant="ghost"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="text-zinc-400 hover:text-white hover:bg-white/5"
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted"
                     >
                         Cancel
                     </Button>
@@ -115,12 +115,12 @@ export function LeadStatusValidationModal({
 
 function getStatusColor(status: string) {
     switch (status) {
-        case "New Lead": return "bg-blue-500/10 text-blue-400 border-blue-500/30";
-        case "Discovery & Qualifying": return "bg-purple-500/10 text-purple-400 border-purple-500/30";
-        case "Proposal Sent": return "bg-amber-500/10 text-amber-400 border-amber-500/30";
-        case "In Negotiation": return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
-        case "Closed Won": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-        case "Closed Lost": return "bg-rose-500/10 text-rose-400 border-rose-500/30";
-        default: return "bg-zinc-800 text-zinc-300 border-zinc-700";
+        case "New Lead": return "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/30";
+        case "Discovery & Qualifying": return "bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/30";
+        case "Proposal Sent": return "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30";
+        case "In Negotiation": return "bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border-cyan-500/30";
+        case "Closed Won": return "bg-primary/10 text-primary border-primary/30";
+        case "Closed Lost": return "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30";
+        default: return "bg-muted text-muted-foreground border-border";
     }
 }

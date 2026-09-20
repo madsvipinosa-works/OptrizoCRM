@@ -58,30 +58,30 @@ export function AnalyticsCharts({ totalLeads, leadsData }: AnalyticsChartsProps)
         <div className="space-y-6">
             {/* KPI Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="glass-card border-white/10">
+                <Card className="glass-card border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{totalLeads}</div>
+                        <div className="text-2xl font-bold font-mono">{totalLeads}</div>
                     </CardContent>
                 </Card>
-                <Card className="glass-card border-white/10">
+                <Card className="glass-card border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Avg. Lead Score</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className={`text-2xl font-bold ${avgScore > 50 ? 'text-green-400' : 'text-yellow-400'}`}>
+                        <div className={`text-2xl font-bold font-mono ${avgScore > 50 ? 'text-primary' : 'text-amber-500'}`}>
                             {avgScore}
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="glass-card border-white/10">
+                <Card className="glass-card border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-blue-400">{conversionRate}%</div>
+                        <div className="text-2xl font-bold font-mono text-primary">{conversionRate}%</div>
                         <p className="text-xs text-muted-foreground">{completedCount} deals won</p>
                     </CardContent>
                 </Card>
@@ -89,7 +89,7 @@ export function AnalyticsCharts({ totalLeads, leadsData }: AnalyticsChartsProps)
 
             {/* Charts Row */}
             <div className="grid gap-4 md:grid-cols-2">
-                <Card className="glass-card border-white/10 col-span-1">
+                <Card className="glass-card border-border col-span-1">
                     <CardHeader>
                         <CardTitle>Pipeline Distribution</CardTitle>
                     </CardHeader>
@@ -99,16 +99,16 @@ export function AnalyticsCharts({ totalLeads, leadsData }: AnalyticsChartsProps)
                                 <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                                    itemStyle={{ color: '#fff' }}
+                                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.75rem', color: 'hsl(var(--foreground))' }}
+                                    itemStyle={{ color: 'hsl(var(--foreground))' }}
                                 />
-                                <Bar dataKey="value" fill="#adfa1d" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="value" fill="#00D639" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card border-white/10 col-span-1">
+                <Card className="glass-card border-border col-span-1">
                     <CardHeader>
                         <CardTitle>Leads by Service</CardTitle>
                     </CardHeader>
@@ -129,8 +129,8 @@ export function AnalyticsCharts({ totalLeads, leadsData }: AnalyticsChartsProps)
                                     ))}
                                 </Pie>
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                                    itemStyle={{ color: '#fff' }}
+                                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.75rem', color: 'hsl(var(--foreground))' }}
+                                    itemStyle={{ color: 'hsl(var(--foreground))' }}
                                 />
                                 <Legend />
                             </PieChart>

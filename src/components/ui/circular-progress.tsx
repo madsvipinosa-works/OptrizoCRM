@@ -25,7 +25,7 @@ export function CircularProgress({ value, size = 120, strokeWidth = 10, classNam
                     r={radius}
                     stroke="currentColor"
                     strokeWidth={strokeWidth}
-                    className="text-white/10"
+                    className="text-border/60"
                     fill="transparent"
                 />
                 {/* Animated progress circle */}
@@ -45,8 +45,8 @@ export function CircularProgress({ value, size = 120, strokeWidth = 10, classNam
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-xl font-extrabold tracking-tight text-white">{Math.round(value)}%</span>
-                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Done</span>
+                <span className="text-xl font-extrabold tracking-tight text-foreground font-mono">{Math.round(value)}%</span>
+                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider font-mono">Done</span>
             </div>
         </div>
     );

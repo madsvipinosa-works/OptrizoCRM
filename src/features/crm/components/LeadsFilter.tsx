@@ -40,7 +40,7 @@ export function LeadsFilter() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search leads..."
-                        className="pl-9 bg-black/50 border-white/10"
+                        className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground"
                         onChange={(e) => handleSearch(e.target.value)}
                         defaultValue={searchParams.get("query")?.toString()}
                     />
@@ -48,14 +48,14 @@ export function LeadsFilter() {
             </div>
 
             <Tabs defaultValue={currentFilter} onValueChange={handleStatusChange} className="w-full">
-                <TabsList className="bg-white/5 border border-white/10 flex-wrap h-auto p-1">
-                    <TabsTrigger value="all" className="text-xs">All Opportunities</TabsTrigger>
-                    <TabsTrigger value="New Lead" className="text-xs">New Lead</TabsTrigger>
-                    <TabsTrigger value="Discovery & Qualifying" className="text-xs">Discovery & Qualifying</TabsTrigger>
-                    <TabsTrigger value="Proposal Sent" className="text-xs">Proposal Sent</TabsTrigger>
-                    <TabsTrigger value="In Negotiation" className="text-xs">In Negotiation</TabsTrigger>
-                    <TabsTrigger value="Closed Won" className="text-xs">Closed Won</TabsTrigger>
-                    <TabsTrigger value="Closed Lost" className="text-xs">Closed Lost</TabsTrigger>
+                <TabsList className="bg-muted/50 border border-border flex-wrap h-auto p-1">
+                    <TabsTrigger value="all" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">All Opportunities</TabsTrigger>
+                    <TabsTrigger value="New Lead" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">New Lead</TabsTrigger>
+                    <TabsTrigger value="Discovery & Qualifying" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">Discovery & Qualifying</TabsTrigger>
+                    <TabsTrigger value="Proposal Sent" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">Proposal Sent</TabsTrigger>
+                    <TabsTrigger value="In Negotiation" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">In Negotiation</TabsTrigger>
+                    <TabsTrigger value="Closed Won" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">Closed Won</TabsTrigger>
+                    <TabsTrigger value="Closed Lost" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black">Closed Lost</TabsTrigger>
                 </TabsList>
             </Tabs>
         </div>

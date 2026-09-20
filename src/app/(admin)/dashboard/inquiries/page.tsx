@@ -69,10 +69,10 @@ export default async function InquiriesPage({
                 </div>
             </div>
 
-            <div className="rounded-md border border-white/10 bg-black/20 overflow-hidden">
+            <div className="rounded-xl border border-border glass-card overflow-hidden shadow-xs">
                 <Table>
-                    <TableHeader className="bg-white/5">
-                        <TableRow className="hover:bg-transparent border-white/10">
+                    <TableHeader className="bg-muted/40">
+                        <TableRow className="hover:bg-transparent border-border">
                             <TableHead className="w-[200px]">Name / Email</TableHead>
                             <TableHead>Subject</TableHead>
                             <TableHead>Status</TableHead>
@@ -91,15 +91,15 @@ export default async function InquiriesPage({
                             inquiriesList.map((inquiry) => (
                                 <Dialog key={inquiry.id}>
                                     <DialogTrigger asChild>
-                                        <TableRow className="cursor-pointer hover:bg-white/5 border-white/10 transition-colors group">
+                                        <TableRow className="cursor-pointer hover:bg-muted/40 border-border transition-colors group">
                                             <TableCell>
                                                 <div className="flex flex-col">
-                                                    <span className="font-medium text-white group-hover:text-primary transition-colors">{inquiry.name}</span>
+                                                    <span className="font-medium text-foreground group-hover:text-primary transition-colors">{inquiry.name}</span>
                                                     <span className="text-xs text-muted-foreground">{inquiry.email}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <span className="text-sm font-medium">{inquiry.subject || "No Subject"}</span>
+                                                <span className="text-sm font-medium text-foreground">{inquiry.subject || "No Subject"}</span>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant={inquiry.status === "Unread" ? "default" : "secondary"}>
@@ -114,25 +114,25 @@ export default async function InquiriesPage({
                                             </TableCell>
                                         </TableRow>
                                     </DialogTrigger>
-                                    <DialogContent className="max-w-2xl bg-black/90 border-white/10 text-white">
+                                    <DialogContent className="max-w-2xl bg-card border-border text-foreground shadow-2xl rounded-xl">
                                         <DialogHeader>
-                                            <DialogTitle>Inquiry Details</DialogTitle>
-                                            <DialogDescription>
+                                            <DialogTitle className="text-foreground">Inquiry Details</DialogTitle>
+                                            <DialogDescription className="text-muted-foreground">
                                                 From {inquiry.name} ({inquiry.email})
                                             </DialogDescription>
                                         </DialogHeader>
                                         <div className="space-y-4 py-4">
                                             <div>
                                                 <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">Subject</h4>
-                                                <p className="text-base font-semibold">{inquiry.subject || "No Subject"}</p>
+                                                <p className="text-base font-semibold text-foreground">{inquiry.subject || "No Subject"}</p>
                                             </div>
                                             <div>
                                                 <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">Message</h4>
-                                                <div className="bg-white/5 p-4 rounded-md border border-white/10 text-sm whitespace-pre-wrap">
+                                                <div className="bg-muted/40 p-4 rounded-lg border border-border text-sm text-foreground whitespace-pre-wrap">
                                                     {inquiry.message}
                                                 </div>
                                             </div>
-                                            <div className="flex gap-4 pt-4 text-xs text-muted-foreground border-t border-white/10">
+                                            <div className="flex gap-4 pt-4 text-xs text-muted-foreground border-t border-border">
                                                 <span>Status: {inquiry.status}</span>
                                                 <span>Source: {inquiry.source}</span>
                                                 <span>Sent: {format(new Date(inquiry.createdAt), "PPP")}</span>

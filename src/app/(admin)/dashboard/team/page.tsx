@@ -57,7 +57,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
             <UserList list={teamMembers} title="Staff Members" currentUserId={session.user?.id || ""} />
 
-            <div className="pt-8 border-t border-white/10">
+            <div className="pt-8 border-t border-border">
                 <h3 className="text-xl font-bold mb-4">User Directory</h3>
                 <p className="text-sm text-muted-foreground mb-6">Promote regular users to give them dashboard access.</p>
                 <UserList list={regularUsers} title="Registered Users" currentUserId={session.user?.id || ""} />
@@ -89,7 +89,7 @@ interface UserListItem {
 }
 
 const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title: string, currentUserId: string }) => (
-    <Card className="glass-card border-white/10">
+    <Card className="glass-card border-border">
         <CardHeader>
             <CardTitle>{title} ({list.length})</CardTitle>
         </CardHeader>
@@ -97,26 +97,26 @@ const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title:
             <div className="space-y-4">
                 {list.length === 0 && <p className="text-muted-foreground text-sm italic">No users found.</p>}
                 {list.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
+                    <div key={user.id} className="flex items-center justify-between p-4 bg-muted/40 rounded-lg border border-border hover:border-primary/40 transition-colors">
                         <div className="flex items-center gap-4">
-                            <Avatar>
+                            <Avatar className="border border-border">
                                 <AvatarImage src={user.image || ""} />
-                                <AvatarFallback>{user.name?.[0] || "U"}</AvatarFallback>
+                                <AvatarFallback className="bg-primary/10 text-primary font-bold">{user.name?.[0] || "U"}</AvatarFallback>
                             </Avatar>
                             <div>
-                                <div className="font-medium flex items-center gap-2">
+                                <div className="font-medium flex items-center gap-2 text-foreground">
                                     {user.name}
                                     {user.id === currentUserId && <Badge variant="secondary" className="text-[10px] h-5">You</Badge>}
                                 </div>
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1">
                                     <span className="text-sm text-muted-foreground">{user.email}</span>
-                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
+                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />
                                     <JobTitleEditor userId={user.id} currentTitle={user.jobTitle} isAdmin={true} />
-                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
+                                    <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />
                                     <UserActiveToggle userId={user.id} isActive={user.isActive} isAdmin={true} />
                                     {user.role !== "client" && (
                                         <>
-                                            <span className="hidden sm:block w-1 h-1 rounded-full bg-white/20" />
+                                            <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />
                                             <UserAboutToggle userId={user.id} isPublic={user.showOnAboutPage} isAdmin={true} />
                                         </>
                                     )}

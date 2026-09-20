@@ -29,17 +29,17 @@ export default async function CMSDashboardPage() {
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-12">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-zinc-900/80 via-zinc-900/40 to-transparent p-6 rounded-2xl border border-white/10 backdrop-blur-xl relative overflow-hidden">
-                <div className="absolute -top-12 -left-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 rounded-2xl border border-border relative overflow-hidden">
+                <div className="absolute -top-12 -left-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="space-y-1 relative">
-                    <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-1">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 mb-1">
                         <Sparkles className="w-3.5 h-3.5" /> Content Management Studio
                     </div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-white">Content Manager</h1>
-                    <p className="text-sm text-zinc-400">Manage blog articles, portfolio showcases, services, and client testimonials.</p>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-foreground text-glow">Content Manager</h1>
+                    <p className="text-sm text-muted-foreground">Manage blog articles, portfolio showcases, services, and client testimonials.</p>
                 </div>
                 <div className="flex items-center gap-3 relative">
-                    <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/20">
+                    <Button asChild size="sm" className="bg-primary text-black hover:bg-primary/90 font-semibold shadow-md shadow-primary/20">
                         <Link href="/dashboard/posts/new">
                             <Plus className="mr-1.5 h-4 w-4" /> Quick Post
                         </Link>
@@ -49,56 +49,56 @@ export default async function CMSDashboardPage() {
 
             {/* Content Stats Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="glass-card p-5 rounded-xl border border-white/10 flex items-center justify-between relative overflow-hidden group hover:border-indigo-500/30 transition-all">
+                <div className="glass-card p-5 rounded-xl border border-border flex items-center justify-between relative overflow-hidden group hover:border-primary/40 transition-all">
                     <div className="space-y-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Blog Posts</p>
+                        <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Blog Posts</p>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-white">{allPosts.length}</span>
-                            <span className="text-xs text-emerald-400 font-medium">{publishedPosts} Published</span>
+                            <span className="text-2xl font-bold font-mono text-foreground">{allPosts.length}</span>
+                            <span className="text-xs text-primary font-medium">{publishedPosts} Published</span>
                         </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:scale-110 transition-transform">
+                    <div className="p-3 rounded-xl bg-primary/10 text-primary border border-primary/20 group-hover:scale-110 transition-transform">
                         <FileText className="h-6 w-6" />
                     </div>
                 </div>
 
-                <div className="glass-card p-5 rounded-xl border border-white/10 flex items-center justify-between relative overflow-hidden group hover:border-purple-500/30 transition-all">
+                <div className="glass-card p-5 rounded-xl border border-border flex items-center justify-between relative overflow-hidden group hover:border-primary/40 transition-all">
                     <div className="space-y-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Case Studies</p>
+                        <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Case Studies</p>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-white">{allProjects.length}</span>
-                            <span className="text-xs text-purple-400 font-medium">{publishedProjects} Live</span>
+                            <span className="text-2xl font-bold font-mono text-foreground">{allProjects.length}</span>
+                            <span className="text-xs text-purple-500 dark:text-purple-400 font-medium">{publishedProjects} Live</span>
                         </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform">
+                    <div className="p-3 rounded-xl bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform">
                         <FolderGit2 className="h-6 w-6" />
                     </div>
                 </div>
 
-                <div className="glass-card p-5 rounded-xl border border-white/10 flex items-center justify-between relative overflow-hidden group hover:border-amber-500/30 transition-all">
+                <div className="glass-card p-5 rounded-xl border border-border flex items-center justify-between relative overflow-hidden group hover:border-primary/40 transition-all">
                     <div className="space-y-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Active Services</p>
+                        <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Active Services</p>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-white">{allServices.length}</span>
-                            <span className="text-xs text-amber-400 font-medium">Offerings</span>
+                            <span className="text-2xl font-bold font-mono text-foreground">{allServices.length}</span>
+                            <span className="text-xs text-amber-500 dark:text-amber-400 font-medium">Offerings</span>
                         </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform">
+                    <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform">
                         <Layers className="h-6 w-6" />
                     </div>
                 </div>
 
-                <div className="glass-card p-5 rounded-xl border border-white/10 flex items-center justify-between relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+                <div className="glass-card p-5 rounded-xl border border-border flex items-center justify-between relative overflow-hidden group hover:border-primary/40 transition-all">
                     <div className="space-y-1">
-                        <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Client Reviews</p>
+                        <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Client Reviews</p>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-white">{allTestimonials.length}</span>
-                            <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
-                                <Star className="w-3 h-3 fill-emerald-400" /> {avgRating} Avg
+                            <span className="text-2xl font-bold font-mono text-foreground">{allTestimonials.length}</span>
+                            <span className="text-xs text-primary font-medium flex items-center gap-1">
+                                <Star className="w-3 h-3 fill-primary text-primary" /> {avgRating} Avg
                             </span>
                         </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                    <div className="p-3 rounded-xl bg-primary/10 text-primary border border-primary/20 group-hover:scale-110 transition-transform">
                         <MessageSquareQuote className="h-6 w-6" />
                     </div>
                 </div>
@@ -107,41 +107,41 @@ export default async function CMSDashboardPage() {
             {/* Main Tabs Container */}
             <Tabs defaultValue="posts" className="w-full">
                 <div className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-xl gap-1.5 h-auto">
+                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 bg-muted/50 backdrop-blur-xl border border-border p-1.5 rounded-xl gap-1.5 h-auto">
                         <TabsTrigger 
                             value="posts" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
+                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <FileText className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Blog Posts</span>
-                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allPosts.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-foreground/10 text-foreground font-mono hidden sm:inline-block">{allPosts.length}</span>
                         </TabsTrigger>
                         
                         <TabsTrigger 
                             value="portfolio" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
+                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <FolderGit2 className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Portfolio</span>
-                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allProjects.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-foreground/10 text-foreground font-mono hidden sm:inline-block">{allProjects.length}</span>
                         </TabsTrigger>
                         
                         <TabsTrigger 
                             value="services" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
+                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <Layers className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Services</span>
-                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allServices.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-foreground/10 text-foreground font-mono hidden sm:inline-block">{allServices.length}</span>
                         </TabsTrigger>
                         
                         <TabsTrigger 
                             value="testimonials" 
-                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-zinc-400 flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
+                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <MessageSquareQuote className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Testimonials</span>
-                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/10 text-white font-mono hidden sm:inline-block">{allTestimonials.length}</span>
+                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-foreground/10 text-foreground font-mono hidden sm:inline-block">{allTestimonials.length}</span>
                         </TabsTrigger>
                     </TabsList>
                 </div>

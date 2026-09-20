@@ -87,7 +87,8 @@
   --field-placeholder: oklch(55.17% 0.0040 148.67);
   --focus: oklch(76.97% 0.2124 148.67);
   --foreground: oklch(21.03% 0.0020 148.67);
-  --muted: oklch(55.17% 0.0040 148.67);
+  --muted: oklch(95.24% 0.0016 148.67);
+  --muted-foreground: oklch(42.00% 0.0050 148.67);
   --overlay: oklch(100.00% 0.0006 148.67);
   --overlay-foreground: oklch(21.03% 0.0020 148.67);
   --scrollbar: oklch(87.10% 0.0020 148.67);
@@ -110,8 +111,8 @@
   --field-radius: 0.125rem;
 
   /* Shadcn Aliases Setup */
-  --card: var(--surface-secondary);
-  --card-foreground: var(--surface-secondary-foreground);
+  --card: var(--surface);
+  --card-foreground: var(--surface-foreground);
   --popover: var(--surface);
   --popover-foreground: var(--surface-foreground);
   --primary: var(--accent);
@@ -141,7 +142,8 @@
   --field-placeholder: oklch(70.50% 0.0040 148.67);
   --focus: oklch(76.97% 0.2124 148.67);
   --foreground: oklch(99.11% 0.0020 148.67);
-  --muted: oklch(70.50% 0.0040 148.67);
+  --muted: oklch(21.03% 0.0040 148.67);
+  --muted-foreground: oklch(72.00% 0.0040 148.67);
   --overlay: oklch(21.03% 0.0040 148.67);
   --overlay-foreground: oklch(99.11% 0.0020 148.67);
   --scrollbar: oklch(70.50% 0.0020 148.67);
@@ -183,15 +185,30 @@ body {
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+    text-shadow: 0 0 12px rgba(0, 214, 57, 0.35);
+  }
+
+  .text-glow-sm {
+    text-shadow: 0 0 8px rgba(0, 214, 57, 0.25);
   }
 
   .box-glow {
-    box-shadow: 0 0 20px rgba(57, 255, 20, 0.15);
+    box-shadow: 0 0 20px rgba(0, 214, 57, 0.15);
   }
 
   .glass-card {
-    @apply bg-black/40 backdrop-blur-md border border-white/10;
+    background-color: var(--card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    color: var(--card-foreground);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .glass-card {
+    background-color: rgba(10, 13, 11, 0.65);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
   }
 
   .override-scrollbar::-webkit-scrollbar {
@@ -328,11 +345,12 @@ body {
 .light .glass-panel,
 [data-theme="light"] .glass-panel,
 .theme-light .glass-panel {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 1rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
 }
 
 .bento-mask {

@@ -47,7 +47,7 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
             {initialData && <input type="hidden" name="id" value={initialData.id} />}
             <input type="hidden" name="coverImage" value={coverImage} />
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardContent className="pt-6 space-y-6">
                     <div className="space-y-4">
                         <Label>Cover Image</Label>
@@ -61,7 +61,7 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
                                 name="title"
                                 defaultValue={initialData?.title}
                                 placeholder="Enter post title"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                                 required
                             />
                         </div>
@@ -71,7 +71,7 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
                                 name="slug"
                                 defaultValue={initialData?.slug}
                                 placeholder="my-awesome-post"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                                 required
                             />
                         </div>
@@ -90,10 +90,10 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
                             <select
                                 name="published"
                                 defaultValue={initialData?.published ? "true" : "false"}
-                                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                             >
-                                <option value="true" className="bg-black">Published</option>
-                                <option value="false" className="bg-black">Draft</option>
+                                <option value="true" className="bg-card text-foreground">Published</option>
+                                <option value="false" className="bg-card text-foreground">Draft</option>
                             </select>
                         </div>
                     )}
@@ -102,7 +102,7 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
 
             <div className="flex justify-end gap-4">
                 <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
-                <Button type="submit" disabled={isPending} className="bg-primary text-black font-bold">
+                <Button type="submit" disabled={isPending} className="bg-primary text-black font-semibold hover:bg-primary/90">
                     {isPending ? "Saving..." : (initialData ? "Update Post" : "Publish Post")}
                 </Button>
             </div>

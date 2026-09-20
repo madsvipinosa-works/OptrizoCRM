@@ -52,35 +52,35 @@ export function CloseLostModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !isSubmitting) onClose(); }}>
-            <DialogContent className="max-w-md bg-zinc-950 border-white/10 text-white rounded-xl shadow-2xl">
+            <DialogContent className="max-w-md bg-card border-border text-foreground rounded-xl shadow-2xl">
                 <DialogHeader className="space-y-2">
-                    <div className="flex items-center gap-2 text-rose-400 font-semibold text-sm">
+                    <div className="flex items-center gap-2 text-rose-500 font-semibold text-sm">
                         <AlertOctagon className="h-4 w-4" />
                         Opportunity Loss Analysis
                     </div>
-                    <DialogTitle className="text-xl font-bold">
+                    <DialogTitle className="text-xl font-bold text-foreground">
                         Mark as Closed Lost
                     </DialogTitle>
-                    <DialogDescription className="text-zinc-400 text-xs leading-relaxed">
-                        To maintain agency win/loss metrics, please specify why <span className="text-white font-medium">"{leadTitle}"</span> was lost.
+                    <DialogDescription className="text-muted-foreground text-xs leading-relaxed">
+                        To maintain agency win/loss metrics, please specify why <span className="text-foreground font-medium">"{leadTitle}"</span> was lost.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 my-2">
                     {/* Mandatory Reason Selector */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-zinc-200 flex items-center justify-between">
-                            <span>Primary Loss Reason <span className="text-rose-400">*</span></span>
-                            <span className="text-[10px] text-zinc-500 font-normal">Mandatory</span>
+                        <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                            <span>Primary Loss Reason <span className="text-rose-500">*</span></span>
+                            <span className="text-[10px] text-muted-foreground font-normal font-mono">Mandatory</span>
                         </label>
                         <Select value={lossReason} onValueChange={(v) => setLossReason(v as LossReason)}>
-                            <SelectTrigger className="bg-zinc-900 border-white/10 text-white text-xs h-10">
+                            <SelectTrigger className="bg-muted/30 border-border text-foreground text-xs h-10">
                                 <SelectValue placeholder="Select primary loss reason..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-zinc-950 border-white/15 text-white">
+                            <SelectContent className="bg-card border-border text-foreground">
                                 {LOSS_REASONS.map((r) => (
-                                    <SelectItem key={r.value} value={r.value} className="text-xs focus:bg-white/10">
-                                        <div className="font-medium text-white">{r.label}</div>
+                                    <SelectItem key={r.value} value={r.value} className="text-xs focus:bg-muted">
+                                        <div className="font-medium text-foreground">{r.label}</div>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -89,7 +89,7 @@ export function CloseLostModal({
 
                     {/* Contextual Notes */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-300">
+                        <label className="text-xs font-medium text-foreground">
                             Context & Debrief Notes (Optional)
                         </label>
                         <Textarea
@@ -97,7 +97,7 @@ export function CloseLostModal({
                             value={lossNotes}
                             onChange={(e) => setLossNotes(e.target.value)}
                             rows={3}
-                            className="bg-zinc-900 border-white/10 text-white text-xs resize-none placeholder:text-zinc-600 focus-visible:ring-rose-500/50"
+                            className="bg-muted/30 border-border text-foreground text-xs resize-none placeholder:text-muted-foreground focus-visible:ring-rose-500/50"
                         />
                     </div>
                 </div>
@@ -108,7 +108,7 @@ export function CloseLostModal({
                         variant="ghost"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="text-xs text-zinc-400 hover:text-white hover:bg-white/5"
+                        className="text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
                     >
                         Cancel
                     </Button>

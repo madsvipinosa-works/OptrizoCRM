@@ -32,7 +32,7 @@ export function ConvertInquiryButton({ inquiryId, disabled }: { inquiryId: strin
         <Button 
             onClick={handleConvert} 
             disabled={isPending || disabled}
-            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white gap-2"
+            className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-black font-semibold gap-2"
         >
             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
             Convert to Lead

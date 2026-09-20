@@ -41,7 +41,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
         <form action={formAction} className="space-y-8">
             {initialData && <input type="hidden" name="id" value={initialData.id} />}
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardContent className="pt-6 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -50,7 +50,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
                                 name="name"
                                 defaultValue={initialData?.name}
                                 placeholder="e.g. John Doe"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                                 required
                             />
                         </div>
@@ -62,7 +62,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
                                 max="5"
                                 name="rating"
                                 defaultValue={initialData?.rating || 5}
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground font-mono"
                                 required
                             />
                         </div>
@@ -75,7 +75,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
                                 name="role"
                                 defaultValue={initialData?.role || ""}
                                 placeholder="e.g. CEO"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
                         <div className="space-y-2">
@@ -84,7 +84,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
                                 name="company"
                                 defaultValue={initialData?.company || ""}
                                 placeholder="e.g. Acme Corp"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
                     </div>
@@ -95,7 +95,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
                             name="content"
                             defaultValue={initialData?.content}
                             placeholder="What did they say about us?"
-                            className="bg-white/5 border-white/10 min-h-[100px]"
+                            className="bg-card border-border text-foreground min-h-[100px]"
                             required
                         />
                     </div>
@@ -104,7 +104,7 @@ export function TestimonialForm({ initialData }: TestimonialFormProps) {
 
             <div className="flex justify-end gap-4">
                 <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
-                <Button type="submit" disabled={isPending} className="bg-primary text-black font-bold">
+                <Button type="submit" disabled={isPending} className="bg-primary text-black font-semibold hover:bg-primary/90">
                     {isPending ? "Saving..." : (initialData ? "Update Testimonial" : "Add Testimonial")}
                 </Button>
             </div>

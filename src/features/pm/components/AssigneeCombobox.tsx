@@ -65,13 +65,13 @@ export function AssigneeCombobox({
                     aria-expanded={open}
                     disabled={disabled}
                     className={cn(
-                        "w-full justify-between bg-zinc-900/90 border-zinc-800 hover:bg-zinc-800/80 hover:text-zinc-100 text-zinc-300 font-normal shadow-sm transition-colors",
+                        "w-full justify-between bg-background border-border hover:bg-muted text-foreground font-normal shadow-xs transition-colors",
                         className
                     )}
                 >
                     <div className="flex items-center gap-2 truncate">
                         {selectedMembers.length === 0 ? (
-                            <div className="flex items-center gap-1.5 text-zinc-500">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
                                 <UserPlus className="w-4 h-4" />
                                 <span>{placeholder}</span>
                             </div>
@@ -79,15 +79,15 @@ export function AssigneeCombobox({
                             <div className="flex items-center gap-1.5 overflow-hidden">
                                 <div className="flex -space-x-1.5 overflow-hidden py-0.5">
                                     {selectedMembers.slice(0, 3).map((m) => (
-                                        <Avatar key={m.id} className="w-5 h-5 border border-zinc-900 ring-1 ring-zinc-800">
+                                        <Avatar key={m.id} className="w-5 h-5 border border-border ring-1 ring-border/50">
                                             {m.image && <AvatarImage src={m.image} alt={m.name || "Member"} />}
-                                            <AvatarFallback className="text-[9px] bg-indigo-600 text-white font-semibold">
+                                            <AvatarFallback className="text-[9px] bg-primary text-black font-bold">
                                                 {m.name ? m.name.substring(0, 2).toUpperCase() : "U"}
                                             </AvatarFallback>
                                         </Avatar>
                                     ))}
                                 </div>
-                                <span className="text-xs font-medium text-zinc-200 truncate">
+                                <span className="text-xs font-medium text-foreground truncate">
                                     {selectedMembers.length === 1
                                         ? selectedMembers[0].name
                                         : `${selectedMembers.length} Assignees`}
@@ -95,23 +95,23 @@ export function AssigneeCombobox({
                             </div>
                         )}
                     </div>
-                    <Users className="w-4 h-4 shrink-0 text-zinc-500 ml-2" />
+                    <Users className="w-4 h-4 shrink-0 text-muted-foreground ml-2" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0 bg-zinc-950 border-zinc-800 text-zinc-100 shadow-xl" align="start">
-                <div className="p-2 border-b border-zinc-800/80">
+            <PopoverContent className="w-[320px] p-0 bg-card border-border text-foreground shadow-xl" align="start">
+                <div className="p-2 border-b border-border">
                     <div className="relative flex items-center">
-                        <Search className="w-4 h-4 absolute left-2.5 text-zinc-500" />
+                        <Search className="w-4 h-4 absolute left-2.5 text-muted-foreground" />
                         <Input
                             placeholder="Filter staff by name or role..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-8 h-8 text-xs bg-zinc-900 border-zinc-800 focus:ring-indigo-500/20 text-zinc-200 placeholder:text-zinc-500"
+                            className="pl-8 h-8 text-xs bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
                         />
                         {searchQuery && (
                             <button
                                 onClick={() => setSearchQuery("")}
-                                className="absolute right-2 text-zinc-500 hover:text-zinc-300"
+                                className="absolute right-2 text-muted-foreground hover:text-foreground"
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>
@@ -119,9 +119,9 @@ export function AssigneeCombobox({
                     </div>
                 </div>
 
-                <div className="max-h-[220px] overflow-y-auto p-1 space-y-0.5 scrollbar-thin scrollbar-thumb-zinc-800">
+                <div className="max-h-[220px] overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
                     {filteredMembers.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-zinc-500">
+                        <div className="p-4 text-center text-xs text-muted-foreground">
                             No matching team members found.
                         </div>
                     ) : (
@@ -134,30 +134,30 @@ export function AssigneeCombobox({
                                     className={cn(
                                         "flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition-colors select-none",
                                         isSelected
-                                            ? "bg-indigo-500/15 text-indigo-200"
-                                            : "hover:bg-zinc-900 text-zinc-300"
+                                            ? "bg-primary/15 text-primary font-medium"
+                                            : "hover:bg-muted text-foreground"
                                     )}
                                 >
                                     <div className="flex items-center gap-2 truncate">
-                                        <Avatar className="w-6 h-6 border border-zinc-800 shrink-0">
+                                        <Avatar className="w-6 h-6 border border-border shrink-0">
                                             {member.image && <AvatarImage src={member.image} alt={member.name || "Member"} />}
-                                            <AvatarFallback className="text-[10px] bg-zinc-800 text-zinc-300 font-medium">
+                                            <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-medium">
                                                 {member.name ? member.name.substring(0, 2).toUpperCase() : "U"}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="flex flex-col truncate">
-                                            <span className="font-medium text-zinc-200 leading-none truncate">
+                                            <span className="font-medium text-foreground leading-none truncate">
                                                 {member.name || "Unknown"}
                                             </span>
                                             {(member.jobTitle || member.role) && (
-                                                <span className="text-[10px] text-zinc-500 leading-tight mt-0.5 truncate uppercase">
+                                                <span className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate uppercase font-mono">
                                                     {member.jobTitle || member.role}
                                                 </span>
                                             )}
                                         </div>
                                     </div>
                                     {isSelected && (
-                                        <Check className="w-4 h-4 text-indigo-400 shrink-0 ml-2" />
+                                        <Check className="w-4 h-4 text-primary shrink-0 ml-2" />
                                     )}
                                 </div>
                             );
@@ -166,15 +166,15 @@ export function AssigneeCombobox({
                 </div>
 
                 {selectedIds.length > 0 && (
-                    <div className="p-2 border-t border-zinc-800/80 bg-zinc-900/50 flex items-center justify-between">
-                        <span className="text-[11px] text-zinc-400 font-medium">
+                    <div className="p-2 border-t border-border bg-card flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground font-medium">
                             {selectedIds.length} selected
                         </span>
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => onSelectionChange([])}
-                            className="h-6 text-[10px] px-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
                         >
                             Clear All
                         </Button>

@@ -11,6 +11,7 @@ import { sendClientWelcomeEmail, sendClientOnboardingEmail } from "@/lib/notific
 import { auth, hasRole } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
+import { DEFAULT_CRM_PLAYBOOK, type PlaybookTaskTemplate } from "@/config/crm-playbook";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -54,6 +55,8 @@ export async function createLead(data: {
     goals?: string;
     industry?: string;
     source?: string;
+    assignedRepId?: string | null;
+    tasksPlaybook?: PlaybookTaskTemplate[];
 }): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "sales"])) {
@@ -114,32 +117,37 @@ export async function createLead(data: {
                 lastContactedAt: new Date(),
             }).returning();
 
-            // 4. Round-Robin Lead Routing
-            const salesReps = await tx.query.users.findMany({
-                where: eq(users.role, "sales"),
-            });
+            // 4. Staff Assignment (Auto Round-Robin vs Explicit Selection)
+            let assignedRepId = data.assignedRepId;
 
-            let assignedRepId = null;
-            if (salesReps.length > 0) {
-                const repsWithCounts = await Promise.all(salesReps.map(async (rep) => {
-                    const activeCount = await tx.select({ count: sql<number>`count(*)` })
-                        .from(leadAssignees)
-                        .innerJoin(leads, eq(leadAssignees.leadId, leads.id))
-                        .where(and(
-                            eq(leadAssignees.userId, rep.id),
-                            not(inArray(leads.status, ["Closed Won", "Closed Lost"]))
-                        ));
-                    return { repId: rep.id, count: Number(activeCount[0].count) };
-                }));
-
-                repsWithCounts.sort((a, b) => a.count - b.count);
-                assignedRepId = repsWithCounts[0].repId;
-            } else {
-                // Fallback to superadmin
-                const superAdmins = await tx.query.users.findMany({
-                    where: eq(users.role, "superadmin"),
+            if (!assignedRepId || assignedRepId === "auto") {
+                const salesReps = await tx.query.users.findMany({
+                    where: eq(users.role, "sales"),
                 });
-                if (superAdmins.length > 0) assignedRepId = superAdmins[0].id;
+
+                if (salesReps.length > 0) {
+                    const repsWithCounts = await Promise.all(salesReps.map(async (rep) => {
+                        const activeCount = await tx.select({ count: sql<number>`count(*)` })
+                            .from(leadAssignees)
+                            .innerJoin(leads, eq(leadAssignees.leadId, leads.id))
+                            .where(and(
+                                eq(leadAssignees.userId, rep.id),
+                                not(inArray(leads.status, ["Closed Won", "Closed Lost"]))
+                            ));
+                        return { repId: rep.id, count: Number(activeCount[0].count) };
+                    }));
+
+                    repsWithCounts.sort((a, b) => a.count - b.count);
+                    assignedRepId = repsWithCounts[0].repId;
+                } else {
+                    // Fallback to superadmin
+                    const superAdmins = await tx.query.users.findMany({
+                        where: eq(users.role, "superadmin"),
+                    });
+                    if (superAdmins.length > 0) assignedRepId = superAdmins[0].id;
+                }
+            } else if (assignedRepId === "unassigned") {
+                assignedRepId = null;
             }
 
             if (assignedRepId) {
@@ -150,32 +158,25 @@ export async function createLead(data: {
             }
 
             // 5. Automated Sales Playbook (Task Provisioning)
-            const now = new Date();
-            const discoveryDueDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +24h
-            const proposalDueDate = new Date(now.getTime() + 72 * 60 * 60 * 1000); // +72h
+            const tasksToProvision = data.tasksPlaybook !== undefined
+                ? data.tasksPlaybook
+                : DEFAULT_CRM_PLAYBOOK.defaultTasks;
 
-            await tx.insert(crmTasks).values([
-                {
-                    leadId: newLead.id,
-                    assignedTo: assignedRepId,
-                    title: "Initial Discovery Call",
-                    description: "Automatically provisioned task: Reach out to the new lead to qualify their budget and timeline.",
-                    taskType: "Call",
-                    priority: "High",
-                    status: "Pending",
-                    dueDate: discoveryDueDate,
-                },
-                {
-                    leadId: newLead.id,
-                    assignedTo: assignedRepId,
-                    title: "Send Tailored Scope & Proposal",
-                    description: "Automatically provisioned task: Prepare and send a tailored proposal.",
-                    taskType: "Email",
-                    priority: "Medium",
-                    status: "Pending",
-                    dueDate: proposalDueDate,
-                }
-            ]);
+            if (tasksToProvision && tasksToProvision.length > 0) {
+                const now = new Date();
+                await tx.insert(crmTasks).values(
+                    tasksToProvision.map((task) => ({
+                        leadId: newLead.id,
+                        assignedTo: assignedRepId,
+                        title: task.title,
+                        description: task.description || "Automatically provisioned task.",
+                        taskType: task.taskType || "To-do",
+                        priority: task.priority || "Medium",
+                        status: "Pending" as const,
+                        dueDate: new Date(now.getTime() + (task.dueHours || 24) * 60 * 60 * 1000),
+                    }))
+                );
+            }
 
             // 6. Log initial creation note
             await tx.insert(leadActivityLogs).values({
@@ -309,14 +310,21 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
     // 3. Update Database
     try {
-        // Extract assigneeIds if present to handle junction table separately
-        const { assigneeIds, ...updateFields } = validated.data;
-        
+        // Extract non-column fields to prevent SQL errors
+        const { assigneeIds, score, notes, files, activityType, ...otherFields } = validated.data;
+        const finalLeadScore = validated.data.leadScore ?? score;
+
+        const updateData: Record<string, any> = {
+            ...otherFields,
+            updatedAt: new Date(),
+        };
+
+        if (finalLeadScore !== undefined) {
+            updateData.leadScore = finalLeadScore;
+        }
+
         await db.update(leads)
-            .set({
-                ...updateFields,
-                updatedAt: new Date(),
-            })
+            .set(updateData)
             .where(eq(leads.id, id));
 
         // If an assignment was made, write to the junction table
@@ -568,8 +576,8 @@ export async function getUnifiedDashboardData() {
         const taskDonutData = [
             { name: "In Progress", value: taskStatusCounts["In Progress"], fill: "#f59e0b" },
             { name: "Blocked", value: taskStatusCounts.Blocked, fill: "#f43f5e" },
-            { name: "Todo", value: taskStatusCounts.Todo, fill: "#6366f1" },
-            { name: "Done", value: taskStatusCounts.Done, fill: "#10b981" },
+            { name: "Todo", value: taskStatusCounts.Todo, fill: "#71717a" },
+            { name: "Done", value: taskStatusCounts.Done, fill: "#00D639" },
         ];
 
         // Lead Source Bar Chart Data
@@ -984,6 +992,144 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
     }
 }
 
+export async function convertLeadToProject(leadId: string): Promise<ActionState & { projectId?: string }> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        // 1. Check if a project was already provisioned for this lead (Idempotency)
+        const existingProject = await db.query.agencyProjects.findFirst({
+            where: eq(agencyProjects.leadId, leadId),
+            columns: { id: true, title: true },
+        });
+
+        if (existingProject) {
+            return {
+                success: true,
+                message: `Project already active: ${existingProject.title}`,
+                projectId: existingProject.id,
+            };
+        }
+
+        // 2. Fetch Lead with client
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId),
+            with: { client: true }
+        });
+
+        if (!lead) return { success: false, message: "Lead not found" };
+        if (!lead.client) return { success: false, message: "Client account not associated with this lead" };
+
+        let clientUserId = lead.clientId;
+        const internalRoles = ["superadmin", "sales", "manager", "developer", "content_editor"];
+
+        const result = await db.transaction(async (tx) => {
+            // Ensure client has client role if not staff
+            if (!internalRoles.includes(lead.client!.role)) {
+                await tx.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
+            }
+
+            // Mark lead status as "Closed Won" if not already
+            if (lead.status !== "Closed Won") {
+                await tx.update(leads)
+                    .set({ status: "Closed Won", updatedAt: new Date() })
+                    .where(eq(leads.id, leadId));
+            }
+
+            // Create Operational Project
+            const projectTitle = lead.businessName
+                ? `${lead.businessName} Project`
+                : `${lead.client?.name || "Client"} Project`;
+
+            const [newProject] = await tx.insert(agencyProjects).values({
+                title: projectTitle,
+                description: lead.goals || `Client project originating from sales opportunity for ${lead.businessName || lead.client?.name}`,
+                leadId: lead.id,
+                status: "Kickoff",
+            }).returning({ id: agencyProjects.id, title: agencyProjects.title });
+
+            // Write to projectStakeholders Junction Table
+            await tx.insert(projectStakeholders).values({
+                projectId: newProject.id,
+                userId: clientUserId
+            });
+
+            // Create Initial Milestone Scaffolding
+            const [kickoffMs] = await tx.insert(milestones).values({
+                projectId: newProject.id,
+                title: "Project Kickoff & Discovery",
+                order: 1,
+                status: "In Progress"
+            }).returning({ id: milestones.id });
+
+            await tx.insert(tasks).values([
+                {
+                    projectId: newProject.id,
+                    milestoneId: kickoffMs.id,
+                    title: "Client Onboarding & Access Handshake",
+                    description: "Acquire repository, hosting, and asset credentials.",
+                    requiresProof: false,
+                    status: "In Progress" as const,
+                },
+                {
+                    projectId: newProject.id,
+                    milestoneId: kickoffMs.id,
+                    title: "Technical Specification & Architecture Review",
+                    description: "Formalize deliverable requirements and engineering milestones.",
+                    requiresProof: true,
+                    status: "Todo" as const,
+                }
+            ]);
+
+            const [deliveryMs] = await tx.insert(milestones).values({
+                projectId: newProject.id,
+                title: "Core Implementation & Delivery",
+                order: 2,
+                status: "Pending"
+            }).returning({ id: milestones.id });
+
+            await tx.insert(tasks).values([
+                {
+                    projectId: newProject.id,
+                    milestoneId: deliveryMs.id,
+                    title: "Core Feature Sprints",
+                    description: "Execute scoped sprint deliverables.",
+                    requiresProof: true,
+                    status: "Todo" as const,
+                }
+            ]);
+
+            return newProject;
+        });
+
+        await notifyAllAdmins(`Lead ${lead.businessName || lead.client.name} converted to PM Delivery Project!`, "deal_won", `/dashboard/pm/${result.id}`);
+        await logAction("CREATE", "Project", `Project ${result.id} provisioned from Lead ${lead.id}`);
+
+        revalidatePath("/dashboard/leads");
+        revalidatePath("/dashboard/pm");
+        revalidatePath(`/dashboard/pm/${result.id}`);
+
+        return {
+            success: true,
+            message: "Project successfully provisioned!",
+            projectId: result.id,
+        };
+    } catch (error) {
+        console.error("Failed to convert lead to project:", error);
+        return { success: false, message: "Database Error: Could not convert deal to project." };
+    }
+}
+
+export async function getProjectForLead(leadId: string): Promise<{ id: string; title: string; status: string } | null> {
+    const proj = await db.query.agencyProjects.findFirst({
+        where: eq(agencyProjects.leadId, leadId),
+        columns: { id: true, title: true, status: true },
+    });
+    return proj || null;
+}
+
 export async function archiveLead(leadId: string): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "sales"])) {
@@ -1003,6 +1149,31 @@ export async function archiveLead(leadId: string): Promise<ActionState> {
         console.error("Failed to archive lead:", error);
         return { success: false, message: "Database Error" };
     }
+}
+
+export async function unarchiveLead(leadId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "sales"])) {
+        return { success: false, message: "Unauthorized." };
+    }
+
+    try {
+        await db.update(leads)
+            .set({ isArchived: false, updatedAt: new Date() })
+            .where(eq(leads.id, leadId));
+
+        await logAction("UPDATE", "Lead", `Lead ${leadId} restored to active pipeline.`);
+
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: "Lead restored to active pipeline." };
+    } catch (error) {
+        console.error("Failed to unarchive lead:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function getSalesPlaybookConfig() {
+    return DEFAULT_CRM_PLAYBOOK;
 }
 
 async function validateLeadTransition(

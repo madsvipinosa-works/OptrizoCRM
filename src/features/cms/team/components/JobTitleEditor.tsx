@@ -18,13 +18,13 @@ export function JobTitleEditor({ userId, currentTitle, isAdmin }: { userId: stri
     if (!isEditing) {
         return (
             <div 
-                className="flex items-center gap-1.5 group cursor-pointer transition-colors hover:bg-white/5 py-0.5 px-2 -ml-2 rounded" 
+                className="flex items-center gap-1.5 group cursor-pointer transition-colors hover:bg-muted py-0.5 px-2 -ml-2 rounded" 
                 onClick={() => setIsEditing(true)}
             >
-                <span className="text-sm text-yellow-500/80 font-medium">
+                <span className="text-sm text-amber-500 dark:text-amber-400 font-medium">
                     {currentTitle || "Set Job Title..."}
                 </span>
-                <Pencil className="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
         );
     }
@@ -47,16 +47,16 @@ export function JobTitleEditor({ userId, currentTitle, isAdmin }: { userId: stri
     }
 
     return (
-        <div className="flex items-center gap-1 bg-black/50 p-1 rounded-md border border-white/10 shadow-xl backdrop-blur-md relative z-20">
+        <div className="flex items-center gap-1 bg-card p-1 rounded-md border border-border shadow-xl backdrop-blur-md relative z-20">
             <Input 
                 value={title} 
                 onChange={e => setTitle(e.target.value)} 
-                className="h-7 text-xs w-36 bg-white/5 border-white/10 text-white focus-visible:ring-1 focus-visible:ring-primary/50"
+                className="h-7 text-xs w-36 bg-muted/40 border-border text-foreground focus-visible:ring-1 focus-visible:ring-primary/50"
                 placeholder="e.g. Lead Designer"
                 autoFocus
                 onKeyDown={e => e.key === "Enter" && handleSave()}
             />
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-green-500 hover:text-green-400 hover:bg-green-500/10" onClick={handleSave} disabled={isLoading}>
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10" onClick={handleSave} disabled={isLoading}>
                 {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Check className="w-3.5 h-3.5" />}
             </Button>
             <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={() => { setIsEditing(false); setTitle(currentTitle || ""); }}>

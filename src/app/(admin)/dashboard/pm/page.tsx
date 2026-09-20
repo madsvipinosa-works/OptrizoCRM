@@ -40,8 +40,8 @@ export default async function PMEnginePage() {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-glow">Agency PM Engine</h2>
-                    <p className="text-muted-foreground">Manage ongoing client projects, milestones, and tasks.</p>
+                    <h2 className="text-3xl font-black tracking-tight text-foreground">Agency PM Engine</h2>
+                    <p className="text-muted-foreground text-sm">Manage ongoing client projects, milestones, and tasks.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ScopeDeconstructorModal />
@@ -49,20 +49,20 @@ export default async function PMEnginePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="glass-card border-white/5">
+                <Card className="glass-card border-border">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Active Projects</CardTitle>
+                        <CardTitle className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Active Projects</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">{totalActive}</div>
+                        <div className="text-3xl font-extrabold text-foreground">{totalActive}</div>
                     </CardContent>
                 </Card>
-                <Card className="glass-card border-red-500/20">
+                <Card className="glass-card border-destructive/30">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Blocked Tasks</CardTitle>
+                        <CardTitle className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Blocked Tasks</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-red-400">{blockedTasks}</div>
+                        <div className="text-3xl font-extrabold text-destructive">{blockedTasks}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -73,43 +73,43 @@ export default async function PMEnginePage() {
                     const hasBlocked = project.tasks.some(t => t.status === "Blocked");
 
                     return (
-                        <Card key={project.id} className={`glass-card hover:bg-white/5 transition-all flex flex-col ${hasBlocked ? 'border-red-500/50' : 'border-white/5'}`}>
+                        <Card key={project.id} className={`glass-card hover:border-primary/50 transition-all flex flex-col ${hasBlocked ? 'border-destructive/60' : 'border-border'}`}>
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start mb-2">
                                     <Badge variant={project.status === "Completed" ? "default" : "outline"} className={`
-                                        ${project.status === 'Completed' ? 'bg-green-500 text-black' : ''}
-                                        ${project.status === 'In Progress' ? 'border-primary text-primary' : 'border-white/20'}
+                                        ${project.status === 'Completed' ? 'bg-primary text-black font-bold' : ''}
+                                        ${project.status === 'In Progress' ? 'border-primary text-primary font-bold' : 'border-border'}
                                     `}>
                                         {project.status}
                                     </Badge>
-                                    {hasBlocked && <Badge variant="destructive" className="h-5 px-1 text-[10px]">Blocked Tasks</Badge>}
+                                    {hasBlocked && <Badge variant="destructive" className="h-5 px-1.5 text-[10px] font-mono">Blocked Tasks</Badge>}
                                 </div>
-                                <CardTitle className="text-lg line-clamp-1" title={project.title}>{project.title}</CardTitle>
-                                <CardDescription className="flex items-center gap-1 text-xs">
+                                <CardTitle className="text-lg font-bold text-foreground line-clamp-1" title={project.title}>{project.title}</CardTitle>
+                                <CardDescription className="flex items-center gap-1 text-xs text-muted-foreground">
                                     {project.stakeholders?.[0]?.user?.name || "Unknown Client"}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1">
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <div className="flex justify-between text-xs text-muted-foreground">
+                                        <div className="flex justify-between text-xs text-muted-foreground font-mono">
                                             <span>Milestones</span>
                                             <span>{percent}%</span>
                                         </div>
-                                        <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
                                             <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${percent}%` }} />
                                         </div>
                                     </div>
                                 </div>
                             </CardContent>
-                            <CardFooter className="pt-4 border-t border-white/5 flex justify-between items-center text-xs text-muted-foreground">
+                            <CardFooter className="pt-4 border-t border-border flex justify-between items-center text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                     <Clock className="h-3 w-3" />
                                     {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
                                 </div>
                                 <div className="flex gap-1.5">
                                     {isSuperAdmin && <ProjectArchiveButton projectId={project.id} />}
-                                    <Button size="sm" variant="ghost" className="h-8 hover:bg-white/10" asChild>
+                                    <Button size="sm" variant="ghost" className="h-8 hover:bg-muted text-foreground" asChild>
                                         <Link href={`/dashboard/pm/${project.id}`}>
                                             Manage Board
                                         </Link>
@@ -120,7 +120,7 @@ export default async function PMEnginePage() {
                     );
                 })}
                 {projects.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-muted-foreground border border-dashed border-white/10 rounded-lg">
+                    <div className="col-span-full py-12 text-center text-muted-foreground border border-dashed border-border rounded-xl">
                         No active projects found. Mark a lead as &quot;Won&quot; to provision a project.
                     </div>
                 )}

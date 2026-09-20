@@ -81,35 +81,35 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
 
     return (
         <form action={formAction} className="space-y-8">
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardHeader>
-                    <CardTitle>Hero & Mission</CardTitle>
+                    <CardTitle className="text-foreground font-bold">Hero & Mission</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="space-y-2">
-                        <Label>Hero Headline</Label>
+                        <Label className="text-foreground">Hero Headline</Label>
                         <Input
                             name="aboutHeroTitle"
                             defaultValue={initialData?.aboutHeroTitle || "About Our Agency"}
                             placeholder="About Our Agency"
-                            className="bg-white/5 border-white/10"
+                            className="bg-card border-border text-foreground"
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>The Mission Statement</Label>
+                        <Label className="text-foreground">The Mission Statement</Label>
                         <Textarea
                             name="missionStatement"
                             defaultValue={initialData?.missionStatement || ""}
                             placeholder="We build digital experiences that elevate brands..."
-                            className="bg-white/5 border-white/10 min-h-[100px]"
+                            className="bg-card border-border text-foreground min-h-[100px]"
                         />
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Company Stats</CardTitle>
+                    <CardTitle className="text-foreground font-bold">Company Stats</CardTitle>
                     <Button type="button" variant="outline" size="sm" onClick={addStat}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Stat
@@ -124,13 +124,13 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
                             <p className="text-muted-foreground text-sm italic">No stats defined. Add some to show on the About page.</p>
                         )}
                         {stats.map((stat, i) => (
-                            <div key={i} className="flex items-center gap-4 bg-white/5 p-3 rounded-md border border-white/10">
+                            <div key={i} className="flex items-center gap-4 bg-muted/40 p-3 rounded-md border border-border">
                                 <div className="flex-1 space-y-1">
                                     <Label className="text-xs text-muted-foreground">Label (e.g. &quot;Projects Delivered&quot;)</Label>
                                     <Input
                                         value={stat.label}
                                         onChange={(e) => updateStat(i, "label", e.target.value)}
-                                        className="bg-transparent border-white/20 h-8"
+                                        className="bg-card border-border text-foreground h-8"
                                     />
                                 </div>
                                 <div className="flex-1 space-y-1">
@@ -138,7 +138,7 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
                                     <Input
                                         value={stat.value}
                                         onChange={(e) => updateStat(i, "value", e.target.value)}
-                                        className="bg-transparent border-white/20 h-8 font-mono text-primary"
+                                        className="bg-card border-border h-8 font-mono text-primary font-semibold"
                                     />
                                 </div>
                                 <Button
@@ -156,23 +156,23 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
                 </CardContent>
             </Card>
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardHeader>
-                    <CardTitle>Tech Stack & CTA</CardTitle>
+                    <CardTitle className="text-foreground font-bold">Tech Stack & CTA</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="space-y-2">
-                        <Label>Tech Stack Subheading</Label>
+                        <Label className="text-foreground">Tech Stack Subheading</Label>
                         <Input
                             name="aboutTechStack"
                             defaultValue={initialData?.aboutTechStack || "Powered By Next-Generation Technologies"}
-                            className="bg-white/5 border-white/10"
+                            className="bg-card border-border text-foreground"
                         />
                     </div>
                     
-                    <div className="pt-4 border-t border-white/10 space-y-4">
+                    <div className="pt-4 border-t border-border space-y-4">
                         <div className="flex flex-row items-center justify-between">
-                            <h4 className="text-sm font-semibold">Tech Stack Logos</h4>
+                            <h4 className="text-sm font-semibold text-foreground">Tech Stack Logos</h4>
                             <Button type="button" variant="outline" size="sm" onClick={addTech}>
                                 <Plus className="h-4 w-4 mr-2" />
                                 Add Logo
@@ -186,7 +186,7 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
                                 <p className="text-muted-foreground text-sm italic">No logos added. The tech stack row will be hidden until you add some.</p>
                             )}
                             {techStack.map((tech, i) => (
-                                <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white/5 p-4 rounded-md border border-white/10">
+                                <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-muted/40 p-4 rounded-md border border-border">
                                     <div className="w-full sm:w-24 shrink-0">
                                         <ImageUpload
                                             value={tech.imageUrl}
@@ -199,7 +199,7 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
                                         <Input
                                             value={tech.name}
                                             onChange={(e) => updateTech(i, "name", e.target.value)}
-                                            className="bg-transparent border-white/20 h-8 font-mono text-primary"
+                                            className="bg-card border-border h-8 font-mono text-primary font-semibold"
                                         />
                                     </div>
                                     <Button
@@ -216,29 +216,29 @@ export function AboutSettingsForm({ initialData }: { initialData: AboutSettingsD
                         </div>
                     </div>
                     
-                    <div className="pt-4 border-t border-white/10 space-y-4">
-                        <h4 className="text-sm font-semibold">Call to Action (CTA) Form</h4>
+                    <div className="pt-4 border-t border-border space-y-4">
+                        <h4 className="text-sm font-semibold text-foreground">Call to Action (CTA) Form</h4>
                         <div className="space-y-2">
-                            <Label>CTA Headline</Label>
+                            <Label className="text-foreground">CTA Headline</Label>
                             <Input
                                 name="aboutCtaHeadline"
                                 defaultValue={initialData?.aboutCtaHeadline || "Ready to start your next project?"}
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>CTA Subtitle</Label>
+                            <Label className="text-foreground">CTA Subtitle</Label>
                             <Input
                                 name="aboutCtaText"
                                 defaultValue={initialData?.aboutCtaText || "Let's build something extraordinary together."}
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            <Button type="submit" size="lg" disabled={isPending} className="bg-primary text-black font-bold">
+            <Button type="submit" size="lg" disabled={isPending} className="bg-primary text-black font-bold hover:bg-primary/90">
                 {isPending ? "Saving Settings..." : "Save Settings"}
             </Button>
         </form>

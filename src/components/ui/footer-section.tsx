@@ -71,9 +71,7 @@ interface FooterProps {
 
 export function FooterSection({ contactEmail = 'hello@optrizo.com', className }: FooterProps) {
     return (
-        <footer className={cn("md:rounded-t-6xl relative w-full max-w-6xl mx-auto flex flex-col items-center justify-center rounded-t-4xl border-t bg-[radial-gradient(35%_128px_at_50%_0%,theme(backgroundColor.white/8%),transparent)] px-6 py-12 lg:py-16", className)}>
-            <div className="bg-foreground/20 absolute top-0 right-1/2 left-1/2 h-px w-1/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur" />
-
+        <footer className={cn("relative w-full max-w-6xl mx-auto flex flex-col items-center justify-center px-6 py-12 lg:py-16 transition-colors duration-500", className)}>
             <div className="grid w-full gap-8 xl:grid-cols-3 xl:gap-8">
                 {/* Brand Column */}
                 <AnimatedContainer className="space-y-4">
@@ -88,7 +86,7 @@ export function FooterSection({ contactEmail = 'hello@optrizo.com', className }:
                     </p>
                     <p className="text-muted-foreground text-xs flex items-center gap-1.5">
                         <Mail className="h-3.5 w-3.5" />
-                        <a href={`mailto:${contactEmail}`} className="hover:text-primary transition-colors">
+                        <a href={`mailto:${contactEmail}`} className="hover:text-primary transition-colors font-mono">
                             {contactEmail}
                         </a>
                     </p>
@@ -102,7 +100,7 @@ export function FooterSection({ contactEmail = 'hello@optrizo.com', className }:
                     {footerLinks.map((section, index) => (
                         <AnimatedContainer key={section.label} delay={0.1 + index * 0.1}>
                             <div className="mb-10 md:mb-0">
-                                <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+                                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-4 font-mono">
                                     {section.label}
                                 </h3>
                                 <ul className="text-muted-foreground space-y-2 text-sm">

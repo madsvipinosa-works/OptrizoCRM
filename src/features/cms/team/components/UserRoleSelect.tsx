@@ -36,7 +36,7 @@ export function UserRoleSelect({ userId, currentRole, currentUserId }: { userId:
     return (
         <AnimatedDropdown
             text={role.charAt(0).toUpperCase() + role.slice(1)}
-            triggerClassName="flex min-w-[120px] h-8 justify-between items-center rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            triggerClassName="flex min-w-[120px] h-8 justify-between items-center rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             items={[
                 { name: "Client", onClick: () => { if (!loading && !isSelf) handleRoleChange("client"); } },
                 { name: "Content Editor", onClick: () => { if (!loading && !isSelf) handleRoleChange("content_editor"); } },

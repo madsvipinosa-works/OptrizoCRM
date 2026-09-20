@@ -51,7 +51,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
             {initialData && <input type="hidden" name="id" value={initialData.id} />}
             <input type="hidden" name="coverImage" value={coverImage} /> {/* Send to server */}
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardContent className="pt-6 space-y-6">
                     <div className="space-y-4">
                         <Label>Project Cover Image</Label>
@@ -65,7 +65,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                                 name="title"
                                 defaultValue={initialData?.title}
                                 placeholder="e.g. Redesign for TechCorp"
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                                 required
                             />
                         </div>
@@ -75,7 +75,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                                 name="clientName"
                                 defaultValue={initialData?.clientName || ""}
                                 placeholder="e.g. TechCorp Inc."
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                             />
                         </div>
                     </div>
@@ -86,7 +86,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                             name="slug"
                             defaultValue={initialData?.slug}
                             placeholder="redesign-techcorp"
-                            className="bg-white/5 border-white/10"
+                            className="bg-card border-border text-foreground"
                         />
                         <p className="text-xs text-muted-foreground">Leave blank to auto-generate from title.</p>
                     </div>
@@ -97,7 +97,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                             name="description"
                             defaultValue={initialData?.description || ""}
                             placeholder="A brief summary shown on the card..."
-                            className="bg-white/5 border-white/10"
+                            className="bg-card border-border text-foreground"
                         />
                     </div>
 
@@ -111,7 +111,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
 
             <div className="flex justify-end gap-4">
                 <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
-                <Button type="submit" disabled={isPending} className="bg-primary text-black font-bold">
+                <Button type="submit" disabled={isPending} className="bg-primary text-black font-semibold hover:bg-primary/90">
                     {isPending ? "Saving..." : (initialData ? "Update Project" : "Create Project")}
                 </Button>
             </div>

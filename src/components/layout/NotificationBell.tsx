@@ -94,23 +94,23 @@ export function NotificationBell() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative hover:bg-white/10 shrink-0">
-                    <Bell className="h-5 w-5 text-white/80" />
+                <Button variant="ghost" size="icon" className="relative hover:bg-muted shrink-0 text-foreground">
+                    <Bell className="h-5 w-5 text-foreground" />
                     {notifications.length > 0 && (
-                        <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-zinc-950 animate-in zoom-in" />
+                        <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-background animate-in zoom-in" />
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 glass-card border-white/10 p-2">
+            <DropdownMenuContent align="end" className="w-80 bg-card border-border text-card-foreground shadow-xl p-2">
                 <div className="flex items-center justify-between px-2 py-2 mb-1">
-                    <h4 className="font-semibold text-sm">Notifications</h4>
+                    <h4 className="font-semibold text-sm text-foreground">Notifications</h4>
                     {notifications.length > 0 && (
-                        <Badge variant="outline" className="text-[10px] cursor-pointer hover:bg-white/5" onClick={handleMarkAllRead}>
+                        <Badge variant="outline" className="text-[10px] cursor-pointer hover:bg-muted border-border" onClick={handleMarkAllRead}>
                             <Check className="h-3 w-3 mr-1" /> Mark all read
                         </Badge>
                     )}
                 </div>
-                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuSeparator className="bg-border" />
                 
                 <div className="max-h-[300px] overflow-y-auto mt-1 space-y-1">
                     {isLoading ? (
@@ -125,7 +125,7 @@ export function NotificationBell() {
                         notifications.map((notif) => (
                             <DropdownMenuItem 
                                 key={notif.id} 
-                                className="flex flex-col items-start gap-1 p-3 cursor-pointer focus:bg-white/5 rounded-lg"
+                                className="flex flex-col items-start gap-1 p-3 cursor-pointer focus:bg-muted rounded-lg text-foreground"
                                 onClick={() => handleRead(notif.id, notif.link)}
                             >
                                 <p className="text-sm font-medium leading-tight line-clamp-2">

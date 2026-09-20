@@ -13,11 +13,11 @@ export default async function AvailedServicesPage() {
     const session = await auth();
 
     if (!session?.user?.id) {
-        redirect("/api/auth/signin");
+        redirect("/login?callbackUrl=/portal/services");
     }
 
     if (!hasRole(session, ["client", "superadmin", "manager", "sales", "developer", "content_editor"])) {
-        redirect("/api/auth/signin");
+        redirect("/login?callbackUrl=/portal/services");
     }
 
     const isAdminOrStaff = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
@@ -60,34 +60,34 @@ export default async function AvailedServicesPage() {
     const getLeadBadgeColor = (status: string) => {
         switch (status) {
             case "New Lead":
-                return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+                return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 font-mono";
             case "Discovery & Qualifying":
-                return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+                return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 font-mono";
             case "Proposal Sent":
-                return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-mono";
             case "In Negotiation":
-                return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+                return "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30 font-mono";
             case "Closed Won":
-                return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                return "bg-primary/10 text-primary border-primary/30 font-mono font-bold";
             case "Closed Lost":
-                return "bg-zinc-500/10 text-zinc-400 border-zinc-500/30";
+                return "bg-destructive/10 text-destructive border-destructive/30 font-mono";
             default:
-                return "bg-zinc-500/10 text-zinc-400 border-zinc-500/30";
+                return "bg-muted text-muted-foreground border-border font-mono";
         }
     };
 
     const getProjectBadgeColor = (status: string) => {
         switch (status) {
             case "Kickoff":
-                return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+                return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 font-mono";
             case "In Progress":
-                return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                return "bg-primary/10 text-primary border-primary/30 font-mono font-bold";
             case "In Review":
-                return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+                return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 font-mono";
             case "Completed":
-                return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono";
             default:
-                return "bg-zinc-500/10 text-zinc-400 border-zinc-500/30";
+                return "bg-muted text-muted-foreground border-border font-mono";
         }
     };
 
@@ -95,10 +95,10 @@ export default async function AvailedServicesPage() {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Minimalist SaaS Header */}
             <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                     Availed Services
                 </h1>
-                <p className="text-sm text-zinc-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                     Manage and review your active service engagements, project contracts, and pending proposals.
                 </p>
             </div>
@@ -106,17 +106,17 @@ export default async function AvailedServicesPage() {
             {/* Section 1: Active Engagements & Projects */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-medium text-white flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                    <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
                         Active Engagements & Projects ({clientProjects.length})
                     </h2>
                 </div>
 
                 {clientProjects.length === 0 ? (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-8 text-center">
-                        <Layers className="mx-auto h-10 w-10 text-zinc-600 mb-3" />
-                        <h3 className="text-base font-medium text-zinc-300">No active projects</h3>
-                        <p className="text-sm text-zinc-500 mt-1 max-w-md mx-auto">
+                    <div className="glass-card rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center">
+                        <Layers className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                        <h3 className="text-base font-semibold text-foreground">No active projects</h3>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                             Once your service inquiry or proposal is accepted, your active project will appear here for full delivery tracking.
                         </p>
                     </div>
@@ -125,16 +125,16 @@ export default async function AvailedServicesPage() {
                         {clientProjects.map((project) => (
                             <div
                                 key={project.id}
-                                className="group relative rounded-xl border border-zinc-800 bg-zinc-950/60 p-5 transition-all hover:border-zinc-700 hover:bg-zinc-900/40 backdrop-blur-sm"
+                                className="group relative rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md backdrop-blur-sm shadow-xs"
                             >
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                     <div>
-                                        <h3 className="font-semibold text-white group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
                                             {project.title}
-                                            <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
                                         </h3>
                                         {project.description && (
-                                            <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
                                                 {project.description}
                                             </p>
                                         )}
@@ -147,14 +147,14 @@ export default async function AvailedServicesPage() {
                                     </Badge>
                                 </div>
 
-                                <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
-                                    <span className="flex items-center gap-1">
-                                        <Clock className="h-3.5 w-3.5 text-zinc-500" />
+                                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1 font-mono text-[11px]">
+                                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                         Started {project.createdAt.toLocaleDateString()}
                                     </span>
                                     <Link
                                         href="/portal"
-                                        className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+                                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
                                     >
                                         View Dashboard &rarr;
                                     </Link>
@@ -168,22 +168,22 @@ export default async function AvailedServicesPage() {
             {/* Section 2: Service Inquiries & Proposals */}
             <div className="space-y-4 pt-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-medium text-white flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-blue-400" />
+                    <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
                         Service Inquiries & Proposals ({clientLeads.length})
                     </h2>
                 </div>
 
                 {clientLeads.length === 0 ? (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-8 text-center">
-                        <AlertCircle className="mx-auto h-10 w-10 text-zinc-600 mb-3" />
-                        <h3 className="text-base font-medium text-zinc-300">No service inquiries</h3>
-                        <p className="text-sm text-zinc-500 mt-1 max-w-md mx-auto">
+                    <div className="glass-card rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center">
+                        <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                        <h3 className="text-base font-semibold text-foreground">No service inquiries</h3>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                             Submit an inquiry on our Services page to request a custom proposal or technical consultation.
                         </p>
                         <Link
                             href="/services"
-                            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-zinc-800 text-xs font-medium text-white hover:bg-zinc-700 transition-colors"
+                            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-primary text-xs font-semibold text-black hover:bg-primary/90 transition-all shadow-xs"
                         >
                             Browse Available Services
                         </Link>
@@ -193,15 +193,15 @@ export default async function AvailedServicesPage() {
                         {clientLeads.map((lead) => (
                             <div
                                 key={lead.id}
-                                className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-5 backdrop-blur-sm space-y-3"
+                                className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm space-y-3 shadow-xs hover:border-primary/50 transition-all"
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <h3 className="font-semibold text-white">
+                                        <h3 className="font-semibold text-foreground">
                                             {lead.service?.title || lead.businessName || "Custom Service Request"}
                                         </h3>
                                         {lead.goals && (
-                                            <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
                                                 Goals: {lead.goals}
                                             </p>
                                         )}
@@ -214,16 +214,16 @@ export default async function AvailedServicesPage() {
                                     </Badge>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 text-xs pt-2 text-zinc-400 border-t border-zinc-800/60">
+                                <div className="grid grid-cols-2 gap-2 text-xs pt-2 text-muted-foreground border-t border-border">
                                     {lead.budget && (
                                         <div>
-                                            <span className="text-zinc-500 block">Budget</span>
-                                            <span className="font-medium text-zinc-300">{lead.budget}</span>
+                                            <span className="text-muted-foreground block text-[10px] font-mono uppercase">Budget</span>
+                                            <span className="font-semibold text-foreground font-mono">{lead.budget}</span>
                                         </div>
                                     )}
                                     <div>
-                                        <span className="text-zinc-500 block">Submitted</span>
-                                        <span className="font-medium text-zinc-300">
+                                        <span className="text-muted-foreground block text-[10px] font-mono uppercase">Submitted</span>
+                                        <span className="font-semibold text-foreground font-mono">
                                             {lead.createdAt.toLocaleDateString()}
                                         </span>
                                     </div>

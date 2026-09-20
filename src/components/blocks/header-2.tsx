@@ -12,6 +12,7 @@ import { LoginModal } from '@/components/auth/LoginModal';
 import { UserNav } from '@/components/auth/UserNav';
 
 import { ShineBorder } from '@/components/ui/shine-border';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 export type HeaderProps = {
     session: {
@@ -118,6 +119,8 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
 
                         <div className="w-px h-6 bg-border mx-2" />
 
+                        <ThemeToggle variant="icon" />
+
                         {session ? (
                             <UserNav
                                 user={session.user}
@@ -146,10 +149,13 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         )}
                     </div>
 
-                    {/* Mobile Toggle */}
-                    <Button size="icon" variant="outline" onClick={() => setOpen(!open)} className="md:hidden rounded-xl bg-transparent border-border/50">
-                        <MenuToggleIcon open={open} className="size-5" />
-                    </Button>
+                    {/* Mobile Actions */}
+                    <div className="flex items-center gap-2 md:hidden">
+                        <ThemeToggle variant="icon" />
+                        <Button size="icon" variant="outline" onClick={() => setOpen(!open)} className="rounded-xl bg-transparent border-border/50">
+                            <MenuToggleIcon open={open} className="size-5" />
+                        </Button>
+                    </div>
                 </nav>
             </ShineBorder>
 
@@ -188,7 +194,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
                                     <Link href="/portal" onClick={() => setOpen(false)}>My Dashboard</Link>
                                 </Button>
-                                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card/60 dark:border-zinc-800 dark:bg-zinc-900/50 text-foreground dark:text-zinc-200">
+                                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
                                     <Link href="/portal/services" onClick={() => setOpen(false)}>Availed Services</Link>
                                 </Button>
                                 {isAdmin && (
@@ -198,7 +204,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 )}
                                 <Button
                                     variant="outline"
-                                    className="w-full rounded-xl h-12 font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                    className="w-full rounded-xl h-12 font-medium text-destructive hover:bg-destructive/10 border-border"
                                     onClick={() => startTransition(async () => {
                                         await onSignOut();
                                         setOpen(false);
@@ -220,6 +226,9 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                 </Button>
                             </>
                         )}
+                        <div className="pt-2 mt-1 border-t border-border">
+                            <ThemeToggle variant="pill" />
+                        </div>
                     </div>
                 </div>
             </div>

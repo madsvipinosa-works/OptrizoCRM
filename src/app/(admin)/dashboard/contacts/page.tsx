@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function ContactsPage() {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "sales"])) {
-        return <div className="p-8 text-white">Unauthorized</div>;
+        return <div className="p-8 text-foreground">Unauthorized</div>;
     }
 
     const clients = await db.query.users.findMany({
@@ -31,53 +31,53 @@ export default async function ContactsPage() {
                 {clients.map(client => {
                     const clientDeals = allLeads.filter(l => l.clientId === client.id);
                     return (
-                        <div key={client.id} className="bg-[#050505] border border-[#262626] rounded-xl p-6 hover:border-white/20 transition-all">
+                        <div key={client.id} className="glass-card border border-border rounded-xl p-6 hover:border-primary/40 transition-all">
                             <div className="flex items-center gap-4 mb-4">
                                 {client.image ? (
-                                    <img src={client.image} alt={client.name || "Client"} className="h-12 w-12 rounded-full object-cover" />
+                                    <img src={client.image} alt={client.name || "Client"} className="h-12 w-12 rounded-full object-cover border border-border" />
                                 ) : (
-                                    <div className="h-12 w-12 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white font-bold">
+                                    <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
                                         {client.name?.charAt(0) || client.email.charAt(0)}
                                     </div>
                                 )}
                                 <div>
-                                    <h3 className="text-lg font-semibold text-white">{client.name || "Unnamed Contact"}</h3>
-                                    <p className="text-sm text-zinc-400">{client.email}</p>
+                                    <h3 className="text-lg font-semibold text-foreground">{client.name || "Unnamed Contact"}</h3>
+                                    <p className="text-sm text-muted-foreground">{client.email}</p>
                                 </div>
                             </div>
                             
                             <div className="space-y-2 mb-6">
                                 {client.companyName && (
                                     <div className="text-sm">
-                                        <span className="text-zinc-500">Company: </span>
-                                        <span className="text-white">{client.companyName}</span>
+                                        <span className="text-muted-foreground">Company: </span>
+                                        <span className="text-foreground font-medium">{client.companyName}</span>
                                     </div>
                                 )}
                                 {client.industry && (
                                     <div className="text-sm">
-                                        <span className="text-zinc-500">Industry: </span>
-                                        <span className="text-white">{client.industry}</span>
+                                        <span className="text-muted-foreground">Industry: </span>
+                                        <span className="text-foreground font-medium">{client.industry}</span>
                                     </div>
                                 )}
                                 {client.linkedInUrl && (
                                     <div className="text-sm">
-                                        <span className="text-zinc-500">LinkedIn: </span>
-                                        <a href={client.linkedInUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Profile</a>
+                                        <span className="text-muted-foreground">LinkedIn: </span>
+                                        <a href={client.linkedInUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Profile</a>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="pt-4 border-t border-[#262626]">
-                                <h4 className="text-sm font-medium text-white mb-2">Associated Deals ({clientDeals.length})</h4>
+                            <div className="pt-4 border-t border-border">
+                                <h4 className="text-sm font-semibold text-foreground mb-2">Associated Deals ({clientDeals.length})</h4>
                                 <div className="space-y-2">
                                     {clientDeals.slice(0, 3).map(deal => (
-                                        <div key={deal.id} className="text-xs flex justify-between items-center bg-[#1A1A1A] p-2 rounded">
-                                            <span className="truncate flex-1">{deal.businessName || "General Project"}</span>
-                                            <span className="text-zinc-400 ml-2">{deal.status}</span>
+                                        <div key={deal.id} className="text-xs flex justify-between items-center bg-muted/50 border border-border/50 p-2 rounded">
+                                            <span className="truncate flex-1 font-medium">{deal.businessName || "General Project"}</span>
+                                            <span className="text-muted-foreground ml-2 font-mono text-[10px] uppercase">{deal.status}</span>
                                         </div>
                                     ))}
                                     {clientDeals.length > 3 && (
-                                        <div className="text-xs text-zinc-500 text-center pt-1">+ {clientDeals.length - 3} more</div>
+                                        <div className="text-xs text-muted-foreground text-center pt-1">+ {clientDeals.length - 3} more</div>
                                     )}
                                 </div>
                             </div>
@@ -86,7 +86,7 @@ export default async function ContactsPage() {
                 })}
 
                 {clients.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-zinc-500 bg-[#050505] border border-[#262626] rounded-xl">
+                    <div className="col-span-full py-12 text-center text-muted-foreground glass-card border border-border rounded-xl">
                         No clients found in the directory.
                     </div>
                 )}

@@ -70,81 +70,81 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
 
     return (
         <form action={formAction} className="space-y-8">
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardHeader>
-                    <CardTitle>Hero Section</CardTitle>
+                    <CardTitle className="text-foreground">Hero Section</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label>Hero Title</Label>
-                        <Input name="heroTitle" defaultValue={initialData?.heroTitle ?? ""} className="bg-white/5 border-white/10" />
+                        <Label className="text-foreground">Hero Title</Label>
+                        <Input name="heroTitle" defaultValue={initialData?.heroTitle ?? ""} className="bg-card border-border text-foreground" />
                     </div>
                     <div className="space-y-2">
-                        <Label>Hero Description</Label>
-                        <Textarea name="heroDescription" defaultValue={initialData?.heroDescription ?? ""} className="bg-white/5 border-white/10" />
+                        <Label className="text-foreground">Hero Description</Label>
+                        <Textarea name="heroDescription" defaultValue={initialData?.heroDescription ?? ""} className="bg-card border-border text-foreground" />
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardHeader>
-                    <CardTitle>Homepage Demo Video</CardTitle>
+                    <CardTitle className="text-foreground">Homepage Demo Video</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                        Paste a video embed URL to display in the scroll animation section below the hero. Supports YouTube embed URLs (<code className="text-primary">https://www.youtube.com/embed/VIDEO_ID</code>), Vimeo embed URLs, or a direct <code className="text-primary">.mp4</code> link.
+                        Paste a video embed URL to display in the scroll animation section below the hero. Supports YouTube embed URLs (<code className="text-primary font-mono">https://www.youtube.com/embed/VIDEO_ID</code>), Vimeo embed URLs, or a direct <code className="text-primary font-mono">.mp4</code> link.
                     </p>
                     <div className="space-y-2">
-                        <Label>Video Embed URL</Label>
+                        <Label className="text-foreground">Video Embed URL</Label>
                         <Input
                             name="demoVideoUrl"
                             defaultValue={initialData?.demoVideoUrl ?? ""}
-                            className="bg-white/5 border-white/10"
+                            className="bg-card border-border text-foreground"
                             placeholder="https://www.youtube.com/embed/..."
                         />
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardHeader>
-                    <CardTitle>About Section</CardTitle>
+                    <CardTitle className="text-foreground">About Section</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label>About Text</Label>
+                        <Label className="text-foreground">About Text</Label>
                         <Editor content={aboutText} onChange={setAboutText} />
                         <input type="hidden" name="aboutText" value={aboutText} />
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="bg-black/40 border-primary/20">
+            <Card className="glass-card border-border">
                 <CardHeader>
-                    <CardTitle>Branding & Contact</CardTitle>
+                    <CardTitle className="text-foreground">Branding & Contact</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label>Logo</Label>
+                            <Label className="text-foreground">Logo</Label>
                             {/* Hidden Input to send data to server action */}
                             <input type="hidden" name="logoUrl" value={logo} />
                             <ImageUpload value={logo} onChange={setLogo} label="Upload Logo" />
                         </div>
                         <div className="space-y-2">
-                            <Label>Favicon</Label>
+                            <Label className="text-foreground">Favicon</Label>
                             <input type="hidden" name="faviconUrl" value={favicon} />
                             <ImageUpload value={favicon} onChange={setFavicon} label="Upload Favicon" />
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Public Contact Email</Label>
-                        <Input name="contactEmail" defaultValue={initialData?.contactEmail ?? ""} className="bg-white/5 border-white/10" />
+                        <Label className="text-foreground">Public Contact Email</Label>
+                        <Input name="contactEmail" defaultValue={initialData?.contactEmail ?? ""} className="bg-card border-border text-foreground" />
                     </div>
 
-                    <div className="space-y-3 pt-4 border-t border-white/10">
-                        <Label className="text-base">Alert Emails</Label>
+                    <div className="space-y-3 pt-4 border-t border-border">
+                        <Label className="text-base text-foreground">Alert Emails</Label>
                         <p className="text-xs text-muted-foreground">These addresses will receive alerts for new Contact Form submissions.</p>
 
                         <input type="hidden" name="notificationEmails" value={emails.join(",")} />
@@ -154,7 +154,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                                 value={currEmail}
                                 onChange={(e) => setCurrEmail(e.target.value)}
                                 placeholder="Add recipient email..."
-                                className="bg-white/5 border-white/10"
+                                className="bg-card border-border text-foreground"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
@@ -162,19 +162,19 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                                     }
                                 }}
                             />
-                            <Button type="button" onClick={handleAddEmail} variant="secondary">
+                            <Button type="button" onClick={handleAddEmail} variant="secondary" className="border-border">
                                 <Plus className="h-4 w-4 mr-2" /> Add
                             </Button>
                         </div>
 
                         <div className="flex flex-wrap gap-2 mt-2">
                             {emails.map((email) => (
-                                <Badge key={email} variant="outline" className="pl-2 pr-1 py-1 flex items-center gap-1 border-white/20">
+                                <Badge key={email} variant="outline" className="pl-2 pr-1 py-1 flex items-center gap-1 border-border bg-muted/40 text-foreground">
                                     {email}
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveEmail(email)}
-                                        className="hover:bg-red-500/20 hover:text-red-400 rounded-full p-0.5 transition-colors"
+                                        className="hover:bg-destructive/20 hover:text-destructive rounded-full p-0.5 transition-colors"
                                     >
                                         <X className="h-3 w-3" />
                                     </button>
@@ -188,9 +188,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                 </CardContent>
             </Card>
 
-
-
-            <Button type="submit" size="lg" disabled={isPending} className="w-full bg-primary text-black font-bold">
+            <Button type="submit" size="lg" disabled={isPending} className="w-full bg-primary text-black font-bold hover:bg-primary/90">
                 {isPending ? "Saving..." : "Save Changes"}
             </Button>
         </form>

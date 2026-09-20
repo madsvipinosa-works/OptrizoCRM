@@ -29,7 +29,7 @@ export function Editor({ content, onChange }: EditorProps) {
         content: content,
         editorProps: {
             attributes: {
-                class: "prose prose-invert max-w-none min-h-[300px] p-4 bg-white/5 border border-white/10 rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
+                class: "prose dark:prose-invert max-w-none min-h-[300px] p-4 bg-card border border-border text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
             },
         },
         onUpdate: ({ editor }) => {
@@ -61,7 +61,7 @@ export function Editor({ content, onChange }: EditorProps) {
 
     return (
         <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-md">
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/40 border border-border rounded-md">
                 <Toggle
                     size="sm"
                     pressed={editor.isActive("bold")}
@@ -76,7 +76,7 @@ export function Editor({ content, onChange }: EditorProps) {
                 >
                     <Italic className="h-4 w-4" />
                 </Toggle>
-                <div className="w-px h-6 bg-white/10 mx-1" />
+                <div className="w-px h-6 bg-border mx-1" />
                 <Toggle
                     size="sm"
                     pressed={editor.isActive("heading", { level: 2 })}
@@ -91,7 +91,7 @@ export function Editor({ content, onChange }: EditorProps) {
                 >
                     <Heading2 className="h-4 w-4" />
                 </Toggle>
-                <div className="w-px h-6 bg-white/10 mx-1" />
+                <div className="w-px h-6 bg-border mx-1" />
                 <Toggle
                     size="sm"
                     pressed={editor.isActive("bulletList")}
@@ -106,7 +106,7 @@ export function Editor({ content, onChange }: EditorProps) {
                 >
                     <ListOrdered className="h-4 w-4" />
                 </Toggle>
-                <div className="w-px h-6 bg-white/10 mx-1" />
+                <div className="w-px h-6 bg-border mx-1" />
                 <Toggle
                     size="sm"
                     pressed={editor.isActive("blockquote")}
@@ -114,7 +114,7 @@ export function Editor({ content, onChange }: EditorProps) {
                 >
                     <Quote className="h-4 w-4" />
                 </Toggle>
-                <div className="w-px h-6 bg-white/10 mx-1" />
+                <div className="w-px h-6 bg-border mx-1" />
                 <Button
                     size="sm"
                     variant={editor.isActive('link') ? "secondary" : "ghost"}

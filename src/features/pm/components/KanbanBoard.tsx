@@ -473,35 +473,35 @@ export function KanbanBoard({
 
     if (!activeMilestone) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 bg-zinc-900/50 border border-zinc-800 rounded-xl mt-4 text-center">
-                <h3 className="text-xl font-bold mb-2 text-zinc-100">No Milestones</h3>
-                <p className="text-zinc-400 mb-4">Create a milestone to start organizing your project tasks.</p>
+            <div className="flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl mt-4 text-center">
+                <h3 className="text-xl font-bold mb-2 text-foreground">No Milestones</h3>
+                <p className="text-muted-foreground mb-4">Create a milestone to start organizing your project tasks.</p>
                 {["superadmin", "manager"].includes(currentUserRole || "") && (
                     <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
                         <DialogTrigger asChild>
-                            <Button className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium">
+                            <Button className="bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs">
                                 <Plus className="h-4 w-4 mr-2" /> Add Milestone
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="bg-zinc-950 border-zinc-800 text-zinc-100">
+                        <DialogContent className="bg-card border-border text-foreground shadow-2xl">
                             <DialogHeader>
-                                <DialogTitle>Add New Milestone</DialogTitle>
+                                <DialogTitle className="text-foreground">Add New Milestone</DialogTitle>
                             </DialogHeader>
                             <form onSubmit={handleCreateMilestone} className="space-y-4 pt-4">
                                 <div className="space-y-2">
-                                    <Label>Milestone Title</Label>
+                                    <Label className="text-foreground">Milestone Title</Label>
                                     <Input
                                         required
                                         value={newMilestoneTitle}
                                         onChange={(e) => setNewMilestoneTitle(e.target.value)}
-                                        className="bg-zinc-900 border-zinc-800"
+                                        className="bg-background border-border text-foreground"
                                         placeholder="e.g. Design Phase"
                                     />
                                 </div>
                                 <Button
                                     type="submit"
                                     disabled={isSavingMilestone}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
+                                    className="w-full bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs"
                                 >
                                     Create Milestone
                                 </Button>
@@ -522,8 +522,8 @@ export function KanbanBoard({
                         key={m.id}
                         onClick={() => setActiveMilestoneId(m.id)}
                         className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${activeMilestoneId === m.id
-                                ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20"
-                                : "bg-zinc-900/80 border-zinc-800 hover:bg-zinc-800 text-zinc-400"
+                                ? "bg-primary text-black font-bold border-primary shadow-xs"
+                                : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground"
                             }`}
                     >
                         {m.order}. {m.title}
@@ -533,29 +533,29 @@ export function KanbanBoard({
                 {["superadmin", "manager"].includes(currentUserRole || "") && (
                     <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
                         <DialogTrigger asChild>
-                            <button className="px-3 py-2 rounded-lg text-xs font-medium border border-zinc-800 hover:bg-zinc-800 text-zinc-400 whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
+                            <button className="px-3 py-2 rounded-lg text-xs font-medium border border-border hover:bg-muted text-muted-foreground hover:text-foreground whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
                                 <Plus className="h-3.5 w-3.5" /> Add
                             </button>
                         </DialogTrigger>
-                        <DialogContent className="bg-zinc-950 border-zinc-800 text-zinc-100">
+                        <DialogContent className="bg-card border-border text-foreground shadow-2xl">
                             <DialogHeader>
-                                <DialogTitle>Add New Milestone</DialogTitle>
+                                <DialogTitle className="text-foreground">Add New Milestone</DialogTitle>
                             </DialogHeader>
                             <form onSubmit={handleCreateMilestone} className="space-y-4 pt-4">
                                 <div className="space-y-2">
-                                    <Label>Milestone Title</Label>
+                                    <Label className="text-foreground">Milestone Title</Label>
                                     <Input
                                         required
                                         value={newMilestoneTitle}
                                         onChange={(e) => setNewMilestoneTitle(e.target.value)}
-                                        className="bg-zinc-900 border-zinc-800"
+                                        className="bg-background border-border text-foreground"
                                         placeholder="e.g. Design Phase"
                                     />
                                 </div>
                                 <Button
                                     type="submit"
                                     disabled={isSavingMilestone}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
+                                    className="w-full bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs"
                                 >
                                     Create Milestone
                                 </Button>
@@ -566,9 +566,9 @@ export function KanbanBoard({
             </div>
 
             {/* Active Milestone Context Bar & Toolbar */}
-            <div className="flex items-center justify-between bg-zinc-900/60 px-3.5 py-2 rounded-xl border border-zinc-800 mb-3 shrink-0 flex-wrap gap-2.5">
+            <div className="flex items-center justify-between bg-card/70 px-3.5 py-2 rounded-xl border border-border mb-3 shrink-0 flex-wrap gap-2.5">
                 <div className="flex items-center gap-2.5">
-                    <h3 className="font-bold text-base text-zinc-100 flex items-center gap-2">
+                    <h3 className="font-bold text-base text-foreground flex items-center gap-2">
                         {activeMilestone.title}
                         {["superadmin", "manager"].includes(currentUserRole || "") && (
                             <DropdownMenu>
@@ -576,7 +576,7 @@ export function KanbanBoard({
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-6 w-6 opacity-50 hover:opacity-100 text-zinc-400"
+                                        className="h-6 w-6 opacity-50 hover:opacity-100 text-muted-foreground hover:text-foreground"
                                     >
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
@@ -595,17 +595,17 @@ export function KanbanBoard({
                                         </svg>
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-40 bg-zinc-950 border-zinc-800 text-zinc-200">
+                                <DropdownMenuContent align="start" className="w-40 bg-card border-border text-foreground shadow-xl">
                                     <DropdownMenuItem
                                         onClick={() => {
-                                            setEditingMilestoneId(activeMilestone.id);
+                                             setEditingMilestoneId(activeMilestone.id);
                                             setEditMilestoneTitle(activeMilestone.title);
                                         }}
                                     >
                                         Edit Title
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                        className="text-rose-400 focus:text-rose-400 focus:bg-rose-500/10"
+                                        className="text-rose-500 focus:text-rose-500 focus:bg-rose-500/10"
                                         onClick={() => handleDeleteMilestone(activeMilestone.id)}
                                     >
                                         Delete
@@ -620,7 +620,7 @@ export function KanbanBoard({
                             onStatusChange={handleMilestoneStatusChange}
                         />
                     ) : (
-                        <Badge variant="outline" className="border-zinc-700 text-zinc-400">
+                        <Badge variant="outline" className="border-border text-muted-foreground font-mono text-[10px]">
                             {activeMilestone.status}
                         </Badge>
                     )}
@@ -635,38 +635,38 @@ export function KanbanBoard({
                                     variant="outline"
                                     size="sm"
                                     className={cn(
-                                        "h-8 text-xs border-zinc-800 bg-zinc-900/90 gap-1.5",
+                                        "h-8 text-xs border-border bg-card/80 gap-1.5",
                                         overloadedMembers.length > 0
-                                            ? "text-rose-300 hover:text-rose-200 border-rose-500/30 hover:bg-rose-500/10"
-                                            : "text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800"
+                                            ? "text-rose-500 hover:text-rose-600 border-rose-500/30 hover:bg-rose-500/10"
+                                            : "text-foreground hover:bg-muted"
                                     )}
                                     title="View team workload & capacity allocation"
                                 >
-                                    <Users className="w-3.5 h-3.5 text-indigo-400" />
+                                    <Users className="w-3.5 h-3.5 text-primary" />
                                     <span className="hidden sm:inline">Capacity</span>
                                     {overloadedMembers.length > 0 ? (
-                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                                            {overloadedMembers.length} Over
+                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-500 border border-rose-500/40">
+                                             {overloadedMembers.length} Over
                                         </span>
                                     ) : (
-                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
                                             Balanced
                                         </span>
                                     )}
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80 bg-zinc-950 border-zinc-800 text-zinc-100 p-4 shadow-2xl space-y-3 z-50">
-                                <div className="border-b border-zinc-800/80 pb-2">
+                            <PopoverContent className="w-80 bg-card border-border text-foreground p-4 shadow-2xl space-y-3 z-50">
+                                <div className="border-b border-border pb-2">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
-                                            <Users className="w-3.5 h-3.5 text-indigo-400" />
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                                            <Users className="w-3.5 h-3.5 text-primary" />
                                             Weekly Capacity Guardrail
                                         </h4>
-                                        <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">
+                                        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                             40h / week
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
                                         Active workload across all ongoing tasks
                                     </p>
                                 </div>
@@ -682,8 +682,8 @@ export function KanbanBoard({
                                                 className={cn(
                                                     "space-y-1.5 p-2.5 rounded-lg border transition-colors cursor-pointer",
                                                     filterAssignee === member.id
-                                                        ? "bg-zinc-800/80 border-indigo-500/40"
-                                                        : "bg-zinc-900/60 border-zinc-800/80 hover:bg-zinc-900"
+                                                        ? "bg-primary/10 border-primary/40"
+                                                        : "bg-background border-border hover:bg-muted/50"
                                                 )}
                                                 onClick={() => {
                                                     setFilterAssignee(member.id);
@@ -692,27 +692,27 @@ export function KanbanBoard({
                                                 title="Click to filter board by this developer"
                                             >
                                                 <div className="flex items-center justify-between text-xs">
-                                                    <span className="font-medium text-zinc-200 truncate max-w-[140px]">
+                                                    <span className="font-medium text-foreground truncate max-w-[140px]">
                                                         {member.name || member.id}
                                                     </span>
                                                     <span
                                                         className={cn(
                                                             "font-mono text-[11px] font-bold",
                                                             isOver
-                                                                ? "text-rose-400"
+                                                                ? "text-rose-500"
                                                                 : hours >= 32
-                                                                ? "text-amber-400"
-                                                                : "text-emerald-400"
+                                                                ? "text-amber-500"
+                                                                : "text-emerald-600 dark:text-emerald-400"
                                                         )}
                                                     >
                                                         {hours}h / 40h ({pct}%)
                                                     </span>
                                                 </div>
-                                                <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                                                     <div
                                                         className={cn(
                                                             "h-full rounded-full transition-all",
-                                                            isOver ? "bg-rose-500" : hours >= 32 ? "bg-amber-500" : "bg-indigo-500"
+                                                            isOver ? "bg-rose-500" : hours >= 32 ? "bg-amber-500" : "bg-primary"
                                                         )}
                                                         style={{ width: `${Math.min(100, pct)}%` }}
                                                     />
@@ -735,10 +735,10 @@ export function KanbanBoard({
                                     if (val !== "all") setMyTasksOnly(false);
                                 }}
                             >
-                                <SelectTrigger className="w-[155px] h-8 bg-zinc-900/90 border-zinc-800 text-xs text-zinc-200">
+                                <SelectTrigger className="w-[155px] h-8 bg-card border-border text-xs text-foreground">
                                     <SelectValue placeholder="All Tasks" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
+                                <SelectContent className="bg-card border-border text-foreground">
                                     <SelectItem value="all">All Assignees</SelectItem>
                                     <SelectItem value="unassigned">Unassigned</SelectItem>
                                     {teamMembers.map((member) => {
@@ -753,10 +753,10 @@ export function KanbanBoard({
                                                         className={cn(
                                                             "text-[10px] font-mono px-1 rounded shrink-0",
                                                             isOver
-                                                                ? "text-rose-400 font-bold bg-rose-500/10 border border-rose-500/30"
+                                                                ? "text-rose-500 font-bold bg-rose-500/10 border border-rose-500/30"
                                                                 : hours >= 32
-                                                                ? "text-amber-400 font-medium bg-amber-500/10"
-                                                                : "text-zinc-500"
+                                                                ? "text-amber-500 font-medium bg-amber-500/10"
+                                                                : "text-muted-foreground"
                                                         )}
                                                     >
                                                         {hours}h{isOver ? " ⚠️" : ""}
@@ -775,8 +775,8 @@ export function KanbanBoard({
                             variant={myTasksOnly ? "default" : "outline"}
                             size="sm"
                             className={`h-8 text-xs ${myTasksOnly
-                                    ? "bg-indigo-600 text-white border-indigo-500"
-                                    : "border-zinc-800 text-zinc-400 hover:bg-zinc-800"
+                                    ? "bg-primary text-black font-semibold border-primary shadow-xs"
+                                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                                 }`}
                             onClick={() => {
                                 setMyTasksOnly(!myTasksOnly);
@@ -790,20 +790,20 @@ export function KanbanBoard({
                     {["superadmin", "manager"].includes(currentUserRole || "") && (
                         <Dialog>
                             <DialogTrigger asChild>
-                                <Button size="sm" className="h-8 bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/20 text-xs">
+                                <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs text-xs">
                                     <Plus className="h-3.5 w-3.5 mr-1" /> Add Task
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-zinc-950 border-zinc-800 text-zinc-100 shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
-                                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur z-10">
-                                    <DialogTitle className="text-lg font-bold text-white tracking-tight">Add Task to {activeMilestone.title}</DialogTitle>
+                            <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-card border-border text-foreground shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
+                                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-border bg-card/95 backdrop-blur z-10">
+                                    <DialogTitle className="text-lg font-bold text-foreground tracking-tight">Add Task to {activeMilestone.title}</DialogTitle>
                                 </DialogHeader>
                                 <form onSubmit={handleCreateTask} className="flex-1 flex flex-col min-h-0 overflow-hidden">
                                     <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
                                         <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Task Title</Label>
+                                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Task Title</Label>
                                             <Input
-                                                className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-600 text-xs sm:text-sm"
+                                                className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
                                                 value={newTaskTitle}
                                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                                 placeholder="e.g. Implement OAuth Flow"
@@ -811,9 +811,9 @@ export function KanbanBoard({
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Description (Optional)</Label>
+                                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Description (Optional)</Label>
                                             <Textarea
-                                                className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 resize-none text-zinc-100 placeholder:text-zinc-600 text-xs sm:text-sm"
+                                                className="bg-background border-border focus:border-primary resize-none text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
                                                 rows={3}
                                                 value={newTaskDesc}
                                                 onChange={(e) => setNewTaskDesc(e.target.value)}
@@ -821,7 +821,7 @@ export function KanbanBoard({
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <div className="space-y-2">
-                                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Effort Weight</Label>
+                                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Effort Weight</Label>
                                                 <div className="flex gap-1.5">
                                                     {[1, 2, 3, 5, 8].map((pts) => (
                                                         <button
@@ -830,8 +830,8 @@ export function KanbanBoard({
                                                             onClick={() => setNewTaskWeight(pts)}
                                                             className={`flex-1 py-1.5 rounded-md text-xs font-mono font-bold border transition-all ${
                                                                 newTaskWeight === pts
-                                                                    ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20"
-                                                                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                                                                    ? "bg-primary text-black border-primary shadow-xs"
+                                                                    : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
                                                             }`}
                                                         >
                                                             {pts}p
@@ -841,7 +841,7 @@ export function KanbanBoard({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Est. Hours</Label>
+                                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Est. Hours</Label>
                                                 <Input
                                                     type="number"
                                                     min="1"
@@ -849,13 +849,13 @@ export function KanbanBoard({
                                                     placeholder="e.g. 8"
                                                     value={newTaskHours}
                                                     onChange={(e) => setNewTaskHours(e.target.value)}
-                                                    className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-600 text-xs"
+                                                    className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs"
                                                 />
                                             </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Assign Staff</Label>
+                                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Assign Staff</Label>
                                             <AssigneeCombobox
                                                 teamMembers={teamMembers}
                                                 selectedIds={newAssigneeIds}
@@ -890,27 +890,27 @@ export function KanbanBoard({
                                             if (warnings.length === 0) return null;
 
                                             return (
-                                                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-1.5 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-400">
-                                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                                                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-500 space-y-1.5 animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-500">
+                                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
                                                         <span>Workload & Capacity Guardrail Alert</span>
                                                     </div>
                                                     {warnings.map((w, i) => (
-                                                        <p key={i} className="text-[11px] text-zinc-300 leading-relaxed pl-5">
-                                                            Assigning <strong className="text-white">{hours}h</strong> puts <strong className="text-white">{w?.name}</strong> at{" "}
-                                                            <strong className="text-rose-400">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
-                                                            <span className="text-rose-400 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
+                                                        <p key={i} className="text-[11px] text-muted-foreground leading-relaxed pl-5">
+                                                            Assigning <strong className="text-foreground">{hours}h</strong> puts <strong className="text-foreground">{w?.name}</strong> at{" "}
+                                                            <strong className="text-rose-500">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
+                                                            <span className="text-rose-500 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
                                                         </p>
                                                     ))}
                                                 </div>
                                             );
                                         })()}
                                     </div>
-                                    <div className="shrink-0 p-4 sm:p-5 border-t border-zinc-800/80 bg-zinc-950/95 backdrop-blur">
+                                    <div className="shrink-0 p-4 sm:p-5 border-t border-border bg-card/95 backdrop-blur">
                                         <Button
                                             type="submit"
                                             disabled={isAddingTask}
-                                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm"
+                                            className="w-full bg-primary hover:bg-primary/90 text-black font-semibold text-xs sm:text-sm"
                                         >
                                             Create Task
                                         </Button>
@@ -1015,32 +1015,32 @@ export function KanbanBoard({
             {/* Task Edit Modal */}
             {editingTask && (
                 <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
-                    <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-zinc-950 border-zinc-800 text-zinc-100 shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
-                        <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur z-10">
-                            <DialogTitle className="text-lg font-bold text-white tracking-tight">Edit Task Details</DialogTitle>
+                    <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-card border-border text-foreground shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
+                        <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-border bg-card/95 backdrop-blur z-10">
+                            <DialogTitle className="text-lg font-bold text-foreground tracking-tight">Edit Task Details</DialogTitle>
                         </DialogHeader>
                         <form onSubmit={handleEditTaskSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
                             <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Title</Label>
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Title</Label>
                                     <Input
-                                        className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 text-xs sm:text-sm"
+                                        className="bg-background border-border focus:border-primary text-foreground text-xs sm:text-sm"
                                         value={editTaskTitle}
                                         onChange={(e) => setEditTaskTitle(e.target.value)}
                                         required
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Description</Label>
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Description</Label>
                                     <Textarea
-                                        className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 resize-none text-zinc-100 text-xs sm:text-sm"
+                                        className="bg-background border-border focus:border-primary resize-none text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
                                         rows={3}
                                         value={editTaskDesc}
                                         onChange={(e) => setEditTaskDesc(e.target.value)}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Assignees</Label>
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Assignees</Label>
                                     <AssigneeCombobox
                                         teamMembers={teamMembers}
                                         selectedIds={editAssigneeIds}
@@ -1049,7 +1049,7 @@ export function KanbanBoard({
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Effort Weight</Label>
+                                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Effort Weight</Label>
                                         <div className="flex gap-1.5">
                                             {[1, 2, 3, 5, 8].map((pts) => (
                                                 <button
@@ -1058,8 +1058,8 @@ export function KanbanBoard({
                                                     onClick={() => setEditTaskWeight(pts)}
                                                     className={`flex-1 py-1.5 rounded-md text-xs font-mono font-bold border transition-all ${
                                                         editTaskWeight === pts
-                                                            ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20"
-                                                            : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                                                            ? "bg-primary text-black border-primary shadow-xs"
+                                                            : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
                                                     }`}
                                                 >
                                                     {pts}p
@@ -1069,24 +1069,24 @@ export function KanbanBoard({
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Est. Hours</Label>
+                                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Est. Hours</Label>
                                         <Input
                                             type="number"
                                             min="1"
                                             max="500"
                                             placeholder="e.g. 8"
                                             value={editTaskHours}
-                                            onChange={(e) => setEditTaskHours(e.target.value)}
-                                            className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-600 text-xs"
+                                            onChange={(e) => setNewTaskHours(e.target.value)}
+                                            className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Due Date</Label>
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Due Date</Label>
                                     <Input
                                         type="date"
-                                        className="bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-zinc-200 text-xs sm:text-sm"
+                                        className="bg-background border-border focus:border-primary text-foreground text-xs sm:text-sm"
                                         value={editDueDate}
                                         onChange={(e) => setEditDueDate(e.target.value)}
                                     />
@@ -1122,27 +1122,27 @@ export function KanbanBoard({
                                     if (warnings.length === 0) return null;
 
                                     return (
-                                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-1.5 animate-in fade-in duration-200">
-                                            <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-400">
-                                                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-500 space-y-1.5 animate-in fade-in duration-200">
+                                            <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-500">
+                                                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
                                                 <span>Workload & Capacity Guardrail Alert</span>
                                             </div>
                                             {warnings.map((w, i) => (
-                                                <p key={i} className="text-[11px] text-zinc-300 leading-relaxed pl-5">
-                                                    Setting <strong className="text-white">{hours}h</strong> puts <strong className="text-white">{w?.name}</strong> at{" "}
-                                                    <strong className="text-rose-400">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
-                                                    <span className="text-rose-400 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
+                                                <p key={i} className="text-[11px] text-muted-foreground leading-relaxed pl-5">
+                                                    Setting <strong className="text-foreground">{hours}h</strong> puts <strong className="text-foreground">{w?.name}</strong> at{" "}
+                                                    <strong className="text-rose-500">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
+                                                    <span className="text-rose-500 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
                                                 </p>
                                             ))}
                                         </div>
                                     );
                                 })()}
                             </div>
-                            <div className="shrink-0 p-4 sm:p-5 border-t border-zinc-800/80 bg-zinc-950/95 backdrop-blur">
+                            <div className="shrink-0 p-4 sm:p-5 border-t border-border bg-card/95 backdrop-blur">
                                 <Button
                                     type="submit"
                                     disabled={isSavingEdit}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm"
+                                    className="w-full bg-primary hover:bg-primary/90 text-black font-semibold text-xs sm:text-sm"
                                 >
                                     Save Changes
                                 </Button>

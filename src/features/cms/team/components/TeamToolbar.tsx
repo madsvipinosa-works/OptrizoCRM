@@ -26,7 +26,7 @@ export function TeamToolbar() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     placeholder="Search by name or email..."
-                    className="pl-9 bg-white/5 border-white/10"
+                    className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground"
                     onChange={(e) => handleSearch(e.target.value)}
                     defaultValue={searchParams.get("q")?.toString()}
                 />

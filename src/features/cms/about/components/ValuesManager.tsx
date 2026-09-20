@@ -119,7 +119,7 @@ export function ValuesManager({ initialValues }: { initialValues: AboutValue[] }
                                 <Input 
                                     value={form.title} 
                                     onChange={e => setForm({...form, title: e.target.value})} 
-                                    className="bg-black/40 border-white/20"
+                                    className="bg-card border-border text-foreground"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -127,9 +127,9 @@ export function ValuesManager({ initialValues }: { initialValues: AboutValue[] }
                                 <select 
                                     value={form.icon} 
                                     onChange={e => setForm({...form, icon: e.target.value})}
-                                    className="flex h-10 w-full rounded-md border border-white/20 bg-black/40 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex h-10 w-full rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    {ICONS.map(i => <option key={i} value={i}>{i}</option>)}
+                                    {ICONS.map(i => <option key={i} value={i} className="bg-card text-foreground">{i}</option>)}
                                 </select>
                             </div>
                         </div>
@@ -139,7 +139,7 @@ export function ValuesManager({ initialValues }: { initialValues: AboutValue[] }
                             <Textarea 
                                 value={form.description} 
                                 onChange={e => setForm({...form, description: e.target.value})} 
-                                className="bg-black/40 border-white/20 h-24"
+                                className="bg-card border-border text-foreground h-24"
                             />
                         </div>
 
@@ -147,7 +147,7 @@ export function ValuesManager({ initialValues }: { initialValues: AboutValue[] }
                             <Button variant="ghost" onClick={() => { setIsCreating(false); setEditingId(null); }} disabled={loading}>
                                 <X className="h-4 w-4 mr-2" /> Cancel
                             </Button>
-                            <Button onClick={() => editingId ? handleUpdate(editingId) : handleCreate()} disabled={loading} className="bg-primary text-black">
+                            <Button onClick={() => editingId ? handleUpdate(editingId) : handleCreate()} disabled={loading} className="bg-primary text-black font-semibold hover:bg-primary/90">
                                 <Check className="h-4 w-4 mr-2" /> Save Form
                             </Button>
                         </div>
@@ -161,9 +161,9 @@ export function ValuesManager({ initialValues }: { initialValues: AboutValue[] }
                     <p className="text-muted-foreground text-sm italic col-span-full">No values defined. Add one to show the Bento Grid on the About page.</p>
                 )}
                 {values.map((v) => (
-                    <div key={v.id} className="p-5 rounded-[1rem] bg-[#121212] border border-[#262626] relative group">
+                    <div key={v.id} className="p-5 rounded-[1rem] glass-card border border-border hover:border-primary/40 relative group transition-all">
                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                            <button onClick={() => startEdit(v)} className="p-1.5 bg-blue-500/10 text-blue-400 rounded-md hover:bg-blue-500/20">
+                            <button onClick={() => startEdit(v)} className="p-1.5 bg-blue-500/10 text-blue-500 dark:text-blue-400 rounded-md hover:bg-blue-500/20">
                                 <Pencil className="h-4 w-4" />
                             </button>
                             <button onClick={() => handleDelete(v.id)} className="p-1.5 bg-red-500/10 text-red-500 rounded-md hover:bg-red-500/20">
@@ -171,12 +171,11 @@ export function ValuesManager({ initialValues }: { initialValues: AboutValue[] }
                             </button>
                         </div>
                         
-                        <div className="h-10 w-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-4">
-                            {/* We just show the name since we don't have dynamic Lucide mapping imported on client side simply. */}
-                            <span className="text-[10px] font-bold break-all px-1 leading-tight text-center">{v.icon}</span>
+                        <div className="h-10 w-10 bg-primary/10 text-primary border border-primary/20 rounded-xl flex items-center justify-center mb-4">
+                            <span className="text-[10px] font-bold font-mono break-all px-1 leading-tight text-center">{v.icon}</span>
                         </div>
-                        <h4 className="font-bold text-white mb-2">{v.title}</h4>
-                        <p className="text-sm text-[#A3A3A3] line-clamp-3">{v.description}</p>
+                        <h4 className="font-bold text-foreground mb-2">{v.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-3">{v.description}</p>
                     </div>
                 ))}
             </div>

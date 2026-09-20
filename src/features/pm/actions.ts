@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, type ProjectDocumentItem } from "@/db/schema";
+import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -16,9 +16,95 @@ export type ActionState = {
     milestone?: Record<string, unknown>;
 };
 
-
-
 // --- Project Actions ---
+export async function updateProjectDetails(
+    projectId: string,
+    data: {
+        title: string;
+        description?: string;
+        status: "Kickoff" | "In Progress" | "In Review" | "Completed";
+        startDate?: Date | string | null;
+        targetDate?: Date | string | null;
+        clientUserId?: string | null;
+    }
+): Promise<ActionState> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "manager"])) {
+        return { success: false, message: "Unauthorized: Admins & Managers only." };
+    }
+
+    try {
+        await db.transaction(async (tx) => {
+            // 1. Update agency project core fields
+            const updatePayload: Record<string, unknown> = {
+                title: data.title.trim(),
+                description: data.description !== undefined ? data.description.trim() : null,
+                status: data.status,
+                startDate: data.startDate ? new Date(data.startDate) : null,
+                targetDate: data.targetDate ? new Date(data.targetDate) : null,
+                updatedAt: new Date(),
+            };
+
+            await tx.update(agencyProjects)
+                .set(updatePayload)
+                .where(eq(agencyProjects.id, projectId));
+
+            // 2. Role-Scoped Stakeholder Synchronization (Safeguard 1)
+            // When updating clientUserId, only modify/remove client role stakeholders, never staff/managers/developers
+            if (data.clientUserId !== undefined) {
+                const existingStakeholders = await tx.query.projectStakeholders.findMany({
+                    where: eq(projectStakeholders.projectId, projectId),
+                    with: { user: true },
+                });
+
+                const existingClientStakeholder = existingStakeholders.find(s => s.user?.role === "client");
+
+                if (data.clientUserId) {
+                    if (!existingClientStakeholder || existingClientStakeholder.userId !== data.clientUserId) {
+                        // Remove previous client junction if different
+                        if (existingClientStakeholder) {
+                            await tx.delete(projectStakeholders).where(
+                                and(
+                                    eq(projectStakeholders.projectId, projectId),
+                                    eq(projectStakeholders.userId, existingClientStakeholder.userId)
+                                )
+                            );
+                        }
+
+                        // Add new client stakeholder if not already linked
+                        const alreadyLinked = existingStakeholders.some(s => s.userId === data.clientUserId);
+                        if (!alreadyLinked) {
+                            await tx.insert(projectStakeholders).values({
+                                projectId,
+                                userId: data.clientUserId,
+                            }).onConflictDoNothing();
+                        }
+                    }
+                } else if (existingClientStakeholder) {
+                    // Unassigned client: remove the client stakeholder
+                    await tx.delete(projectStakeholders).where(
+                        and(
+                            eq(projectStakeholders.projectId, projectId),
+                            eq(projectStakeholders.userId, existingClientStakeholder.userId)
+                        )
+                    );
+                }
+            }
+        });
+
+        await logAction("UPDATE", "Project Details", `Project ${projectId} details updated`);
+
+        revalidatePath(`/dashboard/pm/${projectId}`);
+        revalidatePath("/dashboard/pm");
+        revalidatePath("/portal");
+
+        return { success: true, message: "Project settings saved successfully." };
+    } catch (error) {
+        console.error("Failed to update project details:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
 export async function updateProjectStatus(projectId: string, status: "Kickoff" | "In Progress" | "In Review" | "Completed"): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "manager"])) {
@@ -814,4 +900,37 @@ export async function archiveProject(projectId: string): Promise<ActionState> {
         console.error("Failed to archive project:", error);
         return { success: false, message: "Database Error" };
     }
+}
+
+export async function unarchiveProject(projectId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "manager"])) {
+        return { success: false, message: "Unauthorized: Admins only." };
+    }
+
+    try {
+        await db.update(agencyProjects)
+            .set({ isArchived: false, updatedAt: new Date() })
+            .where(eq(agencyProjects.id, projectId));
+
+        await logAction("UPDATE", "Project", `Project ${projectId} unarchived.`);
+
+        revalidatePath(`/dashboard/pm/${projectId}`);
+        revalidatePath("/dashboard/pm");
+        revalidatePath("/portal");
+        return { success: true, message: "Project restored to active delivery board." };
+    } catch (error) {
+        console.error("Failed to unarchive project:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function getClientUsers(): Promise<{ id: string; name: string | null; email: string; image: string | null }[]> {
+    const session = await auth();
+    if (!session?.user) return [];
+    return db.query.users.findMany({
+        where: eq(users.role, "client"),
+        columns: { id: true, name: true, email: true, image: true },
+        orderBy: (u, { asc }) => [asc(u.name)],
+    });
 }

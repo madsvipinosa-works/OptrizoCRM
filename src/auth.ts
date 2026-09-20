@@ -84,18 +84,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.jobTitle = (user as any).jobTitle;
             }
             // Fetch fresh user data from DB to reflect role changes in Supabase/DB immediately
-            if (token.email) {
+            // Throttle to avoid querying DB multiple times per page load in SSR (Layout + Page + components)
+            const now = Math.floor(Date.now() / 1000);
+            const lastChecked = (token.lastDbCheck as number) || 0;
+
+            if (token.email && (!token.role || now - lastChecked > 10)) {
                 try {
-                    const dbUser = await db.query.users.findFirst({
-                        where: eq(users.email, token.email),
-                    });
-                    if (dbUser) {
+                    const [dbUser] = await db
+                        .select({
+                            id: users.id,
+                            role: users.role,
+                            jobTitle: users.jobTitle,
+                            isActive: users.isActive,
+                        })
+                        .from(users)
+                        .where(eq(users.email, token.email))
+                        .limit(1);
+
+                    if (dbUser && dbUser.isActive) {
                         token.id = dbUser.id;
                         token.role = dbUser.role;
                         token.jobTitle = dbUser.jobTitle;
+                        token.lastDbCheck = now;
                     }
-                } catch (e) {
-                    console.error("[Auth] DB lookup error in JWT callback:", e);
+                } catch (e: any) {
+                    console.warn("[Auth] DB lookup skipped in JWT callback (session preserved):", e?.cause?.message || e?.message || e);
                 }
             }
             return token;

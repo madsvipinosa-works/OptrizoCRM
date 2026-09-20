@@ -37,4 +37,10 @@ const PlaceCardDemo = () => {
   );
 };
 
+import Featured_05 from "@/components/ui/globe-feature-section";
+
+export function DemoOne() {
+  return <Featured_05 />;
+}
+
 export default PlaceCardDemo;

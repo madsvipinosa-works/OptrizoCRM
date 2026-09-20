@@ -46,20 +46,20 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <LayoutDashboard className="w-5 h-5 text-indigo-400" />
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                        <LayoutDashboard className="w-5 h-5 text-primary" />
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                             Executive Agency Dashboard
                         </h1>
                     </div>
-                    <p className="text-sm text-zinc-400">
+                    <p className="text-sm text-muted-foreground">
                         Real-time intelligence across sales pipelines, delivery milestones, and operational bottlenecks.
                     </p>
                 </div>
-                <div className="flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium">
-                    <Sparkles className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-foreground dark:text-primary text-xs font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
                     <span>Live Agency Telemetry</span>
                 </div>
             </div>
