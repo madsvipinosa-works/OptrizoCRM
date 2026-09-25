@@ -27,6 +27,9 @@ export default async function AvailedServicesPage() {
         where: eq(leads.clientId, session.user.id),
         with: {
             service: true,
+            proposals: {
+                orderBy: (proposals, { desc }) => [desc(proposals.createdAt)],
+            },
         },
         orderBy: (leads, { desc }) => [desc(leads.createdAt)],
     });
@@ -52,7 +55,12 @@ export default async function AvailedServicesPage() {
         });
         clientLeads = await db.query.leads.findMany({
             limit: 5,
-            with: { service: true },
+            with: { 
+                service: true,
+                proposals: {
+                    orderBy: (proposals, { desc }) => [desc(proposals.createdAt)],
+                },
+            },
             orderBy: (leads, { desc }) => [desc(leads.createdAt)],
         });
     }
@@ -190,46 +198,82 @@ export default async function AvailedServicesPage() {
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2">
-                        {clientLeads.map((lead) => (
-                            <div
-                                key={lead.id}
-                                className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm space-y-3 shadow-xs hover:border-primary/50 transition-all"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h3 className="font-semibold text-foreground">
-                                            {lead.service?.title || lead.businessName || "Custom Service Request"}
-                                        </h3>
-                                        {lead.goals && (
-                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                                                Goals: {lead.goals}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <Badge
-                                        variant="outline"
-                                        className={getLeadBadgeColor(lead.status)}
-                                    >
-                                        {lead.status}
-                                    </Badge>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2 text-xs pt-2 text-muted-foreground border-t border-border">
-                                    {lead.budget && (
+                        {clientLeads.map((lead: any) => {
+                            const activeProposal = lead.proposals?.[0];
+                            return (
+                                <div
+                                    key={lead.id}
+                                    className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm space-y-4 shadow-xs hover:border-primary/50 transition-all"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
                                         <div>
-                                            <span className="text-muted-foreground block text-[10px] font-mono uppercase">Budget</span>
-                                            <span className="font-semibold text-foreground font-mono">{lead.budget}</span>
+                                            <h3 className="font-semibold text-foreground">
+                                                {lead.service?.title || lead.businessName || "Custom Service Request"}
+                                            </h3>
+                                            {lead.goals && (
+                                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                                                    Goals: {lead.goals}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <Badge
+                                            variant="outline"
+                                            className={getLeadBadgeColor(lead.status)}
+                                        >
+                                            {lead.status}
+                                        </Badge>
+                                    </div>
+
+                                    {/* Direct Proposal Access Card */}
+                                    {activeProposal && (
+                                        <div className="p-3.5 rounded-xl border border-primary/25 bg-primary/5 space-y-2.5">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <FileText className="h-4 w-4 text-primary" />
+                                                    <span className="font-semibold text-xs text-foreground font-mono">
+                                                        {activeProposal.proposalCode || "Statement of Work"}
+                                                    </span>
+                                                </div>
+                                                <Badge variant="outline" className={`text-[10px] py-0 font-mono ${
+                                                    activeProposal.status === "Approved"
+                                                        ? "border-primary/40 text-primary bg-primary/10"
+                                                        : "border-amber-500/40 text-amber-500 bg-amber-500/10"
+                                                }`}>
+                                                    {activeProposal.status === "Approved" ? "Executed Contract" : "Ready for Review"}
+                                                </Badge>
+                                            </div>
+
+                                            <div className="flex items-center justify-between pt-1 text-xs">
+                                                <span className="font-mono text-emerald-400 font-bold">
+                                                    Investment: ${(Number(activeProposal.total) || 0).toLocaleString()}
+                                                </span>
+                                                <Link
+                                                    href={`/proposal/${activeProposal.id}`}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-black text-xs font-bold transition-all shadow-xs"
+                                                >
+                                                    {activeProposal.status === "Approved" ? "View Agreement" : "Review & Sign"} &rarr;
+                                                </Link>
+                                            </div>
                                         </div>
                                     )}
-                                    <div>
-                                        <span className="text-muted-foreground block text-[10px] font-mono uppercase">Submitted</span>
-                                        <span className="font-semibold text-foreground font-mono">
-                                            {lead.createdAt.toLocaleDateString()}
-                                        </span>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 text-muted-foreground border-t border-border">
+                                        {lead.budget && (
+                                            <div>
+                                                <span className="text-muted-foreground block text-[10px] font-mono uppercase">Budget</span>
+                                                <span className="font-semibold text-foreground font-mono">{lead.budget}</span>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <span className="text-muted-foreground block text-[10px] font-mono uppercase">Submitted</span>
+                                            <span className="font-semibold text-foreground font-mono">
+                                                {lead.createdAt.toLocaleDateString()}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

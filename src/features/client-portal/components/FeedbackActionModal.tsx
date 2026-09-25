@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, XCircle, MessageSquare, ExternalLink, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 import { submitMilestoneFeedback } from "@/features/pm/actions";
+import { uploadSecureAsset } from "@/features/upload/actions";
 import confetti from "canvas-confetti";
 
 interface TaskItem {
@@ -22,12 +23,14 @@ interface FeedbackActionModalProps {
     milestoneId: string;
     milestoneTitle: string;
     tasks?: TaskItem[];
+    projectId?: string;
 }
 
-export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: FeedbackActionModalProps) {
+export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks, projectId }: FeedbackActionModalProps) {
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState<"APPROVED" | "REVISION_REQUESTED" | null>(null);
     const [comment, setComment] = useState("");
+    const [attachment, setAttachment] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
@@ -38,7 +41,27 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
         }
 
         setIsSubmitting(true);
-        const res = await submitMilestoneFeedback(milestoneId, status, comment);
+        let attachmentUrl = null;
+        let attachmentName = null;
+
+        if (attachment) {
+            const formData = new FormData();
+            formData.append("file", attachment);
+            if (projectId) {
+                formData.append("projectId", projectId);
+            }
+            const uploadRes = await uploadSecureAsset(formData);
+            if (uploadRes.success && uploadRes.url) {
+                attachmentUrl = uploadRes.url;
+                attachmentName = attachment.name;
+            } else {
+                toast.error(uploadRes.message || "Failed to upload attachment");
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
+        const res = await submitMilestoneFeedback(milestoneId, status, comment, attachmentUrl, attachmentName);
         
         if (res.success) {
             if (status === "APPROVED") {
@@ -148,16 +171,33 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks }: Feed
                     </div>
 
                     {(status === "REVISION_REQUESTED" || status === "APPROVED") && (
-                        <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                            <label className="text-sm font-medium text-foreground">
-                                {status === "APPROVED" ? "Additional Comments (Optional)" : "Revision Details (Required)"}
-                            </label>
-                            <Textarea 
-                                placeholder={status === "APPROVED" ? "Everything looks great! Ready to move forward." : "Please revise the following items..."}
-                                className="bg-card border-border text-foreground min-h-[100px]"
-                                value={comment}
-                                onChange={(e) => setComment(e.target.value)}
-                            />
+                        <div className="space-y-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-foreground">
+                                    {status === "APPROVED" ? "Additional Comments (Optional)" : "Revision Details (Required)"}
+                                </label>
+                                <Textarea 
+                                    placeholder={status === "APPROVED" ? "Everything looks great! Ready to move forward." : "Please revise the following items..."}
+                                    className="bg-card border-border text-foreground min-h-[100px]"
+                                    value={comment}
+                                    onChange={(e) => setComment(e.target.value)}
+                                />
+                            </div>
+                            
+                            {status === "REVISION_REQUESTED" && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-foreground block">
+                                        Attach reference (Optional)
+                                    </label>
+                                    <input 
+                                        type="file" 
+                                        onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+                                        className="text-xs text-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-black hover:file:bg-primary/90"
+                                        accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">Upload screenshots or marked-up PDFs (Max 15MB)</p>
+                                </div>
+                            )}
                         </div>
                     )}
 

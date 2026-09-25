@@ -72,7 +72,7 @@ export function TaskDonutChart({ data }: TaskDonutChartProps) {
                 </div>
 
                 {/* Legend */}
-                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/50 mt-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-3 border-t border-border/50 mt-2 text-xs">
                     {data.map((item) => (
                         <div key={item.name} className="flex items-center justify-between p-1.5 rounded-lg bg-muted/40 border border-border/40">
                             <div className="flex items-center gap-2">

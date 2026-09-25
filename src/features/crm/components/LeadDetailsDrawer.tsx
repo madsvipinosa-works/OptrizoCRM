@@ -744,6 +744,7 @@ export function LeadDetailsDrawer({
                                     </h4>
                                     <Link
                                         href={`/dashboard/proposals/builder/${lead.id}`}
+                                        prefetch={false}
                                         className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
                                     >
                                         <Plus className="h-3 w-3" /> New SOW Proposal
@@ -780,7 +781,8 @@ export function LeadDetailsDrawer({
                                                         <ExternalLink className="h-3.5 w-3.5" />
                                                     </Link>
                                                     <Link
-                                                        href={`/dashboard/proposals/builder/${lead.id}`}
+                                                        href={`/dashboard/proposals/builder/${prop.id}`}
+                                                        prefetch={false}
                                                         className="p-1.5 rounded-md bg-muted hover:bg-muted/80 text-foreground transition-colors"
                                                         title="Edit in Studio"
                                                     >
@@ -794,7 +796,7 @@ export function LeadDetailsDrawer({
                                     <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-2">
                                         <p className="text-xs text-muted-foreground">No proposals generated yet for this deal.</p>
                                         <Button size="sm" variant="outline" asChild className="h-7 text-xs border-border">
-                                            <Link href={`/dashboard/proposals/builder/${lead.id}`}>
+                                            <Link href={`/dashboard/proposals/builder/${lead.id}`} prefetch={false}>
                                                 Generate First SOW Proposal
                                             </Link>
                                         </Button>

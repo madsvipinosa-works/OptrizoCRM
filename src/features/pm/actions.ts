@@ -112,11 +112,21 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
     }
 
     try {
+        const oldProject = await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.id, projectId) });
+
         await db.update(agencyProjects)
             .set({ status, updatedAt: new Date() })
             .where(eq(agencyProjects.id, projectId));
 
         await logAction("UPDATE", "Project", `Project ${projectId} status updated to ${status}`);
+
+        const { notifyProjectClients } = await import("@/features/notifications/actions");
+        await notifyProjectClients(
+            projectId,
+            `Project Status Update: "${oldProject?.title || 'Your project'}" has moved to status '${status}'.`,
+            "project",
+            "/portal"
+        );
 
         revalidatePath("/dashboard/pm");
         revalidatePath("/portal");
@@ -130,7 +140,7 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
 export async function updateProjectSettings(
     projectId: string, 
     stagingUrls: string[],
-    documents?: ProjectDocumentItem[]
+    documents?: ProjectDocumentItem[] // Note: Deprecated for full array replacement. Use addProjectDocument/deleteProjectDocument.
 ): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "manager"])) {
@@ -151,6 +161,16 @@ export async function updateProjectSettings(
 
         await logAction("UPDATE", "Project Resources", `Project ${projectId} resources updated`);
 
+        if (stagingUrls && stagingUrls.length > 0) {
+            const { notifyProjectClients } = await import("@/features/notifications/actions");
+            await notifyProjectClients(
+                projectId,
+                `Staging Environment Updated: New preview & staging links are available for your project.`,
+                "project",
+                "/portal"
+            );
+        }
+
         revalidatePath("/dashboard/pm/[id]");
         revalidatePath("/portal");
         return { success: true, message: "Project resources updated." };
@@ -159,6 +179,103 @@ export async function updateProjectSettings(
         return { success: false, message: "Database Error" };
     }
 }
+
+export async function addProjectDocument(projectId: string, newDoc: ProjectDocumentItem): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        const { sql } = await import("drizzle-orm");
+        await db.update(agencyProjects)
+            .set({
+                documents: sql`COALESCE(${agencyProjects.documents}, '[]'::jsonb) || ${JSON.stringify([newDoc])}::jsonb`,
+                updatedAt: new Date()
+            })
+            .where(eq(agencyProjects.id, projectId));
+
+        await logAction("CREATE", "Project Document", `Added document '${newDoc.title}' to Project ${projectId}`, session.user.id);
+
+        if (newDoc.uploadedByRole === "agency") {
+            const { notifyProjectClients } = await import("@/features/notifications/actions");
+            await notifyProjectClients(
+                projectId,
+                `New Resource Uploaded: The agency uploaded "${newDoc.title}" to your project resources.`,
+                "document",
+                "/portal"
+            );
+        } else {
+            const { notifyAllAdmins } = await import("@/features/notifications/actions");
+            await notifyAllAdmins(
+                `Client uploaded document "${newDoc.title}" to project resources`,
+                "document",
+                `/dashboard/pm/${projectId}`
+            );
+        }
+
+        revalidatePath(`/dashboard/pm/${projectId}`);
+        revalidatePath("/dashboard/pm");
+        revalidatePath("/portal");
+
+        return { success: true, message: "Document added successfully." };
+    } catch (error) {
+        console.error("Failed to add project document:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function deleteProjectDocument(projectId: string, documentId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        const project = await db.query.agencyProjects.findFirst({
+            where: eq(agencyProjects.id, projectId)
+        });
+        
+        if (!project || !project.documents) {
+            return { success: false, message: "Project or documents not found" };
+        }
+
+        const docToDelete = project.documents.find(d => d.id === documentId);
+        if (!docToDelete) {
+            return { success: false, message: "Document not found" };
+        }
+
+        // RBAC: clients can only delete their own uploads; managers/admins can delete any document
+        const isClient = session.user.role === "client";
+        if (isClient && docToDelete.uploadedById !== session.user.id) {
+            return { success: false, message: "Unauthorized: You can only delete your own uploads" };
+        }
+        
+        // Atomically remove the item from JSONB
+        const { sql } = await import("drizzle-orm");
+        await db.update(agencyProjects).set({
+            documents: sql`COALESCE((SELECT jsonb_agg(elem) FROM jsonb_array_elements(${agencyProjects.documents}) elem WHERE elem->>'id' != ${documentId}), '[]'::jsonb)`,
+            updatedAt: new Date()
+        }).where(eq(agencyProjects.id, projectId));
+
+        const { deleteImage } = await import("@/features/upload/actions");
+        if (docToDelete.url) {
+            await deleteImage(docToDelete.url);
+        }
+
+        await logAction("DELETE", "Project Document", `Deleted document '${docToDelete.title}' from Project ${projectId}`, session.user.id);
+
+        revalidatePath(`/dashboard/pm/${projectId}`);
+        revalidatePath("/dashboard/pm");
+        revalidatePath("/portal");
+
+        return { success: true, message: "Document deleted successfully." };
+    } catch (error) {
+        console.error("Failed to delete project document:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
 
 
 
@@ -193,7 +310,28 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
                 ));
         }
 
+        const milestone = await db.query.milestones.findFirst({
+            where: eq(milestones.id, milestoneId),
+            with: { project: true }
+        });
+
         await logAction("UPDATE", "Milestone", `Milestone ${milestoneId} moved to ${status}`);
+
+        if (milestone) {
+            let clientNotice = "";
+            if (status === "Client Approval") {
+                clientNotice = `Review Required: Milestone "${milestone.title}" is ready for your review and digital sign-off.`;
+            } else if (status === "Completed") {
+                clientNotice = `Milestone Completed: "${milestone.title}" has been completed!`;
+            } else if (status === "In Progress") {
+                clientNotice = `Milestone In Progress: Work has started on "${milestone.title}".`;
+            }
+
+            if (clientNotice) {
+                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                await notifyProjectClients(milestone.projectId, clientNotice, "milestone", "/portal");
+            }
+        }
 
         revalidatePath("/dashboard/pm/[id]");
         revalidatePath("/portal");
@@ -728,7 +866,7 @@ export async function deleteMilestone(milestoneId: string): Promise<ActionState>
 }
 
 // --- Client Feedback Actions ---
-export async function submitMilestoneFeedback(milestoneId: string, status: "APPROVED" | "REVISION_REQUESTED", commentText?: string): Promise<ActionState> {
+export async function submitMilestoneFeedback(milestoneId: string, status: "APPROVED" | "REVISION_REQUESTED", commentText?: string, attachmentUrl?: string | null, attachmentName?: string | null): Promise<ActionState> {
     const session = await auth();
     if (!session?.user?.id || !["client", "superadmin"].includes(session.user.role || "")) {
         return { success: false, message: "Unauthorized" };
@@ -740,7 +878,7 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
 
     try {
         const { clientFeedback } = await import("@/db/schema");
-        const { desc } = await import("drizzle-orm");
+        const { desc, or } = await import("drizzle-orm");
 
         const milestone = await db.query.milestones.findFirst({ where: eq(milestones.id, milestoneId) });
         if (!milestone) return { success: false, message: "Milestone not found" };
@@ -767,13 +905,29 @@ export async function submitMilestoneFeedback(milestoneId: string, status: "APPR
                 clientId: session.user.id!,
                 status,
                 commentText: commentText?.trim() || null,
+                attachmentUrl: attachmentUrl || null,
+                attachmentName: attachmentName || null,
                 parentFeedbackId: latestFeedback?.id || null, // Create threaded version link
             });
 
-            // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT
-            await tx.update(tasks)
-                .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
-                .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
+            if (status === "APPROVED") {
+                await tx.update(tasks)
+                    .set({ isBlockedByClient: false, status: "Done", updatedAt: new Date() })
+                    .where(
+                        and(
+                            eq(tasks.milestoneId, milestoneId),
+                            or(
+                                eq(tasks.isBlockedByClient, true),
+                                eq(tasks.status, "In Review")
+                            )
+                        )
+                    );
+            } else {
+                // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT (Revision requested)
+                await tx.update(tasks)
+                    .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
+                    .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
+            }
 
             // Client feedback should deterministically drive milestone status.
             const newMilestoneStatus = status === "REVISION_REQUESTED" ? "In Progress" : "Completed";

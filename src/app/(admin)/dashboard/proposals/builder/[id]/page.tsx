@@ -42,17 +42,14 @@ export default async function ProposalBuilderPage({
 
     // 2. If not found by proposal ID, check if ID matches a leadId with an existing proposal
     if (!proposal) {
-        proposal = await db.query.proposals.findFirst({
+        const existingForLead = await db.query.proposals.findFirst({
             where: eq(proposals.leadId, id),
-            with: {
-                lead: {
-                    with: {
-                        client: true,
-                    },
-                },
-            },
             orderBy: (p, { desc }) => [desc(p.createdAt)],
         });
+
+        if (existingForLead) {
+            redirect(`/dashboard/proposals/builder/${existingForLead.id}`);
+        }
     }
 
     // 3. If still no proposal, check if ID matches an existing Lead. If so, auto-generate a starter Draft proposal

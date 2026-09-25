@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { eq, inArray, and, sql, not } from "drizzle-orm";
 import { leadUpdateSchema, transitionLeadSchema, logLeadActivitySchema, type LeadUpdateValues, type TransitionLeadValues, type LogLeadActivityValues } from "@/lib/schemas";
 import { calculateLeadScore } from "@/features/crm/utils/leadScoring";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { sendClientWelcomeEmail, sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth, hasRole } from "@/auth";
@@ -64,6 +65,9 @@ export async function createLead(data: {
     }
 
     try {
+        const randomPassword = crypto.randomBytes(16).toString("hex");
+        const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
         const result = await db.transaction(async (tx) => {
             // 1. Find or create client user
             let clientUser = await tx.query.users.findFirst({
@@ -71,9 +75,6 @@ export async function createLead(data: {
             });
 
             if (!clientUser) {
-                const randomPassword = crypto.randomBytes(16).toString("hex");
-                const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
                 const [newUser] = await tx.insert(users).values({
                     email: data.contactEmail,
                     name: data.contactName || data.businessName,
@@ -126,16 +127,22 @@ export async function createLead(data: {
                 });
 
                 if (salesReps.length > 0) {
-                    const repsWithCounts = await Promise.all(salesReps.map(async (rep) => {
-                        const activeCount = await tx.select({ count: sql<number>`count(*)` })
-                            .from(leadAssignees)
-                            .innerJoin(leads, eq(leadAssignees.leadId, leads.id))
-                            .where(and(
-                                eq(leadAssignees.userId, rep.id),
-                                not(inArray(leads.status, ["Closed Won", "Closed Lost"]))
-                            ));
-                        return { repId: rep.id, count: Number(activeCount[0].count) };
-                    }));
+                    const activeCounts = await tx.select({ 
+                            repId: leadAssignees.userId, 
+                            count: sql<number>`count(${leads.id})` 
+                        })
+                        .from(leadAssignees)
+                        .innerJoin(leads, eq(leadAssignees.leadId, leads.id))
+                        .where(and(
+                            inArray(leadAssignees.userId, salesReps.map(r => r.id)),
+                            not(inArray(leads.status, ["Closed Won", "Closed Lost"]))
+                        ))
+                        .groupBy(leadAssignees.userId);
+
+                    const repsWithCounts = salesReps.map(rep => {
+                        const record = activeCounts.find(c => c.repId === rep.id);
+                        return { repId: rep.id, count: record ? Number(record.count) : 0 };
+                    });
 
                     repsWithCounts.sort((a, b) => a.count - b.count);
                     assignedRepId = repsWithCounts[0].repId;
@@ -144,17 +151,32 @@ export async function createLead(data: {
                     const superAdmins = await tx.query.users.findMany({
                         where: eq(users.role, "superadmin"),
                     });
-                    if (superAdmins.length > 0) assignedRepId = superAdmins[0].id;
+                    if (superAdmins.length > 0) {
+                        assignedRepId = superAdmins[0].id;
+                    } else {
+                        assignedRepId = null;
+                    }
                 }
             } else if (assignedRepId === "unassigned") {
                 assignedRepId = null;
             }
 
-            if (assignedRepId) {
+            if (assignedRepId && assignedRepId !== "auto") {
+                const targetUser = await tx.query.users.findFirst({
+                    where: eq(users.id, assignedRepId),
+                    columns: { role: true }
+                });
+                
+                if (!targetUser || !["sales", "superadmin"].includes(targetUser.role)) {
+                    throw new Error("Invalid assignment: Target user must be Sales or Superadmin");
+                }
+
                 await tx.insert(leadAssignees).values({
                     leadId: newLead.id,
                     userId: assignedRepId,
                 });
+            } else {
+                assignedRepId = null;
             }
 
             // 5. Automated Sales Playbook (Task Provisioning)
@@ -330,6 +352,19 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
         // If an assignment was made, write to the junction table
         // (Wiping previous assignees for this UI action if it's a 1-to-many overwrite, or just accumulating)
         if (assigneeIds !== undefined) {
+            if (assigneeIds && assigneeIds.length > 0) {
+                const targetUsers = await db.query.users.findMany({
+                    where: inArray(users.id, assigneeIds),
+                    columns: { id: true, role: true }
+                });
+                const validRoles = ["sales", "superadmin"];
+                const invalidUsers = targetUsers.filter(u => !validRoles.includes(u.role));
+                
+                if (invalidUsers.length > 0) {
+                    throw new Error("Invalid assignment: All assigned users must be Sales or Superadmin");
+                }
+            }
+
             await db.delete(leadAssignees).where(eq(leadAssignees.leadId, id));
             if (assigneeIds && assigneeIds.length > 0) {
                 await db.insert(leadAssignees).values(
@@ -341,6 +376,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
         await logAction("UPDATE", "Lead", `Lead ${id} properties updated.`);
 
         revalidatePath("/dashboard/leads");
+        revalidatePath("/dashboard/analytics");
         return { success: true, message: "Lead updated successfully" };
     } catch (error) {
         console.error("Failed to update lead:", error);
@@ -490,7 +526,6 @@ export async function getUnifiedDashboardData() {
         // Parallel Drizzle Fetching
         const [analytics, allLeads, allProjects, allTasks, allProposals] = await Promise.all([
             db.select({
-                totalPipelineValue: sql<string>`COALESCE(SUM(${leads.estimatedValue}) FILTER (WHERE ${leads.status} IN ('New Lead', 'Discovery & Qualifying', 'Proposal Sent', 'In Negotiation')), 0)`,
                 wonLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Won')`,
                 lostLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Lost')`,
                 activeLeadsCount: sql<number>`COUNT(${leads.id}) FILTER (WHERE ${leads.status} NOT IN ('Closed Won', 'Closed Lost'))`,
@@ -500,7 +535,12 @@ export async function getUnifiedDashboardData() {
                     END
                 `,
             }).from(leads).where(eq(leads.isArchived, false)),
-            db.select().from(leads),
+            db.query.leads.findMany({
+                where: eq(leads.isArchived, false),
+                with: {
+                    proposals: true,
+                }
+            }),
             db.query.agencyProjects.findMany({
                 with: {
                     lead: true,
@@ -519,6 +559,7 @@ export async function getUnifiedDashboardData() {
         ]);
 
         const kpi = analytics[0];
+        let totalPipelineValue = 0;
         let weightedPipelineValue = 0;
         const now = new Date();
         const staleThresholdMs = 5 * 24 * 60 * 60 * 1000; // 5 days
@@ -526,15 +567,19 @@ export async function getUnifiedDashboardData() {
         let staleDealsCount = 0;
 
         allLeads.forEach((l) => {
+            const dealValue = getLeadEffectiveValue(l);
+
             if (["New Lead", "Discovery & Qualifying", "Proposal Sent", "In Negotiation"].includes(l.status)) {
+                totalPipelineValue += dealValue;
+
                 if (l.status === "New Lead") {
-                    weightedPipelineValue += l.estimatedValue * 0.10;
+                    weightedPipelineValue += dealValue * 0.10;
                 } else if (l.status === "Discovery & Qualifying") {
-                    weightedPipelineValue += l.estimatedValue * 0.30;
+                    weightedPipelineValue += dealValue * 0.30;
                 } else if (l.status === "Proposal Sent") {
-                    weightedPipelineValue += l.estimatedValue * 0.60;
+                    weightedPipelineValue += dealValue * 0.60;
                 } else if (l.status === "In Negotiation") {
-                    weightedPipelineValue += l.estimatedValue * 0.85;
+                    weightedPipelineValue += dealValue * 0.85;
                 }
 
                 // Check stale status (>5 days uncontacted)
@@ -545,9 +590,14 @@ export async function getUnifiedDashboardData() {
             }
         });
 
-        // Win/Loss Rate
+        // Win/Loss Rate: Reconcile closed deal win rate vs overall conversion
         const totalClosed = Number(kpi.wonLeadsCount) + Number(kpi.lostLeadsCount);
-        const winRatePercentage = Number(kpi.winRate).toFixed(1);
+        const winRatePercentage = totalClosed > 0 
+            ? ((Number(kpi.wonLeadsCount) / totalClosed) * 100).toFixed(1)
+            : (allLeads.length > 0 ? ((Number(kpi.wonLeadsCount) / allLeads.length) * 100).toFixed(1) : "0.0");
+        const conversionRatePercentage = allLeads.length > 0
+            ? ((Number(kpi.wonLeadsCount) / allLeads.length) * 100).toFixed(1)
+            : "0.0";
 
         // Active Projects
         const activeProjects = allProjects.filter(p => !["Completed", "Archived"].includes(p.status));
@@ -560,11 +610,13 @@ export async function getUnifiedDashboardData() {
             ? ((doneTasksCount / totalTasksCount) * 100).toFixed(1)
             : "0.0";
 
-        // 2. Visualizations Data
+        // 2. Visualizations Data - Comprehensive 6-stage Task Distribution
         const taskStatusCounts = {
-            "In Progress": 0,
-            Blocked: 0,
             Todo: 0,
+            "In Progress": 0,
+            "In Review": 0,
+            "Changes Requested": 0,
+            Blocked: 0,
             Done: 0,
         };
         allTasks.forEach(t => {
@@ -575,6 +627,8 @@ export async function getUnifiedDashboardData() {
 
         const taskDonutData = [
             { name: "In Progress", value: taskStatusCounts["In Progress"], fill: "#f59e0b" },
+            { name: "In Review", value: taskStatusCounts["In Review"], fill: "#3b82f6" },
+            { name: "Changes Requested", value: taskStatusCounts["Changes Requested"], fill: "#ec4899" },
             { name: "Blocked", value: taskStatusCounts.Blocked, fill: "#f43f5e" },
             { name: "Todo", value: taskStatusCounts.Todo, fill: "#71717a" },
             { name: "Done", value: taskStatusCounts.Done, fill: "#00D639" },
@@ -615,7 +669,7 @@ export async function getUnifiedDashboardData() {
                 if (l.status === "Closed Won") {
                     item.won++;
                 }
-                item.value += l.estimatedValue;
+                item.value += getLeadEffectiveValue(l);
             }
         });
 
@@ -633,7 +687,7 @@ export async function getUnifiedDashboardData() {
             createdAt: string;
         }> = [];
 
-        // Blocked Tasks (High / Red)
+        // Blocked & Changes Requested Tasks (High / Red)
         allTasks.forEach(t => {
             if (t.status === "Blocked" || t.isBlockedByClient) {
                 actionQueue.push({
@@ -644,6 +698,17 @@ export async function getUnifiedDashboardData() {
                     urgency: "high",
                     link: `/dashboard/pm/${t.projectId}`,
                     badgeText: "Action Required",
+                    createdAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
+                });
+            } else if (t.status === "Changes Requested") {
+                actionQueue.push({
+                    id: `task-rev-${t.id}`,
+                    type: "blocked_task",
+                    title: `Revisions Requested: "${t.title}"`,
+                    subtitle: `Project: ${t.project?.title || "Unknown"} — Changes requested on deliverable`,
+                    urgency: "high",
+                    link: `/dashboard/pm/${t.projectId}`,
+                    badgeText: "Revisions Needed",
                     createdAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
                 });
             }
@@ -658,7 +723,7 @@ export async function getUnifiedDashboardData() {
                     title: `Proposal Awaiting Client Acceptance`,
                     subtitle: `Lead: ${p.lead?.businessName || "Client"} — Sent on ${new Date(p.updatedAt).toLocaleDateString()}`,
                     urgency: "medium",
-                    link: `/proposal/${p.id}`,
+                    link: `/dashboard/proposals/builder/${p.id}`,
                     badgeText: "Proposal Sent",
                     createdAt: new Date(p.updatedAt).toISOString(),
                 });
@@ -696,10 +761,11 @@ export async function getUnifiedDashboardData() {
 
         return {
             kpis: {
-                pipelineValue: Number(kpi.totalPipelineValue).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
+                pipelineValue: totalPipelineValue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
                 weightedPipelineValue: weightedPipelineValue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
-                rawPipelineValue: Number(kpi.totalPipelineValue),
+                rawPipelineValue: totalPipelineValue,
                 winRatePercentage,
+                conversionRatePercentage,
                 wonLeadsCount: Number(kpi.wonLeadsCount),
                 lostLeadsCount: Number(kpi.lostLeadsCount),
                 totalClosedCount: totalClosed,
@@ -739,18 +805,23 @@ export async function getAnalyticsData() {
     }
 
     try {
-        const allLeads = await db.select().from(leads);
+        const allLeads = await db.query.leads.findMany({
+            where: eq(leads.isArchived, false),
+            with: {
+                proposals: true,
+            }
+        });
 
         // 2. KPI Calculations
         const totalLeads = allLeads.length;
         const wonLeads = allLeads.filter(l => l.status === "Closed Won").length;
         const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : "0";
 
-        // Estimate Revenue (sum of estimated values)
+        // Estimate Revenue (sum of effective deal values in pipeline)
         const pipelineValue = allLeads
-            .filter(l => !(["Closed Lost"] as string[]).includes(l.status || ""))
+            .filter(l => ["New Lead", "Discovery & Qualifying", "Proposal Sent", "In Negotiation"].includes(l.status))
             .reduce((acc, lead) => {
-                return acc + lead.estimatedValue;
+                return acc + getLeadEffectiveValue(lead);
             }, 0);
 
         // 3. Chart Data Preparation
@@ -967,8 +1038,17 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
             }
 
             // 5. Update Lead Status
+            // Reconcile final won contract value from latest proposal if available
+            const latestProposal = await tx.query.proposals.findFirst({
+                where: eq(proposals.leadId, leadId),
+                orderBy: (p, { desc }) => [desc(p.updatedAt)]
+            });
+            const finalWonValue = (latestProposal && latestProposal.total !== null && latestProposal.total !== undefined && latestProposal.total > 0)
+                ? latestProposal.total
+                : lead.estimatedValue;
+
             await tx.update(leads)
-                .set({ status: "Closed Won", updatedAt: new Date() })
+                .set({ status: "Closed Won", estimatedValue: finalWonValue, updatedAt: new Date() })
                 .where(eq(leads.id, leadId));
         });
 
@@ -984,6 +1064,7 @@ export async function markLeadAsWon(leadId: string, isSystemAction: boolean = fa
         await logAction("UPDATE", "Lead", `Lead ${lead.id} marked as Won and Project provisioned.`);
 
         revalidatePath("/dashboard/leads");
+        revalidatePath("/dashboard/analytics");
 
         return { success: true, message: "Success! Project Provisioned & Client Notified." };
     } catch (error) {

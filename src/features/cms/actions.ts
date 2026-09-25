@@ -43,8 +43,8 @@ async function requireEditor() {
 // --- Global Settings ---
 
 export async function getSiteSettings() {
-    const settings = await db.query.siteSettings.findFirst();
-    return settings;
+    const settings = await db.select().from(siteSettings).limit(1);
+    return settings[0] || null;
 }
 
 export type ActionState = {

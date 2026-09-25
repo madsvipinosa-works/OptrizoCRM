@@ -9,6 +9,8 @@ interface FeedbackItem {
     id: string;
     status: string;
     commentText: string | null;
+    attachmentUrl?: string | null;
+    attachmentName?: string | null;
     createdAt: Date | string;
 }
 
@@ -35,6 +37,11 @@ export function HistoricalFeedbackCollapsible({ feedback }: { feedback: Feedback
                         <MessageCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                         <span>{latest.commentText}</span>
                     </p>
+                )}
+                {latest.attachmentUrl && (
+                    <a href={latest.attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-2 bg-primary/10 px-2 py-1 rounded">
+                        <span className="font-semibold">{latest.attachmentName || "View Attachment"}</span>
+                    </a>
                 )}
             </div>
 
@@ -71,6 +78,11 @@ export function HistoricalFeedbackCollapsible({ feedback }: { feedback: Feedback
                                             <p className="text-muted-foreground flex gap-1 items-start mt-0.5 text-[11px]">
                                                 <span>{fb.commentText}</span>
                                             </p>
+                                        )}
+                                        {fb.attachmentUrl && (
+                                            <a href={fb.attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-1">
+                                                <span className="font-semibold">{fb.attachmentName || "View Attachment"}</span>
+                                            </a>
                                         )}
                                     </div>
                                 ))}

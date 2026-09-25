@@ -14,6 +14,7 @@ interface AnalyticsDashboardProps {
             pipelineValue: string;
             weightedPipelineValue?: string;
             winRatePercentage: string;
+            conversionRatePercentage?: string;
             wonLeadsCount: number;
             lostLeadsCount: number;
             totalClosedCount: number;

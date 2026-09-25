@@ -518,7 +518,12 @@ export type ProjectDocumentItem = {
     id: string;
     title: string;
     url: string;
-    type: "pdf" | "doc" | "figma" | "sheet" | "link";
+    type: "pdf" | "doc" | "figma" | "sheet" | "link" | "zip" | "image";
+    sizeBytes?: number;
+    uploadedById?: string;
+    uploadedByName?: string;
+    uploadedByRole?: "client" | "agency";
+    createdAt?: string;
 };
 
 export const agencyProjects = pgTable("agency_project", {
@@ -530,7 +535,7 @@ export const agencyProjects = pgTable("agency_project", {
     description: text("description"),
     sourceBrief: text("source_brief"), // NEW: The raw text that generated this project
     leadId: text("leadId")
-        .references(() => leads.id, { onDelete: "restrict" }), // Link back to originating lead
+        .references(() => leads.id, { onDelete: "set null" }), // Link back to originating lead
     status: agencyProjectStatusEnum("status").default("Kickoff").notNull(),
     startDate: timestamp("start_date", { mode: "date" }),
     targetDate: timestamp("target_date", { mode: "date" }),
@@ -540,7 +545,10 @@ export const agencyProjects = pgTable("agency_project", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
-});
+}, (t) => [
+    index("idx_project_lead").on(t.leadId),
+    index("idx_project_status").on(t.status)
+]);
 
 export const projectStakeholders = pgTable("project_stakeholder", {
     projectId: text("projectId")
@@ -566,7 +574,9 @@ export const milestones = pgTable("milestone", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
-});
+}, (t) => [
+    index("idx_milestone_project").on(t.projectId)
+]);
 
 export const tasks = pgTable("task", {
     id: text("id")
@@ -654,6 +664,8 @@ export const clientFeedback = pgTable("client_feedback", {
         .references(() => users.id, { onDelete: "set null" }),
     status: feedbackStatusEnum("status").notNull(),
     commentText: text("comment_text"),
+    attachmentUrl: text("attachment_url"),
+    attachmentName: text("attachment_name"),
     parentFeedbackId: text("parentFeedbackId"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({

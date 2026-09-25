@@ -18,6 +18,10 @@ import {
     Loader2,
     Eye,
     ChevronDown,
+    Share2,
+    Copy,
+    Check,
+    Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,12 +29,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateProposal, ProposalData } from "@/features/proposals/actions";
+import { updateProposal, sendProposalEmail, ProposalData } from "@/features/proposals/actions";
 import {
     ProposalDocumentSheet,
     ProposalDocumentData,
     PricingLineItem,
 } from "@/features/proposals/components/ProposalDocumentSheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -137,6 +149,15 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
+    const [currentStatus, setCurrentStatus] = useState<"Draft" | "Sent" | "Approved" | "Rejected">(proposal.status);
+    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(proposal.createdAt ? new Date(proposal.createdAt) : null);
+    const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [copiedLink, setCopiedLink] = useState(false);
+
+    const clientUrl = typeof window !== "undefined"
+        ? `${window.location.origin}/proposal/${proposal.id}`
+        : `/proposal/${proposal.id}`;
 
     // Initial state parser
     const initialDeliverables: string[] = useMemo(() => {
@@ -293,11 +314,16 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
         try {
             const res = await updateProposal(proposal.id, payload, statusOverride);
             if (res.success) {
-                toast.success(
-                    isSentAction
-                        ? "Proposal published and marked as Sent!"
-                        : "Proposal draft saved successfully."
-                );
+                setLastSavedAt(new Date());
+                if (statusOverride) {
+                    setCurrentStatus(statusOverride);
+                }
+                if (isSentAction) {
+                    toast.success("Proposal published and marked as Sent!");
+                    setIsPublishModalOpen(true);
+                } else {
+                    toast.success("Proposal draft saved successfully.");
+                }
                 router.refresh();
             } else {
                 toast.error(res.message || "Failed to save proposal");
@@ -309,6 +335,30 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
             setIsSaving(false);
             setIsPublishing(false);
         }
+    };
+
+    const handleSendEmail = async () => {
+        setIsSendingEmail(true);
+        try {
+            const res = await sendProposalEmail(proposal.id);
+            if (res.success) {
+                toast.success(`Proposal notification email dispatched to ${proposal.lead?.client?.email || "client"}!`);
+            } else {
+                toast.error(res.message || "Failed to dispatch email");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to send proposal email");
+        } finally {
+            setIsSendingEmail(false);
+        }
+    };
+
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(clientUrl);
+        setCopiedLink(true);
+        toast.success("Direct proposal link copied to clipboard!");
+        setTimeout(() => setCopiedLink(false), 2500);
     };
 
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -358,7 +408,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
         total: grandTotal,
         terms,
         validUntil,
-        status: proposal.status,
+        status: currentStatus,
         acceptedByName: proposal.acceptedByName,
         acceptedByTitle: proposal.acceptedByTitle,
         acceptedAt: proposal.acceptedAt,
@@ -385,20 +435,35 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                             <span className="font-serif font-bold text-base tracking-tight">Proposal Studio</span>
                             <Badge
                                 variant={
-                                    proposal.status === "Approved"
+                                    currentStatus === "Approved"
                                         ? "default"
-                                        : proposal.status === "Sent"
+                                        : currentStatus === "Sent"
                                         ? "secondary"
                                         : "outline"
                                 }
-                                className="text-xs capitalize"
+                                className={`text-xs capitalize font-medium ${
+                                    currentStatus === "Sent" 
+                                        ? "border-sky-500/40 text-sky-400 bg-sky-500/10" 
+                                        : currentStatus === "Approved"
+                                        ? "bg-primary text-black font-semibold"
+                                        : ""
+                                }`}
                             >
-                                {proposal.status}
+                                {currentStatus === "Sent" ? "Sent to Client" : currentStatus === "Approved" ? "Executed Contract" : currentStatus}
                             </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground hidden sm:block">
-                            Editing: <span className="text-foreground font-medium">{businessName}</span> ({proposalCode})
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 hidden sm:flex">
+                            <span className="text-foreground font-medium">{businessName}</span>
+                            <span>•</span>
+                            <span className="font-mono text-[11px]">{proposalCode}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1 font-mono text-[11px]">
+                                <span className={`h-1.5 w-1.5 rounded-full ${isSaving || isPublishing ? "bg-amber-400 animate-pulse" : "bg-emerald-500"}`} />
+                                <span className={isSaving || isPublishing ? "text-amber-400" : "text-muted-foreground"}>
+                                    {isSaving ? "Saving changes..." : isPublishing ? "Publishing..." : lastSavedAt ? `Saved at ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Draft"}
+                                </span>
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -439,6 +504,20 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                         <span className="hidden sm:inline">Export SOW PDF</span>
                     </Button>
 
+                    {/* Share Client Link Trigger */}
+                    {currentStatus !== "Draft" && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsPublishModalOpen(true)}
+                            className="items-center gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                            title="Share proposal with client"
+                        >
+                            <Share2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Share Link</span>
+                        </Button>
+                    )}
+
                     {/* Save Draft */}
                     <Button
                         variant="secondary"
@@ -456,10 +535,10 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                         size="sm"
                         disabled={isSaving || isPublishing}
                         onClick={() => handleSave("Sent")}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium items-center gap-1.5"
+                        className="bg-primary text-black font-semibold hover:bg-primary/90 items-center gap-1.5 shadow-sm"
                     >
                         {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                        Publish & Send
+                        {currentStatus === "Sent" ? "Update & Re-send" : "Publish & Send"}
                     </Button>
                 </div>
             </header>
@@ -732,6 +811,116 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                     <ProposalDocumentSheet data={previewData} />
                 </div>
             </main>
+
+            {/* Publish & Share Success Modal */}
+            <Dialog open={isPublishModalOpen} onOpenChange={setIsPublishModalOpen}>
+                <DialogContent className="sm:max-w-lg bg-card border-border text-foreground">
+                    <DialogHeader className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                                <CheckCircle2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-lg font-bold">Proposal Published &amp; Sent!</DialogTitle>
+                                <DialogDescription className="text-xs text-muted-foreground">
+                                    This Statement of Work is now active and ready for client execution.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        {/* How client accesses it */}
+                        <div className="p-3.5 rounded-xl border border-border bg-muted/30 space-y-2 text-xs">
+                            <div className="font-semibold text-foreground flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-primary" />
+                                How Your Client Can Access This Proposal:
+                            </div>
+                            <ul className="space-y-1.5 text-muted-foreground list-disc list-inside">
+                                <li>
+                                    <strong className="text-foreground">In Client Portal:</strong> The client can log in to their portal (<span className="text-primary font-mono">/portal</span> &amp; <span className="text-primary font-mono">/portal/services</span>) where this proposal is prominently featured for review &amp; digital signature.
+                                </li>
+                                <li>
+                                    <strong className="text-foreground">Direct Secure URL:</strong> Send them the direct link below via email, Slack, or WhatsApp.
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Direct Link Box */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Direct Shareable Link</Label>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    readOnly
+                                    value={clientUrl}
+                                    className="font-mono text-xs bg-background border-border text-foreground"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCopyLink}
+                                    className="shrink-0 gap-1.5"
+                                >
+                                    {copiedLink ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                                    <span>{copiedLink ? "Copied" : "Copy"}</span>
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Email Dispatch Option */}
+                        {proposal.lead?.client?.email && (
+                            <div className="p-3 rounded-xl border border-border bg-card flex items-center justify-between gap-3">
+                                <div className="space-y-0.5">
+                                    <span className="text-xs font-semibold text-foreground block">Email Client Notification</span>
+                                    <span className="text-[11px] text-muted-foreground block font-mono">
+                                        Send invitation to {proposal.lead.client.email}
+                                    </span>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    disabled={isSendingEmail}
+                                    onClick={handleSendEmail}
+                                    className="shrink-0 gap-1.5 text-xs"
+                                >
+                                    {isSendingEmail ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5 text-primary" />}
+                                    <span>Send Email</span>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2 border-t border-border pt-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="w-full sm:w-auto"
+                        >
+                            <a href={`/proposal/${proposal.id}`} target="_blank" rel="noopener noreferrer">
+                                <Eye className="h-3.5 w-3.5 mr-1.5" /> View as Client
+                            </a>
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => router.push("/dashboard/proposals")}
+                            className="w-full sm:w-auto"
+                        >
+                            Back to Proposals
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={() => setIsPublishModalOpen(false)}
+                            className="bg-primary text-black font-semibold hover:bg-primary/90 w-full sm:w-auto"
+                        >
+                            Continue Editing
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

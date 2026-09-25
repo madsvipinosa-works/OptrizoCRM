@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Layers, ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 interface ClientSidebarProps {
     className?: string;
@@ -32,10 +33,13 @@ export function ClientSidebar({ className }: ClientSidebarProps) {
         <aside className={cn("w-full md:w-64 shrink-0 space-y-4", className)}>
             <div className="glass-card rounded-2xl border border-border p-4 shadow-sm">
                 <div className="mb-4 px-2 flex items-center justify-between">
-                    <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                        Client Workspace
-                    </h2>
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_6px_#00D639]" />
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                            Client Workspace
+                        </h2>
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_6px_#00D639]" />
+                    </div>
+                    <NotificationBell />
                 </div>
                 <nav className="space-y-1.5">
                     {navItems.map((item) => {

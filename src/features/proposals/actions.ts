@@ -41,9 +41,18 @@ export async function createProposal(leadId: string, data: ProposalData) {
             status: "Draft",
         }).returning();
 
+        // Auto-sync contract value to Lead estimatedValue if total is provided
+        if (data.total !== undefined && Number(data.total) > 0) {
+            await db.update(leads)
+                .set({ estimatedValue: Math.round(Number(data.total)), updatedAt: new Date() })
+                .where(eq(leads.id, leadId));
+        }
+
         await logAction("CREATE", "Proposal", `Draft proposal generated for Lead ${leadId} (${proposalCode})`);
 
         revalidatePath(`/dashboard/leads/${leadId}`);
+        revalidatePath(`/dashboard/leads`);
+        revalidatePath(`/dashboard/analytics`);
         revalidatePath(`/dashboard/proposals/builder/${newProposal.id}`);
         return { success: true, proposal: newProposal };
     } catch (error) {
@@ -75,12 +84,38 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
             .where(eq(proposals.id, id))
             .returning();
 
+        // Auto-sync contract value to Lead estimatedValue whenever total is modified
+        if (data.total !== undefined && Number(data.total) >= 0) {
+            await db.update(leads)
+                .set({ estimatedValue: Math.round(Number(data.total)), updatedAt: new Date() })
+                .where(eq(leads.id, updated.leadId));
+        }
+
+        revalidatePath(`/dashboard/leads`);
         revalidatePath(`/dashboard/leads/${updated.leadId}`);
+        revalidatePath(`/dashboard/analytics`);
         revalidatePath(`/dashboard/proposals/builder/${id}`);
         revalidatePath(`/proposal/${id}`);
         
         if (status === "Sent") {
-             await db.update(leads).set({ status: "Proposal Sent" }).where(eq(leads.id, updated.leadId));
+             const { transitionLeadStage } = await import("@/features/crm/actions");
+             await transitionLeadStage({ leadId: updated.leadId, newStatus: "Proposal Sent" });
+
+             const { notifyLeadClient } = await import("@/features/notifications/actions");
+             await notifyLeadClient(
+                 updated.leadId,
+                 `Your Project Proposal (${updated.proposalCode || 'Agreement'}) has been published and is ready for your digital signature.`,
+                 "proposal",
+                 `/proposal/${id}`
+             );
+        } else if (oldProposal.status === "Sent" && (data.total !== undefined || data.scope || data.deliverables)) {
+             const { notifyLeadClient } = await import("@/features/notifications/actions");
+             await notifyLeadClient(
+                 updated.leadId,
+                 `Proposal Revisions: Updated terms and scope have been published for your project proposal.`,
+                 "proposal",
+                 `/proposal/${id}`
+             );
         }
         
         // Custom Audit Log Logic for Scope & Pricing
@@ -150,6 +185,13 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
             })
             .where(eq(proposals.id, id));
 
+        // Ensure lead's estimatedValue matches final accepted proposal total
+        if (proposal.total !== null && proposal.total !== undefined && proposal.total > 0) {
+            await db.update(leads)
+                .set({ estimatedValue: proposal.total, updatedAt: new Date() })
+                .where(eq(leads.id, proposal.leadId));
+        }
+
         // Trigger Won Automation internally (provisions Project, Stakeholder, Milestones, Client Welcome Email)
         const wonResult = await markLeadAsWon(proposal.leadId, true);
         if (!wonResult.success) {
@@ -166,6 +208,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         revalidatePath(`/proposal/${id}`);
         revalidatePath("/dashboard/leads");
         revalidatePath(`/dashboard/leads/${proposal.leadId}`);
+        revalidatePath("/dashboard/analytics");
         revalidatePath("/portal/projects");
         revalidatePath("/dashboard/pm");
         

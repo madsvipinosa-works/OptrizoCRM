@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { auth, hasRole } from "@/auth";
-import { projectStakeholders } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { projectStakeholders, leads, proposals, notifications } from "@/db/schema";
+import { eq, or, desc } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { ClientPortalDashboardView } from "@/features/client-portal/components/ClientPortalDashboardView";
 
@@ -72,6 +72,7 @@ export default async function ClientPortalPage() {
         description: project.description,
         status: project.status,
         stagingUrls: project.stagingUrls,
+        documents: project.documents,
         createdAt: project.createdAt,
         milestones: project.milestones.map(m => ({
             id: m.id,
@@ -97,6 +98,37 @@ export default async function ClientPortalPage() {
         lead: project.leadId ? { id: project.leadId } : null
     }));
 
+    // Fetch pending proposals for this client
+    let pendingProposals: any[] = [];
+    const clientLeadsWithProposals = await db.query.leads.findMany({
+        where: eq(leads.clientId, session.user.id),
+        with: {
+            proposals: {
+                orderBy: (proposals, { desc }) => [desc(proposals.createdAt)],
+            },
+        },
+    });
+
+    pendingProposals = clientLeadsWithProposals
+        .flatMap((l) => l.proposals)
+        .filter((p) => p.status === "Sent" || (isAdminOrStaff && p.status === "Draft"));
+
+    // If Admin/Staff testing and no direct proposals or projects, fallback for preview if empty
+    if (pendingProposals.length === 0 && rawProjects.length === 0 && isAdminOrStaff) {
+        pendingProposals = await db.query.proposals.findMany({
+            where: or(eq(proposals.status, "Sent"), eq(proposals.status, "Draft")),
+            limit: 3,
+            orderBy: (proposals, { desc }) => [desc(proposals.createdAt)],
+        });
+    }
+
+    // Fetch recent notifications for this client
+    const recentNotifications = await db.query.notifications.findMany({
+        where: eq(notifications.userId, session.user.id),
+        orderBy: [desc(notifications.createdAt)],
+        limit: 10,
+    });
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
@@ -108,7 +140,11 @@ export default async function ClientPortalPage() {
                 </p>
             </div>
 
-            <ClientPortalDashboardView projects={projects} />
+            <ClientPortalDashboardView 
+                projects={projects} 
+                pendingProposals={pendingProposals} 
+                recentNotifications={recentNotifications} 
+            />
         </div>
     );
 }

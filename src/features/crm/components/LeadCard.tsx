@@ -356,6 +356,7 @@ export function LeadCard({
 
                     <Link
                         href={`/dashboard/proposals/builder/${lead.id}`}
+                        prefetch={false}
                         className="p-1 rounded bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
                         title="Open Proposal Studio"
                     >

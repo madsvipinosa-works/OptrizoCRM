@@ -13,6 +13,7 @@ import { UserNav } from '@/components/auth/UserNav';
 
 import { ShineBorder } from '@/components/ui/shine-border';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 
 export type HeaderProps = {
     session: {
@@ -143,16 +144,19 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         <ThemeToggle variant="icon" />
 
                         {session ? (
-                            <UserNav
-                                user={session.user}
-                                isAdmin={isAdmin}
-                                onSignOut={async () => {
-                                    startTransition(async () => {
-                                        await onSignOut();
-                                    });
-                                }}
-                                isPending={isPending}
-                            />
+                            <div className="flex items-center gap-2">
+                                <NotificationBell />
+                                <UserNav
+                                    user={session.user}
+                                    isAdmin={isAdmin}
+                                    onSignOut={async () => {
+                                        startTransition(async () => {
+                                            await onSignOut();
+                                        });
+                                    }}
+                                    isPending={isPending}
+                                />
+                            </div>
                         ) : (
                             <>
                                 <LoginModal>
@@ -172,6 +176,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
 
                     {/* Mobile Actions */}
                     <div className="flex items-center gap-2 md:hidden">
+                        {session && <NotificationBell />}
                         <ThemeToggle variant="icon" />
                         <Button size="icon" variant="outline" onClick={() => setOpen(!open)} className="rounded-xl bg-transparent border-border/50">
                             <MenuToggleIcon open={open} className="size-5" />

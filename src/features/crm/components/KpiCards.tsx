@@ -9,6 +9,7 @@ interface KpiCardsProps {
         pipelineValue: string;
         weightedPipelineValue?: string;
         winRatePercentage: string;
+        conversionRatePercentage?: string;
         wonLeadsCount: number;
         lostLeadsCount: number;
         totalClosedCount: number;
@@ -58,12 +59,12 @@ export function KpiCards({ data }: KpiCardsProps) {
                 </CardContent>
             </Card>
 
-            {/* Card 2: Win/Loss Rate */}
+            {/* Card 2: Win/Loss Rate & Pipeline Conversion */}
             <Card className="glass-card border-border relative overflow-hidden group hover:border-emerald-500/40 transition-all duration-300 shadow-xs">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-all" />
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Win / Conversion Rate
+                        Closed Deals Win Rate
                     </CardTitle>
                     <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                         <Trophy className="h-4 w-4" />
@@ -73,9 +74,16 @@ export function KpiCards({ data }: KpiCardsProps) {
                     <div className="text-3xl font-bold text-foreground tracking-tight font-mono">
                         {data.winRatePercentage}%
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        <span className="font-medium text-emerald-600 dark:text-emerald-400">{data.wonLeadsCount} won</span> / {data.totalClosedCount} closed decisions
-                    </p>
+                    <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
+                        <p>
+                            <span className="font-medium text-emerald-600 dark:text-emerald-400">{data.wonLeadsCount} won</span> / {data.totalClosedCount} closed decision{data.totalClosedCount === 1 ? "" : "s"}
+                        </p>
+                        {data.conversionRatePercentage && (
+                            <p className="text-[11px] text-muted-foreground/80 font-mono">
+                                ({data.conversionRatePercentage}% lead-to-win conversion)
+                            </p>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 

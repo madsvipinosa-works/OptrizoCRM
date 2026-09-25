@@ -11,9 +11,11 @@ interface FileUploadProps {
     onChange: (url: string) => void;
     label?: string;
     accept?: string;
+    showSuccessToast?: boolean;
+    projectId?: string;
 }
 
-export function FileUpload({ value, onChange, label = "Upload File", accept = ".pdf,.doc,.docx" }: FileUploadProps) {
+export function FileUpload({ value, onChange, label = "Upload File", accept = ".pdf,.doc,.docx", showSuccessToast = true, projectId }: FileUploadProps) {
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,12 +25,17 @@ export function FileUpload({ value, onChange, label = "Upload File", accept = ".
         setIsUploading(true);
         const formData = new FormData();
         formData.append("file", file);
+        if (projectId) {
+            formData.append("projectId", projectId);
+        }
 
         const result = await uploadImage(formData);
 
         if (result.success && result.url) {
             onChange(result.url);
-            toast.success("File uploaded successfully!");
+            if (showSuccessToast) {
+                toast.success("File uploaded successfully!");
+            }
         } else {
             toast.error(result.message || "Upload failed");
         }

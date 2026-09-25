@@ -13,16 +13,37 @@ export async function GET(request: NextRequest) {
 
     const blobUrl = request.nextUrl.searchParams.get("blobUrl");
     const local = request.nextUrl.searchParams.get("local");
+    const projectId = request.nextUrl.searchParams.get("projectId");
 
     if (!blobUrl && !local) {
         return NextResponse.json({ error: "Missing file parameters" }, { status: 400 });
     }
 
+    if (projectId) {
+        const { hasRole } = await import("@/auth");
+        const isAgency = hasRole(session, ["superadmin", "manager", "content_editor", "sales"]);
+        
+        if (!isAgency) {
+            const { db } = await import("@/db");
+            const { projectStakeholders } = await import("@/db/schema");
+            const { and, eq } = await import("drizzle-orm");
+            
+            const stakeholder = await db.query.projectStakeholders.findFirst({
+                where: and(
+                    eq(projectStakeholders.projectId, projectId),
+                    eq(projectStakeholders.userId, session.user.id)
+                )
+            });
+            if (!stakeholder) {
+                return NextResponse.json({ error: "Forbidden: Not a project stakeholder" }, { status: 403 });
+            }
+        }
+    }
+
     // Serve local private uploads (development fallback)
-    if (local) {
-        // Basic filename hardening to reduce traversal risk.
-        const safeName = local.replace(/[^a-zA-Z0-9._-]/g, "");
-        const filePath = path.join(process.cwd(), ".private-uploads", safeName);
+    if (local || (blobUrl && blobUrl.startsWith("/uploads/"))) {
+        const safeName = (local || blobUrl || "").replace(/^.*[\\/]/, '').replace(/[^a-zA-Z0-9._-]/g, "");
+        const filePath = path.join(process.cwd(), "public", "uploads", safeName);
 
         try {
             const buffer = await fs.readFile(filePath);
