@@ -45,7 +45,12 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
 
                     <div className="space-y-2">
                         <Label htmlFor="businessName">Business / Company Name</Label>
-                        <Input id="businessName" name="businessName" placeholder="Acme Corp" className="bg-white/5 border-white/10" />
+                        <Input 
+                            id="businessName" 
+                            name="businessName" 
+                            placeholder="Acme Corp" 
+                            className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                        />
                         {state?.errors?.businessName && (
                             <p className="text-sm text-red-500">{state.errors.businessName[0]}</p>
                         )}
@@ -54,14 +59,24 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="industry">Industry</Label>
-                            <Input id="industry" name="industry" placeholder="e.g. Real Estate, E-commerce" className="bg-white/5 border-white/10" />
+                            <Input 
+                                id="industry" 
+                                name="industry" 
+                                placeholder="e.g. Real Estate, E-commerce" 
+                                className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                            />
                             {state?.errors?.industry && (
                                 <p className="text-sm text-red-500">{state.errors.industry[0]}</p>
                             )}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="targetAudience">Target Audience</Label>
-                            <Input id="targetAudience" name="targetAudience" placeholder="Who are your customers?" className="bg-white/5 border-white/10" />
+                            <Input 
+                                id="targetAudience" 
+                                name="targetAudience" 
+                                placeholder="Who are your customers?" 
+                                className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                            />
                             {state?.errors?.targetAudience && (
                                 <p className="text-sm text-red-500">{state.errors.targetAudience[0]}</p>
                             )}
@@ -75,11 +90,11 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                 id="serviceId"
                                 name="serviceId"
                                 defaultValue={preSelectedServiceId || ""}
-                                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                             >
-                                <option value="" className="bg-black">Select a service...</option>
+                                <option value="" className="bg-card text-foreground">Select a service...</option>
                                 {availableServices.map((service) => (
-                                    <option key={service.id} value={service.id} className="bg-black">
+                                    <option key={service.id} value={service.id} className="bg-card text-foreground">
                                         {service.title}
                                     </option>
                                 ))}
@@ -90,11 +105,11 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             <select
                                 id="budget"
                                 name="budget"
-                                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                             >
-                                <option value="" className="bg-black">Select a budget...</option>
+                                <option value="" className="bg-card text-foreground">Select a budget...</option>
                                 {BUDGET_OPTIONS.map((option) => (
-                                    <option key={option} value={option} className="bg-black">
+                                    <option key={option} value={option} className="bg-card text-foreground">
                                         {option}
                                     </option>
                                 ))}
@@ -110,13 +125,13 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                         <select
                             id="timelineExpectation"
                             name="timelineExpectation"
-                            className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                         >
-                            <option value="" className="bg-black">Select a timeline...</option>
-                            <option value="ASAP" className="bg-black">ASAP</option>
-                            <option value="1-2 months" className="bg-black">1-2 months</option>
-                            <option value="3-6 months" className="bg-black">3-6 months</option>
-                            <option value="Flexible" className="bg-black">Flexible</option>
+                            <option value="" className="bg-card text-foreground">Select a timeline...</option>
+                            <option value="ASAP" className="bg-card text-foreground">ASAP</option>
+                            <option value="1-2 months" className="bg-card text-foreground">1-2 months</option>
+                            <option value="3-6 months" className="bg-card text-foreground">3-6 months</option>
+                            <option value="Flexible" className="bg-card text-foreground">Flexible</option>
                         </select>
                         {state?.errors?.timelineExpectation && (
                             <p className="text-sm text-red-500">{state.errors.timelineExpectation[0]}</p>
@@ -125,7 +140,12 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
 
                     <div className="space-y-2">
                         <Label htmlFor="goals">Project Goals & Description</Label>
-                        <Textarea id="goals" name="goals" placeholder="What are you trying to achieve? What are the key deliverables?" className="min-h-[150px] bg-white/5 border-white/10" />
+                        <Textarea 
+                            id="goals" 
+                            name="goals" 
+                            placeholder="What are you trying to achieve? What are the key deliverables?" 
+                            className="min-h-[150px] bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                        />
                         {state?.errors?.goals && (
                             <p className="text-sm text-red-500">{state.errors.goals[0]}</p>
                         )}

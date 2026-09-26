@@ -35,14 +35,26 @@ export function ContactForm() {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="firstName">First name</Label>
-                            <Input id="firstName" name="firstName" placeholder="John" className="bg-white/5 border-white/10" aria-describedby="firstName-error" />
+                            <Input 
+                                id="firstName" 
+                                name="firstName" 
+                                placeholder="John" 
+                                className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                                aria-describedby="firstName-error" 
+                            />
                             {state?.errors?.firstName && (
                                 <p id="firstName-error" className="text-sm text-red-500">{state.errors.firstName[0]}</p>
                             )}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="lastName">Last name</Label>
-                            <Input id="lastName" name="lastName" placeholder="Doe" className="bg-white/5 border-white/10" aria-describedby="lastName-error" />
+                            <Input 
+                                id="lastName" 
+                                name="lastName" 
+                                placeholder="Doe" 
+                                className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                                aria-describedby="lastName-error" 
+                            />
                             {state?.errors?.lastName && (
                                 <p id="lastName-error" className="text-sm text-red-500">{state.errors.lastName[0]}</p>
                             )}
@@ -51,7 +63,14 @@ export function ContactForm() {
 
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" name="email" type="email" placeholder="john@example.com" className="bg-white/5 border-white/10" aria-describedby="email-error" />
+                        <Input 
+                            id="email" 
+                            name="email" 
+                            type="email" 
+                            placeholder="john@example.com" 
+                            className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                            aria-describedby="email-error" 
+                        />
                         {state?.errors?.email && (
                             <p id="email-error" className="text-sm text-red-500">{state.errors.email[0]}</p>
                         )}
@@ -59,7 +78,13 @@ export function ContactForm() {
 
                     <div className="space-y-2">
                         <Label htmlFor="subject">Subject</Label>
-                        <Input id="subject" name="subject" placeholder="Project Inquiry" className="bg-white/5 border-white/10" aria-describedby="subject-error" />
+                        <Input 
+                            id="subject" 
+                            name="subject" 
+                            placeholder="Project Inquiry" 
+                            className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                            aria-describedby="subject-error" 
+                        />
                         {state?.errors?.subject && (
                             <p id="subject-error" className="text-sm text-red-500">{state.errors.subject[0]}</p>
                         )}
@@ -67,7 +92,13 @@ export function ContactForm() {
 
                     <div className="space-y-2">
                         <Label htmlFor="message">Message</Label>
-                        <Textarea id="message" name="message" placeholder="Tell us about your project..." className="min-h-[150px] bg-white/5 border-white/10" aria-describedby="message-error" />
+                        <Textarea 
+                            id="message" 
+                            name="message" 
+                            placeholder="Tell us about your project..." 
+                            className="min-h-[150px] bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
+                            aria-describedby="message-error" 
+                        />
                         {state?.errors?.message && (
                             <p id="message-error" className="text-sm text-red-500">{state.errors.message[0]}</p>
                         )}

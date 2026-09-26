@@ -29,9 +29,9 @@ export default async function RequestProposalPage({ searchParams }: PageProps) {
         <div className="container mx-auto px-4 py-12 max-w-3xl">
             <h1 className="text-4xl font-bold mb-4 tracking-tight">Request a <span className="text-primary text-glow">Proposal</span></h1>
             {selectedService && (
-                <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-between">
+                <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30 text-emerald-700 dark:text-primary flex items-center justify-between">
                     <div>
-                        <span className="text-xs uppercase tracking-widest text-primary/80 font-bold block mb-1">Selected Service</span>
+                        <span className="text-xs uppercase tracking-widest text-emerald-800 dark:text-primary/80 font-bold block mb-1">Selected Service</span>
                         <h3 className="text-lg font-semibold">{selectedService.title}</h3>
                     </div>
                 </div>

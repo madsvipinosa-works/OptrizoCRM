@@ -43,4 +43,10 @@ export function DemoOne() {
   return <Featured_05 />;
 }
 
+import Team from "@/components/ui/team-02";
+
+export function TeamDemo() {
+  return <Team />;
+}
+
 export default PlaceCardDemo;
