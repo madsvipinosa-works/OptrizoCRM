@@ -26,6 +26,7 @@ interface AcceptProposalDialogProps {
     proposalCode?: string | null;
     totalAmount?: number | null;
     defaultName?: string | null;
+    contractSettings?: Record<string, any> | null;
 }
 
 export function AcceptProposalDialog({
@@ -35,6 +36,7 @@ export function AcceptProposalDialog({
     proposalCode,
     totalAmount = 0,
     defaultName = "",
+    contractSettings,
 }: AcceptProposalDialogProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +44,15 @@ export function AcceptProposalDialog({
     const [title, setTitle] = useState("Chief Executive Officer");
     const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+    // Required Client Details
+    const requireAddress = contractSettings?.requireClientAddressOnAccept;
+    const requirePhone = contractSettings?.requireClientPhoneOnAccept;
+    const requireTaxId = contractSettings?.requireClientTaxIdOnAccept;
+
+    const [clientAddress, setClientAddress] = useState(contractSettings?.clientAddress || "");
+    const [clientPhone, setClientPhone] = useState(contractSettings?.clientPhone || "");
+    const [clientTaxId, setClientTaxId] = useState(contractSettings?.clientTaxId || "");
 
     // Canvas drawing state
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -121,6 +132,18 @@ export function AcceptProposalDialog({
             toast.error("Please acknowledge the legal consent terms.");
             return;
         }
+        if (requireAddress && !clientAddress.trim()) {
+            toast.error("Please provide your Registered Company Address.");
+            return;
+        }
+        if (requirePhone && !clientPhone.trim()) {
+            toast.error("Please provide your Phone Number.");
+            return;
+        }
+        if (requireTaxId && !clientTaxId.trim()) {
+            toast.error("Please provide your Tax ID / Reg No.");
+            return;
+        }
 
         let signatureString = legalName;
         if (signatureMode === "draw" && canvasRef.current && hasDrawn) {
@@ -133,6 +156,9 @@ export function AcceptProposalDialog({
                 acceptedByName: legalName.trim(),
                 acceptedByTitle: title.trim() || "Authorized Signer",
                 signatureData: signatureString,
+                clientAddress: requireAddress ? clientAddress : undefined,
+                clientPhone: requirePhone ? clientPhone : undefined,
+                clientTaxId: requireTaxId ? clientTaxId : undefined,
             });
 
             if (res.success) {
@@ -204,6 +230,57 @@ export function AcceptProposalDialog({
                             />
                         </div>
                     </div>
+
+                    {/* Required Client Details */}
+                    {(requireAddress || requirePhone || requireTaxId) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border/40 pt-4 mt-2">
+                            {requireAddress && (
+                                <div className="space-y-1.5 sm:col-span-2">
+                                    <Label htmlFor="clientAddress" className="text-xs">
+                                        Registered Company Address <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                        id="clientAddress"
+                                        value={clientAddress}
+                                        onChange={(e) => setClientAddress(e.target.value)}
+                                        placeholder="e.g. 123 Business St., Makati City"
+                                        className="text-sm"
+                                        required
+                                    />
+                                </div>
+                            )}
+                            {requirePhone && (
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="clientPhone" className="text-xs">
+                                        Phone Number <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                        id="clientPhone"
+                                        value={clientPhone}
+                                        onChange={(e) => setClientPhone(e.target.value)}
+                                        placeholder="e.g. +63 917 123 4567"
+                                        className="text-sm"
+                                        required
+                                    />
+                                </div>
+                            )}
+                            {requireTaxId && (
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="clientTaxId" className="text-xs">
+                                        Tax ID / Reg No. <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                        id="clientTaxId"
+                                        value={clientTaxId}
+                                        onChange={(e) => setClientTaxId(e.target.value)}
+                                        placeholder="e.g. TIN: 123-456-789"
+                                        className="text-sm"
+                                        required
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Signature Selection Tabs */}
                     <div className="space-y-2">

@@ -166,7 +166,7 @@ function KanbanColumn({
             {/* Column Header */}
             <div className="flex flex-col gap-1 pb-3 mb-3 border-b border-border">
                 <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className={`font-semibold ${getStageBadgeStyle(stage)}`}>
+                    <Badge variant="secondary" title={stage} className={`font-semibold ${getStageBadgeStyle(stage)}`}>
                         {stage}
                     </Badge>
                     <span className="text-[11px] font-bold font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border">

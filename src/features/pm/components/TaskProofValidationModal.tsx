@@ -21,6 +21,7 @@ import {
     Sparkles,
     RotateCcw,
     ClipboardList,
+    XCircle,
 } from "lucide-react";
 import { AIAuditCard, type CriteriaItem } from "@/components/tasks/ai-audit-card";
 import { getTaskAuditReport } from "@/features/pm/actions";
@@ -43,6 +44,7 @@ interface TaskProofValidationModalProps {
     mode?: "transition" | "edit";
     isViewOnly?: boolean;
     initialTab?: "proofs" | "audit";
+    onRequestChanges?: () => Promise<void>;
 }
 
 export function TaskProofValidationModal({
@@ -54,6 +56,7 @@ export function TaskProofValidationModal({
     mode = "transition",
     isViewOnly = false,
     initialTab = "proofs",
+    onRequestChanges,
 }: TaskProofValidationModalProps) {
     const [proofLinks, setProofLinks] = useState<{ label: string; url: string }[]>([{ label: "", url: "" }]);
     const [proofNotes, setProofNotes] = useState("");
@@ -77,6 +80,7 @@ export function TaskProofValidationModal({
     const [prePolishNotes, setPrePolishNotes] = useState<string | null>(null);
     const [canUndoPolish, setCanUndoPolish] = useState(false);
     const [polishError, setPolishError] = useState<string | null>(null);
+    const [isRequestingChanges, setIsRequestingChanges] = useState(false);
 
     const [isEditing, setIsEditing] = useState(mode === "transition");
 
@@ -803,16 +807,44 @@ export function TaskProofValidationModal({
                             type="button"
                             variant="ghost"
                             onClick={() => onOpenChange(false)}
-                            disabled={isSubmitting || isPolishing}
+                            disabled={isSubmitting || isPolishing || isRequestingChanges}
                             className="text-muted-foreground hover:text-foreground hover:bg-muted text-xs sm:text-sm"
                         >
                             {mode === "transition" ? "Cancel Drag" : "Close"}
                         </Button>
 
+                        {/* Request Changes — only shown when viewing/editing an In Review task */}
+                        {mode !== "transition" && task?.status === "In Review" && onRequestChanges && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={isSubmitting || isPolishing || isRequestingChanges}
+                                onClick={async () => {
+                                    if (!confirm(`Send "${task?.title}" back to In Progress with "Changes Requested"?`)) return;
+                                    setIsRequestingChanges(true);
+                                    try {
+                                        await onRequestChanges();
+                                        onOpenChange(false);
+                                    } catch {
+                                        setError("Failed to request changes. Please try again.");
+                                    } finally {
+                                        setIsRequestingChanges(false);
+                                    }
+                                }}
+                                className="border-rose-500/40 text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/60 gap-1.5 text-xs sm:text-sm font-semibold"
+                            >
+                                {isRequestingChanges ? (
+                                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Requesting...</span></>
+                                ) : (
+                                    <><XCircle className="w-3.5 h-3.5" /><span>Request Changes</span></>
+                                )}
+                            </Button>
+                        )}
+
                         {!isViewOnly && isEditing ? (
                             <Button
                                 type="submit"
-                                disabled={isSubmitting || isPolishing}
+                                disabled={isSubmitting || isPolishing || isRequestingChanges}
                                 className="bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs gap-2 text-xs sm:text-sm"
                             >
                                 {isSubmitting ? (

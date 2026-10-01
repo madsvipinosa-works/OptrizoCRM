@@ -10,7 +10,6 @@ import {
     XCircle,
     Printer,
     CheckSquare,
-    AlertCircle,
 } from "lucide-react";
 import { rejectProposalByClient } from "@/features/proposals/actions";
 import { Button } from "@/components/ui/button";
@@ -53,6 +52,7 @@ interface Props {
         acceptedAt?: Date | string | null;
         signatureData?: string | null;
         createdAt: Date | string;
+        contractSettings?: Record<string, any> | null;
         lead?: {
             businessName?: string | null;
             client?: {
@@ -160,6 +160,7 @@ export function ProposalClientView({
         acceptedAt: proposal.acceptedAt,
         signatureData: proposal.signatureData,
         createdAt: proposal.createdAt,
+        contractSettings: (proposal.contractSettings as any) || null,
     };
 
     const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -345,6 +346,7 @@ export function ProposalClientView({
                 proposalCode={proposal.proposalCode}
                 totalAmount={grandTotal}
                 defaultName={proposal.lead?.client?.name || ""}
+                contractSettings={proposal.contractSettings}
             />
         </div>
     );

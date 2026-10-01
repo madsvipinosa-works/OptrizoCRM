@@ -156,7 +156,7 @@ export function LeadCard({
             {/* Top Row: Company Name, Priority / Score, and 3-Dot Menu */}
             <div className="flex items-start justify-between gap-2">
                 <div className="space-y-0.5 min-w-0 flex-1">
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                    <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-all duration-200 truncate group-hover:whitespace-normal group-hover:overflow-visible group-hover:text-clip leading-snug">
                         {leadTitle}
                     </h4>
                     {lead.contactEmail && (
@@ -174,7 +174,10 @@ export function LeadCard({
                         >
                             {getPriorityIcon(priority)} {priority}
                         </Badge>
-                        <span className="text-[10px] font-mono text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded border border-border">
+                        <span
+                            title={`Lead Score: ${score}`}
+                            className="text-[10px] font-mono text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded border border-border cursor-help"
+                        >
                             {score}
                         </span>
                     </div>

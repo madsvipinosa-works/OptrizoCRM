@@ -9,6 +9,29 @@ import { notifyAllAdmins } from "@/features/notifications/actions";
 import { markLeadAsWon } from "@/features/crm/actions";
 import { logAction } from "@/features/audit/actions";
 
+export interface ContractSettings {
+    clientAddress?: string;
+    clientPhone?: string;
+    clientContactPerson?: string;
+    agencyAddress?: string;
+    agencyPhone?: string;
+    agencyRegistration?: string;
+    governingLaw?: string;
+    paymentMethod?: string;
+    includeConfidentiality?: boolean;
+    includeIpClause?: boolean;
+    includeLiabilityClause?: boolean;
+    includeForceClause?: boolean;
+    includeChangeOrder?: boolean;
+    includeDisputeResolution?: boolean;
+    customClauses?: string;
+    // Client required fields upon acceptance
+    requireClientAddressOnAccept?: boolean;
+    requireClientPhoneOnAccept?: boolean;
+    requireClientTaxIdOnAccept?: boolean;
+    clientTaxId?: string;
+}
+
 export interface ProposalData {
     proposalCode?: string;
     scope?: string;
@@ -23,6 +46,7 @@ export interface ProposalData {
     terms?: string;
     validUntil?: Date | string | null;
     fileUrl?: string | null;
+    contractSettings?: ContractSettings;
 }
 
 export async function createProposal(leadId: string, data: ProposalData) {
@@ -140,6 +164,9 @@ export interface ProposalAcceptancePayload {
     acceptedByName: string;
     acceptedByTitle?: string;
     signatureData?: string;
+    clientAddress?: string;
+    clientPhone?: string;
+    clientTaxId?: string;
 }
 
 export async function acceptProposalByClient(id: string, payload?: ProposalAcceptancePayload) {
@@ -172,6 +199,12 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         const signature = payload?.signatureData || signerName;
         const acceptedAt = new Date();
 
+        const oldContractSettings = (proposal.contractSettings as ContractSettings) || {};
+        const updatedContractSettings = { ...oldContractSettings };
+        if (payload?.clientAddress) updatedContractSettings.clientAddress = payload.clientAddress;
+        if (payload?.clientPhone) updatedContractSettings.clientPhone = payload.clientPhone;
+        if (payload?.clientTaxId) updatedContractSettings.clientTaxId = payload.clientTaxId;
+
         // Execute atomic status update with full digital signature audit trail
         await db.update(proposals)
             .set({ 
@@ -180,6 +213,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
                 acceptedByEmail: session.user.email,
                 acceptedByTitle: signerTitle,
                 signatureData: signature,
+                contractSettings: updatedContractSettings,
                 acceptedAt,
                 updatedAt: new Date() 
             })

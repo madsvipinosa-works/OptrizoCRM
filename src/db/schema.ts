@@ -361,6 +361,23 @@ export const proposals = pgTable("proposal", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
+    contractSettings: jsonb("contractSettings").$type<{
+        clientAddress?: string;
+        clientPhone?: string;
+        clientContactPerson?: string;
+        agencyAddress?: string;
+        agencyPhone?: string;
+        agencyRegistration?: string;
+        governingLaw?: string;
+        paymentMethod?: string;
+        includeConfidentiality?: boolean;
+        includeIpClause?: boolean;
+        includeLiabilityClause?: boolean;
+        includeForceClause?: boolean;
+        includeChangeOrder?: boolean;
+        includeDisputeResolution?: boolean;
+        customClauses?: string;
+    }>(),
 }, (t) => [
     index("idx_proposal_lead").on(t.leadId),
     index("idx_proposal_code").on(t.proposalCode),

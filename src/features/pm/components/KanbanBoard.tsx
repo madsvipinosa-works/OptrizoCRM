@@ -990,6 +990,26 @@ export function KanbanBoard({
                         router.refresh();
                     }
                 }}
+                onRequestChanges={
+                    ["superadmin", "manager"].includes(currentUserRole || "") &&
+                    viewingProofsTask?.task?.status === "In Review"
+                        ? async () => {
+                              const taskId = viewingProofsTask!.task.id;
+                              const res = await updateTaskStatus(taskId, "Changes Requested");
+                              if (!res.success) {
+                                  throw new Error(res.message || "Failed to request changes");
+                              }
+                              toast.warning(`"${viewingProofsTask!.task.title}" sent back — Changes Requested.`);
+                              setOptimisticTasks((prev) =>
+                                  prev.map((t) =>
+                                      t.id === taskId ? { ...t, status: "Changes Requested" } : t
+                                  )
+                              );
+                              setViewingProofsTask(null);
+                              router.refresh();
+                          }
+                        : undefined
+                }
             />
 
             {/* Task Blocked Reason Intercept Modal */}

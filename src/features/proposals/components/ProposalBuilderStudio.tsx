@@ -29,7 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateProposal, sendProposalEmail, ProposalData } from "@/features/proposals/actions";
+import { updateProposal, sendProposalEmail, ProposalData, ContractSettings } from "@/features/proposals/actions";
 import {
     ProposalDocumentSheet,
     ProposalDocumentData,
@@ -75,6 +75,7 @@ interface ProposalBuilderStudioProps {
         acceptedAt?: Date | string | null;
         signatureData?: string | null;
         createdAt: Date | string;
+        contractSettings?: ContractSettings | null;
         lead?: {
             id: string;
             businessName?: string | null;
@@ -233,6 +234,13 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
             ? new Date(proposal.validUntil).toISOString().split("T")[0]
             : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
     );
+    const [contractSettings, setContractSettings] = useState<ContractSettings>(
+        (proposal.contractSettings as ContractSettings) || {}
+    );
+    const [showContractSettings, setShowContractSettings] = useState(false);
+
+    const updateCS = (key: keyof ContractSettings, value: any) =>
+        setContractSettings((prev) => ({ ...prev, [key]: value }));
 
     // Dynamic Calculations
     const subtotal = useMemo(() => {
@@ -309,6 +317,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
             total: grandTotal,
             terms,
             validUntil: validUntil ? new Date(validUntil) : null,
+            contractSettings,
         };
 
         try {
@@ -414,6 +423,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
         acceptedAt: proposal.acceptedAt,
         signatureData: proposal.signatureData,
         createdAt: proposal.createdAt,
+        contractSettings,
     };
 
     return (
@@ -783,10 +793,145 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                         </div>
                     </div>
 
+                    {/* Section: Contract Settings (Collapsible) */}
+                    <div className="space-y-3 pt-4 border-t border-border/60">
+                        <button
+                            type="button"
+                            onClick={() => setShowContractSettings((v) => !v)}
+                            className="flex items-center justify-between w-full text-sm font-semibold text-foreground uppercase tracking-wider font-mono hover:text-primary transition-colors"
+                        >
+                            <span className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-primary" />
+                                Contract Settings
+                                <span className="text-[10px] font-normal text-muted-foreground normal-case tracking-normal">(optional — fill in later)</span>
+                            </span>
+                            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showContractSettings ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {showContractSettings && (
+                            <div className="space-y-5 p-4 rounded-xl bg-muted/30 border border-border/60">
+                                {/* Client Details */}
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground font-semibold border-b border-border/40 pb-1">Client Details</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Client Contact Person</Label>
+                                            <Input placeholder="e.g. Juan dela Cruz" value={contractSettings.clientContactPerson || ""} onChange={(e) => updateCS("clientContactPerson", e.target.value)} className="text-xs" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Client Phone</Label>
+                                            <Input placeholder="e.g. +63 917 123 4567" value={contractSettings.clientPhone || ""} onChange={(e) => updateCS("clientPhone", e.target.value)} className="text-xs" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Client Address <span className="text-muted-foreground font-normal">(leave blank if not yet available)</span></Label>
+                                        <Input placeholder="e.g. 123 Business St., Makati City — or leave blank" value={contractSettings.clientAddress || ""} onChange={(e) => updateCS("clientAddress", e.target.value)} className="text-xs" />
+                                    </div>
+                                </div>
+
+                                {/* Agency Details */}
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground font-semibold border-b border-border/40 pb-1">Agency Details</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Agency Phone</Label>
+                                            <Input placeholder="e.g. +63 917 000 0000" value={contractSettings.agencyPhone || ""} onChange={(e) => updateCS("agencyPhone", e.target.value)} className="text-xs" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Company Reg. / SEC No.</Label>
+                                            <Input placeholder="e.g. CS202500001" value={contractSettings.agencyRegistration || ""} onChange={(e) => updateCS("agencyRegistration", e.target.value)} className="text-xs" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Agency Address</Label>
+                                        <Input placeholder="e.g. BGC, Taguig City, Metro Manila" value={contractSettings.agencyAddress || ""} onChange={(e) => updateCS("agencyAddress", e.target.value)} className="text-xs" />
+                                    </div>
+                                </div>
+
+                                {/* Commercial */}
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground font-semibold border-b border-border/40 pb-1">Commercial</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Governing Law / Jurisdiction</Label>
+                                            <Input placeholder="e.g. Republic of the Philippines" value={contractSettings.governingLaw || ""} onChange={(e) => updateCS("governingLaw", e.target.value)} className="text-xs" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Accepted Payment Method</Label>
+                                            <Input placeholder="e.g. Bank Transfer, GCash, PayPal" value={contractSettings.paymentMethod || ""} onChange={(e) => updateCS("paymentMethod", e.target.value)} className="text-xs" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Client Requirements on Acceptance */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground font-semibold border-b border-border/40 pb-1">Client Requirements on Acceptance</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {([
+                                            { key: "requireClientAddressOnAccept", label: "Require Registered Address" },
+                                            { key: "requireClientPhoneOnAccept", label: "Require Phone Number" },
+                                            { key: "requireClientTaxIdOnAccept", label: "Require Tax ID / Reg No." },
+                                        ] as { key: keyof ContractSettings; label: string }[]).map(({ key, label }) => (
+                                            <label key={key} className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 hover:bg-muted/50 cursor-pointer transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!contractSettings[key]}
+                                                    onChange={(e) => updateCS(key, e.target.checked)}
+                                                    className="accent-primary h-3.5 w-3.5"
+                                                />
+                                                <span className="text-xs text-foreground">{label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground pt-1">
+                                        Check these if the client still hasn&apos;t provided this information. They will be required to fill it out in the Studio when they accept and sign the proposal.
+                                    </p>
+                                </div>
+
+                                {/* Legal Clause Toggles */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground font-semibold border-b border-border/40 pb-1">Legal Clauses — Include in Document?</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {([
+                                            { key: "includeConfidentiality", label: "Confidentiality / NDA" },
+                                            { key: "includeIpClause", label: "Intellectual Property" },
+                                            { key: "includeLiabilityClause", label: "Limitation of Liability" },
+                                            { key: "includeForceClause", label: "Force Majeure" },
+                                            { key: "includeChangeOrder", label: "Change Order Process" },
+                                            { key: "includeDisputeResolution", label: "Dispute Resolution" },
+                                        ] as { key: keyof ContractSettings; label: string }[]).map(({ key, label }) => (
+                                            <label key={key} className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 hover:bg-muted/50 cursor-pointer transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!contractSettings[key]}
+                                                    onChange={(e) => updateCS(key, e.target.checked)}
+                                                    className="accent-primary h-3.5 w-3.5"
+                                                />
+                                                <span className="text-xs text-foreground">{label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Custom Clauses */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Additional / Custom Clauses <span className="text-muted-foreground font-normal">(optional free text)</span></Label>
+                                    <Textarea
+                                        rows={3}
+                                        placeholder="Any other agreed terms, special conditions, or additional clauses..."
+                                        value={contractSettings.customClauses || ""}
+                                        onChange={(e) => updateCS("customClauses", e.target.value)}
+                                        className="text-xs leading-relaxed"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Section: Terms & Conditions */}
                     <div className="space-y-4 pt-4 border-t border-border/60">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground uppercase tracking-wider font-mono">
-                            <FileText className="h-4 w-4 text-primary" /> Agency Terms & Milestones
+                            <FileText className="h-4 w-4 text-primary" /> Agency Terms &amp; Milestones
                         </div>
                         <Textarea
                             rows={3}
