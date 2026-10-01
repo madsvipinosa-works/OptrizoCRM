@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
@@ -15,6 +15,85 @@ export type ActionState = {
     task?: Record<string, unknown>;
     milestone?: Record<string, unknown>;
 };
+
+// --- Helpers ---
+async function handleMilestoneBubbling(tx: any, taskId: string, newTaskStatus: string, oldTask: any) {
+    if (!oldTask.milestoneId) return null;
+    
+    const { isNull } = await import("drizzle-orm");
+    const allTasks = await tx.query.tasks.findMany({
+        where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
+    });
+    
+    const currentTasksState = allTasks.map((t: any) => t.id === taskId ? { ...t, status: newTaskStatus } : t);
+
+    const allDone = currentTasksState.length > 0 && currentTasksState.every((t: any) => t.status === "Done");
+    const allReviewOrDone = currentTasksState.length > 0 && currentTasksState.every((t: any) => t.status === "In Review" || t.status === "Done");
+    const anyActive = currentTasksState.some((t: any) => ["In Progress", "In Review", "Changes Requested"].includes(t.status));
+
+    const currentMilestone = await tx.query.milestones.findFirst({
+        where: eq(milestones.id, oldTask.milestoneId)
+    });
+
+    if (!currentMilestone) return null;
+
+    let newMilestoneStatus = currentMilestone.status;
+
+    if (allDone) {
+        newMilestoneStatus = "Completed";
+    } else if (allReviewOrDone) {
+        newMilestoneStatus = "Client Approval";
+    } else if (anyActive && currentMilestone.status === "Pending") {
+        newMilestoneStatus = "In Progress";
+    } else if (anyActive && currentMilestone.status === "Client Approval") {
+        newMilestoneStatus = "In Progress";
+    }
+
+    if (newMilestoneStatus !== currentMilestone.status) {
+        await tx.update(milestones)
+            .set({ status: newMilestoneStatus, updatedAt: new Date() })
+            .where(eq(milestones.id, oldTask.milestoneId));
+
+        if (newMilestoneStatus === "Client Approval") {
+            await tx.update(tasks)
+                .set({ isBlockedByClient: true, status: "Blocked", updatedAt: new Date() })
+                .where(and(
+                    eq(tasks.milestoneId, oldTask.milestoneId),
+                    eq(tasks.status, "In Progress")
+                ));
+        } else if (currentMilestone.status === "Client Approval") {
+            await tx.update(tasks)
+                .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
+                .where(and(
+                    eq(tasks.milestoneId, oldTask.milestoneId),
+                    eq(tasks.isBlockedByClient, true)
+                ));
+        }
+
+        if (newMilestoneStatus === "Completed") {
+            const allMilestones = await tx.query.milestones.findMany({
+                where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
+            });
+            const currentMilestonesState = allMilestones.map((m: any) => m.id === oldTask.milestoneId ? { ...m, status: "Completed" } : m);
+            
+            const allMsCompleted = currentMilestonesState.every((m: any) => m.status === "Completed");
+            if (allMsCompleted) {
+                await tx.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
+            }
+        }
+        
+        return {
+            milestoneId: currentMilestone.id,
+            title: currentMilestone.title,
+            projectId: currentMilestone.projectId,
+            oldStatus: currentMilestone.status,
+            newStatus: newMilestoneStatus
+        };
+    }
+    
+    return null;
+}
+
 
 // --- Project Actions ---
 export async function updateProjectDetails(
@@ -450,32 +529,30 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             if (proofNotes !== undefined) updateData.proofNotes = proofNotes;
         }
 
+        let bubbledMilestone: any = null;
+
         await db.transaction(async (tx) => {
             await tx.update(tasks)
                 .set(updateData)
                 .where(eq(tasks.id, taskId));
 
-            // Status bubbling logic inside transaction
-            if (status === "Done" && oldTask.milestoneId) {
-                const { isNull } = await import("drizzle-orm");
-                const allTasks = await tx.query.tasks.findMany({
-                    where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
-                });
-                
-                const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
-                if (allDone) {
-                    await tx.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
-                    
-                    const allMilestones = await tx.query.milestones.findMany({
-                        where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
-                    });
-                    const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
-                    if (allMsCompleted) {
-                        await tx.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
-                    }
-                }
-            }
+            bubbledMilestone = await handleMilestoneBubbling(tx, taskId, status, oldTask);
         });
+
+        if (bubbledMilestone) {
+            let clientNotice = "";
+            if (bubbledMilestone.newStatus === "Client Approval") {
+                clientNotice = `Review Required: Milestone "${bubbledMilestone.title}" is ready for your review and digital sign-off.`;
+            } else if (bubbledMilestone.newStatus === "Completed") {
+                clientNotice = `Milestone Completed: "${bubbledMilestone.title}" has been completed!`;
+            } else if (bubbledMilestone.newStatus === "In Progress") {
+                clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
+            }
+            if (clientNotice) {
+                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                await notifyProjectClients(bubbledMilestone.projectId, clientNotice, "milestone", "/portal");
+            }
+        }
 
         if (!wasBlocked && isNowBlocked) {
             const stakeholders = oldTask.milestone?.project?.stakeholders || [];
@@ -587,6 +664,8 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
         const updatedProofLinks = proofLinks !== undefined ? proofLinks : oldTask.proofLinks;
         const updatedProofNotes = proofNotes !== undefined ? proofNotes : oldTask.proofNotes;
 
+        let bubbledMilestone: any = null;
+
         await db.transaction(async (tx) => {
             await tx.update(tasks)
                 .set({ 
@@ -597,26 +676,23 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
                 })
                 .where(eq(tasks.id, taskId));
 
-            if (newStatus === "Done" && oldTask.milestoneId) {
-                const { isNull } = await import("drizzle-orm");
-                const allTasks = await tx.query.tasks.findMany({
-                    where: and(eq(tasks.milestoneId, oldTask.milestoneId), isNull(tasks.deletedAt))
-                });
-                
-                const allDone = allTasks.every(t => t.id === taskId || t.status === "Done");
-                if (allDone) {
-                    await tx.update(milestones).set({ status: "Completed", updatedAt: new Date() }).where(eq(milestones.id, oldTask.milestoneId));
-                    
-                    const allMilestones = await tx.query.milestones.findMany({
-                        where: and(eq(milestones.projectId, oldTask.projectId), isNull(milestones.deletedAt))
-                    });
-                    const allMsCompleted = allMilestones.every(m => m.id === oldTask.milestoneId || m.status === "Completed");
-                    if (allMsCompleted) {
-                        await tx.update(agencyProjects).set({ status: "Completed", updatedAt: new Date() }).where(eq(agencyProjects.id, oldTask.projectId));
-                    }
-                }
-            }
+            bubbledMilestone = await handleMilestoneBubbling(tx, taskId, newStatus, oldTask);
         });
+
+        if (bubbledMilestone) {
+            let clientNotice = "";
+            if (bubbledMilestone.newStatus === "Client Approval") {
+                clientNotice = `Review Required: Milestone "${bubbledMilestone.title}" is ready for your review and digital sign-off.`;
+            } else if (bubbledMilestone.newStatus === "Completed") {
+                clientNotice = `Milestone Completed: "${bubbledMilestone.title}" has been completed!`;
+            } else if (bubbledMilestone.newStatus === "In Progress") {
+                clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
+            }
+            if (clientNotice) {
+                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                await notifyProjectClients(bubbledMilestone.projectId, clientNotice, "milestone", "/portal");
+            }
+        }
 
         await logAction("UPDATE", "Task", `Task ${taskId} moved to ${newStatus} with proof`);
 
@@ -828,13 +904,64 @@ export async function editMilestone(milestoneId: string, title: string, order?: 
         return { success: false, message: "Unauthorized" };
     }
 
+    if (!title || !title.trim()) {
+        return { success: false, message: "Milestone title cannot be empty." };
+    }
+
     try {
-        const payload: Record<string, unknown> = { title, updatedAt: new Date() };
-        if (order) payload.order = order;
+        const currentMilestone = await db.query.milestones.findFirst({
+            where: eq(milestones.id, milestoneId)
+        });
 
-        await db.update(milestones).set(payload).where(eq(milestones.id, milestoneId));
+        if (!currentMilestone) {
+            return { success: false, message: "Milestone not found." };
+        }
 
-        await logAction("UPDATE", "Milestone", `Milestone ${milestoneId} updated`);
+        const trimmedTitle = title.trim();
+
+        // If order is specified and valid, re-sequence all milestones in the project so there are never duplicate numbers
+        if (typeof order === "number" && !isNaN(order)) {
+            const allMilestones = await db.query.milestones.findMany({
+                where: and(
+                    eq(milestones.projectId, currentMilestone.projectId),
+                    isNull(milestones.deletedAt)
+                ),
+                orderBy: [milestones.order]
+            });
+
+            const remaining = allMilestones.filter((m) => m.id !== milestoneId);
+            const targetIndex = Math.max(0, Math.min(order - 1, remaining.length));
+            remaining.splice(targetIndex, 0, {
+                ...currentMilestone,
+                title: trimmedTitle
+            });
+
+            await db.transaction(async (tx) => {
+                for (let i = 0; i < remaining.length; i++) {
+                    const m = remaining[i];
+                    const newSeq = i + 1;
+                    if (m.id === milestoneId) {
+                        await tx.update(milestones).set({
+                            title: trimmedTitle,
+                            order: newSeq,
+                            updatedAt: new Date()
+                        }).where(eq(milestones.id, m.id));
+                    } else if (m.order !== newSeq) {
+                        await tx.update(milestones).set({
+                            order: newSeq,
+                            updatedAt: new Date()
+                        }).where(eq(milestones.id, m.id));
+                    }
+                }
+            });
+        } else {
+            await db.update(milestones).set({
+                title: trimmedTitle,
+                updatedAt: new Date()
+            }).where(eq(milestones.id, milestoneId));
+        }
+
+        await logAction("UPDATE", "Milestone", `Milestone "${trimmedTitle}" (${milestoneId}) updated`);
 
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Milestone updated." };

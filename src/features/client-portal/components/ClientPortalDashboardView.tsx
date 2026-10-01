@@ -53,6 +53,7 @@ interface Task {
     title: string;
     description: string | null;
     status: string;
+    weight?: number;
     proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
 }
@@ -62,6 +63,7 @@ interface Project {
     title: string;
     description: string | null;
     status: string;
+    progressPercentage?: number;
     stagingUrls?: string[] | null;
     documents?: ProjectDocumentItem[] | null;
     createdAt: Date;
@@ -281,7 +283,18 @@ export function ClientPortalDashboardView({
             {projects.map((project) => {
                 const totalTasks = project.tasks.length;
                 const completedTasks = project.tasks.filter(t => t.status === "Done").length;
-                const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+                // Calculate weighted progress (story points) matching the Project Board trigger engine
+                const totalWeight = project.tasks.reduce((sum, t) => sum + (t.weight || 1), 0);
+                const completedWeight = project.tasks
+                    .filter(t => t.status === "Done")
+                    .reduce((sum, t) => sum + (t.weight || 1), 0);
+
+                const computedPercentage = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
+                // Prioritize project.progressPercentage from DB trigger, fallback to computed weighted percentage
+                const progressPercent = typeof project.progressPercentage === "number" && project.progressPercentage >= 0
+                    ? project.progressPercentage
+                    : computedPercentage;
 
                 return (
                     <motion.div key={project.id} variants={itemVariants} className="space-y-6">
@@ -312,11 +325,33 @@ export function ClientPortalDashboardView({
                                         <CircularProgress value={progressPercent} size={90} strokeWidth={8} />
                                         <div className="flex flex-col text-left">
                                             <span className="text-xs font-semibold text-muted-foreground font-mono uppercase">Overall Completion</span>
-                                            <span className="text-lg font-bold text-foreground font-mono">{completedTasks} / {totalTasks} Tasks</span>
+                                            <span className="text-lg font-bold text-foreground font-mono">
+                                                {totalWeight > 0 ? `${completedWeight} / ${totalWeight} pts` : `${completedTasks} / ${totalTasks} Tasks`}
+                                            </span>
+                                            <span className="text-[11px] text-muted-foreground font-mono">
+                                                {completedTasks} of {totalTasks} deliverables done
+                                            </span>
                                             <span className="text-[11px] text-primary font-medium flex items-center gap-1 mt-0.5">
                                                 <ShieldCheck className="h-3.5 w-3.5" /> Client Verified
                                             </span>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Horizontal Velocity & Progress Bar matching PM Project Board */}
+                                <div className="mt-4 pt-3.5 border-t border-border/50">
+                                    <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                                        <span className="text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-[#00D639] animate-pulse" />
+                                            Velocity & Delivery Progress
+                                        </span>
+                                        <span className="text-foreground font-bold">{progressPercent}%</span>
+                                    </div>
+                                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted p-0.5 border border-border/50">
+                                        <div
+                                            className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-primary to-[#00D639] transition-all duration-700 ease-out shadow-[0_0_10px_rgba(0,214,57,0.3)]"
+                                            style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
+                                        />
                                     </div>
                                 </div>
                             </CardHeader>

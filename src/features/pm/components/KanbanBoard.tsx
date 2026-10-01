@@ -6,7 +6,7 @@ import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAnd
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Users, AlertTriangle } from "lucide-react";
+import { Plus, Users, AlertTriangle, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
@@ -138,12 +139,17 @@ export function KanbanBoard({
         task: PmTask;
     } | null>(null);
 
+    // Task Details Viewing state
+    const [viewingTaskDetails, setViewingTaskDetails] = useState<PmTask | null>(null);
+
     // Milestone State
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
     const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
     const [isSavingMilestone, setIsSavingMilestone] = useState(false);
     const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
     const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
+    const [editMilestoneOrder, setEditMilestoneOrder] = useState<number>(1);
+    const [isSavingMilestoneEdit, setIsSavingMilestoneEdit] = useState(false);
 
     const activeMilestone = optimisticMilestones?.find((m) => m.id === activeMilestoneId);
     if (!activeMilestone && optimisticMilestones.length > 0) {
@@ -431,6 +437,54 @@ export function KanbanBoard({
         }
     };
 
+    const handleUpdateMilestone = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingMilestoneId || !editMilestoneTitle.trim()) return;
+
+        const currentMilestone = optimisticMilestones.find((m) => m.id === editingMilestoneId);
+        if (!currentMilestone) return;
+
+        const trimmedTitle = editMilestoneTitle.trim();
+        const parsedOrder = Number(editMilestoneOrder) || currentMilestone.order;
+
+        if (trimmedTitle === currentMilestone.title && parsedOrder === currentMilestone.order) {
+            setEditingMilestoneId(null);
+            return;
+        }
+
+        setIsSavingMilestoneEdit(true);
+        const previousMilestones = [...optimisticMilestones];
+
+        // Optimistically re-sequence milestones to prevent duplicate sequence numbers
+        const remaining = optimisticMilestones.filter((m) => m.id !== editingMilestoneId);
+        const targetIndex = Math.max(0, Math.min(parsedOrder - 1, remaining.length));
+        remaining.splice(targetIndex, 0, {
+            ...currentMilestone,
+            title: trimmedTitle,
+        });
+
+        const updatedMilestones = remaining.map((m, idx) => ({
+            ...m,
+            order: idx + 1,
+        }));
+
+        setOptimisticMilestones(updatedMilestones);
+
+        const { editMilestone } = await import("@/features/pm/actions");
+        const res = await editMilestone(editingMilestoneId, trimmedTitle, parsedOrder);
+
+        if (!res.success) {
+            toast.error(res.message || "Failed to update milestone");
+            setOptimisticMilestones(previousMilestones);
+        } else {
+            toast.success("Milestone updated.");
+            setEditingMilestoneId(null);
+            setEditMilestoneTitle("");
+            router.refresh();
+        }
+        setIsSavingMilestoneEdit(false);
+    };
+
     const handleMilestoneStatusChange = async (newStatus: string) => {
         if (!activeMilestone) return;
         const res = await updateMilestoneStatus(
@@ -578,40 +632,43 @@ export function KanbanBoard({
                                         size="icon"
                                         className="h-6 w-6 opacity-50 hover:opacity-100 text-muted-foreground hover:text-foreground"
                                     >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <circle cx="12" cy="12" r="1" />
+                                                <circle cx="12" cy="5" r="1" />
+                                                <circle cx="12" cy="19" r="1" />
+                                            </svg>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-40 bg-card border-border text-foreground shadow-xl">
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                setEditingMilestoneId(activeMilestone.id);
+                                                setEditMilestoneTitle(activeMilestone.title);
+                                                setEditMilestoneOrder(activeMilestone.order);
+                                            }}
+                                            className="gap-2 cursor-pointer"
                                         >
-                                            <circle cx="12" cy="12" r="1" />
-                                            <circle cx="12" cy="5" r="1" />
-                                            <circle cx="12" cy="19" r="1" />
-                                        </svg>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-40 bg-card border-border text-foreground shadow-xl">
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                             setEditingMilestoneId(activeMilestone.id);
-                                            setEditMilestoneTitle(activeMilestone.title);
-                                        }}
-                                    >
-                                        Edit Title
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-rose-500 focus:text-rose-500 focus:bg-rose-500/10"
-                                        onClick={() => handleDeleteMilestone(activeMilestone.id)}
-                                    >
-                                        Delete
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                            <Pencil className="h-3.5 w-3.5" />
+                                            Edit Milestone
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-rose-500 focus:text-rose-500 focus:bg-rose-500/10 cursor-pointer"
+                                            onClick={() => handleDeleteMilestone(activeMilestone.id)}
+                                        >
+                                            Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                         )}
                     </h3>
                     {["superadmin", "manager"].includes(currentUserRole || "") ? (
@@ -933,6 +990,7 @@ export function KanbanBoard({
                     onEditTask={openEditModal}
                     onDeleteTask={(task) => setDeletingTask(task)}
                     onViewProofs={(task, initialTab) => setViewingProofsTask({ task, initialTab })}
+                    onClickTask={(task) => setViewingTaskDetails(task)}
                 />
             </div>
 
@@ -1031,6 +1089,105 @@ export function KanbanBoard({
                 taskTitle={deletingTask?.title}
                 onConfirm={handleConfirmDeleteTask}
             />
+
+            {/* Task Details Modal */}
+            <Dialog open={!!viewingTaskDetails} onOpenChange={(open) => !open && setViewingTaskDetails(null)}>
+                <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-card border-border text-foreground shadow-2xl rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold break-words pr-4 leading-tight">{viewingTaskDetails?.title}</DialogTitle>
+                    </DialogHeader>
+                    {viewingTaskDetails && (
+                        <div className="space-y-6 pt-2">
+                            {/* Status & Effort */}
+                            <div className="flex flex-wrap gap-2 items-center bg-muted/20 p-3 rounded-lg border border-border">
+                                <Badge variant="outline" className="bg-background text-foreground border-border">{viewingTaskDetails.status}</Badge>
+                                {viewingTaskDetails.weight && (
+                                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                                        {viewingTaskDetails.weight} pts
+                                    </Badge>
+                                )}
+                                {viewingTaskDetails.estimatedHours && (
+                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                                        {viewingTaskDetails.estimatedHours}h
+                                    </Badge>
+                                )}
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Description</h4>
+                                <div className="text-sm bg-muted/30 p-4 rounded-xl min-h-[60px] whitespace-pre-wrap border border-border">
+                                    {viewingTaskDetails.description || <span className="text-muted-foreground italic">No description provided.</span>}
+                                </div>
+                            </div>
+
+                            {/* Assignees */}
+                            {viewingTaskDetails.assignees && viewingTaskDetails.assignees.length > 0 && (
+                                <div>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Assignees</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {viewingTaskDetails.assignees.map(a => (
+                                            <div key={a.user.id} className="flex items-center gap-2 bg-muted/30 border border-border px-3 py-1.5 rounded-full shadow-sm">
+                                                <Avatar className="w-6 h-6 border border-border">
+                                                    {a.user.image && <AvatarImage src={a.user.image} />}
+                                                    <AvatarFallback className="text-[10px] bg-primary text-black font-bold">
+                                                        {a.user.name?.substring(0, 2).toUpperCase() || "U"}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-sm font-medium">{a.user.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Proof Links & Notes */}
+                            {(viewingTaskDetails.proofLinks?.length || viewingTaskDetails.proofNotes) ? (
+                                <div className="space-y-4 pt-4 border-t border-border">
+                                    {viewingTaskDetails.proofLinks && viewingTaskDetails.proofLinks.length > 0 && (
+                                        <div>
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Proof Links</h4>
+                                            <div className="flex flex-col gap-2">
+                                                {viewingTaskDetails.proofLinks.map((link, idx) => (
+                                                    <a key={idx} href={link.url} target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                                        </div>
+                                                        {link.label || link.url}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {viewingTaskDetails.proofNotes && (
+                                        <div>
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Proof Notes</h4>
+                                            <div className="text-sm bg-muted/30 p-4 rounded-xl whitespace-pre-wrap border border-border">
+                                                {viewingTaskDetails.proofNotes}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : null}
+
+                            <div className="flex justify-end pt-4 border-t border-border mt-6 gap-2">
+                                {["superadmin", "manager", "developer"].includes(currentUserRole || "") && (
+                                    <Button variant="outline" className="border-border text-foreground hover:bg-muted" onClick={() => {
+                                        openEditModal(viewingTaskDetails);
+                                        setViewingTaskDetails(null);
+                                    }}>
+                                        <Pencil className="w-4 h-4 mr-2" /> Edit Task
+                                    </Button>
+                                )}
+                                <Button className="bg-primary hover:bg-primary/90 text-black font-semibold" onClick={() => setViewingTaskDetails(null)}>
+                                    Close
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             {/* Task Edit Modal */}
             {editingTask && (
@@ -1171,6 +1328,77 @@ export function KanbanBoard({
                     </DialogContent>
                 </Dialog>
             )}
+
+            {/* Milestone Edit Modal */}
+            <Dialog
+                open={editingMilestoneId !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setEditingMilestoneId(null);
+                        setEditMilestoneTitle("");
+                    }
+                }}
+            >
+                <DialogContent className="bg-card border-border text-foreground shadow-2xl max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-foreground">Edit Milestone</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleUpdateMilestone} className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label className="text-foreground">Milestone Title</Label>
+                            <Input
+                                required
+                                value={editMilestoneTitle}
+                                onChange={(e) => setEditMilestoneTitle(e.target.value)}
+                                className="bg-background border-border text-foreground"
+                                placeholder="e.g. Design Phase"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-foreground">Sequence Position</Label>
+                            <Select
+                                value={String(editMilestoneOrder)}
+                                onValueChange={(val) => setEditMilestoneOrder(parseInt(val) || 1)}
+                            >
+                                <SelectTrigger className="bg-background border-border text-foreground">
+                                    <SelectValue placeholder="Select sequence position" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-card border-border text-foreground shadow-xl">
+                                    {optimisticMilestones.map((_, idx) => (
+                                        <SelectItem key={idx + 1} value={String(idx + 1)}>
+                                            Position {idx + 1}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-muted-foreground">
+                                Milestones will automatically shift to maintain unique sequence order (1, 2, 3...).
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setEditingMilestoneId(null);
+                                    setEditMilestoneTitle("");
+                                }}
+                                className="border-border text-foreground hover:bg-muted"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSavingMilestoneEdit || !editMilestoneTitle.trim()}
+                                className="bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs"
+                            >
+                                {isSavingMilestoneEdit ? "Saving..." : "Save Changes"}
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

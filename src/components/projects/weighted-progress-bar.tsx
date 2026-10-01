@@ -31,7 +31,7 @@ export async function ProjectProgressCard({ projectId }: { projectId: string }) 
           />
         </div>
         <span className="text-sm font-extrabold font-mono text-foreground shrink-0 min-w-[42px] text-right">
-          {percentage}%
+          {Math.round(percentage)}%
         </span>
       </div>
 

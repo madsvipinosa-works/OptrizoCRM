@@ -34,7 +34,9 @@ export default async function ClientPortalPage() {
                             }
                         }
                     },
-                    tasks: true,
+                    tasks: {
+                        where: (tasks, { isNull }) => isNull(tasks.deletedAt),
+                    },
                     lead: true
                 }
             }
@@ -57,7 +59,9 @@ export default async function ClientPortalPage() {
                         }
                     }
                 },
-                tasks: true,
+                tasks: {
+                    where: (tasks, { isNull }) => isNull(tasks.deletedAt),
+                },
                 lead: true
             }
         });
@@ -71,6 +75,7 @@ export default async function ClientPortalPage() {
         title: project.title,
         description: project.description,
         status: project.status,
+        progressPercentage: project.progressPercentage ?? 0,
         stagingUrls: project.stagingUrls,
         documents: project.documents,
         createdAt: project.createdAt,
@@ -92,6 +97,7 @@ export default async function ClientPortalPage() {
             title: t.title,
             description: t.description,
             status: t.status,
+            weight: t.weight ?? 1,
             proofLinks: t.proofLinks,
             proofNotes: t.proofNotes
         })),

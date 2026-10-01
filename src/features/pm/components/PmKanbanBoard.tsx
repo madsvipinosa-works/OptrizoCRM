@@ -65,6 +65,7 @@ interface PmKanbanBoardProps {
     onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
     onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onClickTask?: (task: PmTask) => void;
 }
 
 // 5 Columns with high-contrast, cohesive theme palette
@@ -91,6 +92,7 @@ export function PmKanbanBoard({
     onEditTask,
     onDeleteTask,
     onViewProofs,
+    onClickTask,
 }: PmKanbanBoardProps) {
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
@@ -176,6 +178,7 @@ export function PmKanbanBoard({
                                 onEditTask={onEditTask}
                                 onDeleteTask={onDeleteTask}
                                 onViewProofs={onViewProofs}
+                                onClickTask={onClickTask}
                             />
                         );
                     })}
@@ -205,6 +208,7 @@ function PmKanbanColumn({
     onEditTask,
     onDeleteTask,
     onViewProofs,
+    onClickTask,
 }: {
     column: { id: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done"; title: string; dotColor: string; badgeColor: string };
     tasks: PmTask[];
@@ -213,6 +217,7 @@ function PmKanbanColumn({
     onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
     onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onClickTask?: (task: PmTask) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -256,6 +261,7 @@ function PmKanbanColumn({
                                 onEditTask={onEditTask}
                                 onDeleteTask={onDeleteTask}
                                 onViewProofs={onViewProofs}
+                                onClickTask={onClickTask}
                             />
                         ))
                     )}
@@ -272,6 +278,7 @@ function SortableTaskCard({
     onEditTask,
     onDeleteTask,
     onViewProofs,
+    onClickTask,
 }: {
     task: PmTask;
     allTasks: PmTask[];
@@ -279,6 +286,7 @@ function SortableTaskCard({
     onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
     onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onClickTask?: (task: PmTask) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: task.id,
@@ -309,6 +317,7 @@ function SortableTaskCard({
                 onEditTask={() => onEditTask(task)}
                 onDeleteTask={() => onDeleteTask(task)}
                 onViewProofs={(tab) => onViewProofs?.(task, tab)}
+                onClickTask={() => onClickTask?.(task)}
             />
         </div>
     );
@@ -322,6 +331,7 @@ function TaskCardContent({
     onEditTask,
     onDeleteTask,
     onViewProofs,
+    onClickTask,
 }: {
     task: PmTask;
     allTasks: PmTask[];
@@ -330,6 +340,7 @@ function TaskCardContent({
     onEditTask?: () => void;
     onDeleteTask?: () => void;
     onViewProofs?: (initialTab?: "proofs" | "audit") => void;
+    onClickTask?: () => void;
 }) {
     const isLocked = (() => {
         if (!task.dependsOnTaskId) return false;
@@ -342,8 +353,9 @@ function TaskCardContent({
 
     return (
         <div
+            onClick={onClickTask}
             className={cn(
-                "group relative flex flex-col w-full rounded-xl border shadow-xs hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing p-3.5 gap-2.5",
+                "group relative flex flex-col w-full rounded-xl border shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer active:cursor-pointer p-3.5 gap-2.5",
                 isChangesRequested
                     ? "bg-orange-500/[0.08] border-orange-500/50 hover:border-orange-500/80 shadow-orange-950/20"
                     : "bg-card border-border hover:border-primary/40 text-foreground"
@@ -360,7 +372,7 @@ function TaskCardContent({
                     </div>
                     <h4
                         className={cn(
-                            "font-semibold text-sm leading-snug truncate",
+                            "font-semibold text-sm leading-snug break-words",
                             isChangesRequested ? "text-orange-600 dark:text-orange-300" : "text-foreground"
                         )}
                         title={task.title}
