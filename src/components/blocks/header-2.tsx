@@ -159,7 +159,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                             </div>
                         ) : (
                             <>
-                                <LoginModal>
+                                <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
                                     <Button
                                         variant="ghost"
                                         className="font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all"
@@ -242,7 +242,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                             </>
                         ) : (
                             <>
-                                <LoginModal>
+                                <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
                                     <Button variant="outline" className="w-full rounded-xl h-12 font-medium border-border/50">
                                         Login
                                     </Button>
