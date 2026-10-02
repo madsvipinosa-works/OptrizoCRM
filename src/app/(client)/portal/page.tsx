@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { auth, hasRole } from "@/auth";
-import { projectStakeholders, leads, proposals, notifications } from "@/db/schema";
+import { projectStakeholders, leads, proposals, notifications, agencyProjects } from "@/db/schema";
 import { eq, or, desc } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { ClientPortalDashboardView } from "@/features/client-portal/components/ClientPortalDashboardView";
@@ -45,11 +45,12 @@ export default async function ClientPortalPage() {
 
     let rawProjects = userStakeholderRecords
         .map(record => record.project)
-        .filter((project): project is NonNullable<typeof project> => project !== null);
+        .filter((project): project is NonNullable<typeof project> => project !== null && !project.isArchived);
 
     // If Admin/Staff testing and no direct stakeholder project, show all active projects for preview
     if (rawProjects.length === 0 && isAdminOrStaff) {
         rawProjects = await db.query.agencyProjects.findMany({
+            where: eq(agencyProjects.isArchived, false),
             with: {
                 milestones: {
                     orderBy: (milestones, { asc }) => [asc(milestones.order)],

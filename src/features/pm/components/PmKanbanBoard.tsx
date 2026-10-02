@@ -25,7 +25,6 @@ import {
     Calendar,
     Lock,
     ShieldCheck,
-    Edit2,
     Trash2,
     AlertTriangle,
     Clock,
@@ -42,11 +41,14 @@ export interface PmTask {
     proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
     blockedReason?: string | null;
-    assignees: { user: { id: string; name: string | null; image?: string | null; jobTitle?: string | null } }[];
+    isBlockedByClient?: boolean;
+    assignees: { user: { id: string; name: string | null; image?: string | null; jobTitle?: string | null; role?: string | null } }[];
     dueDate: Date | null;
     dependsOnTaskId: string | null;
     weight?: number;
     estimatedHours?: number | null;
+    createdAt?: Date | string | null;
+    updatedAt?: Date | string | null;
 }
 
 export interface TeamMember {
@@ -62,7 +64,6 @@ interface PmKanbanBoardProps {
     currentUserId?: string;
     currentUserRole?: string;
     onStatusChangeRequest: (taskId: string, targetStatus: "Todo" | "In Progress" | "Blocked" | "Changes Requested" | "In Review" | "Done") => void;
-    onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
     onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
     onClickTask?: (task: PmTask) => void;
@@ -89,7 +90,6 @@ export function PmKanbanBoard({
     currentUserId,
     currentUserRole,
     onStatusChangeRequest,
-    onEditTask,
     onDeleteTask,
     onViewProofs,
     onClickTask,
@@ -175,7 +175,6 @@ export function PmKanbanBoard({
                                 tasks={columnTasks}
                                 allTasks={optimisticTasks}
                                 currentUserRole={currentUserRole}
-                                onEditTask={onEditTask}
                                 onDeleteTask={onDeleteTask}
                                 onViewProofs={onViewProofs}
                                 onClickTask={onClickTask}
@@ -205,7 +204,6 @@ function PmKanbanColumn({
     tasks,
     allTasks,
     currentUserRole,
-    onEditTask,
     onDeleteTask,
     onViewProofs,
     onClickTask,
@@ -214,7 +212,6 @@ function PmKanbanColumn({
     tasks: PmTask[];
     allTasks: PmTask[];
     currentUserRole?: string;
-    onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
     onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
     onClickTask?: (task: PmTask) => void;
@@ -258,7 +255,6 @@ function PmKanbanColumn({
                                 task={task}
                                 allTasks={allTasks}
                                 currentUserRole={currentUserRole}
-                                onEditTask={onEditTask}
                                 onDeleteTask={onDeleteTask}
                                 onViewProofs={onViewProofs}
                                 onClickTask={onClickTask}
@@ -275,7 +271,6 @@ function SortableTaskCard({
     task,
     allTasks,
     currentUserRole,
-    onEditTask,
     onDeleteTask,
     onViewProofs,
     onClickTask,
@@ -283,7 +278,6 @@ function SortableTaskCard({
     task: PmTask;
     allTasks: PmTask[];
     currentUserRole?: string;
-    onEditTask: (task: PmTask) => void;
     onDeleteTask: (task: PmTask) => void;
     onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
     onClickTask?: (task: PmTask) => void;
@@ -314,7 +308,6 @@ function SortableTaskCard({
                 allTasks={allTasks}
                 currentUserRole={currentUserRole}
                 dragHandleProps={{ ...attributes, ...listeners }}
-                onEditTask={() => onEditTask(task)}
                 onDeleteTask={() => onDeleteTask(task)}
                 onViewProofs={(tab) => onViewProofs?.(task, tab)}
                 onClickTask={() => onClickTask?.(task)}
@@ -328,7 +321,6 @@ function TaskCardContent({
     allTasks,
     currentUserRole,
     dragHandleProps,
-    onEditTask,
     onDeleteTask,
     onViewProofs,
     onClickTask,
@@ -337,7 +329,6 @@ function TaskCardContent({
     allTasks: PmTask[];
     currentUserRole?: string;
     dragHandleProps?: Record<string, unknown>;
-    onEditTask?: () => void;
     onDeleteTask?: () => void;
     onViewProofs?: (initialTab?: "proofs" | "audit") => void;
     onClickTask?: () => void;
@@ -381,21 +372,9 @@ function TaskCardContent({
                     </h4>
                 </div>
 
-                {/* Edit & Delete Buttons */}
-                <div className="flex items-center gap-1 shrink-0 opacity-75 group-hover:opacity-100 transition-opacity">
-                    {onEditTask && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEditTask();
-                            }}
-                            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                            title="Edit task"
-                        >
-                            <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                    )}
-                    {["superadmin", "manager"].includes(currentUserRole || "") && onDeleteTask && (
+                {/* Delete Button for Admins/Managers */}
+                {["superadmin", "manager"].includes(currentUserRole || "") && onDeleteTask && (
+                    <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -406,8 +385,8 @@ function TaskCardContent({
                         >
                             <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Description */}

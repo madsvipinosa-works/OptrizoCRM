@@ -10,6 +10,7 @@ interface LeadsBoardProps {
     query?: string;
     status?: string;
     isAdmin?: boolean;
+    initialLeadId?: string;
 }
 
 export function LeadsBoard({
@@ -17,6 +18,7 @@ export function LeadsBoard({
     assignableUsers,
     currentUserId,
     isAdmin,
+    initialLeadId,
 }: LeadsBoardProps) {
     return (
         <LeadsPipelineView
@@ -24,6 +26,7 @@ export function LeadsBoard({
             assignableUsers={assignableUsers}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
+            initialLeadId={initialLeadId}
         />
     );
 }

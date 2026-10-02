@@ -22,6 +22,7 @@ import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskBlockedReasonModal } from "./TaskBlockedReasonModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
+import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
 
 interface KanbanMilestone {
     id: string;
@@ -65,16 +66,6 @@ export function KanbanBoard({
     // Filters
     const [filterAssignee, setFilterAssignee] = useState<string>("all");
     const [myTasksOnly, setMyTasksOnly] = useState<boolean>(!["superadmin", "manager"].includes(currentUserRole || ""));
-
-    // Edit Task State
-    const [editingTask, setEditingTask] = useState<PmTask | null>(null);
-    const [editTaskTitle, setEditTaskTitle] = useState("");
-    const [editTaskDesc, setEditTaskDesc] = useState("");
-    const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
-    const [editDueDate, setEditDueDate] = useState("");
-    const [editTaskWeight, setEditTaskWeight] = useState<number>(1);
-    const [editTaskHours, setEditTaskHours] = useState<string>("");
-    const [isSavingEdit, setIsSavingEdit] = useState(false);
 
     // Delete Task State
     const [deletingTask, setDeletingTask] = useState<PmTask | null>(null);
@@ -141,6 +132,10 @@ export function KanbanBoard({
 
     // Task Details Viewing state
     const [viewingTaskDetails, setViewingTaskDetails] = useState<PmTask | null>(null);
+    const currentViewingTask = useMemo(() => {
+        if (!viewingTaskDetails) return null;
+        return optimisticTasks.find((t) => t.id === viewingTaskDetails.id) || viewingTaskDetails;
+    }, [viewingTaskDetails, optimisticTasks]);
 
     // Milestone State
     const [isAddingMilestone, setIsAddingMilestone] = useState(false);
@@ -343,61 +338,50 @@ export function KanbanBoard({
         setIsAddingTask(false);
     };
 
-    const openEditModal = (task: PmTask) => {
-        setEditingTask(task);
-        setEditTaskTitle(task.title);
-        setEditTaskDesc(task.description || "");
-        setEditAssigneeIds(task.assignees?.map((a) => a.user.id) || []);
-        setEditDueDate(
-            task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""
-        );
-        setEditTaskWeight(task.weight ?? 1);
-        setEditTaskHours(task.estimatedHours != null ? String(task.estimatedHours) : "");
-    };
+    const handleUpdateTaskFromDrawer = async (
+        taskId: string,
+        data: {
+            title?: string;
+            description?: string;
+            assigneeIds?: string[];
+            dueDate?: Date | null;
+            weight?: number;
+            estimatedHours?: number | null;
+        }
+    ): Promise<boolean> => {
+        const previousTasks = [...optimisticTasks];
+        const updatedTasks = optimisticTasks.map((t) => {
+            if (t.id !== taskId) return t;
+            const updatedAssignees =
+                data.assigneeIds !== undefined
+                    ? teamMembers
+                          .filter((m) => data.assigneeIds!.includes(m.id))
+                          .map((m) => ({ user: m }))
+                    : t.assignees;
 
-    const handleEditTaskSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingTask) return;
-        setIsSavingEdit(true);
-
-        const dueToSubmit = editDueDate ? new Date(editDueDate) : null;
-        const hoursToSubmit = editTaskHours ? parseInt(editTaskHours) : null;
-
-        const updatedTasks = optimisticTasks.map((t) =>
-            t.id === editingTask.id
-                ? {
-                    ...t,
-                    title: editTaskTitle,
-                    description: editTaskDesc,
-                    assignees: teamMembers
-                        .filter((m) => editAssigneeIds.includes(m.id))
-                        .map((m) => ({ user: m })),
-                    dueDate: dueToSubmit,
-                    weight: editTaskWeight,
-                    estimatedHours: hoursToSubmit,
-                }
-                : t
-        );
-        setOptimisticTasks(updatedTasks);
-        setEditingTask(null);
-
-        const res = await updateTaskDetails(editingTask.id, {
-            title: editTaskTitle,
-            description: editTaskDesc,
-            assigneeIds: editAssigneeIds,
-            dueDate: dueToSubmit,
-            weight: editTaskWeight,
-            estimatedHours: hoursToSubmit,
+            return {
+                ...t,
+                title: data.title !== undefined ? data.title : t.title,
+                description: data.description !== undefined ? data.description : t.description,
+                assignees: updatedAssignees,
+                dueDate: data.dueDate !== undefined ? data.dueDate : t.dueDate,
+                weight: data.weight !== undefined ? data.weight : t.weight,
+                estimatedHours: data.estimatedHours !== undefined ? data.estimatedHours : t.estimatedHours,
+            };
         });
 
+        setOptimisticTasks(updatedTasks);
+
+        const res = await updateTaskDetails(taskId, data);
         if (!res.success) {
             toast.error(res.message || "Failed to update task");
-            setOptimisticTasks(optimisticTasks);
+            setOptimisticTasks(previousTasks);
+            return false;
         } else {
-            toast.success("Task details updated");
+            toast.success("Task updated");
             router.refresh();
+            return true;
         }
-        setIsSavingEdit(false);
     };
 
     const handleCreateMilestone = async (e: React.FormEvent) => {
@@ -987,7 +971,6 @@ export function KanbanBoard({
                     currentUserId={currentUserId}
                     currentUserRole={currentUserRole}
                     onStatusChangeRequest={handleStatusChangeRequest}
-                    onEditTask={openEditModal}
                     onDeleteTask={(task) => setDeletingTask(task)}
                     onViewProofs={(task, initialTab) => setViewingProofsTask({ task, initialTab })}
                     onClickTask={(task) => setViewingTaskDetails(task)}
@@ -1090,244 +1073,28 @@ export function KanbanBoard({
                 onConfirm={handleConfirmDeleteTask}
             />
 
-            {/* Task Details Modal */}
-            <Dialog open={!!viewingTaskDetails} onOpenChange={(open) => !open && setViewingTaskDetails(null)}>
-                <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-card border-border text-foreground shadow-2xl rounded-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold break-words pr-4 leading-tight">{viewingTaskDetails?.title}</DialogTitle>
-                    </DialogHeader>
-                    {viewingTaskDetails && (
-                        <div className="space-y-6 pt-2">
-                            {/* Status & Effort */}
-                            <div className="flex flex-wrap gap-2 items-center bg-muted/20 p-3 rounded-lg border border-border">
-                                <Badge variant="outline" className="bg-background text-foreground border-border">{viewingTaskDetails.status}</Badge>
-                                {viewingTaskDetails.weight && (
-                                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
-                                        {viewingTaskDetails.weight} pts
-                                    </Badge>
-                                )}
-                                {viewingTaskDetails.estimatedHours && (
-                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
-                                        {viewingTaskDetails.estimatedHours}h
-                                    </Badge>
-                                )}
-                            </div>
-
-                            {/* Description */}
-                            <div>
-                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Description</h4>
-                                <div className="text-sm bg-muted/30 p-4 rounded-xl min-h-[60px] whitespace-pre-wrap border border-border">
-                                    {viewingTaskDetails.description || <span className="text-muted-foreground italic">No description provided.</span>}
-                                </div>
-                            </div>
-
-                            {/* Assignees */}
-                            {viewingTaskDetails.assignees && viewingTaskDetails.assignees.length > 0 && (
-                                <div>
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Assignees</h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {viewingTaskDetails.assignees.map(a => (
-                                            <div key={a.user.id} className="flex items-center gap-2 bg-muted/30 border border-border px-3 py-1.5 rounded-full shadow-sm">
-                                                <Avatar className="w-6 h-6 border border-border">
-                                                    {a.user.image && <AvatarImage src={a.user.image} />}
-                                                    <AvatarFallback className="text-[10px] bg-primary text-black font-bold">
-                                                        {a.user.name?.substring(0, 2).toUpperCase() || "U"}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-sm font-medium">{a.user.name}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Proof Links & Notes */}
-                            {(viewingTaskDetails.proofLinks?.length || viewingTaskDetails.proofNotes) ? (
-                                <div className="space-y-4 pt-4 border-t border-border">
-                                    {viewingTaskDetails.proofLinks && viewingTaskDetails.proofLinks.length > 0 && (
-                                        <div>
-                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Proof Links</h4>
-                                            <div className="flex flex-col gap-2">
-                                                {viewingTaskDetails.proofLinks.map((link, idx) => (
-                                                    <a key={idx} href={link.url} target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                                        </div>
-                                                        {link.label || link.url}
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {viewingTaskDetails.proofNotes && (
-                                        <div>
-                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Proof Notes</h4>
-                                            <div className="text-sm bg-muted/30 p-4 rounded-xl whitespace-pre-wrap border border-border">
-                                                {viewingTaskDetails.proofNotes}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : null}
-
-                            <div className="flex justify-end pt-4 border-t border-border mt-6 gap-2">
-                                {["superadmin", "manager", "developer"].includes(currentUserRole || "") && (
-                                    <Button variant="outline" className="border-border text-foreground hover:bg-muted" onClick={() => {
-                                        openEditModal(viewingTaskDetails);
-                                        setViewingTaskDetails(null);
-                                    }}>
-                                        <Pencil className="w-4 h-4 mr-2" /> Edit Task
-                                    </Button>
-                                )}
-                                <Button className="bg-primary hover:bg-primary/90 text-black font-semibold" onClick={() => setViewingTaskDetails(null)}>
-                                    Close
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-
-            {/* Task Edit Modal */}
-            {editingTask && (
-                <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
-                    <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-card border-border text-foreground shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
-                        <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-border bg-card/95 backdrop-blur z-10">
-                            <DialogTitle className="text-lg font-bold text-foreground tracking-tight">Edit Task Details</DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleEditTaskSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                            <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
-                                <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Title</Label>
-                                    <Input
-                                        className="bg-background border-border focus:border-primary text-foreground text-xs sm:text-sm"
-                                        value={editTaskTitle}
-                                        onChange={(e) => setEditTaskTitle(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Description</Label>
-                                    <Textarea
-                                        className="bg-background border-border focus:border-primary resize-none text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
-                                        rows={3}
-                                        value={editTaskDesc}
-                                        onChange={(e) => setEditTaskDesc(e.target.value)}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Assignees</Label>
-                                    <AssigneeCombobox
-                                        teamMembers={teamMembers}
-                                        selectedIds={editAssigneeIds}
-                                        onSelectionChange={setEditAssigneeIds}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Effort Weight</Label>
-                                        <div className="flex gap-1.5">
-                                            {[1, 2, 3, 5, 8].map((pts) => (
-                                                <button
-                                                    key={pts}
-                                                    type="button"
-                                                    onClick={() => setEditTaskWeight(pts)}
-                                                    className={`flex-1 py-1.5 rounded-md text-xs font-mono font-bold border transition-all ${
-                                                        editTaskWeight === pts
-                                                            ? "bg-primary text-black border-primary shadow-xs"
-                                                            : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                                                    }`}
-                                                >
-                                                    {pts}p
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Est. Hours</Label>
-                                        <Input
-                                            type="number"
-                                            min="1"
-                                            max="500"
-                                            placeholder="e.g. 8"
-                                            value={editTaskHours}
-                                            onChange={(e) => setNewTaskHours(e.target.value)}
-                                            className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Due Date</Label>
-                                    <Input
-                                        type="date"
-                                        className="bg-background border-border focus:border-primary text-foreground text-xs sm:text-sm"
-                                        value={editDueDate}
-                                        onChange={(e) => setEditDueDate(e.target.value)}
-                                    />
-                                </div>
-
-                                {/* Workload & Capacity Guardrail Alert for Edit Task */}
-                                {(() => {
-                                    const hours = parseInt(editTaskHours) || 0;
-                                    if (editAssigneeIds.length === 0 || hours <= 0) return null;
-
-                                    const oldHours = editingTask?.estimatedHours || 0;
-
-                                    const warnings = editAssigneeIds
-                                        .map((id) => {
-                                            const member = teamMembers.find((m) => m.id === id);
-                                            const totalHours = memberWorkloadMap.get(id)?.totalHours || 0;
-                                            const wasAssignedBefore = editingTask?.assignees?.some((a) => a.user.id === id);
-                                            const baseHours = wasAssignedBefore ? Math.max(0, totalHours - oldHours) : totalHours;
-                                            const projectedHours = baseHours + hours;
-
-                                            if (projectedHours > STANDARD_WEEKLY_CAPACITY || hours > STANDARD_WEEKLY_CAPACITY) {
-                                                return {
-                                                    name: member?.name || "Developer",
-                                                    projectedHours,
-                                                    overHours: projectedHours - STANDARD_WEEKLY_CAPACITY,
-                                                    percentage: Math.round((projectedHours / STANDARD_WEEKLY_CAPACITY) * 100),
-                                                };
-                                            }
-                                            return null;
-                                        })
-                                        .filter(Boolean);
-
-                                    if (warnings.length === 0) return null;
-
-                                    return (
-                                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-500 space-y-1.5 animate-in fade-in duration-200">
-                                            <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-500">
-                                                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
-                                                <span>Workload & Capacity Guardrail Alert</span>
-                                            </div>
-                                            {warnings.map((w, i) => (
-                                                <p key={i} className="text-[11px] text-muted-foreground leading-relaxed pl-5">
-                                                    Setting <strong className="text-foreground">{hours}h</strong> puts <strong className="text-foreground">{w?.name}</strong> at{" "}
-                                                    <strong className="text-rose-500">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
-                                                    <span className="text-rose-500 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
-                                                </p>
-                                            ))}
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                            <div className="shrink-0 p-4 sm:p-5 border-t border-border bg-card/95 backdrop-blur">
-                                <Button
-                                    type="submit"
-                                    disabled={isSavingEdit}
-                                    className="w-full bg-primary hover:bg-primary/90 text-black font-semibold text-xs sm:text-sm"
-                                >
-                                    Save Changes
-                                </Button>
-                            </div>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-            )}
+            {/* Task Details Slide-Over Drawer */}
+            <TaskDetailsDrawer
+                task={currentViewingTask}
+                isOpen={!!viewingTaskDetails}
+                onClose={() => setViewingTaskDetails(null)}
+                teamMembers={teamMembers}
+                milestones={optimisticMilestones}
+                allTasks={optimisticTasks}
+                currentUserId={currentUserId}
+                currentUserRole={currentUserRole}
+                onStatusChangeRequest={handleStatusChangeRequest}
+                onUpdateTaskDetails={handleUpdateTaskFromDrawer}
+                onDeleteTask={(t) => setDeletingTask(t)}
+                onRequestVerificationReview={(t) => {
+                    setProofingTask({
+                        task: t,
+                        targetStatus: "In Review",
+                    });
+                }}
+                onRequestBlock={(t) => setBlockingTask({ task: t })}
+                onSelectTask={(t) => setViewingTaskDetails(t)}
+            />
 
             {/* Milestone Edit Modal */}
             <Dialog

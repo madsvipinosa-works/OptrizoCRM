@@ -1,18 +1,19 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, inquiries, users, leadActivityLogs, agencyProjects, milestones, projectStakeholders, leadAssignees, serviceTemplates, taskTemplates, tasks, proposals, passwordResetTokens, crmTasks } from "@/db/schema";
+import { leads, inquiries, users, leadActivityLogs, agencyProjects, leadAssignees, tasks, proposals, passwordResetTokens, crmTasks } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq, inArray, and, sql, not } from "drizzle-orm";
 import { leadUpdateSchema, transitionLeadSchema, logLeadActivitySchema, type LeadUpdateValues, type TransitionLeadValues, type LogLeadActivityValues } from "@/lib/schemas";
 import { calculateLeadScore } from "@/features/crm/utils/leadScoring";
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
-import { sendClientWelcomeEmail, sendClientOnboardingEmail } from "@/lib/notifications";
+import { sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth, hasRole } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
 import { DEFAULT_CRM_PLAYBOOK, type PlaybookTaskTemplate } from "@/config/crm-playbook";
+import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -288,7 +289,9 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
         }).returning();
 
         // Update inquiry status
-        await db.update(inquiries).set({ status: "Archived" }).where(eq(inquiries.id, inquiryId));
+        await db.update(inquiries)
+            .set({ status: "Archived", isHandled: true })
+            .where(eq(inquiries.id, inquiryId));
 
         await logAction("CREATE", "Lead", `Converted inquiry ${inquiryId} to Lead ${newLead.id}`);
 
@@ -933,143 +936,42 @@ export async function getAnalyticsData() {
     }
 }
 
-export async function markLeadAsWon(leadId: string, isSystemAction: boolean = false): Promise<ActionState> {
+export async function markLeadAsWon(leadId: string): Promise<ActionState> {
     const session = await auth();
-    
-    // Only enforce auth check if it's not a programmatic system action (e.g. client proposal acceptance)
-    if (!isSystemAction) {
-        if (!hasRole(session, ["superadmin", "sales"])) {
-            return { success: false, message: "Unauthorized" };
-        }
+    if (!hasRole(session, ["superadmin", "sales"])) {
+        return { success: false, message: "Unauthorized" };
     }
 
     try {
-        // 1. Fetch Lead
-        const lead = await db.query.leads.findFirst({
-            where: eq(leads.id, leadId),
-            with: { client: true }
-        });
+        const result = await provisionLeadProject(leadId);
+        if (!result.success) return result;
 
-        if (!lead) return { success: false, message: "Lead not found" };
-        if (lead.status === "Closed Won") return { success: false, message: "Lead is already won!" };
-
-        if (!lead.client) return { success: false, message: "Client data not associated with this lead" };
-        
-        let clientUserId = lead.clientId;
-        
-        // VERY STRICT ROLE CHECK - NEVER DOWNGRADE AN ADMIN OR EDITOR TO CLIENT
-        const internalRoles = ["superadmin", "sales", "manager", "developer", "content_editor"];
-        
-        await db.transaction(async (tx) => {
-            if (!internalRoles.includes(lead.client!.role)) {
-                await tx.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
-                console.log(`[SYS_LOG] 👤 Upgraded existing User account to Client for ${lead.client!.email}`);
-            } else {
-                console.log(`[SYS_LOG] 🛡️ Protected Agency Staff role: Existing User account kept role '${lead.client!.role}' for ${lead.client!.email}`);
-            }
-
-            // 3. Create Operational Project (PM Engine)
-            const [newProject] = await tx.insert(agencyProjects).values({
-                title: lead.serviceId ? `${lead.businessName || lead.client!.name} Project` : `${lead.businessName || lead.client!.name} Project`,
-                description: lead.goals,
-                leadId: lead.id,
-                status: "Kickoff",
-            }).returning({ id: agencyProjects.id, title: agencyProjects.title });
-            
-            // 3.5 Write to projectStakeholders Junction Table
-            await tx.insert(projectStakeholders).values({
-                projectId: newProject.id,
-                userId: clientUserId
+        if (result.created) {
+            const sideEffects = await Promise.allSettled([
+                notifyAllAdmins(
+                    `Lead ${result.lead.businessName || result.lead.client?.name} won! Project provisioned.`,
+                    "deal_won",
+                    `/dashboard/pm/${result.projectId}`
+                ),
+                logAction("UPDATE", "Lead", `Lead ${leadId} marked as Won and project provisioned.`),
+            ]);
+            sideEffects.forEach((effect) => {
+                if (effect.status === "rejected") console.error("Lead won side effect failed:", effect.reason);
             });
-            console.log(`[SYS_LOG] 🚀 Provisioned Agency Project: ${newProject.id} with Stakeholder ${clientUserId}`);
-
-            // 4. Create Default Milestone Scaffolding or Apply Templates
-            let templateApplied = false;
-            if (lead.serviceId) {
-                const template = await tx.query.serviceTemplates.findFirst({
-                    where: eq(serviceTemplates.id, lead.serviceId),
-                    with: { tasks: true }
-                });
-                
-                if (template && template.tasks && template.tasks.length > 0) {
-                    // Group by milestoneTitle and order
-                    const milestonesMap = new Map<string, typeof template.tasks>();
-                    for (const t of template.tasks) {
-                        const key = `${t.milestoneOrder}-${t.milestoneTitle}`;
-                        if (!milestonesMap.has(key)) milestonesMap.set(key, []);
-                        milestonesMap.get(key)!.push(t);
-                    }
-
-                    for (const [key, tskArr] of milestonesMap.entries()) {
-                        const splitIdx = key.indexOf('-');
-                        const order = parseInt(key.substring(0, splitIdx), 10);
-                        const title = key.substring(splitIdx + 1);
-
-                        const [newMs] = await tx.insert(milestones).values({
-                            projectId: newProject.id,
-                            title,
-                            order,
-                            status: "Pending"
-                        }).returning({ id: milestones.id });
-
-                        const tasksToInsert = tskArr.map(t => ({
-                            projectId: newProject.id,
-                            milestoneId: newMs.id,
-                            title: t.title,
-                            description: t.description,
-                            requiresProof: t.requiresProof,
-                            status: "Todo" as const,
-                        }));
-                        await tx.insert(tasks).values(tasksToInsert);
-                    }
-                    templateApplied = true;
-                    console.log(`[SYS_LOG] 🗺️ Generated project milestones from template '${template.name}'.`);
-                }
-            }
-
-            if (!templateApplied) {
-                await tx.insert(milestones).values([
-                    { projectId: newProject.id, title: "Discovery", status: "Pending", order: 1 },
-                    { projectId: newProject.id, title: "Design", status: "Pending", order: 2 },
-                    { projectId: newProject.id, title: "Development", status: "Pending", order: 3 },
-                    { projectId: newProject.id, title: "QA & Launch", status: "Pending", order: 4 },
-                ]);
-                console.log(`[SYS_LOG] 🗺️ Generated default project milestones.`);
-            }
-
-            // 5. Update Lead Status
-            // Reconcile final won contract value from latest proposal if available
-            const latestProposal = await tx.query.proposals.findFirst({
-                where: eq(proposals.leadId, leadId),
-                orderBy: (p, { desc }) => [desc(p.updatedAt)]
-            });
-            const finalWonValue = (latestProposal && latestProposal.total !== null && latestProposal.total !== undefined && latestProposal.total > 0)
-                ? latestProposal.total
-                : lead.estimatedValue;
-
-            await tx.update(leads)
-                .set({ status: "Closed Won", estimatedValue: finalWonValue, updatedAt: new Date() })
-                .where(eq(leads.id, leadId));
-        });
-
-        // 6. Send Client Portal Credentials via Email
-        await sendClientWelcomeEmail({
-            name: lead.client.name || "Client",
-            email: lead.client.email,
-            projectName: lead.serviceId ? `${lead.businessName || lead.client.name} Project` : `${lead.businessName || lead.client.name} Project`
-        });
-
-        await notifyAllAdmins(`Lead ${lead.businessName || lead.client.name} won! Project provisioned.`, "deal_won", `/dashboard/pm`);
-
-        await logAction("UPDATE", "Lead", `Lead ${lead.id} marked as Won and Project provisioned.`);
+        }
 
         revalidatePath("/dashboard/leads");
         revalidatePath("/dashboard/analytics");
+        revalidatePath("/dashboard/pm");
+        revalidatePath(`/dashboard/pm/${result.projectId}`);
 
-        return { success: true, message: "Success! Project Provisioned & Client Notified." };
+        return {
+            success: true,
+            message: result.created ? "Project provisioned successfully." : "Project is already provisioned.",
+        };
     } catch (error) {
         console.error("Failed to mark lead as won:", error);
-        return { success: false, message: "Database Error: Could not execute Won workflow." };
+        return { success: false, message: "Could not complete the Won workflow." };
     }
 }
 
@@ -1080,129 +982,37 @@ export async function convertLeadToProject(leadId: string): Promise<ActionState 
     }
 
     try {
-        // 1. Check if a project was already provisioned for this lead (Idempotency)
-        const existingProject = await db.query.agencyProjects.findFirst({
-            where: eq(agencyProjects.leadId, leadId),
-            columns: { id: true, title: true },
-        });
+        const result = await provisionLeadProject(leadId);
+        if (!result.success) return result;
 
-        if (existingProject) {
-            return {
-                success: true,
-                message: `Project already active: ${existingProject.title}`,
-                projectId: existingProject.id,
-            };
-        }
-
-        // 2. Fetch Lead with client
-        const lead = await db.query.leads.findFirst({
-            where: eq(leads.id, leadId),
-            with: { client: true }
-        });
-
-        if (!lead) return { success: false, message: "Lead not found" };
-        if (!lead.client) return { success: false, message: "Client account not associated with this lead" };
-
-        let clientUserId = lead.clientId;
-        const internalRoles = ["superadmin", "sales", "manager", "developer", "content_editor"];
-
-        const result = await db.transaction(async (tx) => {
-            // Ensure client has client role if not staff
-            if (!internalRoles.includes(lead.client!.role)) {
-                await tx.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
-            }
-
-            // Mark lead status as "Closed Won" if not already
-            if (lead.status !== "Closed Won") {
-                await tx.update(leads)
-                    .set({ status: "Closed Won", updatedAt: new Date() })
-                    .where(eq(leads.id, leadId));
-            }
-
-            // Create Operational Project
-            const projectTitle = lead.businessName
-                ? `${lead.businessName} Project`
-                : `${lead.client?.name || "Client"} Project`;
-
-            const [newProject] = await tx.insert(agencyProjects).values({
-                title: projectTitle,
-                description: lead.goals || `Client project originating from sales opportunity for ${lead.businessName || lead.client?.name}`,
-                leadId: lead.id,
-                status: "Kickoff",
-            }).returning({ id: agencyProjects.id, title: agencyProjects.title });
-
-            // Write to projectStakeholders Junction Table
-            await tx.insert(projectStakeholders).values({
-                projectId: newProject.id,
-                userId: clientUserId
+        if (result.created) {
+            const sideEffects = await Promise.allSettled([
+                notifyAllAdmins(
+                    `Lead ${result.lead.businessName || result.lead.client?.name} converted to a PM delivery project.`,
+                    "deal_won",
+                    `/dashboard/pm/${result.projectId}`
+                ),
+                logAction("CREATE", "Project", `Project ${result.projectId} provisioned from Lead ${leadId}`),
+            ]);
+            sideEffects.forEach((effect) => {
+                if (effect.status === "rejected") console.error("Project conversion side effect failed:", effect.reason);
             });
-
-            // Create Initial Milestone Scaffolding
-            const [kickoffMs] = await tx.insert(milestones).values({
-                projectId: newProject.id,
-                title: "Project Kickoff & Discovery",
-                order: 1,
-                status: "In Progress"
-            }).returning({ id: milestones.id });
-
-            await tx.insert(tasks).values([
-                {
-                    projectId: newProject.id,
-                    milestoneId: kickoffMs.id,
-                    title: "Client Onboarding & Access Handshake",
-                    description: "Acquire repository, hosting, and asset credentials.",
-                    requiresProof: false,
-                    status: "In Progress" as const,
-                },
-                {
-                    projectId: newProject.id,
-                    milestoneId: kickoffMs.id,
-                    title: "Technical Specification & Architecture Review",
-                    description: "Formalize deliverable requirements and engineering milestones.",
-                    requiresProof: true,
-                    status: "Todo" as const,
-                }
-            ]);
-
-            const [deliveryMs] = await tx.insert(milestones).values({
-                projectId: newProject.id,
-                title: "Core Implementation & Delivery",
-                order: 2,
-                status: "Pending"
-            }).returning({ id: milestones.id });
-
-            await tx.insert(tasks).values([
-                {
-                    projectId: newProject.id,
-                    milestoneId: deliveryMs.id,
-                    title: "Core Feature Sprints",
-                    description: "Execute scoped sprint deliverables.",
-                    requiresProof: true,
-                    status: "Todo" as const,
-                }
-            ]);
-
-            return newProject;
-        });
-
-        await notifyAllAdmins(`Lead ${lead.businessName || lead.client.name} converted to PM Delivery Project!`, "deal_won", `/dashboard/pm/${result.id}`);
-        await logAction("CREATE", "Project", `Project ${result.id} provisioned from Lead ${lead.id}`);
+        }
 
         revalidatePath("/dashboard/leads");
         revalidatePath("/dashboard/pm");
-        revalidatePath(`/dashboard/pm/${result.id}`);
+        revalidatePath(`/dashboard/pm/${result.projectId}`);
 
         return {
             success: true,
-            message: "Project successfully provisioned!",
-            projectId: result.id,
+            message: result.created ? "Project successfully provisioned." : `Project already active: ${result.projectTitle}`,
+            projectId: result.projectId,
         };
     } catch (error) {
         console.error("Failed to convert lead to project:", error);
-        return { success: false, message: "Database Error: Could not convert deal to project." };
+        return { success: false, message: "Could not convert deal to project." };
     }
 }
-
 export async function getProjectForLead(leadId: string): Promise<{ id: string; title: string; status: string } | null> {
     const proj = await db.query.agencyProjects.findFirst({
         where: eq(agencyProjects.leadId, leadId),

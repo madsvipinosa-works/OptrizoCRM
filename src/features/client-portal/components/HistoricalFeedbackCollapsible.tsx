@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, ChevronDown, History } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getClientFacingFeedbackStatus } from "@/features/client-portal/utils/status-labels";
 
 interface FeedbackItem {
     id: string;
@@ -28,7 +29,7 @@ export function HistoricalFeedbackCollapsible({ feedback }: { feedback: Feedback
             <div className="bg-muted/30 p-2.5 rounded-lg border border-border">
                 <div className="flex items-center gap-2 mb-1">
                     <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider font-mono ${latest.status === "APPROVED" ? "text-primary border-primary/30 bg-primary/10" : "text-destructive border-destructive/30 bg-destructive/10"}`}>
-                        {latest.status.replace("_", " ")}
+                        {getClientFacingFeedbackStatus(latest.status)}
                     </Badge>
                     <span className="text-[11px] text-muted-foreground font-mono">{new Date(latest.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
@@ -70,7 +71,7 @@ export function HistoricalFeedbackCollapsible({ feedback }: { feedback: Feedback
                                     <div key={fb.id || idx} className="bg-muted/20 p-2 rounded text-xs border border-border">
                                         <div className="flex items-center gap-2 mb-1">
                                             <Badge variant="outline" className={`text-[9px] font-mono ${fb.status === "APPROVED" ? "text-primary border-primary/20 bg-primary/5" : "text-destructive border-destructive/20 bg-destructive/5"}`}>
-                                                {fb.status.replace("_", " ")}
+                                                {getClientFacingFeedbackStatus(fb.status)}
                                             </Badge>
                                             <span className="text-[10px] text-muted-foreground font-mono">{new Date(fb.createdAt).toLocaleDateString()}</span>
                                         </div>

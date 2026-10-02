@@ -7,7 +7,7 @@ export default async function SettingsPage() {
     return (
         <div className="max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold mb-8">Global Site Settings</h1>
-            <SettingsForm initialData={settings} />
+            <SettingsForm initialData={settings || undefined} />
         </div>
     );
 }

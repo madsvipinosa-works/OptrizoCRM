@@ -13,6 +13,7 @@ export default async function LeadsPage({
     searchParams?: Promise<{
         query?: string;
         status?: string;
+        leadId?: string;
     }>;
 }) {
     const session = await auth();
@@ -22,6 +23,7 @@ export default async function LeadsPage({
 
     const currentUserId = session.user.id;
     const isSuperAdmin = session.user.role === "superadmin";
+    const canSeeAllLeads = isSuperAdmin;
 
     // Role-based CRM visibility:
     // - Superadmin sees all non-archived leads.
@@ -38,10 +40,11 @@ export default async function LeadsPage({
     const params = await searchParams;
     const query = params?.query || "";
     const status = params?.status || "";
+    const focusedLeadId = params?.leadId || "";
 
     // Build Where Clause
     const whereClause = and(
-        !isSuperAdmin ? inArray(leads.id, assignedLeadIds) : undefined,
+        !canSeeAllLeads ? inArray(leads.id, assignedLeadIds) : undefined,
         status && status !== "all" ? eq(leads.status, status as any) : undefined,
         query
             ? or(
@@ -73,6 +76,30 @@ export default async function LeadsPage({
         orderBy: [desc(leads.createdAt)],
     });
 
+    // Sales staff may open an unassigned lead from the daily overview so they
+    // can claim it, without exposing leads already assigned to another rep.
+    if (!canSeeAllLeads && focusedLeadId && !leadsList.some((lead) => lead.id === focusedLeadId)) {
+        const focusedLead = await db.query.leads.findFirst({
+            where: eq(leads.id, focusedLeadId),
+            with: {
+                client: true,
+                activityLogs: {
+                    with: { author: true },
+                    orderBy: (logs, { desc }) => [desc(logs.createdAt)],
+                },
+                assignees: { with: { user: true } },
+                proposals: { orderBy: (proposal, { desc }) => [desc(proposal.createdAt)] },
+                crmTasks: {
+                    with: { assignee: true },
+                    orderBy: (task, { asc }) => [asc(task.dueDate)],
+                },
+            },
+        });
+        if (focusedLead && focusedLead.assignees.length === 0) {
+            leadsList.push(focusedLead);
+        }
+    }
+
     // Fetch potential assignees (Admins/Editors)
     const assignableUsers = await db.query.users.findMany({
         columns: { id: true, name: true, image: true, jobTitle: true, role: true },
@@ -95,6 +122,9 @@ export default async function LeadsPage({
             updatedAt: t.updatedAt.toISOString()
         })) || []
     }));
+    const focusedLeadCanBeClaimed = !canSeeAllLeads && leadsList.some(
+        (lead) => lead.id === focusedLeadId && lead.assignees.length === 0
+    );
 
     return (
         <div className="space-y-6">
@@ -116,7 +146,8 @@ export default async function LeadsPage({
                 currentUserId={currentUserId}
                 query={query}
                 status={status}
-                isAdmin={isSuperAdmin}
+                isAdmin={isSuperAdmin || focusedLeadCanBeClaimed}
+                initialLeadId={focusedLeadId}
             />
         </div>
     );

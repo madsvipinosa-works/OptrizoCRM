@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useOptimistic, startTransition } from "react";
+import { useState, useOptimistic, startTransition, useEffect } from "react";
 import { LeadsDataTable, type LeadItem } from "./LeadsDataTable";
 import { LeadsKanbanBoard } from "./LeadsKanbanBoard";
 import { LeadStatusValidationModal } from "./LeadStatusValidationModal";
@@ -44,6 +44,7 @@ interface LeadsPipelineViewProps {
     assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null; role?: string | null }[];
     currentUserId: string;
     isAdmin?: boolean;
+    initialLeadId?: string;
 }
 
 export function LeadsPipelineView({
@@ -51,6 +52,7 @@ export function LeadsPipelineView({
     assignableUsers,
     currentUserId,
     isAdmin,
+    initialLeadId,
 }: LeadsPipelineViewProps) {
     const [leadsList, setLeadsList] = useState<LeadItem[]>(initialLeads);
     const [viewLayout, setViewLayout] = useState<"kanban" | "table">("kanban");
@@ -67,6 +69,12 @@ export function LeadsPipelineView({
 
     // Side-over drawer state
     const [selectedLeadForDrawer, setSelectedLeadForDrawer] = useState<LeadItem | null>(null);
+
+    useEffect(() => {
+        if (!initialLeadId) return;
+        const lead = leadsList.find((item) => item.id === initialLeadId);
+        if (lead) setSelectedLeadForDrawer(lead);
+    }, [initialLeadId, leadsList]);
 
     // Intercept Validation Modal state (for generic transitions)
     const [pendingValidation, setPendingValidation] = useState<{

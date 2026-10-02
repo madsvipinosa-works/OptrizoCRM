@@ -4,12 +4,13 @@ import { auth, hasRole } from "@/auth";
 import { eq } from "drizzle-orm";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/features/pm/components/KanbanBoard";
 import { ProjectSettingsModal } from "@/features/pm/components/ProjectSettingsModal";
 import { ProjectResourcesSidebar } from "@/features/pm/components/ProjectResourcesSidebar";
 import { ProjectProgressCard } from "@/components/projects/weighted-progress-bar";
+import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
 
 export default async function KanbanBoardPage(props: { params: Promise<{ id: string }> }) {
     const session = await auth();
@@ -18,6 +19,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
     }
 
     const { id } = await props.params;
+    const isSuperAdmin = hasRole(session, ["superadmin"]);
 
     // Trigger deadline checks on load
     const { checkAndNotifyOverdueTasks } = await import("@/features/pm/actions");
@@ -76,20 +78,48 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                 </div>
             </div>
 
+            {project.status === "Completed" && !project.isArchived && isSuperAdmin && (
+                <div className="shrink-0 bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+                    <p className="text-sm font-medium text-primary">
+                        This project is marked as Completed. Would you like to archive it to clear it from the active delivery board?
+                    </p>
+                    <ProjectArchiveButton projectId={project.id} isArchived={project.isArchived} />
+                </div>
+            )}
+
             {/* Real-time Weighted Progress Engine Card */}
             <div className="shrink-0">
                 <ProjectProgressCard projectId={project.id} />
             </div>
 
             {/* The Kanban Board gets the rest of the height */}
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                <KanbanBoard
-                    project={project as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
-                    teamMembers={internalUsers as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
-                    currentUserId={session.user.id}
-                    currentUserRole={session.user.role}
-                />
-            </div>
+            {project.isArchived ? (
+                <div className="flex-1 min-h-0 flex items-center justify-center border border-dashed border-border rounded-xl bg-muted/20">
+                    <div className="text-center space-y-4 max-w-md">
+                        <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+                            <Lock className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-xl font-bold">Project Archived</h3>
+                        <p className="text-muted-foreground text-sm">
+                            This project is archived and its Kanban board is locked. You cannot manage tasks or milestones in an archived project.
+                        </p>
+                        {isSuperAdmin && (
+                            <div className="pt-4 flex justify-center">
+                                <ProjectArchiveButton projectId={project.id} isArchived={project.isArchived} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                    <KanbanBoard
+                        project={project as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
+                        teamMembers={internalUsers as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
+                        currentUserId={session.user.id}
+                        currentUserRole={session.user.role}
+                    />
+                </div>
+            )}
         </div>
     );
 }

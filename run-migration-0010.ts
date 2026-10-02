@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
   console.error("No connection string found.");
@@ -48,7 +48,14 @@ async function main() {
         WHEN duplicate_object THEN null;
       END $$;
 
-      ALTER TABLE "lead" ADD COLUMN IF NOT EXISTS "qualificationStatus" qualification_status DEFAULT 'Lead' NOT NULL;
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'lead' AND column_name = 'qualification_status'
+        ) THEN
+          ALTER TABLE "lead" ADD COLUMN "qualification_status" qualification_status DEFAULT 'Lead' NOT NULL;
+        END IF;
+      END $$;
 
       CREATE TABLE IF NOT EXISTS "crm_task" (
           "id" text PRIMARY KEY NOT NULL,
@@ -80,12 +87,6 @@ async function main() {
       CREATE INDEX IF NOT EXISTS "idx_crm_task_lead" ON "crm_task" ("leadId");
       CREATE INDEX IF NOT EXISTS "idx_crm_task_assignee_status" ON "crm_task" ("assignedTo", "status");
       CREATE INDEX IF NOT EXISTS "idx_crm_task_due_status" ON "crm_task" ("due_date", "status");
-
-      DO $$ BEGIN
-        ALTER TABLE "lead" RENAME COLUMN "qualificationStatus" TO "qualification_status";
-      EXCEPTION
-        WHEN undefined_column THEN null;
-      END $$;
     `);
     
     console.log("Migration 0010 executed successfully!");

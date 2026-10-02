@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Layers, ArrowUpRight, Clock, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getClientFacingProjectStatus } from "@/features/client-portal/utils/status-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,7 @@ export default async function AvailedServicesPage() {
             case "In Progress":
                 return "bg-primary/10 text-primary border-primary/30 font-mono font-bold";
             case "In Review":
-                return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 font-mono";
+                return "bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/30 font-mono";
             case "Completed":
                 return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono";
             default:
@@ -151,7 +152,7 @@ export default async function AvailedServicesPage() {
                                         variant="outline"
                                         className={getProjectBadgeColor(project.status)}
                                     >
-                                        {project.status}
+                                        {getClientFacingProjectStatus(project.status)}
                                     </Badge>
                                 </div>
 

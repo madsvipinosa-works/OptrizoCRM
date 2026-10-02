@@ -97,7 +97,7 @@ function generateOfflineFallback(brief: string): ParsedScope {
   };
 }
 
-export async function provisionProjectFromScope(data: ParsedScope, rawBrief: string, leadId?: string): Promise<{ success: boolean; projectId?: string; error?: string }> {
+export async function provisionProjectFromScope(data: ParsedScope, rawBrief: string): Promise<{ success: boolean; projectId?: string; error?: string }> {
   const session = await auth();
   if (!hasRole(session, ["superadmin", "pm"])) {
     return { success: false, error: "Unauthorized" };
@@ -110,7 +110,6 @@ export async function provisionProjectFromScope(data: ParsedScope, rawBrief: str
         title: data.projectTitle,
         description: data.projectDescription,
         sourceBrief: rawBrief,
-        leadId: leadId || null,
         status: "Kickoff",
       }).returning({ id: agencyProjects.id });
 

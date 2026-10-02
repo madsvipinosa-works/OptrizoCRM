@@ -15,6 +15,7 @@ import {
     Mail,
     Users,
     CheckSquare,
+    CalendarClock,
     MoreVertical,
     Edit3,
     Archive,
@@ -40,6 +41,7 @@ import { toast } from "sonner";
 import type { LeadItem } from "./LeadsDataTable";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface LeadCardProps {
     lead: LeadItem;
@@ -84,6 +86,8 @@ export function LeadCard({
     const nextTask = activeTasks[0]; // Tasks are already sorted by dueDate ASC
 
     const isNextTaskOverdue = nextTask?.dueDate && new Date(nextTask.dueDate).getTime() < Date.now();
+    const nextFollowUp = lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate) : null;
+    const isFollowUpOverdue = nextFollowUp && nextFollowUp.getTime() < Date.now();
 
     const currentAssigneeIds = lead.assignees?.map((a: any) => a.id) || [];
 
@@ -311,21 +315,38 @@ export function LeadCard({
                 </div>
             )}
 
+            {nextFollowUp && (
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] ${
+                    isFollowUpOverdue
+                        ? "bg-rose-500/10 border-rose-500/20 text-rose-500 dark:text-rose-400"
+                        : "bg-muted/40 border-border/60 text-muted-foreground"
+                }`}>
+                    <CalendarClock className="h-3 w-3 shrink-0" />
+                    <span className="font-semibold">Follow-up</span>
+                    <span>{format(nextFollowUp, "MMM d")}</span>
+                    {isFollowUpOverdue && <span className="ml-auto font-bold uppercase tracking-wide">Overdue</span>}
+                </div>
+            )}
+
             {/* Bottom Row: Assignee avatars, task alert badges, last activity time, SOW link */}
             <div className="flex items-center justify-between pt-1.5 border-t border-border/50 text-[11px] text-muted-foreground">
                 {/* Assignees avatar stack */}
                 <div className="flex items-center gap-1.5">
                     {lead.assignees && lead.assignees.length > 0 ? (
-                        <div className="flex -space-x-1.5 overflow-hidden">
-                            {lead.assignees.slice(0, 3).map((assignee, idx) => (
-                                <div
-                                    key={idx}
-                                    className="w-5 h-5 rounded-full bg-card border border-border text-primary flex items-center justify-center font-bold text-[9px]"
-                                    title={assignee.name || "Staff"}
-                                >
-                                    {assignee.name?.[0]?.toUpperCase() || "U"}
-                                </div>
-                            ))}
+                        <div className="flex items-center gap-1.5" title={`Owner${lead.assignees.length > 1 ? "s" : ""}: ${lead.assignees.map((assignee: any) => assignee.name || "Staff").join(", ")}`}>
+                            <div className="flex -space-x-1.5 overflow-hidden">
+                                {lead.assignees.slice(0, 3).map((assignee: any) => (
+                                    <Avatar key={assignee.id} size="sm" className="h-5 w-5 border border-border">
+                                        {assignee.image && <AvatarImage src={assignee.image} alt={assignee.name || "Assigned owner"} />}
+                                        <AvatarFallback className="text-[8px] font-bold">
+                                            {assignee.name?.[0]?.toUpperCase() || "U"}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ))}
+                            </div>
+                            <span className="max-w-20 truncate text-[10px]">
+                                {lead.assignees[0].name || "Assigned"}{lead.assignees.length > 1 ? ` +${lead.assignees.length - 1}` : ""}
+                            </span>
                         </div>
                     ) : (
                         <span className="text-muted-foreground/60 italic text-[10px]">Unassigned</span>

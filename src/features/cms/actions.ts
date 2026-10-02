@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { eq, and, ne } from "drizzle-orm";
 import { auth, requireRole, hasRole } from "@/auth";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { cache } from "react";
 import {
     siteSettingsSchema,
     postSchema,
@@ -42,9 +43,18 @@ async function requireEditor() {
 
 // --- Global Settings ---
 
+const getCachedSiteSettings = cache(async () => {
+    try {
+        const settings = await db.select().from(siteSettings).limit(1);
+        return settings[0] || null;
+    } catch (error) {
+        console.error("⚠️ [CMS] Failed to fetch site settings:", error);
+        return null;
+    }
+});
+
 export async function getSiteSettings() {
-    const settings = await db.select().from(siteSettings).limit(1);
-    return settings[0] || null;
+    return getCachedSiteSettings();
 }
 
 export type ActionState = {

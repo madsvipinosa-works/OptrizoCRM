@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
-import { markLeadAsWon } from "@/features/crm/actions";
+import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
 import { logAction } from "@/features/audit/actions";
 
 export interface ContractSettings {
@@ -227,7 +227,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         }
 
         // Trigger Won Automation internally (provisions Project, Stakeholder, Milestones, Client Welcome Email)
-        const wonResult = await markLeadAsWon(proposal.leadId, true);
+        const wonResult = await provisionLeadProject(proposal.leadId);
         if (!wonResult.success) {
             console.error("markLeadAsWon failed during proposal acceptance:", wonResult.message);
         }

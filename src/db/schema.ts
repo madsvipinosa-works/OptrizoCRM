@@ -226,6 +226,10 @@ export const inquiries = pgTable("inquiry", {
     message: text("message").notNull(),
     status: inquiryStatusEnum("status").default("Unread").notNull(),
     source: text("source").default("Website Form"),
+    ownerId: text("ownerId")
+        .references(() => users.id, { onDelete: "set null" }),
+    nextAction: text("nextAction"),
+    isHandled: boolean("isHandled").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -491,6 +495,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     notifications: many(notifications),
     clientFeedback: many(clientFeedback),
     auditLogs: many(auditLogs),
+    inquiries: many(inquiries),
 }));
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
@@ -514,6 +519,13 @@ export const crmTasksRelations = relations(crmTasks, ({ one }) => ({
     }),
     assignee: one(users, {
         fields: [crmTasks.assignedTo],
+        references: [users.id],
+    }),
+}));
+
+export const inquiriesRelations = relations(inquiries, ({ one }) => ({
+    owner: one(users, {
+        fields: [inquiries.ownerId],
         references: [users.id],
     }),
 }));

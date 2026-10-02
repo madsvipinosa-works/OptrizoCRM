@@ -31,6 +31,7 @@ import { useTransition } from "react";
 import { type ProjectDocumentItem } from "@/db/schema";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { getClientFacingMilestoneStatus, getClientFacingProjectStatus } from "@/features/client-portal/utils/status-labels";
 
 interface MilestoneFeedback {
     id: string;
@@ -309,10 +310,11 @@ export function ClientPortalDashboardView({
                                                 variant={project.status === "Completed" ? "default" : "outline"} 
                                                 className={`text-xs px-3 py-1 font-semibold ${
                                                     project.status === 'Completed' ? 'bg-primary text-black hover:bg-primary/90' : 
-                                                    project.status === 'In Progress' ? 'border-primary text-primary bg-primary/10' : 'border-border'
+                                                    project.status === 'In Progress' ? 'border-primary text-primary bg-primary/10' :
+                                                    project.status === 'In Review' ? 'border-amber-500/50 text-amber-600 dark:text-amber-300 bg-amber-500/10' : 'border-border'
                                                 }`}
                                             >
-                                                {project.status}
+                                                {getClientFacingProjectStatus(project.status)}
                                             </Badge>
                                         </div>
                                         <CardDescription className="text-muted-foreground text-sm leading-relaxed max-w-3xl">
@@ -404,7 +406,7 @@ export function ClientPortalDashboardView({
                                                                     isApprovalRequired ? "border-amber-500/40 text-amber-500 animate-pulse bg-amber-500/10" :
                                                                     "border-border text-muted-foreground"
                                                                 }`}>
-                                                                    {milestone.status}
+                                                                    {getClientFacingMilestoneStatus(milestone.status)}
                                                                 </Badge>
                                                             </div>
                                                             <p className="text-xs text-muted-foreground">

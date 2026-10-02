@@ -8,13 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
-import { Clock } from "lucide-react";
+import { Clock, Archive } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ScopeDeconstructorModal } from "@/features/pm/components/ScopeDeconstructorModal";
 
 export const dynamic = 'force-dynamic';
 
 export default async function PMEnginePage() {
+
     const session = await auth();
     if (!hasRole(session, ["superadmin", "manager", "developer"])) {
         redirect("/");
@@ -44,6 +45,12 @@ export default async function PMEnginePage() {
                     <p className="text-muted-foreground text-sm">Manage ongoing client projects, milestones, and tasks.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                        <Link href="/dashboard/pm/archives" className="flex items-center gap-1.5">
+                            <Archive className="h-4 w-4" />
+                            View Archives
+                        </Link>
+                    </Button>
                     <ScopeDeconstructorModal />
                 </div>
             </div>
@@ -66,6 +73,8 @@ export default async function PMEnginePage() {
                     </CardContent>
                 </Card>
             </div>
+
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projects.map(project => {
@@ -108,7 +117,7 @@ export default async function PMEnginePage() {
                                     {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
                                 </div>
                                 <div className="flex gap-1.5">
-                                    {isSuperAdmin && <ProjectArchiveButton projectId={project.id} />}
+                                    {isSuperAdmin && <ProjectArchiveButton projectId={project.id} isArchived={project.isArchived} />}
                                     <Button size="sm" variant="ghost" className="h-8 hover:bg-muted text-foreground" asChild>
                                         <Link href={`/dashboard/pm/${project.id}`}>
                                             Manage Board
@@ -121,7 +130,7 @@ export default async function PMEnginePage() {
                 })}
                 {projects.length === 0 && (
                     <div className="col-span-full py-12 text-center text-muted-foreground border border-dashed border-border rounded-xl">
-                        No active projects found. Mark a lead as &quot;Won&quot; to provision a project.
+                        No active projects found. Mark a lead as "Won" to provision a project.
                     </div>
                 )}
             </div>

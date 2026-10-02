@@ -89,7 +89,7 @@ export function FeedbackActionModal({ milestoneId, milestoneTitle, tasks, projec
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10">
-                    <MessageSquare className="h-4 w-4 mr-2" /> Review & Action
+                    <MessageSquare className="h-4 w-4 mr-2" /> Review deliverables
                 </Button>
             </DialogTrigger>
             <DialogContent className="glass-card border-border text-foreground sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
