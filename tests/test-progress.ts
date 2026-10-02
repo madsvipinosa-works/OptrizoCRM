@@ -1,5 +1,4 @@
-import * as dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
 
 import { db } from "@/db";
 import { agencyProjects, tasks, milestones } from "@/db/schema";

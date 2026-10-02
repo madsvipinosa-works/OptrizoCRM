@@ -11,8 +11,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
+    "test:progress": "npx tsx tests/test-progress.ts",
     "test:dependencies": "npx tsx tests/test-task-dependencies.ts",
-    "test:capstone": "npx tsx test-crm-routing.ts && npx tsx tests/test-scope-engine.ts && npx tsx tests/test-quality-gate.ts && npx tsx tests/test-task-dependencies.ts"
+    "test:capstone": "npx tsx test-crm-routing.ts && npx tsx tests/test-progress.ts && npx tsx tests/test-scope-engine.ts && npx tsx tests/test-quality-gate.ts && npx tsx tests/test-task-dependencies.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.64",
