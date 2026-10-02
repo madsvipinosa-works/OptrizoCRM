@@ -44,9 +44,6 @@ import {
     Lock,
     ArrowRight,
     Sparkles,
-    RotateCcw,
-    X,
-    ChevronDown,
     AlertOctagon,
     CheckCircle2,
     Layers,
@@ -57,13 +54,16 @@ import {
     GitBranch,
     Link2,
     Unlink,
+    Flag,
+    Sliders,
+    Workflow,
 } from "lucide-react";
 import { format, formatDistanceToNow, isPast, isToday, isTomorrow, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PmTask } from "./PmKanbanBoard";
 import { AssigneeCombobox, type TeamMemberItem } from "./AssigneeCombobox";
-import { AIAuditCard, type CriteriaItem } from "@/components/tasks/ai-audit-card";
+import { AIAuditCard } from "@/components/tasks/ai-audit-card";
 import { getTaskAuditReport } from "@/features/pm/actions";
 
 interface TaskDetailsDrawerProps {
@@ -96,37 +96,43 @@ interface TaskDetailsDrawerProps {
 
 const STATUS_CONFIG: Record<
     PmTask["status"],
-    { label: string; badgeClass: string; dotClass: string }
+    { label: string; badgeClass: string; dotClass: string; ringClass: string }
 > = {
     Todo: {
         label: "To Do",
         badgeClass: "bg-muted text-foreground border-border",
         dotClass: "bg-muted-foreground",
+        ringClass: "ring-muted-foreground/20",
     },
     "In Progress": {
         label: "In Progress",
         badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
         dotClass: "bg-blue-500",
+        ringClass: "ring-blue-500/25",
     },
     Blocked: {
         label: "Blocked",
         badgeClass: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30",
         dotClass: "bg-rose-500",
+        ringClass: "ring-rose-500/25",
     },
     "Changes Requested": {
         label: "Changes Requested",
         badgeClass: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40",
         dotClass: "bg-orange-500",
+        ringClass: "ring-orange-500/25",
     },
     "In Review": {
         label: "In Review",
         badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
         dotClass: "bg-amber-500",
+        ringClass: "ring-amber-500/25",
     },
     Done: {
         label: "Done",
         badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
         dotClass: "bg-emerald-500",
+        ringClass: "ring-emerald-500/25",
     },
 };
 
@@ -219,18 +225,26 @@ export function TaskDetailsDrawer({
             return {
                 text: daysAgo === 0 ? "Overdue today" : `Overdue by ${daysAgo}d`,
                 isOverdue: true,
+                isUrgent: true,
             };
         }
-        if (isToday(d)) return { text: "Due today", isOverdue: false };
-        if (isTomorrow(d)) return { text: "Due tomorrow", isOverdue: false };
+        if (isToday(d)) return { text: "Due today", isOverdue: false, isUrgent: true };
+        if (isTomorrow(d)) return { text: "Due tomorrow", isOverdue: false, isUrgent: true };
         const daysLeft = differenceInDays(d, new Date());
         return {
             text: `Due in ${daysLeft}d (${format(d, "MMM d")})`,
             isOverdue: false,
+            isUrgent: daysLeft <= 3,
         };
     };
 
     const deadlineInfo = getDeadlineDisplay();
+
+    // Capacity allocation percentage (based on standard 40h sprint capacity)
+    const capacityPercent =
+        task.estimatedHours != null && task.estimatedHours > 0
+            ? Math.min(100, Math.round((task.estimatedHours / 40) * 100))
+            : 0;
 
     // Handlers
     const handleSaveTitle = async () => {
@@ -295,21 +309,21 @@ export function TaskDetailsDrawer({
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-2xl bg-card border-border text-foreground p-0 flex flex-col h-full shadow-2xl overflow-hidden focus:outline-none"
+                className="w-full sm:max-w-2xl bg-card/95 dark:bg-[#0c1527]/95 backdrop-blur-2xl border-l border-border/60 text-foreground p-0 flex flex-col h-full shadow-2xl shadow-black/80 overflow-hidden focus:outline-none"
             >
-                {/* 1. Header Section */}
-                <SheetHeader className="p-5 sm:p-6 pb-4 border-b border-border bg-muted/20 backdrop-blur-md space-y-3 shrink-0">
+                {/* 1. Header Section (Stitch Obsidian Theme Elevation) */}
+                <SheetHeader className="px-5 sm:px-6 pt-5 pb-4 border-b border-border/50 bg-muted/20 dark:bg-muted/10 backdrop-blur-md space-y-3.5 shrink-0">
                     {/* Top Row: Milestone & Metadata Badges */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
                             {currentMilestone && (
                                 <Badge
                                     variant="outline"
-                                    className="bg-primary/10 text-primary border-primary/25 text-xs font-semibold flex items-center gap-1 px-2.5 py-0.5"
+                                    className="bg-primary/10 text-primary border-primary/30 text-xs font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md"
                                 >
-                                    <Layers className="w-3 h-3" />
+                                    <Layers className="w-3 h-3 text-primary" />
                                     <span>
-                                        M{currentMilestone.order}: {currentMilestone.title}
+                                        [M{currentMilestone.order}: {currentMilestone.title}]
                                     </span>
                                 </Badge>
                             )}
@@ -317,20 +331,21 @@ export function TaskDetailsDrawer({
                             {/* Effort Weight */}
                             <Badge
                                 variant="outline"
-                                className="bg-muted text-foreground border-border text-xs font-mono font-bold"
+                                className="bg-muted/60 dark:bg-muted/30 text-foreground border-border text-xs font-mono font-bold flex items-center gap-1 px-2.5 py-1 rounded-md"
                             >
-                                {task.weight ?? 1} pts
+                                <Hash className="w-3 h-3 text-muted-foreground" />
+                                <span>{task.weight ?? 1} pts</span>
                             </Badge>
 
-                            {/* Hours with Guardrail */}
+                            {/* Hours with Capacity & Guardrail */}
                             {task.estimatedHours != null && task.estimatedHours > 0 && (
                                 <Badge
                                     variant="outline"
                                     className={cn(
-                                        "text-xs font-mono font-medium flex items-center gap-1",
+                                        "text-xs font-mono font-medium flex items-center gap-1 px-2.5 py-1 rounded-md",
                                         task.estimatedHours > 40
                                             ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold"
-                                            : "bg-muted text-muted-foreground border-border"
+                                            : "bg-muted/60 dark:bg-muted/30 text-muted-foreground border-border"
                                     )}
                                 >
                                     <Clock className="w-3 h-3" />
@@ -343,45 +358,72 @@ export function TaskDetailsDrawer({
                                 </Badge>
                             )}
 
-                            {/* Due date badge */}
+                            {/* Due date badge with Urgency Indicator */}
                             {deadlineInfo && (
                                 <Badge
                                     variant="outline"
                                     className={cn(
-                                        "text-xs font-medium flex items-center gap-1",
+                                        "text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-md",
                                         deadlineInfo.isOverdue
                                             ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 font-semibold"
-                                            : "bg-muted text-muted-foreground border-border"
+                                            : deadlineInfo.isUrgent
+                                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30"
+                                            : "bg-muted/60 dark:bg-muted/30 text-muted-foreground border-border"
                                     )}
                                 >
-                                    <Calendar className="w-3 h-3" />
+                                    {deadlineInfo.isUrgent && (
+                                        <span
+                                            className={cn(
+                                                "w-1.5 h-1.5 rounded-full animate-ping shrink-0",
+                                                deadlineInfo.isOverdue ? "bg-rose-500" : "bg-amber-500"
+                                            )}
+                                        />
+                                    )}
+                                    <Calendar className="w-3 h-3 shrink-0" />
                                     <span>{deadlineInfo.text}</span>
                                 </Badge>
                             )}
                         </div>
 
-                        {/* More Menu */}
-                        <div className="flex items-center gap-1">
+                        {/* Top Right Utilities: Quick ID Copy & Overflow Menu */}
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={handleCopyTaskId}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/40 hover:bg-muted/80 border border-border/60 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                                title="Click to copy task ID"
+                            >
+                                {copiedTaskId ? (
+                                    <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                    <Copy className="w-3 h-3" />
+                                )}
+                                <span>#{task.id.slice(0, 8)}</span>
+                            </button>
+
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
+                                    >
                                         <MoreVertical className="w-4 h-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-card border-border text-foreground w-48">
-                                    <DropdownMenuItem onClick={handleCopyTaskId} className="gap-2 cursor-pointer">
+                                <DropdownMenuContent align="end" className="bg-card border-border text-foreground w-48 shadow-xl">
+                                    <DropdownMenuItem onClick={handleCopyTaskId} className="gap-2 cursor-pointer text-xs">
                                         {copiedTaskId ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                                        <span>Copy Task ID</span>
+                                        <span>Copy Full Task ID</span>
                                     </DropdownMenuItem>
                                     {onDeleteTask && isManagerOrAdmin && (
                                         <>
-                                            <DropdownMenuSeparator className="bg-border" />
+                                            <DropdownMenuSeparator className="bg-border/60" />
                                             <DropdownMenuItem
                                                 onClick={() => {
                                                     onClose();
                                                     onDeleteTask(task);
                                                 }}
-                                                className="gap-2 text-rose-500 focus:text-rose-500 focus:bg-rose-500/10 cursor-pointer"
+                                                className="gap-2 text-rose-500 focus:text-rose-500 focus:bg-rose-500/10 cursor-pointer text-xs"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                                 <span>Delete Task</span>
@@ -393,8 +435,8 @@ export function TaskDetailsDrawer({
                         </div>
                     </div>
 
-                    {/* Task Title (Inline Editable) */}
-                    <div className="pt-1">
+                    {/* Task Title (Inline Editable with Modern Typography) */}
+                    <div className="pt-0.5">
                         {isEditingTitle && canManage ? (
                             <div className="flex items-center gap-2">
                                 <Input
@@ -431,9 +473,9 @@ export function TaskDetailsDrawer({
                                 </Button>
                             </div>
                         ) : (
-                            <div className="group flex items-start gap-2">
+                            <div className="group flex items-start gap-2.5">
                                 <SheetTitle
-                                    className="text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-snug break-words flex-1 cursor-pointer"
+                                    className="text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-snug break-words flex-1 cursor-pointer transition-colors hover:text-primary/90"
                                     onClick={() => canManage && setIsEditingTitle(true)}
                                     title={canManage ? "Click to edit title" : undefined}
                                 >
@@ -442,7 +484,7 @@ export function TaskDetailsDrawer({
                                 {canManage && (
                                     <button
                                         onClick={() => setIsEditingTitle(true)}
-                                        className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-foreground transition-opacity"
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/40 transition-all mt-0.5 shrink-0"
                                         title="Edit title"
                                     >
                                         <Pencil className="w-3.5 h-3.5" />
@@ -453,9 +495,9 @@ export function TaskDetailsDrawer({
                         <SheetDescription className="sr-only">Task details for {task.title}</SheetDescription>
                     </div>
 
-                    {/* 2. Interactive Action Bar: Live Status Dropdown & Contextual Action Buttons */}
-                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60">
-                        {/* Status Dropdown */}
+                    {/* 2. Interactive Action Bar: Glowing Status Dropdown & Contextual Action Buttons */}
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5 border-t border-border/50">
+                        {/* Live Task Status Selector Dropdown */}
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status:</span>
                             <Select
@@ -469,16 +511,22 @@ export function TaskDetailsDrawer({
                             >
                                 <SelectTrigger
                                     className={cn(
-                                        "h-8 text-xs font-semibold px-2.5 rounded-lg border gap-2 shadow-xs transition-colors",
+                                        "h-8 text-xs font-semibold px-2.5 rounded-lg border gap-2 shadow-xs transition-all",
                                         STATUS_CONFIG[task.status]?.badgeClass
                                     )}
                                 >
                                     <div className="flex items-center gap-2">
-                                        <span className={cn("w-2 h-2 rounded-full shrink-0", STATUS_CONFIG[task.status]?.dotClass)} />
+                                        <span
+                                            className={cn(
+                                                "w-2 h-2 rounded-full shrink-0 ring-4",
+                                                STATUS_CONFIG[task.status]?.dotClass,
+                                                STATUS_CONFIG[task.status]?.ringClass
+                                            )}
+                                        />
                                         <SelectValue>{STATUS_CONFIG[task.status]?.label}</SelectValue>
                                     </div>
                                 </SelectTrigger>
-                                <SelectContent className="bg-card border-border text-foreground">
+                                <SelectContent className="bg-card border-border text-foreground shadow-xl">
                                     {(Object.keys(STATUS_CONFIG) as PmTask["status"][]).map((st) => (
                                         <SelectItem key={st} value={st} className="text-xs cursor-pointer">
                                             <div className="flex items-center gap-2">
@@ -498,7 +546,7 @@ export function TaskDetailsDrawer({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 text-xs font-semibold gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/30"
+                                    className="h-8 text-xs font-semibold gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border-amber-500/30 shadow-xs active:scale-[0.98] transition-all"
                                     onClick={() => onRequestVerificationReview(task)}
                                 >
                                     <ShieldCheck className="w-3.5 h-3.5" />
@@ -510,7 +558,7 @@ export function TaskDetailsDrawer({
                             {task.status === "In Review" && isManagerOrAdmin && (
                                 <Button
                                     size="sm"
-                                    className="h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    className="h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs active:scale-[0.98] transition-all"
                                     onClick={() => onStatusChangeRequest(task.id, "Done")}
                                 >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -523,7 +571,7 @@ export function TaskDetailsDrawer({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 text-xs font-medium gap-1 text-muted-foreground hover:text-rose-500 border-border hover:border-rose-500/30"
+                                    className="h-8 text-xs font-medium gap-1 text-muted-foreground hover:text-rose-500 border-border hover:border-rose-500/30 active:scale-[0.98] transition-all"
                                     onClick={() => onRequestBlock(task)}
                                     title="Mark task as blocked"
                                 >
@@ -541,8 +589,8 @@ export function TaskDetailsDrawer({
                     onValueChange={(val) => setActiveTab(val as any)}
                     className="flex-1 flex flex-col min-h-0 overflow-hidden"
                 >
-                    <div className="px-6 pt-3 border-b border-border bg-card shrink-0">
-                        <TabsList className="grid grid-cols-3 w-full sm:w-[380px] bg-muted/50 p-1">
+                    <div className="px-5 sm:px-6 pt-2.5 border-b border-border/50 bg-card/50 shrink-0">
+                        <TabsList className="grid grid-cols-3 w-full sm:w-[410px] bg-muted/40 dark:bg-muted/20 p-1 rounded-lg border border-border/40">
                             <TabsTrigger value="overview" className="text-xs font-semibold">
                                 Overview
                             </TabsTrigger>
@@ -554,6 +602,7 @@ export function TaskDetailsDrawer({
                                             "w-2 h-2 rounded-full",
                                             auditReport.gateStatus === "Passed" ? "bg-emerald-500" : "bg-amber-500"
                                         )}
+                                        title={auditReport.gateStatus === "Passed" ? "DoD Passed" : "DoD Under Review"}
                                     />
                                 )}
                             </TabsTrigger>
@@ -567,7 +616,7 @@ export function TaskDetailsDrawer({
                     <TabsContent value="overview" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-6 focus:outline-none">
                         {/* Blocker Callout Banner (if Blocked) */}
                         {task.status === "Blocked" && (
-                            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 space-y-2">
+                            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 space-y-2 shadow-xs">
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold text-sm">
                                         <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -593,31 +642,36 @@ export function TaskDetailsDrawer({
                             </div>
                         )}
 
-                        {/* Task Dependencies & Sequencing Section */}
-                        <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-                            <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                                <div className="space-y-0.5">
-                                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                        <GitBranch className="w-3.5 h-3.5 text-primary" />
-                                        <span>Dependencies & Task Sequencing</span>
-                                    </h4>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Enforce sequential execution across prerequisite tasks
-                                    </p>
+                        {/* Task Dependencies & Sequencing Section (Stitch Graph Topology) */}
+                        <section className="rounded-xl border border-border/70 bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                            <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                                <div className="flex items-center gap-2">
+                                    <GitBranch className="w-4 h-4 text-primary" />
+                                    <h3 className="text-xs uppercase tracking-wider text-foreground font-semibold">
+                                        Dependencies & Task Sequencing
+                                    </h3>
                                 </div>
-                                {isPrerequisiteIncomplete && (
-                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold flex items-center gap-1">
-                                        <Lock className="w-3 h-3" />
-                                        <span>Prerequisite Incomplete</span>
+                                <div className="flex items-center gap-1.5">
+                                    <Badge
+                                        variant="outline"
+                                        className="bg-primary/10 text-primary border-primary/25 text-[10px] font-mono font-semibold"
+                                    >
+                                        Graph Topology
                                     </Badge>
-                                )}
+                                    {isPrerequisiteIncomplete && (
+                                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold flex items-center gap-1">
+                                            <Lock className="w-3 h-3" />
+                                            <span>Prerequisite Incomplete</span>
+                                        </Badge>
+                                    )}
+                                </div>
                             </div>
 
                             {/* 1. Prerequisite Task (Blocked By) */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                        <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <Link2 className="w-3.5 h-3.5" />
                                         <span>Prerequisite Task (Blocked By)</span>
                                     </Label>
                                     {task.dependsOnTaskId && canManage && (
@@ -723,11 +777,11 @@ export function TaskDetailsDrawer({
                                 )}
                             </div>
 
-                            {/* 2. Blocks Downstream Tasks */}
-                            <div className="space-y-2 pt-2 border-t border-border/60">
+                            {/* 2. Blocks Downstream Tasks (Stitch Branch Tree Topology) */}
+                            <div className="space-y-2.5 pt-2 border-t border-border/60">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                        <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <ArrowRight className="w-3.5 h-3.5" />
                                         <span>Blocks Downstream Tasks</span>
                                     </Label>
                                     <Badge
@@ -739,22 +793,23 @@ export function TaskDetailsDrawer({
                                                 : "bg-muted text-muted-foreground border-border"
                                         )}
                                     >
-                                        {blockedDownstreamTasks.length} {blockedDownstreamTasks.length === 1 ? "task" : "tasks"}
+                                        Blocks {blockedDownstreamTasks.length} {blockedDownstreamTasks.length === 1 ? "task" : "tasks"}
                                     </Badge>
                                 </div>
 
                                 {blockedDownstreamTasks.length > 0 ? (
-                                    <div className="space-y-1.5">
+                                    <div className="relative pl-6 space-y-2.5 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-border/60">
                                         {blockedDownstreamTasks.map((downstreamTask) => {
                                             const m = milestones.find((milestone) => milestone.id === downstreamTask.milestoneId);
                                             return (
                                                 <div
                                                     key={downstreamTask.id}
-                                                    className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border bg-muted/20 hover:border-primary/40 transition-colors text-xs"
+                                                    className="relative flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border/70 bg-muted/20 hover:border-primary/40 transition-colors text-xs"
                                                 >
+                                                    <span className="absolute -left-6 top-1/2 -translate-y-1/2 w-3.5 h-0.5 bg-border/60" />
                                                     <div className="flex items-center gap-2 min-w-0">
                                                         {m && (
-                                                            <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
+                                                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
                                                                 M{m.order}
                                                             </span>
                                                         )}
@@ -787,159 +842,200 @@ export function TaskDetailsDrawer({
                                         </p>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-muted-foreground italic bg-muted/10 p-2.5 rounded-lg border border-border">
+                                    <p className="text-xs text-muted-foreground italic bg-muted/10 p-2.5 rounded-lg border border-border/60">
                                         No other tasks currently depend on this task.
                                     </p>
                                 )}
                             </div>
-                        </div>
+                        </section>
 
-                        {/* Metadata Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-xl border border-border">
-                            {/* Assignees */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <Users className="w-3.5 h-3.5" />
-                                    <span>Assignees</span>
-                                </Label>
-                                <div className="space-y-2">
-                                    <div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
-                                        {task.assignees && task.assignees.length > 0 ? (
-                                            task.assignees.map((a) => (
-                                                <div
-                                                    key={a.user.id}
-                                                    className="flex items-center gap-1.5 bg-background border border-border px-2.5 py-1 rounded-full text-xs font-medium shadow-xs"
-                                                >
-                                                    <Avatar className="w-5 h-5 border border-border">
-                                                        {a.user.image && <AvatarImage src={a.user.image} />}
-                                                        <AvatarFallback className="text-[9px] bg-primary text-black font-bold">
-                                                            {a.user.name?.substring(0, 2).toUpperCase() || "U"}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <span>{a.user.name}</span>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                        {/* Metadata Grid ("Execution Specs" from Stitch) */}
+                        <section className="rounded-xl border border-border/70 bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                                <div className="flex items-center gap-2">
+                                    <Sliders className="w-4 h-4 text-primary" />
+                                    <h3 className="text-xs uppercase tracking-wider text-foreground font-semibold">
+                                        Execution Specs
+                                    </h3>
+                                </div>
+                                <span className="text-[11px] text-muted-foreground">Resource & Sprint Parameters</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Assignees */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                        <Users className="w-3.5 h-3.5" />
+                                        <span>Assignees</span>
+                                    </Label>
+                                    <div className="space-y-2">
+                                        <div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
+                                            {task.assignees && task.assignees.length > 0 ? (
+                                                task.assignees.map((a) => (
+                                                    <div
+                                                        key={a.user.id}
+                                                        className="flex items-center gap-1.5 bg-background border border-border px-2.5 py-1 rounded-md text-xs font-medium shadow-xs"
+                                                    >
+                                                        <Avatar className="w-5 h-5 border border-border">
+                                                            {a.user.image && <AvatarImage src={a.user.image} />}
+                                                            <AvatarFallback className="text-[9px] bg-primary text-black font-bold">
+                                                                {a.user.name?.substring(0, 2).toUpperCase() || "U"}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <span>{a.user.name}</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                                            )}
+                                        </div>
+                                        {canManage && (
+                                            <AssigneeCombobox
+                                                teamMembers={teamMembers}
+                                                selectedIds={selectedAssigneeIds}
+                                                onSelectionChange={handleAssigneesChange}
+                                                placeholder="+ Add / Remove staff..."
+                                                className="w-full text-xs h-8"
+                                            />
                                         )}
                                     </div>
-                                    {canManage && (
-                                        <AssigneeCombobox
-                                            teamMembers={teamMembers}
-                                            selectedIds={selectedAssigneeIds}
-                                            onSelectionChange={handleAssigneesChange}
-                                            placeholder="+ Add / Remove staff..."
-                                            className="w-full text-xs h-8"
-                                        />
+                                </div>
+
+                                {/* Due Date */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                        <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                                        <span>Due Date</span>
+                                    </Label>
+                                    {canManage ? (
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="date"
+                                                value={dueDateInput}
+                                                onChange={handleDueDateChange}
+                                                className="bg-background border-border text-foreground text-xs h-8"
+                                            />
+                                            {dueDateInput && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                                    onClick={() => {
+                                                        setDueDateInput("");
+                                                        onUpdateTaskDetails(task.id, { dueDate: null });
+                                                    }}
+                                                    title="Clear due date"
+                                                >
+                                                    Clear
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-foreground font-medium pt-1">
+                                            {task.dueDate ? format(new Date(task.dueDate), "MMMM d, yyyy") : "No due date set"}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Effort Weight Points */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                        <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                                        <span>Effort Weight</span>
+                                    </Label>
+                                    {canManage ? (
+                                        <Select
+                                            value={String(weightInput)}
+                                            onValueChange={(val) => handleWeightChange(parseInt(val, 10))}
+                                        >
+                                            <SelectTrigger className="bg-background border-border text-foreground text-xs h-8">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-card border-border text-foreground">
+                                                <SelectItem value="1">1 pt (Very Minor)</SelectItem>
+                                                <SelectItem value="2">2 pts (Minor)</SelectItem>
+                                                <SelectItem value="3">3 pts (Standard)</SelectItem>
+                                                <SelectItem value="5">5 pts (Major)</SelectItem>
+                                                <SelectItem value="8">8 pts (Complex)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <p className="text-xs text-foreground font-medium pt-1">{task.weight ?? 1} pts</p>
+                                    )}
+                                </div>
+
+                                {/* Estimated Hours with Progress Bar */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <span>Estimated Hours</span>
+                                        </Label>
+                                        {task.estimatedHours != null && task.estimatedHours > 0 && (
+                                            <span className="text-[10px] font-mono text-muted-foreground">
+                                                {capacityPercent}% of 40h standard
+                                            </span>
+                                        )}
+                                    </div>
+                                    {canManage ? (
+                                        <div className="space-y-1.5">
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="160"
+                                                placeholder="e.g. 12"
+                                                value={hoursInput}
+                                                onChange={(e) => handleHoursChange(e.target.value)}
+                                                className="bg-background border-border text-foreground text-xs h-8"
+                                            />
+                                            {capacityPercent > 0 && (
+                                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                                                    <div
+                                                        className={cn(
+                                                            "h-full rounded-full transition-all duration-300",
+                                                            capacityPercent > 100
+                                                                ? "bg-rose-500"
+                                                                : "bg-gradient-to-r from-primary to-emerald-500"
+                                                        )}
+                                                        style={{ width: `${Math.min(100, capacityPercent)}%` }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-foreground font-medium pt-1">
+                                            {task.estimatedHours != null ? `${task.estimatedHours} hours` : "Not estimated"}
+                                        </p>
                                     )}
                                 </div>
                             </div>
+                        </section>
 
-                            {/* Due Date */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <CalendarDays className="w-3.5 h-3.5" />
-                                    <span>Due Date</span>
-                                </Label>
-                                {canManage ? (
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            type="date"
-                                            value={dueDateInput}
-                                            onChange={handleDueDateChange}
-                                            className="bg-background border-border text-foreground text-xs h-8"
-                                        />
-                                        {dueDateInput && (
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                                onClick={() => {
-                                                    setDueDateInput("");
-                                                    onUpdateTaskDetails(task.id, { dueDate: null });
-                                                }}
-                                                title="Clear due date"
-                                            >
-                                                Clear
-                                            </Button>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-foreground font-medium pt-1">
-                                        {task.dueDate ? format(new Date(task.dueDate), "MMMM d, yyyy") : "No due date set"}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Effort Weight Points */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <Hash className="w-3.5 h-3.5" />
-                                    <span>Effort Weight</span>
-                                </Label>
-                                {canManage ? (
-                                    <Select
-                                        value={String(weightInput)}
-                                        onValueChange={(val) => handleWeightChange(parseInt(val, 10))}
-                                    >
-                                        <SelectTrigger className="bg-background border-border text-foreground text-xs h-8">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-card border-border text-foreground">
-                                            <SelectItem value="1">1 pt (Very Minor)</SelectItem>
-                                            <SelectItem value="2">2 pts (Minor)</SelectItem>
-                                            <SelectItem value="3">3 pts (Standard)</SelectItem>
-                                            <SelectItem value="5">5 pts (Major)</SelectItem>
-                                            <SelectItem value="8">8 pts (Complex)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <p className="text-xs text-foreground font-medium pt-1">{task.weight ?? 1} pts</p>
-                                )}
-                            </div>
-
-                            {/* Estimated Hours */}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span>Estimated Hours</span>
-                                </Label>
-                                {canManage ? (
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max="160"
-                                        placeholder="e.g. 12"
-                                        value={hoursInput}
-                                        onChange={(e) => handleHoursChange(e.target.value)}
-                                        className="bg-background border-border text-foreground text-xs h-8"
-                                    />
-                                ) : (
-                                    <p className="text-xs text-foreground font-medium pt-1">
-                                        {task.estimatedHours != null ? `${task.estimatedHours} hours` : "Not estimated"}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Description Section */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <FileText className="w-3.5 h-3.5" />
-                                    <span>Task Description & Scope</span>
-                                </Label>
-                                {canManage && !isEditingDesc && (
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-                                        onClick={() => setIsEditingDesc(true)}
-                                    >
-                                        <Pencil className="w-3 h-3" />
-                                        <span>Edit</span>
-                                    </Button>
-                                )}
+                        {/* Description Section ("Scope & Acceptance Criteria" from Stitch) */}
+                        <section className="rounded-xl border border-border/70 bg-card/60 p-4 sm:p-5 space-y-3 shadow-xs">
+                            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-primary" />
+                                    <h3 className="text-xs uppercase tracking-wider text-foreground font-semibold">
+                                        Scope & Acceptance Criteria
+                                    </h3>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded">
+                                        Markdown supported
+                                    </span>
+                                    {canManage && !isEditingDesc && (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                                            onClick={() => setIsEditingDesc(true)}
+                                        >
+                                            <Pencil className="w-3 h-3" />
+                                            <span>Edit</span>
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
 
                             {isEditingDesc && canManage ? (
@@ -974,7 +1070,7 @@ export function TaskDetailsDrawer({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="text-xs sm:text-sm bg-muted/30 p-4 rounded-xl whitespace-pre-wrap border border-border leading-relaxed text-foreground min-h-[80px]">
+                                <div className="text-xs sm:text-sm bg-muted/20 p-4 rounded-xl whitespace-pre-wrap border border-border/60 leading-relaxed text-foreground min-h-[80px]">
                                     {task.description ? (
                                         task.description
                                     ) : (
@@ -982,7 +1078,7 @@ export function TaskDetailsDrawer({
                                     )}
                                 </div>
                             )}
-                        </div>
+                        </section>
                     </TabsContent>
 
                     {/* TAB 2: DELIVERABLES & AI QUALITY GATE */}
@@ -998,7 +1094,7 @@ export function TaskDetailsDrawer({
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                                        className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 shadow-xs"
                                         onClick={() => onRequestVerificationReview(task)}
                                     >
                                         <ShieldCheck className="w-3.5 h-3.5" />
@@ -1023,17 +1119,17 @@ export function TaskDetailsDrawer({
                                     createdAt={auditReport.createdAt}
                                 />
                             ) : (
-                                <div className="rounded-xl border border-dashed border-border p-6 text-center space-y-2 bg-muted/10">
+                                <div className="rounded-xl border border-dashed border-border/80 p-6 text-center space-y-2 bg-muted/10">
                                     <ShieldCheck className="w-8 h-8 text-muted-foreground mx-auto" />
                                     <h4 className="text-sm font-semibold text-foreground">No Automated DoD Report Yet</h4>
-                                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                                    <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
                                         When deliverables or proof links are submitted for review, the automated Quality Gate will evaluate acceptance criteria and display the verification breakdown here.
                                     </p>
                                     {onRequestVerificationReview && (
                                         <div className="pt-2">
                                             <Button
                                                 size="sm"
-                                                className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs gap-1.5"
+                                                className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs gap-1.5 shadow-sm"
                                                 onClick={() => onRequestVerificationReview(task)}
                                             >
                                                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -1046,9 +1142,9 @@ export function TaskDetailsDrawer({
                         </div>
 
                         {/* Proof Links */}
-                        <div className="space-y-3 pt-4 border-t border-border">
+                        <div className="space-y-3 pt-4 border-t border-border/60">
                             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                <ExternalLink className="w-3.5 h-3.5" />
+                                <ExternalLink className="w-3.5 h-3.5 text-primary" />
                                 <span>Attached Proof Links</span>
                             </Label>
                             {task.proofLinks && task.proofLinks.length > 0 ? (
@@ -1059,7 +1155,7 @@ export function TaskDetailsDrawer({
                                             href={link.url}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="group flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20 hover:border-primary/50 transition-colors"
+                                            className="group flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20 hover:border-primary/50 transition-colors shadow-xs"
                                         >
                                             <div className="flex items-center gap-2.5 min-w-0">
                                                 <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -1079,7 +1175,7 @@ export function TaskDetailsDrawer({
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-xs text-muted-foreground italic bg-muted/20 p-3 rounded-lg border border-border">
+                                <p className="text-xs text-muted-foreground italic bg-muted/20 p-3 rounded-lg border border-border/60">
                                     No proof links attached to this task.
                                 </p>
                             )}
@@ -1089,10 +1185,10 @@ export function TaskDetailsDrawer({
                         {task.proofNotes && (
                             <div className="space-y-2 pt-2">
                                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <FileText className="w-3.5 h-3.5" />
+                                    <FileText className="w-3.5 h-3.5 text-primary" />
                                     <span>Submission Notes</span>
                                 </Label>
-                                <div className="text-xs bg-muted/30 p-4 rounded-xl whitespace-pre-wrap border border-border leading-relaxed text-foreground">
+                                <div className="text-xs bg-muted/20 p-4 rounded-xl whitespace-pre-wrap border border-border/60 leading-relaxed text-foreground">
                                     {task.proofNotes}
                                 </div>
                             </div>
@@ -1105,7 +1201,7 @@ export function TaskDetailsDrawer({
                             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                                 System Audit Metadata
                             </Label>
-                            <div className="bg-muted/20 p-4 rounded-xl border border-border space-y-3 text-xs">
+                            <div className="bg-muted/20 p-4 rounded-xl border border-border/70 space-y-3 text-xs shadow-xs">
                                 <div className="flex items-center justify-between py-1 border-b border-border/60">
                                     <span className="text-muted-foreground">Task ID</span>
                                     <div className="flex items-center gap-1 font-mono text-[11px] text-foreground">
@@ -1166,16 +1262,22 @@ export function TaskDetailsDrawer({
                     </TabsContent>
                 </Tabs>
 
-                {/* 4. Footer */}
-                <div className="p-4 border-t border-border bg-card flex items-center justify-between gap-2 shrink-0">
-                    <span className="text-[11px] text-muted-foreground">
-                        Press <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[10px]">Esc</kbd> to close
-                    </span>
+                {/* 4. Sticky Footer (Stitch Obsidian Alignment) */}
+                <div className="px-6 py-3.5 border-t border-border/50 bg-card/90 backdrop-blur-md flex items-center justify-between gap-3 shrink-0">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                            Press <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-[10px] font-mono">Esc</kbd> to close
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                            <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-[10px] font-mono">Enter</kbd> to save title
+                        </span>
+                    </div>
                     <Button
-                        className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs px-4"
+                        className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs px-5 shadow-sm active:scale-[0.98] transition-all"
                         onClick={onClose}
                     >
-                        Close
+                        Done
                     </Button>
                 </div>
             </SheetContent>

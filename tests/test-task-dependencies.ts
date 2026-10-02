@@ -115,7 +115,7 @@ async function runTaskDependencyTest() {
     };
 
     const circularRes = await checkCircular(taskAId, taskBId);
-    if (!circularRes.success && circularRes.message.includes("Circular dependency")) {
+    if (!circularRes.success && circularRes.message?.includes("Circular dependency")) {
       console.log(`   ✅ PASSED: Circular link rejected: "${circularRes.message}"`);
     } else {
       throw new Error(`Circular dependency check failed! Output: ${JSON.stringify(circularRes)}`);
@@ -144,7 +144,7 @@ async function runTaskDependencyTest() {
     };
 
     const transitionRes = await validateTaskStatusTransition(taskBId, "In Progress");
-    if (!transitionRes.success && transitionRes.message.includes("Prerequisite task")) {
+    if (!transitionRes.success && transitionRes.message?.includes("Prerequisite task")) {
       console.log(`   ✅ PASSED: Transition blocked while Task A is incomplete: "${transitionRes.message}"`);
     } else {
       throw new Error(`Prerequisite enforcement failed! Output: ${JSON.stringify(transitionRes)}`);
