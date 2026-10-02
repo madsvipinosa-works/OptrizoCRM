@@ -531,7 +531,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
                 where: eq(tasks.id, oldTask.dependsOnTaskId),
             });
             if (parentTask && parentTask.status !== "Done") {
-                return { success: false, message: `Cannot move task: Parent task "${parentTask.title}" is not completed yet.` };
+                return { success: false, message: `Cannot move task: Prerequisite task "${parentTask.title}" is not completed yet.` };
             }
         }
 
@@ -631,7 +631,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
                 where: eq(tasks.id, oldTask.dependsOnTaskId),
             });
             if (parentTask && parentTask.status !== "Done") {
-                return { success: false, message: `Cannot move task: Parent task "${parentTask.title}" is not completed yet.` };
+                return { success: false, message: `Cannot move task: Prerequisite task "${parentTask.title}" is not completed yet.` };
             }
         }
 
@@ -805,6 +805,7 @@ export async function updateTaskDetails(
         dueDate?: Date | null;
         weight?: number;
         estimatedHours?: number | null;
+        dependsOnTaskId?: string | null;
     }
 ): Promise<ActionState> {
     const session = await auth();
@@ -843,6 +844,24 @@ export async function updateTaskDetails(
         if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
         if (data.weight !== undefined) updateData.weight = data.weight;
         if (data.estimatedHours !== undefined) updateData.estimatedHours = data.estimatedHours;
+        if (data.dependsOnTaskId !== undefined) {
+            if (data.dependsOnTaskId === taskId) {
+                return { success: false, message: "A task cannot depend on itself." };
+            }
+            if (data.dependsOnTaskId) {
+                const candidate = await db.query.tasks.findFirst({
+                    where: and(eq(tasks.id, data.dependsOnTaskId), eq(tasks.projectId, existingTask.projectId)),
+                    columns: { id: true, dependsOnTaskId: true, title: true },
+                });
+                if (!candidate) {
+                    return { success: false, message: "Prerequisite task not found in this project." };
+                }
+                if (candidate.dependsOnTaskId === taskId) {
+                    return { success: false, message: `Circular dependency: "${candidate.title}" already depends on this task.` };
+                }
+            }
+            updateData.dependsOnTaskId = data.dependsOnTaskId;
+        }
 
         const [updatedTask] = await db.update(tasks)
             .set(updateData)

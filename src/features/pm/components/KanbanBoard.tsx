@@ -347,6 +347,7 @@ export function KanbanBoard({
             dueDate?: Date | null;
             weight?: number;
             estimatedHours?: number | null;
+            dependsOnTaskId?: string | null;
         }
     ): Promise<boolean> => {
         const previousTasks = [...optimisticTasks];
@@ -367,6 +368,7 @@ export function KanbanBoard({
                 dueDate: data.dueDate !== undefined ? data.dueDate : t.dueDate,
                 weight: data.weight !== undefined ? data.weight : t.weight,
                 estimatedHours: data.estimatedHours !== undefined ? data.estimatedHours : t.estimatedHours,
+                dependsOnTaskId: data.dependsOnTaskId !== undefined ? data.dependsOnTaskId : t.dependsOnTaskId,
             };
         });
 

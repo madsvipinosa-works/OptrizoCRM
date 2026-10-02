@@ -333,11 +333,8 @@ function TaskCardContent({
     onViewProofs?: (initialTab?: "proofs" | "audit") => void;
     onClickTask?: () => void;
 }) {
-    const isLocked = (() => {
-        if (!task.dependsOnTaskId) return false;
-        const parent = allTasks.find((t) => t.id === task.dependsOnTaskId);
-        return parent ? parent.status !== "Done" : false;
-    })();
+    const prerequisiteTask = task.dependsOnTaskId ? allTasks.find((t) => t.id === task.dependsOnTaskId) : null;
+    const isLocked = prerequisiteTask ? prerequisiteTask.status !== "Done" : false;
 
     const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "Done";
     const isChangesRequested = task.status === "Changes Requested";
@@ -450,9 +447,12 @@ function TaskCardContent({
 
                 {/* Locked Badge */}
                 {isLocked && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                    <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25"
+                        title={prerequisiteTask ? `Blocked: Waiting on prerequisite "${prerequisiteTask.title}" (${prerequisiteTask.status})` : "Locked by prerequisite task"}
+                    >
                         <Lock className="w-3 h-3 text-amber-500" />
-                        <span>Locked</span>
+                        <span>Prerequisite Incomplete</span>
                     </span>
                 )}
 

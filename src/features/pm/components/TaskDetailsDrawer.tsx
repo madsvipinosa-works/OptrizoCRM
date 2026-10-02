@@ -54,6 +54,9 @@ import {
     CalendarDays,
     Hash,
     Loader2,
+    GitBranch,
+    Link2,
+    Unlink,
 } from "lucide-react";
 import { format, formatDistanceToNow, isPast, isToday, isTomorrow, differenceInDays } from "date-fns";
 import { toast } from "sonner";
@@ -82,6 +85,7 @@ interface TaskDetailsDrawerProps {
             dueDate?: Date | null;
             weight?: number;
             estimatedHours?: number | null;
+            dependsOnTaskId?: string | null;
         }
     ) => Promise<boolean>;
     onDeleteTask?: (task: PmTask) => void;
@@ -194,8 +198,12 @@ export function TaskDetailsDrawer({
     if (!task) return null;
 
     const currentMilestone = milestones.find((m) => m.id === task.milestoneId);
-    const parentTask = task.dependsOnTaskId ? allTasks.find((t) => t.id === task.dependsOnTaskId) : null;
-    const isParentIncomplete = parentTask && parentTask.status !== "Done";
+    const prerequisiteTask = task.dependsOnTaskId ? allTasks.find((t) => t.id === task.dependsOnTaskId) : null;
+    const isPrerequisiteIncomplete = prerequisiteTask && prerequisiteTask.status !== "Done";
+    const blockedDownstreamTasks = allTasks.filter((t) => t.dependsOnTaskId === task.id);
+    const eligiblePrerequisites = allTasks.filter(
+        (t) => t.id !== task.id && t.dependsOnTaskId !== task.id
+    );
 
     const isOverdue =
         task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "Done";
@@ -269,6 +277,11 @@ export function TaskDetailsDrawer({
         setHoursInput(val);
         const parsed = val ? parseInt(val, 10) : null;
         await onUpdateTaskDetails(task.id, { estimatedHours: isNaN(parsed || 0) ? null : parsed });
+    };
+
+    const handlePrerequisiteChange = async (val: string) => {
+        const nextId = val === "none" ? null : val;
+        await onUpdateTaskDetails(task.id, { dependsOnTaskId: nextId });
     };
 
     const handleCopyTaskId = () => {
@@ -580,49 +593,206 @@ export function TaskDetailsDrawer({
                             </div>
                         )}
 
-                        {/* Dependency Banner */}
-                        {parentTask && (
-                            <div
-                                className={cn(
-                                    "rounded-xl border p-3.5 space-y-2 text-xs",
-                                    isParentIncomplete
-                                        ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
-                                        : "bg-muted/40 border-border text-foreground"
-                                )}
-                            >
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 font-semibold">
-                                        <Lock className={cn("w-3.5 h-3.5", isParentIncomplete ? "text-amber-500" : "text-emerald-500")} />
-                                        <span>Depends On Parent Task:</span>
-                                    </div>
-                                    <Badge
-                                        variant="outline"
-                                        className={cn("text-[10px]", STATUS_CONFIG[parentTask.status]?.badgeClass)}
-                                    >
-                                        {parentTask.status}
-                                    </Badge>
+                        {/* Task Dependencies & Sequencing Section */}
+                        <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+                            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                                <div className="space-y-0.5">
+                                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                        <GitBranch className="w-3.5 h-3.5 text-primary" />
+                                        <span>Dependencies & Task Sequencing</span>
+                                    </h4>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Enforce sequential execution across prerequisite tasks
+                                    </p>
                                 </div>
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="font-medium text-foreground">{parentTask.title}</span>
-                                    {onSelectTask && (
+                                {isPrerequisiteIncomplete && (
+                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold flex items-center gap-1">
+                                        <Lock className="w-3 h-3" />
+                                        <span>Prerequisite Incomplete</span>
+                                    </Badge>
+                                )}
+                            </div>
+
+                            {/* 1. Prerequisite Task (Blocked By) */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                        <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                        <span>Prerequisite Task (Blocked By)</span>
+                                    </Label>
+                                    {task.dependsOnTaskId && canManage && (
                                         <Button
                                             size="sm"
                                             variant="ghost"
-                                            className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary/80"
-                                            onClick={() => onSelectTask(parentTask)}
+                                            className="h-6 px-2 text-[11px] text-muted-foreground hover:text-rose-500 gap-1"
+                                            onClick={() => handlePrerequisiteChange("none")}
                                         >
-                                            <span>View</span>
-                                            <ArrowRight className="w-3 h-3" />
+                                            <Unlink className="w-3 h-3" />
+                                            <span>Remove</span>
                                         </Button>
                                     )}
                                 </div>
-                                {isParentIncomplete && (
-                                    <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                                        Warning: This task cannot be moved to In Review or Done until &ldquo;{parentTask.title}&rdquo; is completed.
+
+                                {canManage ? (
+                                    <Select
+                                        value={task.dependsOnTaskId || "none"}
+                                        onValueChange={handlePrerequisiteChange}
+                                    >
+                                        <SelectTrigger className="w-full text-xs h-9 bg-background border-border text-foreground">
+                                            <SelectValue placeholder="Select a prerequisite task..." />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-card border-border text-foreground max-h-56">
+                                            <SelectItem value="none" className="text-xs cursor-pointer text-muted-foreground">
+                                                None (No prerequisite — can start anytime)
+                                            </SelectItem>
+                                            {eligiblePrerequisites.map((cand) => {
+                                                const candMilestone = milestones.find((m) => m.id === cand.milestoneId);
+                                                return (
+                                                    <SelectItem key={cand.id} value={cand.id} className="text-xs cursor-pointer">
+                                                        <div className="flex items-center justify-between gap-3 w-full">
+                                                            <span className="truncate max-w-[260px] font-medium">
+                                                                {candMilestone ? `[M${candMilestone.order}] ` : ""}{cand.title}
+                                                            </span>
+                                                            <span className={cn(
+                                                                "text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0",
+                                                                STATUS_CONFIG[cand.status]?.badgeClass
+                                                            )}>
+                                                                {cand.status}
+                                                            </span>
+                                                        </div>
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    prerequisiteTask ? (
+                                        <p className="text-xs text-foreground font-medium">{prerequisiteTask.title}</p>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground italic">None</p>
+                                    )
+                                )}
+
+                                {/* Selected Prerequisite Detail Card & Warning */}
+                                {prerequisiteTask && (
+                                    <div
+                                        className={cn(
+                                            "rounded-lg border p-3 space-y-2 text-xs transition-colors",
+                                            isPrerequisiteIncomplete
+                                                ? "bg-amber-500/10 border-amber-500/30"
+                                                : "bg-muted/30 border-border"
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <Lock className={cn("w-3.5 h-3.5 shrink-0", isPrerequisiteIncomplete ? "text-amber-500" : "text-emerald-500")} />
+                                                <span className="font-semibold text-foreground truncate">{prerequisiteTask.title}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn("text-[10px]", STATUS_CONFIG[prerequisiteTask.status]?.badgeClass)}
+                                                >
+                                                    {prerequisiteTask.status}
+                                                </Badge>
+                                                {onSelectTask && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary/80"
+                                                        onClick={() => onSelectTask(prerequisiteTask)}
+                                                    >
+                                                        <span>View</span>
+                                                        <ArrowRight className="w-3 h-3" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {isPrerequisiteIncomplete ? (
+                                            <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                                                ⚠️ This task is blocked from moving to <strong>In Progress</strong>, <strong>In Review</strong>, or <strong>Done</strong> until &ldquo;{prerequisiteTask.title}&rdquo; is completed.
+                                            </p>
+                                        ) : (
+                                            <p className="text-[11px] text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                                <span>Prerequisite completed! This task is unblocked.</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 2. Blocks Downstream Tasks */}
+                            <div className="space-y-2 pt-2 border-t border-border/60">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                        <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+                                        <span>Blocks Downstream Tasks</span>
+                                    </Label>
+                                    <Badge
+                                        variant="outline"
+                                        className={cn(
+                                            "text-[10px] font-mono font-semibold",
+                                            blockedDownstreamTasks.length > 0
+                                                ? "bg-primary/10 text-primary border-primary/30"
+                                                : "bg-muted text-muted-foreground border-border"
+                                        )}
+                                    >
+                                        {blockedDownstreamTasks.length} {blockedDownstreamTasks.length === 1 ? "task" : "tasks"}
+                                    </Badge>
+                                </div>
+
+                                {blockedDownstreamTasks.length > 0 ? (
+                                    <div className="space-y-1.5">
+                                        {blockedDownstreamTasks.map((downstreamTask) => {
+                                            const m = milestones.find((milestone) => milestone.id === downstreamTask.milestoneId);
+                                            return (
+                                                <div
+                                                    key={downstreamTask.id}
+                                                    className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border bg-muted/20 hover:border-primary/40 transition-colors text-xs"
+                                                >
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        {m && (
+                                                            <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
+                                                                M{m.order}
+                                                            </span>
+                                                        )}
+                                                        <span className="font-medium text-foreground truncate">{downstreamTask.title}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn("text-[10px]", STATUS_CONFIG[downstreamTask.status]?.badgeClass)}
+                                                        >
+                                                            {downstreamTask.status}
+                                                        </Badge>
+                                                        {onSelectTask && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="h-6 px-1.5 text-[11px] gap-1 text-primary hover:text-primary/80"
+                                                                onClick={() => onSelectTask(downstreamTask)}
+                                                            >
+                                                                <span>View</span>
+                                                                <ArrowRight className="w-3 h-3" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        <p className="text-[11px] text-muted-foreground pt-0.5">
+                                            These tasks are waiting on this task to be marked Done before they can proceed.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground italic bg-muted/10 p-2.5 rounded-lg border border-border">
+                                        No other tasks currently depend on this task.
                                     </p>
                                 )}
                             </div>
-                        )}
+                        </div>
 
                         {/* Metadata Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-xl border border-border">
@@ -950,6 +1120,20 @@ export function TaskDetailsDrawer({
                                     <span className="text-muted-foreground">Milestone</span>
                                     <span className="font-medium text-foreground">
                                         {currentMilestone ? `Milestone ${currentMilestone.order}: ${currentMilestone.title}` : "Unassigned"}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center justify-between py-1 border-b border-border/60">
+                                    <span className="text-muted-foreground">Prerequisite (Blocked By)</span>
+                                    <span className="font-medium text-foreground">
+                                        {prerequisiteTask ? prerequisiteTask.title : "None (Independent)"}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center justify-between py-1 border-b border-border/60">
+                                    <span className="text-muted-foreground">Blocks Downstream</span>
+                                    <span className="font-medium text-foreground">
+                                        {blockedDownstreamTasks.length > 0 ? `${blockedDownstreamTasks.length} task(s)` : "None"}
                                     </span>
                                 </div>
 
