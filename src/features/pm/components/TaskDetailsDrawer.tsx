@@ -309,10 +309,10 @@ export function TaskDetailsDrawer({
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-2xl bg-card/95 dark:bg-[#0c1527]/95 backdrop-blur-2xl border-l border-border/60 text-foreground p-0 flex flex-col h-full shadow-2xl shadow-black/80 overflow-hidden focus:outline-none"
+                className="w-full sm:max-w-2xl bg-background border-l border-border text-foreground p-0 flex flex-col h-full shadow-2xl overflow-hidden focus:outline-none"
             >
-                {/* 1. Header Section (Stitch Obsidian Theme Elevation) */}
-                <SheetHeader className="px-5 sm:px-6 pt-5 pb-4 border-b border-border/50 bg-muted/20 dark:bg-muted/10 backdrop-blur-md space-y-3.5 shrink-0">
+                {/* 1. Header Section */}
+                <SheetHeader className="px-5 sm:px-6 pt-5 pb-4 border-b border-border bg-background space-y-3.5 shrink-0">
                     {/* Top Row: Milestone & Metadata Badges */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -589,8 +589,8 @@ export function TaskDetailsDrawer({
                     onValueChange={(val) => setActiveTab(val as any)}
                     className="flex-1 flex flex-col min-h-0 overflow-hidden"
                 >
-                    <div className="px-5 sm:px-6 pt-2.5 border-b border-border/50 bg-card/50 shrink-0">
-                        <TabsList className="grid grid-cols-3 w-full sm:w-[410px] bg-muted/40 dark:bg-muted/20 p-1 rounded-lg border border-border/40">
+                    <div className="px-5 sm:px-6 pt-2.5 border-b border-border bg-background shrink-0">
+                        <TabsList className="grid grid-cols-3 w-full sm:w-[410px] bg-muted/60 p-1 rounded-lg border border-border">
                             <TabsTrigger value="overview" className="text-xs font-semibold">
                                 Overview
                             </TabsTrigger>
@@ -642,8 +642,8 @@ export function TaskDetailsDrawer({
                             </div>
                         )}
 
-                        {/* Task Dependencies & Sequencing Section (Stitch Graph Topology) */}
-                        <section className="rounded-xl border border-border/70 bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                        {/* Task Dependencies & Sequencing Section (Graph Topology) */}
+                        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
                             <div className="flex items-center justify-between pb-3 border-b border-border/60">
                                 <div className="flex items-center gap-2">
                                     <GitBranch className="w-4 h-4 text-primary" />
@@ -804,7 +804,7 @@ export function TaskDetailsDrawer({
                                             return (
                                                 <div
                                                     key={downstreamTask.id}
-                                                    className="relative flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border/70 bg-muted/20 hover:border-primary/40 transition-colors text-xs"
+                                                    className="relative flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border bg-background hover:border-primary/40 transition-colors text-xs"
                                                 >
                                                     <span className="absolute -left-6 top-1/2 -translate-y-1/2 w-3.5 h-0.5 bg-border/60" />
                                                     <div className="flex items-center gap-2 min-w-0">
@@ -849,8 +849,8 @@ export function TaskDetailsDrawer({
                             </div>
                         </section>
 
-                        {/* Metadata Grid ("Execution Specs" from Stitch) */}
-                        <section className="rounded-xl border border-border/70 bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                        {/* Metadata Grid ("Execution Specs") */}
+                        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
                             <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                 <div className="flex items-center gap-2">
                                     <Sliders className="w-4 h-4 text-primary" />
@@ -1011,8 +1011,8 @@ export function TaskDetailsDrawer({
                             </div>
                         </section>
 
-                        {/* Description Section ("Scope & Acceptance Criteria" from Stitch) */}
-                        <section className="rounded-xl border border-border/70 bg-card/60 p-4 sm:p-5 space-y-3 shadow-xs">
+                        {/* Description Section ("Scope & Acceptance Criteria") */}
+                        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 shadow-xs">
                             <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                 <div className="flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-primary" />
@@ -1201,7 +1201,7 @@ export function TaskDetailsDrawer({
                             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                                 System Audit Metadata
                             </Label>
-                            <div className="bg-muted/20 p-4 rounded-xl border border-border/70 space-y-3 text-xs shadow-xs">
+                            <div className="bg-card p-4 rounded-xl border border-border space-y-3 text-xs shadow-xs">
                                 <div className="flex items-center justify-between py-1 border-b border-border/60">
                                     <span className="text-muted-foreground">Task ID</span>
                                     <div className="flex items-center gap-1 font-mono text-[11px] text-foreground">
@@ -1262,8 +1262,8 @@ export function TaskDetailsDrawer({
                     </TabsContent>
                 </Tabs>
 
-                {/* 4. Sticky Footer (Stitch Obsidian Alignment) */}
-                <div className="px-6 py-3.5 border-t border-border/50 bg-card/90 backdrop-blur-md flex items-center justify-between gap-3 shrink-0">
+                {/* 4. Sticky Footer */}
+                <div className="px-6 py-3.5 border-t border-border bg-background flex items-center justify-between gap-3 shrink-0">
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                         <span className="flex items-center gap-1">
                             Press <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-[10px] font-mono">Esc</kbd> to close
