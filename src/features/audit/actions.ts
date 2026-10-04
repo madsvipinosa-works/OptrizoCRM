@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { auditLogs } from "@/db/schema";
+import { auditLogs, users } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
-import { desc } from "drizzle-orm";
+import { desc, eq, and, gte, lt, inArray, count } from "drizzle-orm";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "OTHER";
 
@@ -36,7 +36,14 @@ export async function logAction(
     }
 }
 
-export async function getAuditLogs(page = 1, limit = 50) {
+export type AuditFilters = {
+    action?: string;
+    role?: string;
+    startDate?: string;
+    endDate?: string;
+};
+
+export async function getAuditLogs(page = 1, limit = 50, filters?: AuditFilters) {
     const session = await auth();
     // Strictly restrict to Admin
     if (!hasRole(session, ["superadmin"])) {
@@ -44,35 +51,81 @@ export async function getAuditLogs(page = 1, limit = 50) {
     }
 
     try {
-        const offset = (page - 1) * limit;
+        // Validate and clamp pagination
+        const p = Math.max(1, Math.floor(page));
+        const l = Math.min(Math.max(10, Math.floor(limit)), 100);
+        const offset = (p - 1) * l;
+
+        const conditions = [];
+
+        // Validate action
+        const validActions = ["CREATE", "UPDATE", "DELETE", "LOGIN", "OTHER"];
+        if (filters?.action && filters.action !== "ALL") {
+            if (validActions.includes(filters.action)) {
+                conditions.push(eq(auditLogs.action, filters.action as AuditAction));
+            }
+        }
+
+        // Validate role (using actual schema roles)
+        const validRoles = ["superadmin", "sales", "manager", "developer", "content_editor", "client"];
+        if (filters?.role && filters.role !== "ALL") {
+            if (validRoles.includes(filters.role)) {
+                // Left join behavior achieved cleanly via subquery IN condition
+                conditions.push(inArray(
+                    auditLogs.userId, 
+                    db.select({ id: users.id }).from(users).where(eq(users.role, filters.role as any))
+                ));
+            }
+        }
+
+        if (filters?.startDate) {
+            const start = new Date(filters.startDate);
+            if (!isNaN(start.getTime())) {
+                conditions.push(gte(auditLogs.createdAt, start));
+            }
+        }
+
+        if (filters?.endDate) {
+            // Next-day exclusive bound for intuitive UX mapping
+            const end = new Date(filters.endDate);
+            if (!isNaN(end.getTime())) {
+                end.setDate(end.getDate() + 1);
+                conditions.push(lt(auditLogs.createdAt, end));
+            }
+        }
+
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
         const logs = await db.query.auditLogs.findMany({
+            where: whereClause,
             orderBy: [desc(auditLogs.createdAt)],
-            limit,
+            limit: l,
             offset,
             with: {
                 user: {
                     columns: {
                         name: true,
                         email: true,
+                        role: true, // Included actor's role per review feedback
                     }
                 }
             }
         });
 
-        // Get total count for pagination
-        // Optimized approach for counting tables
-        const allLogs = await db.select({ id: auditLogs.id }).from(auditLogs);
-        const totalCount = allLogs.length;
+        // Get total count matching the exact filter conditions
+        const [{ value: totalCount }] = await db
+            .select({ value: count() })
+            .from(auditLogs)
+            .where(whereClause);
 
         return { 
             success: true, 
             logs,
             pagination: {
                 total: totalCount,
-                page,
-                limit,
-                totalPages: Math.ceil(totalCount / limit)
+                page: p,
+                limit: l,
+                totalPages: Math.ceil(totalCount / l)
             }
         };
     } catch (error) {

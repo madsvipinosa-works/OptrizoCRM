@@ -476,6 +476,7 @@ export async function transitionLeadStage(data: TransitionLeadValues): Promise<A
         await db.transaction(async (tx) => {
             const updatePayload: any = {
                 status: newStatus,
+                closedWonAt: oldStatus === "Closed Won" ? null : undefined,
                 updatedAt: now,
             };
 
@@ -1121,7 +1122,7 @@ export async function updateLeadStatusWithAudit(
         const oldStatus = lead.status;
         await db.transaction(async (tx) => {
             await tx.update(leads)
-                .set({ status: newStatus, updatedAt: new Date() })
+                .set({ status: newStatus, closedWonAt: oldStatus === "Closed Won" ? null : undefined, updatedAt: new Date() })
                 .where(eq(leads.id, leadId));
 
             const logContent = `Status updated from "${oldStatus}" to "${newStatus}"${reasonNotes ? `: ${reasonNotes}` : ""}`;
@@ -1185,7 +1186,7 @@ export async function bulkUpdateLeadStatus(
             }
         } else {
             await db.update(leads)
-                .set({ status: newStatus, updatedAt: new Date() })
+                .set({ status: newStatus, closedWonAt: null, updatedAt: new Date() })
                 .where(inArray(leads.id, validLeadIds));
 
             const logEntries = validLeadIds.map(id => ({

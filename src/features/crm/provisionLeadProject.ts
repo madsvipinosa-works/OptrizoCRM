@@ -36,7 +36,7 @@ export async function provisionLeadProject(leadId: string) {
         if (existingProject) {
             if (lead.status !== "Closed Won") {
                 await tx.update(leads)
-                    .set({ status: "Closed Won", updatedAt: new Date() })
+                    .set({ status: "Closed Won", closedWonAt: new Date(), updatedAt: new Date() })
                     .where(eq(leads.id, leadId));
             }
             return {
@@ -182,7 +182,7 @@ export async function provisionLeadProject(leadId: string) {
             ? proposal.total
             : lead.estimatedValue;
         await tx.update(leads)
-            .set({ status: "Closed Won", estimatedValue: finalWonValue, updatedAt: new Date() })
+            .set({ status: "Closed Won", estimatedValue: finalWonValue, closedWonAt: new Date(), updatedAt: new Date() })
             .where(eq(leads.id, leadId));
 
         return {

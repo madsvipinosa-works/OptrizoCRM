@@ -1,5 +1,5 @@
 import { getUnifiedDashboardData } from "@/features/crm/actions";
-import { AnalyticsDashboard } from "@/features/crm/components/AnalyticsDashboard";
+import { AnalyticsReportsContainer } from "./AnalyticsReportsContainer";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,5 +17,9 @@ export default async function AnalyticsPage() {
         );
     }
 
-    return <AnalyticsDashboard data={data} />;
+    return (
+        <div className="p-6 md:p-8 max-w-7xl mx-auto">
+            <AnalyticsReportsContainer data={data} />
+        </div>
+    );
 }

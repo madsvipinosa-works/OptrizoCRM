@@ -50,8 +50,12 @@ async function handleMilestoneBubbling(tx: any, taskId: string, newTaskStatus: s
     }
 
     if (newMilestoneStatus !== currentMilestone.status) {
+        const payload: any = { status: newMilestoneStatus, updatedAt: new Date() };
+        if (newMilestoneStatus === "Completed") payload.completedAt = new Date();
+        else if (currentMilestone.status === "Completed" && newMilestoneStatus !== "Completed") payload.completedAt = null;
+
         await tx.update(milestones)
-            .set({ status: newMilestoneStatus, updatedAt: new Date() })
+            .set(payload)
             .where(eq(milestones.id, oldTask.milestoneId));
 
         if (newMilestoneStatus === "Client Approval") {
@@ -552,6 +556,12 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             if (proofNotes !== undefined) updateData.proofNotes = proofNotes;
         }
 
+        if (status === "Done") {
+            updateData.completedAt = new Date();
+        } else if (oldTask.status === "Done") {
+            updateData.completedAt = null;
+        }
+
         let bubbledMilestone: any = null;
 
         await db.transaction(async (tx) => {
@@ -690,13 +700,20 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
         let bubbledMilestone: any = null;
 
         await db.transaction(async (tx) => {
+            const updatePayload: Record<string, unknown> = {
+                status: newStatus,
+                proofLinks: updatedProofLinks || [],
+                proofNotes: updatedProofNotes,
+                updatedAt: new Date()
+            };
+            if (newStatus === "Done") {
+                updatePayload.completedAt = new Date();
+            } else if (oldTask.status === "Done" && newStatus !== "Done") {
+                updatePayload.completedAt = null;
+            }
+
             await tx.update(tasks)
-                .set({ 
-                    status: newStatus, 
-                    proofLinks: updatedProofLinks || [],
-                    proofNotes: updatedProofNotes,
-                    updatedAt: new Date() 
-                })
+                .set(updatePayload)
                 .where(eq(tasks.id, taskId));
 
             bubbledMilestone = await handleMilestoneBubbling(tx, taskId, newStatus, oldTask);

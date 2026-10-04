@@ -44,9 +44,15 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
     {
+        title: "Overview",
+        items: [
+            { href: "/dashboard", label: "Dashboard", icon: Sparkles, allowedRoles: ["superadmin", "sales", "manager", "developer"] },
+        ],
+    },
+    {
         title: "Growth & CRM",
         items: [
-            { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, allowedRoles: ["superadmin", "sales"] },
+            { href: "/dashboard/analytics", label: "Analytics & Reports", icon: BarChart3, allowedRoles: ["superadmin", "sales", "manager"] },
             { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["superadmin", "sales"] },
             { href: "/dashboard/contacts", label: "Contacts", icon: Users, allowedRoles: ["superadmin", "sales"] },
             { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["superadmin", "sales"] },

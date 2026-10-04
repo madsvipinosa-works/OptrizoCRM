@@ -282,6 +282,7 @@ export const leads = pgTable("lead", {
     lossReason: lossReasonEnum("loss_reason"),
     lossNotes: text("loss_notes"),
     isArchived: boolean("isArchived").default(false).notNull(),
+    closedWonAt: timestamp("closed_won_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -600,6 +601,7 @@ export const milestones = pgTable("milestone", {
     title: text("title").notNull(),
     status: milestoneStatusEnum("status").default("Pending").notNull(),
     order: integer("order").default(0).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
@@ -630,6 +632,7 @@ export const tasks = pgTable("task", {
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
     blockedReason: text("blocked_reason"),
     overdueNotified: boolean("overdue_notified").default(false).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
