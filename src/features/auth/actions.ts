@@ -24,9 +24,9 @@ export async function signInWithEmail(prevState: unknown, formData: FormData) {
         await signIn("credentials", {
             email,
             password,
-            redirect: false, 
+            redirect: false,
         });
-        
+
         // Audit log on login
         await logAction("LOGIN", "User", `Email login: ${email}`);
 
@@ -60,7 +60,9 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData) {
     const targetRedirect = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
 
     if (!email || !password) return { success: false, message: "Email and password are required" };
-    if (password.length < 6) return { success: false, message: "Password must be at least 6 characters long" };
+    if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
+    if (!/[A-Z]/.test(password)) return { success: false, message: "Password must contain at least one uppercase letter" };
+    if (!/[^a-zA-Z]/.test(password)) return { success: false, message: "Password must contain at least one number or symbol" };
 
     try {
         const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
@@ -96,12 +98,12 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData) {
 
 export async function requestPasswordReset(prevState: unknown, formData: FormData) {
     const email = formData.get("email") as string;
-    
+
     if (!email) return { success: false, message: "Email is required" };
 
     try {
         const existingUser = await db.query.users.findFirst({ where: eq(users.email, email) });
-        
+
         // We always return generic success message to prevent email enumeration attacks
         if (!existingUser) {
             return { success: true, message: "If that email exists, we sent a password reset link to it." };
@@ -135,7 +137,9 @@ export async function resetPassword(prevState: unknown, formData: FormData) {
     const password = formData.get("password") as string;
 
     if (!token || !password) return { success: false, message: "Invalid request" };
-    if (password.length < 6) return { success: false, message: "Password must be at least 6 characters long" };
+    if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
+    if (!/[A-Z]/.test(password)) return { success: false, message: "Password must contain at least one uppercase letter" };
+    if (!/[^a-zA-Z]/.test(password)) return { success: false, message: "Password must contain at least one number or symbol" };
 
     try {
         const record = await db.query.passwordResetTokens.findFirst({

@@ -9,6 +9,7 @@ import { eq, and, ne } from "drizzle-orm";
 import { auth, requireRole, hasRole } from "@/auth";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { cache } from "react";
+import { z } from "zod";
 import {
     siteSettingsSchema,
     postSchema,
@@ -81,9 +82,34 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
             ? validated.data.notificationEmails.split(',').map(e => e.trim()).filter(Boolean)
             : [];
 
+        let faqs: {question: string, answer: string}[] = [];
+        try {
+            if (validated.data.faqs) {
+                const parsed = JSON.parse(validated.data.faqs);
+                const faqSchema = z.array(z.object({
+                    question: z.string().min(1),
+                    answer: z.string().min(1),
+                })).max(10, "Maximum of 10 FAQs allowed");
+                
+                const faqParsed = faqSchema.safeParse(parsed);
+                if (!faqParsed.success) {
+                    return {
+                        success: false,
+                        message: "Validation failed for FAQs",
+                        errors: faqParsed.error.flatten().fieldErrors,
+                    };
+                }
+                faqs = faqParsed.data;
+            }
+        } catch (e) {
+            console.error("Failed to parse faqs:", e);
+            return { success: false, message: "Invalid JSON format for FAQs" };
+        }
+
         const payload = {
             ...validated.data,
             notificationEmails: notificationEmailsList,
+            faqs,
         };
 
         await db.insert(siteSettings)
@@ -94,6 +120,7 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
             });
 
         revalidatePath("/");
+        revalidatePath("/contact");
         return { success: true, message: "Settings updated successfully!" };
     } catch (error) {
         console.error("Failed to update settings:", error);
@@ -213,7 +240,7 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
 
 export async function createCaseStudy(prevState: ActionState, formData: FormData) {
     try {
-        await requireEditor();
+        const session = await requireEditor();
 
         const rawData = Object.fromEntries(formData.entries());
         const validated = (caseStudySchema || projectSchema).safeParse(rawData);
@@ -232,6 +259,7 @@ export async function createCaseStudy(prevState: ActionState, formData: FormData
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
         const sanitizedContent = content ? sanitizeHtml(content) : content;
+        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
 
         await db.insert(caseStudies).values({
             title,
@@ -240,11 +268,13 @@ export async function createCaseStudy(prevState: ActionState, formData: FormData
             description,
             content: sanitizedContent,
             coverImage,
-            published: true,
+            published: isPublished,
         });
 
         revalidatePath("/dashboard/portfolio");
         revalidatePath("/projects");
+        revalidatePath("/");
+        revalidatePath("/sitemap.xml");
         return { success: true, message: "Case study created successfully!" };
     } catch (error) {
         console.error(error);
@@ -270,7 +300,7 @@ export const deleteProject = deleteCaseStudy;
 
 export async function updateCaseStudy(prevState: ActionState, formData: FormData) {
     try {
-        await requireEditor();
+        const session = await requireEditor();
 
         const rawData = Object.fromEntries(formData.entries());
         const validated = (caseStudySchema || projectSchema).safeParse(rawData);
@@ -289,6 +319,7 @@ export async function updateCaseStudy(prevState: ActionState, formData: FormData
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
         const sanitizedContent = content ? sanitizeHtml(content) : content;
+        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
 
         if (!id) return { success: false, message: "Missing Case Study ID" };
 
@@ -300,13 +331,16 @@ export async function updateCaseStudy(prevState: ActionState, formData: FormData
                 description,
                 content: sanitizedContent,
                 coverImage,
-                published: true,
+                published: isPublished,
                 updatedAt: new Date(),
             })
             .where(eq(caseStudies.id, id));
 
         revalidatePath("/dashboard/portfolio");
         revalidatePath(`/projects/${sanitizedSlug}`);
+        revalidatePath("/projects");
+        revalidatePath("/");
+        revalidatePath("/sitemap.xml");
         return { success: true, message: "Case study updated successfully!" };
     } catch (error) {
         console.error(error);

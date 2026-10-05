@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { signInWithEmail, signUpWithEmail } from "@/features/auth/actions";
-import { Loader2, AlertCircle, ShieldAlert } from "lucide-react";
+import { Loader2, AlertCircle, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 interface LoginPageProps {
@@ -25,6 +25,8 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
     const [isLogin, setIsLogin] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [passwordInput, setPasswordInput] = useState("");
     const router = useRouter();
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -113,19 +115,46 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
 
                         <div className="space-y-2">
                             <Label htmlFor="password">Password</Label>
-                            <Input
-                                id="password"
-                                name="password"
-                                type="password"
-                                placeholder="••••••••"
-                                required
-                                className="bg-background border-border text-foreground"
-                            />
+                            <div className="relative">
+                                <Input
+                                    id="password"
+                                    name="password"
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    required
+                                    value={passwordInput}
+                                    onChange={(e) => setPasswordInput(e.target.value)}
+                                    className="bg-background border-border text-foreground pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    aria-label="Toggle password visibility"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            {!isLogin && (
+                                <div className="mt-2 space-y-1">
+                                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden flex gap-1">
+                                        <div className={`h-full flex-1 ${passwordInput.length > 0 ? (passwordInput.length >= 8 ? 'bg-green-500' : 'bg-red-500') : 'bg-transparent'}`}></div>
+                                        <div className={`h-full flex-1 ${passwordInput.length >= 8 && /[A-Z]/.test(passwordInput) ? 'bg-green-500' : passwordInput.length >= 8 ? 'bg-yellow-500' : 'bg-transparent'}`}></div>
+                                        <div className={`h-full flex-1 ${passwordInput.length >= 8 && /[A-Z]/.test(passwordInput) && /[^a-zA-Z]/.test(passwordInput) ? 'bg-green-500' : 'bg-transparent'}`}></div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {passwordInput.length === 0 ? "Enter a password" : 
+                                         passwordInput.length < 8 ? "Too short (min 8 characters)" : 
+                                         !(/[A-Z]/.test(passwordInput)) ? "Add an uppercase letter" :
+                                         !(/[^a-zA-Z]/.test(passwordInput)) ? "Add a number or symbol" : "Strong password"}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <Button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || (!isLogin && (passwordInput.length < 8 || !/[A-Z]/.test(passwordInput) || !/[^a-zA-Z]/.test(passwordInput)))}
                             className="w-full bg-primary text-black font-bold hover:bg-primary/90 mt-2"
                         >
                             {isLoading ? (

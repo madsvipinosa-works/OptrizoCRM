@@ -104,6 +104,7 @@ export const siteSettingsSchema = z.object({
     contactEmail: z.string().email().optional().or(z.literal("")),
     notificationEmails: z.string().optional(),
     demoVideoUrl: z.string().optional(),
+    faqs: z.string().optional(),
 });
 
 export const postSchema = z.object({

@@ -10,7 +10,7 @@ import { useActionState, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface SiteSettings {
@@ -23,6 +23,7 @@ interface SiteSettings {
     contactEmail?: string | null;
     notificationEmails?: string[] | string | null;
     demoVideoUrl?: string | null;
+    faqs?: any;
 }
 
 export function SettingsForm({ initialData }: { initialData: SiteSettings | undefined }) {
@@ -44,6 +45,39 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
         return [];
     });
     const [currEmail, setCurrEmail] = useState("");
+
+    // FAQs State
+    const [faqs, setFaqs] = useState<{question: string, answer: string}[]>(() => {
+        if (!initialData?.faqs) return [];
+        if (typeof initialData.faqs === "string") {
+            try {
+                const parsed = JSON.parse(initialData.faqs);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+        if (Array.isArray(initialData.faqs)) return initialData.faqs;
+        return [];
+    });
+
+    const handleAddFaq = () => {
+        if (faqs.length >= 10) {
+            toast.error("Maximum of 10 FAQs allowed.");
+            return;
+        }
+        setFaqs([...faqs, { question: "", answer: "" }]);
+    };
+
+    const handleRemoveFaq = (index: number) => {
+        setFaqs(faqs.filter((_, i) => i !== index));
+    };
+
+    const updateFaq = (index: number, field: "question" | "answer", value: string) => {
+        const newFaqs = [...faqs];
+        newFaqs[index][field] = value;
+        setFaqs(newFaqs);
+    };
 
     useEffect(() => {
         if (state.message) {
@@ -192,6 +226,53 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                             )}
                         </div>
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card className="glass-card border-border">
+                <CardHeader>
+                    <CardTitle className="text-foreground">Frequently Asked Questions (FAQs)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <input type="hidden" name="faqs" value={JSON.stringify(faqs)} />
+                    {faqs.map((faq, index) => (
+                        <div key={index} className="flex gap-4 items-start border border-border p-4 rounded-lg bg-muted/10">
+                            <div className="flex-1 space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-foreground">Question</Label>
+                                    <Input
+                                        value={faq.question}
+                                        onChange={(e) => updateFaq(index, "question", e.target.value)}
+                                        placeholder="e.g. How much does a custom website cost?"
+                                        className="bg-card border-border text-foreground"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-foreground">Answer</Label>
+                                    <Textarea
+                                        value={faq.answer}
+                                        onChange={(e) => updateFaq(index, "answer", e.target.value)}
+                                        placeholder="e.g. It depends on the scope..."
+                                        className="bg-card border-border text-foreground h-20"
+                                    />
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveFaq(index)}
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                    {faqs.length < 10 && (
+                        <Button type="button" onClick={handleAddFaq} variant="outline" className="w-full border-dashed">
+                            <Plus className="h-4 w-4 mr-2" /> Add FAQ
+                        </Button>
+                    )}
                 </CardContent>
             </Card>
 

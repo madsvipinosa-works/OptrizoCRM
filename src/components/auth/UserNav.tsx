@@ -45,11 +45,11 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
 
     const initials = user.name
         ? user.name
-              .split(' ')
-              .map((n) => n[0])
-              .join('')
-              .toUpperCase()
-              .substring(0, 2)
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+            .substring(0, 2)
         : user.email?.substring(0, 2).toUpperCase() || 'U';
 
     return (

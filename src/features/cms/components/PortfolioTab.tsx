@@ -48,7 +48,7 @@ export function PortfolioTab({ projects }: { projects: any[] }) {
                                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-500 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
                                     <Building2 className="w-3 h-3" /> {project.clientName || "General Client"}
                                 </span>
-                                {project.status === "published" ? (
+                                {project.published === true ? (
                                     <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                                         <CheckCircle2 className="w-3 h-3" /> Live
                                     </span>

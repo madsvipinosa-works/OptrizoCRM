@@ -27,6 +27,7 @@ async function main() {
         await client.query(`ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "about_tech_stack_items" jsonb DEFAULT '[]'::jsonb NOT NULL`);
         await client.query(`ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "about_cta_headline" text DEFAULT 'Ready to start your next project?'`);
         await client.query(`ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "about_cta_text" text DEFAULT 'Let''s build something extraordinary together.'`);
+        await client.query(`ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "faqs" jsonb DEFAULT '[]'::jsonb NOT NULL`);
 
         console.log("Successfully migrated site_settings table.");
     } catch (e) {

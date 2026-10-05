@@ -125,7 +125,7 @@ export const caseStudies = pgTable("case_study", {
     coverImage: text("coverImage"),
     galleryImages: jsonb("gallery_images").$type<string[]>().default([]).notNull(),
     technologies: jsonb("technologies").$type<string[]>().default([]).notNull(),
-    published: boolean("published").default(true).notNull(),
+    published: boolean("published").default(false).notNull(),
     order: text("order").default("0").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -189,6 +189,7 @@ export const siteSettings = pgTable("site_settings", {
     contactEmail: text("contactEmail"),
     notificationEmails: jsonb("notificationEmails").$type<string[]>().default([]).notNull(),
     demoVideoUrl: text("demoVideoUrl"), // URL for the homepage demo video (YouTube/Vimeo embed or direct)
+    faqs: jsonb("faqs").$type<{question: string, answer: string}[]>().default([]).notNull(),
 
     // About Page Content
     aboutHeroTitle: text("about_hero_title").default("About Our Agency"),

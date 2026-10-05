@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { posts, caseStudies } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -21,7 +22,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     // 2. Dynamic Blog Posts
-    const allPosts = await db.select({ slug: posts.slug, updatedAt: posts.updatedAt }).from(posts);
+    const allPosts = await db.select({ slug: posts.slug, updatedAt: posts.updatedAt })
+        .from(posts)
+        .where(eq(posts.published, true));
     const postRoutes = allPosts.map((post) => ({
         url: `${baseUrl}/blog/${post.slug}`,
         lastModified: post.updatedAt,
@@ -30,7 +33,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     // 3. Dynamic Case Studies (Portfolio Projects)
-    const allProjects = await db.select({ slug: caseStudies.slug, createdAt: caseStudies.createdAt }).from(caseStudies);
+    const allProjects = await db.select({ slug: caseStudies.slug, createdAt: caseStudies.createdAt })
+        .from(caseStudies)
+        .where(eq(caseStudies.published, true));
     const projectRoutes = allProjects.map((project) => ({
         url: `${baseUrl}/projects/${project.slug}`,
         lastModified: project.createdAt,

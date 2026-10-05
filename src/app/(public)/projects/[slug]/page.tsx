@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { caseStudies } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { auth, hasRole } from "@/auth";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,13 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { slug } = await params;
+    const session = await auth();
+    const canPreview = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
+
     const project = await db.query.caseStudies.findFirst({
-        where: eq(caseStudies.slug, slug),
+        where: canPreview 
+            ? eq(caseStudies.slug, slug)
+            : and(eq(caseStudies.slug, slug), eq(caseStudies.published, true)),
     });
 
     if (!project) {
@@ -36,8 +42,13 @@ export default async function ProjectDetailPage({ params }: Props) {
         const { slug } = await params;
         const decodedSlug = decodeURIComponent(slug);
 
+        const session = await auth();
+        const canPreview = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
+
         project = await db.query.caseStudies.findFirst({
-            where: eq(caseStudies.slug, decodedSlug),
+            where: canPreview 
+                ? eq(caseStudies.slug, decodedSlug)
+                : and(eq(caseStudies.slug, decodedSlug), eq(caseStudies.published, true)),
         });
     } catch (e) {
         systemError = e as Error;
@@ -45,11 +56,10 @@ export default async function ProjectDetailPage({ params }: Props) {
 
     if (systemError) {
         return (
-            <div className="container mx-auto px-4 py-24 max-w-3xl">
-                <div className="bg-red-950/50 border border-red-500 p-8 rounded-lg text-red-200">
-                    <h1 className="text-2xl font-bold mb-4 text-red-500">System Crash (Remote Debug)</h1>
-                    <p className="font-mono text-sm mb-4">{systemError.message}</p>
-                    <pre className="text-xs bg-black/50 p-4 rounded overflow-auto">{systemError.stack}</pre>
+            <div className="container mx-auto px-4 py-24 max-w-3xl text-center">
+                <div className="bg-red-950/20 border border-red-500/20 p-8 rounded-lg text-red-200">
+                    <h1 className="text-2xl font-bold mb-4 text-red-500">Project Unavailable</h1>
+                    <p className="text-muted-foreground">We couldn't load this project at the moment. Please try again later.</p>
                 </div>
             </div>
         );

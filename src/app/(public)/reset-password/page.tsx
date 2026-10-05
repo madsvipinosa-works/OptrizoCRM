@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { resetPassword } from "@/features/auth/actions";
-import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -15,6 +15,8 @@ function ResetPasswordForm() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [passwordInput, setPasswordInput] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const router = useRouter();
 
     if (!token) {
@@ -91,17 +93,45 @@ function ResetPasswordForm() {
                 <form onSubmit={onSubmit} className="space-y-6">
                     <div className="space-y-2">
                         <Label htmlFor="password" className="text-gray-300">New Password</Label>
-                        <Input 
-                            id="password" 
-                            name="password" 
-                            type="password" 
-                            required 
-                            minLength={6}
-                            className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus-visible:ring-primary/50 h-12" 
-                            placeholder="••••••••"
-                        />
+                        <div className="relative">
+                            <Input 
+                                id="password" 
+                                name="password" 
+                                type={showPassword ? "text" : "password"}
+                                required 
+                                value={passwordInput}
+                                onChange={(e) => setPasswordInput(e.target.value)}
+                                className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus-visible:ring-primary/50 h-12 pr-10" 
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                aria-label="Toggle password visibility"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                            >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex gap-1">
+                                <div className={`h-full flex-1 ${passwordInput.length > 0 ? (passwordInput.length >= 8 ? 'bg-green-500' : 'bg-red-500') : 'bg-transparent'}`}></div>
+                                <div className={`h-full flex-1 ${passwordInput.length >= 8 && /[A-Z]/.test(passwordInput) ? 'bg-green-500' : passwordInput.length >= 8 ? 'bg-yellow-500' : 'bg-transparent'}`}></div>
+                                <div className={`h-full flex-1 ${passwordInput.length >= 8 && /[A-Z]/.test(passwordInput) && /[^a-zA-Z]/.test(passwordInput) ? 'bg-green-500' : 'bg-transparent'}`}></div>
+                            </div>
+                            <p className="text-xs text-gray-400">
+                                {passwordInput.length === 0 ? "Enter a password" : 
+                                 passwordInput.length < 8 ? "Too short (min 8 characters)" : 
+                                 !(/[A-Z]/.test(passwordInput)) ? "Add an uppercase letter" :
+                                 !(/[^a-zA-Z]/.test(passwordInput)) ? "Add a number or symbol" : "Strong password"}
+                            </p>
+                        </div>
                     </div>
-                    <Button type="submit" disabled={isLoading} className="w-full h-12 text-base font-semibold transition-all hover:scale-[1.02]">
+                    <Button 
+                        type="submit" 
+                        disabled={isLoading || passwordInput.length < 8 || !/[A-Z]/.test(passwordInput) || !/[^a-zA-Z]/.test(passwordInput)} 
+                        className="w-full h-12 text-base font-semibold transition-all hover:scale-[1.02]"
+                    >
                         {isLoading ? (
                             <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                         ) : (
