@@ -7,6 +7,7 @@ import { eq, and, desc, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { logAction } from "@/features/audit/actions";
+import { logSystemError } from "@/features/audit/error-logger";
 
 export type ActionState = {
     message?: string;
@@ -606,6 +607,13 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
         return { success: true, message: "Task updated." };
     } catch (error) {
         console.error("Failed to update task status:", error);
+        await logSystemError(error, {
+            errorCode: "TASK_STATUS_UPDATE_FAILURE",
+            severity: "MEDIUM",
+            source: "action:pm:updateTaskStatus",
+            context: { taskId, status },
+            userId: session?.user?.id,
+        });
         return { success: false, message: "Database Error" };
     }
 }
@@ -744,6 +752,13 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
         return { success: true, message: "Task proof submitted." };
     } catch (error) {
         console.error("Failed to submit task proof:", error);
+        await logSystemError(error, {
+            errorCode: "TASK_PROOF_SUBMISSION_FAILURE",
+            severity: "HIGH",
+            source: "action:pm:submitTaskProofAndMove",
+            context: { taskId, newStatus },
+            userId: session?.user?.id,
+        });
         return { success: false, message: "Database Error" };
     }
 }

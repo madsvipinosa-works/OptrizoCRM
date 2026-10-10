@@ -63,7 +63,7 @@ export type ActionState = {
     success: boolean;
     errors?: Record<string, string[]>;
 };
-export async function updateSiteSettings(prevState: ActionState, formData: FormData) {
+export async function updateSiteSettings(prevState: ActionState, formData: FormData): Promise<ActionState> {
     try {
         await requireAdmin();
 
@@ -96,7 +96,7 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
                     return {
                         success: false,
                         message: "Validation failed for FAQs",
-                        errors: faqParsed.error.flatten().fieldErrors,
+                        errors: { faqs: faqParsed.error.issues.map(issue => issue.message) },
                     };
                 }
                 faqs = faqParsed.data;

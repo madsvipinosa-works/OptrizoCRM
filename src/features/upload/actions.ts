@@ -3,6 +3,7 @@
 import { put, del } from "@vercel/blob";
 import { auth, hasRole } from "@/auth";
 import { logAction } from "@/features/audit/actions";
+import { logSystemError } from "@/features/audit/error-logger";
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB limit
 const ALLOWED_MIME_TYPES = [
@@ -202,6 +203,13 @@ export async function uploadSecureAsset(formData: FormData) {
         };
     } catch (error) {
         console.error("[SECURE_UPLOAD_ERROR]:", error);
+        await logSystemError(error, {
+            errorCode: "UPLOAD_BLOB_FAILURE",
+            severity: "HIGH",
+            source: "action:upload:uploadSecureAsset",
+            context: { fileName: file?.name, fileSize: file?.size, fileType: file?.type },
+            userId: session?.user?.id,
+        });
         return { success: false, error: "Failed to upload asset to storage provider.", message: "Failed to upload asset." };
     }
 }

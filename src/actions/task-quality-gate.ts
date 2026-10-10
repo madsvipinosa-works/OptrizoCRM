@@ -5,7 +5,7 @@ import { tasks, taskSubmissions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { generateObject, generateText } from "ai";
-import { google } from "@ai-sdk/google";
+import { getAIModel } from "@/lib/ai";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 
@@ -689,7 +689,7 @@ export async function submitTaskForVerification(
   if (hasApiKey) {
     try {
       const result = await generateObject({
-        model: google("gemini-1.5-flash"),
+        model: getAIModel(),
         schema: z.object({
           confidenceScore: z
             .number()
@@ -912,9 +912,9 @@ STRICT GUIDELINES:
 `;
 
       const result = await generateText({
-        model: google("gemini-1.5-flash"),
+        model: getAIModel(),
         prompt,
-        abortSignal: AbortSignal.timeout(4000),
+        abortSignal: AbortSignal.timeout(10000),
       });
 
       const cleaned = result.text.trim();

@@ -1,6 +1,7 @@
 
 import { Resend } from "resend";
 import { db } from "@/db";
+import { logSystemError } from "@/features/audit/error-logger";
 
 // Use a fallback key for development if not provided, but log warning
 const resendApiKey = process.env.RESEND_API_KEY || "re_123_mock_key";
@@ -82,6 +83,12 @@ export async function sendLeadNotification(leadData: {
         return { success: true, data };
     } catch (err) {
         console.error("Notification Failed:", err);
+        await logSystemError(err, {
+            errorCode: "NOTIFICATION_EMAIL_FAILURE",
+            severity: "HIGH",
+            source: "lib:notifications:sendLeadNotification",
+            context: { leadEmail: leadData.email, leadName: leadData.name },
+        });
         return { success: false, error: err };
     }
 }

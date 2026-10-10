@@ -404,6 +404,32 @@ export const auditLogs = pgTable("audit_log", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 15a. System Error Logs & Diagnostics
+export const errorSeverityEnum = pgEnum("error_severity", ["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
+
+export const systemErrorLogs = pgTable("system_error_log", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    errorCode: text("error_code").notNull().default("UNKNOWN_ERROR"),
+    severity: errorSeverityEnum("severity").notNull().default("MEDIUM"),
+    message: text("message").notNull(),
+    stackTrace: text("stack_trace"),
+    source: text("source").notNull(), // e.g. "action:pm", "action:crm", "route:api", "boundary:app"
+    context: jsonb("context").$type<Record<string, unknown>>().default({}),
+    userId: text("userId").references(() => users.id, { onDelete: "set null" }),
+    isResolved: boolean("is_resolved").default(false).notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedById: text("resolved_by_id").references(() => users.id, { onDelete: "set null" }),
+    resolutionNotes: text("resolution_notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index("idx_error_created").on(t.createdAt),
+    index("idx_error_severity").on(t.severity),
+    index("idx_error_resolved").on(t.isResolved),
+    index("idx_error_code").on(t.errorCode),
+]);
+
 
 // 15b. CRM Tasks
 export const crmTaskStatusEnum = pgEnum("crm_task_status", [
@@ -535,6 +561,17 @@ export const inquiriesRelations = relations(inquiries, ({ one }) => ({
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
     user: one(users, {
         fields: [auditLogs.userId],
+        references: [users.id],
+    }),
+}));
+
+export const systemErrorLogsRelations = relations(systemErrorLogs, ({ one }) => ({
+    user: one(users, {
+        fields: [systemErrorLogs.userId],
+        references: [users.id],
+    }),
+    resolvedBy: one(users, {
+        fields: [systemErrorLogs.resolvedById],
         references: [users.id],
     }),
 }));
