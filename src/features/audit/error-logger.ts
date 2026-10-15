@@ -18,13 +18,12 @@ const SENSITIVE_KEY_PATTERNS = [
   /secret/i,
   /token/i,
   /authorization/i,
-  /apikey/i,
-  /api_key/i,
+  /api[-_]?key/i,
   /creditcard/i,
   /cookie/i,
 ];
 
-function sanitizeContext(value: unknown, depth = 0): unknown {
+export function sanitizeContext(value: unknown, depth = 0): unknown {
   if (depth > 5) return "[Max Depth Reached]";
   if (value === null || value === undefined) return value;
 
