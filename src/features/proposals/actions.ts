@@ -49,9 +49,67 @@ export interface ProposalData {
     contractSettings?: ContractSettings;
 }
 
+export async function createDraftProposalForLead(leadId: string) {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
+        return { success: false, message: "Unauthorized: Insufficient permissions to generate proposals" };
+    }
+
+    try {
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId),
+            with: {
+                client: true,
+            },
+        });
+
+        if (!lead) {
+            return { success: false, message: "Lead not found" };
+        }
+
+        const proposalCode = `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const estValue = Number(lead.estimatedValue) || 5000;
+
+        const [created] = await db.insert(proposals).values({
+            leadId: lead.id,
+            proposalCode,
+            scope: lead.goals || `Strategic agency implementation and digital transformation for ${lead.businessName || "Client"}.`,
+            timeline: lead.timelineExpectation || "4-6 Weeks from project kickoff",
+            technicalApproach: "Modern Next.js architecture, high-performance API endpoints, responsive UX/UI, and automated deployment infrastructure.",
+            deliverables: [
+                "Architecture & Discovery: Comprehensive specification and visual design system.",
+                "Core System Implementation: Full-stack feature delivery and component implementation.",
+                "Quality Assurance & Deployment: Rigorous testing, performance optimization, and production go-live.",
+            ],
+            pricingStructure: [
+                { name: "Strategic Design & Discovery", description: "Design tokens, components, and user flows", quantity: 1, unitPrice: Math.round(estValue * 0.3), total: Math.round(estValue * 0.3) },
+                { name: "Full-Stack Development & Integration", description: "Frontend, backend server actions, and database", quantity: 1, unitPrice: Math.round(estValue * 0.5), total: Math.round(estValue * 0.5) },
+                { name: "Deployment, QA & Handover", description: "Infrastructure setup, SSL, and performance optimization", quantity: 1, unitPrice: Math.round(estValue * 0.2), total: Math.round(estValue * 0.2) },
+            ],
+            subtotal: estValue,
+            total: estValue,
+            terms: "Payment Milestone Schedule: 50% initial commitment upon agreement signing, 50% upon final acceptance and handover.",
+            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            status: "Draft",
+        }).returning();
+
+        await logAction("CREATE", "Proposal", `Draft proposal generated for Lead ${lead.businessName || lead.id} (${proposalCode})`);
+
+        revalidatePath(`/dashboard/leads/${leadId}`);
+        revalidatePath(`/dashboard/leads`);
+        revalidatePath(`/dashboard/proposals`);
+        revalidatePath(`/dashboard/proposals/builder/${created.id}`);
+
+        return { success: true, proposalId: created.id };
+    } catch (error) {
+        console.error("Failed to generate draft proposal for lead:", error);
+        return { success: false, message: error instanceof Error ? error.message : "Database Error" };
+    }
+}
+
 export async function createProposal(leadId: string, data: ProposalData) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -87,7 +145,7 @@ export async function createProposal(leadId: string, data: ProposalData) {
 
 export async function updateProposal(id: string, data: ProposalData, status?: "Draft" | "Sent" | "Approved" | "Rejected") {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
         return { success: false, message: "Unauthorized" };
     }
 

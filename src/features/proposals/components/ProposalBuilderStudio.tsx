@@ -151,10 +151,24 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [currentStatus, setCurrentStatus] = useState<"Draft" | "Sent" | "Approved" | "Rejected">(proposal.status);
-    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(proposal.createdAt ? new Date(proposal.createdAt) : null);
+    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(() => {
+        if (!proposal.createdAt) return null;
+        const d = new Date(proposal.createdAt);
+        return isNaN(d.getTime()) ? null : d;
+    });
     const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
     const [isSendingEmail, setIsSendingEmail] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
+
+    // Sync URL in address bar to canonical proposal ID without full navigation reload
+    React.useEffect(() => {
+        if (typeof window !== "undefined" && proposal?.id) {
+            const canonicalPath = `/dashboard/proposals/builder/${proposal.id}`;
+            if (window.location.pathname !== canonicalPath) {
+                window.history.replaceState(null, "", canonicalPath);
+            }
+        }
+    }, [proposal?.id]);
 
     const clientUrl = typeof window !== "undefined"
         ? `${window.location.origin}/proposal/${proposal.id}`
@@ -229,11 +243,17 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
         proposal.terms ||
             "Standard agency terms apply: 50% deposit required upon acceptance to initiate sprint planning, with the remaining balance due upon milestone handover."
     );
-    const [validUntil, setValidUntil] = useState<string>(
-        proposal.validUntil
-            ? new Date(proposal.validUntil).toISOString().split("T")[0]
-            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-    );
+    const [validUntil, setValidUntil] = useState<string>(() => {
+        try {
+            if (proposal.validUntil) {
+                const d = new Date(proposal.validUntil);
+                if (!isNaN(d.getTime())) {
+                    return d.toISOString().split("T")[0];
+                }
+            }
+        } catch {}
+        return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    });
     const [contractSettings, setContractSettings] = useState<ContractSettings>(
         (proposal.contractSettings as ContractSettings) || {}
     );
@@ -470,7 +490,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                             <span className="flex items-center gap-1 font-mono text-[11px]">
                                 <span className={`h-1.5 w-1.5 rounded-full ${isSaving || isPublishing ? "bg-amber-400 animate-pulse" : "bg-emerald-500"}`} />
                                 <span className={isSaving || isPublishing ? "text-amber-400" : "text-muted-foreground"}>
-                                    {isSaving ? "Saving changes..." : isPublishing ? "Publishing..." : lastSavedAt ? `Saved at ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Draft"}
+                                    {isSaving ? "Saving changes..." : isPublishing ? "Publishing..." : (lastSavedAt && !isNaN(lastSavedAt.getTime())) ? `Saved at ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Draft"}
                                 </span>
                             </span>
                         </div>
@@ -748,7 +768,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                         <div>
                                             <Label className="text-[10px] text-muted-foreground uppercase">Item Total</Label>
                                             <div className="h-8 flex items-center justify-end font-mono text-sm font-semibold px-2 bg-background/50 rounded border border-border">
-                                                ${item.total.toLocaleString()}
+                                                ${(item.total ?? 0).toLocaleString()}
                                             </div>
                                         </div>
                                     </div>

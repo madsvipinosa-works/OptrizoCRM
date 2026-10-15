@@ -53,13 +53,28 @@ export function ProposalDocumentSheet({
 }: ProposalDocumentSheetProps) {
     const cs = data.contractSettings || {};
 
-    const formattedCreatedDate = data.createdAt
-        ? new Date(data.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-        : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const safeFormatDate = (val: string | number | Date | null | undefined, options?: Intl.DateTimeFormatOptions, fallback: string = ""): string => {
+        if (!val) return fallback;
+        try {
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return fallback;
+            return d.toLocaleDateString("en-US", options || { month: "short", day: "numeric", year: "numeric" });
+        } catch {
+            return fallback;
+        }
+    };
 
-    const formattedValidDate = data.validUntil
-        ? new Date(data.validUntil).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-        : "30 Days from Issue";
+    const formattedCreatedDate = safeFormatDate(
+        data.createdAt,
+        { month: "short", day: "numeric", year: "numeric" },
+        new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    );
+
+    const formattedValidDate = safeFormatDate(
+        data.validUntil,
+        { month: "short", day: "numeric", year: "numeric" },
+        "30 Days from Issue"
+    );
 
     const deliverablesList = Array.isArray(data.deliverables) ? data.deliverables : [];
     const pricingItems = Array.isArray(data.pricingStructure) ? data.pricingStructure : [];
@@ -382,7 +397,7 @@ export function ProposalDocumentSheet({
                             <p className="text-xs text-muted-foreground">
                                 Executed by <strong className="text-foreground">{data.acceptedByName || "Client Signatory"}</strong>
                                 {data.acceptedByTitle ? ` (${data.acceptedByTitle})` : ""} on{" "}
-                                {data.acceptedAt ? new Date(data.acceptedAt).toLocaleString() : formattedCreatedDate}.
+                                {data.acceptedAt ? safeFormatDate(data.acceptedAt, undefined, formattedCreatedDate) : formattedCreatedDate}.
                             </p>
                         </div>
                         {data.signatureData && (

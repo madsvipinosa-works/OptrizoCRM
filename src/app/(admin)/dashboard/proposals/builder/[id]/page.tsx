@@ -42,14 +42,17 @@ export default async function ProposalBuilderPage({
 
     // 2. If not found by proposal ID, check if ID matches a leadId with an existing proposal
     if (!proposal) {
-        const existingForLead = await db.query.proposals.findFirst({
+        proposal = await db.query.proposals.findFirst({
             where: eq(proposals.leadId, id),
             orderBy: (p, { desc }) => [desc(p.createdAt)],
+            with: {
+                lead: {
+                    with: {
+                        client: true,
+                    },
+                },
+            },
         });
-
-        if (existingForLead) {
-            redirect(`/dashboard/proposals/builder/${existingForLead.id}`);
-        }
     }
 
     // 3. If still no proposal, check if ID matches an existing Lead. If so, auto-generate a starter Draft proposal
@@ -87,8 +90,11 @@ export default async function ProposalBuilderPage({
                 status: "Draft",
             }).returning();
 
-            // Redirect to the newly created proposal's dedicated studio URL
-            redirect(`/dashboard/proposals/builder/${created.id}`);
+            // Render studio directly with attached lead relation without throwing NEXT_REDIRECT
+            proposal = {
+                ...created,
+                lead,
+            } as any;
         }
     }
 
