@@ -64,22 +64,47 @@ export function PinnedPanelsLayout({
       const mm = gsap.matchMedia();
 
       mm.add("(min-width: 768px)", () => {
-        const panels = gsap.utils.toArray<HTMLElement>(
-          containerRef.current?.querySelectorAll("[data-pinned-panel='true']") || []
-        );
+        let timer: NodeJS.Timeout | null = null;
+        let refreshListener: (() => void) | null = null;
+        let panels: HTMLElement[] = [];
 
-        if (panels.length === 0) return;
+        const initPanels = () => {
+          if (!containerRef.current) return;
+          panels = gsap.utils.toArray<HTMLElement>(
+            containerRef.current.querySelectorAll("[data-pinned-panel='true']") || []
+          );
 
-        // Apply stacked z-index automatically (each panel has higher z-index than the previous)
-        const allPanels = gsap.utils.toArray<HTMLElement>(
-          containerRef.current?.querySelectorAll(".pinned-panel") || []
-        );
-        allPanels.forEach((panel, i) => {
-          panel.style.zIndex = `${i + 2}`;
-        });
+          if (panels.length === 0) return;
 
-        // Function to update panel margins based on actual content dimensions
-        const applyPanelMetrics = () => {
+          // Apply stacked z-index automatically (each panel has higher z-index than the previous)
+          const allPanels = gsap.utils.toArray<HTMLElement>(
+            containerRef.current.querySelectorAll(".pinned-panel") || []
+          );
+          allPanels.forEach((panel, i) => {
+            panel.style.zIndex = `${i + 2}`;
+          });
+
+          // Function to update panel margins based on actual content dimensions
+          const applyPanelMetrics = () => {
+            panels.forEach((panel) => {
+              const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
+              if (!inner) return;
+
+              const panelHeight = inner.offsetHeight;
+              const windowHeight = window.innerHeight;
+              const difference = Math.max(0, panelHeight - windowHeight);
+              const dwellDistance = Math.round(Math.max(windowHeight * 0.45, 340));
+
+              panel.style.marginBottom = `${difference + dwellDistance}px`;
+            });
+          };
+
+          // Apply initial margins
+          applyPanelMetrics();
+
+          refreshListener = applyPanelMetrics;
+          ScrollTrigger.addEventListener("refreshInit", applyPanelMetrics);
+
           panels.forEach((panel) => {
             const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
             if (!inner) return;
@@ -87,84 +112,62 @@ export function PinnedPanelsLayout({
             const panelHeight = inner.offsetHeight;
             const windowHeight = window.innerHeight;
             const difference = Math.max(0, panelHeight - windowHeight);
-            // Generous dwell cushion (scroll distance where panel rests fully visible before flipping)
             const dwellDistance = Math.round(Math.max(windowHeight * 0.45, 340));
+            const transitionDistance = windowHeight;
 
-            panel.style.marginBottom = `${difference + dwellDistance}px`;
+            const tl = gsap.timeline({
+              scrollTrigger: {
+                trigger: panel,
+                start: "bottom bottom",
+                end: () => {
+                  const pHeight = inner.offsetHeight;
+                  const wHeight = window.innerHeight;
+                  const diff = Math.max(0, pHeight - wHeight);
+                  const dwell = Math.round(Math.max(wHeight * 0.45, 340));
+                  return `+=${diff + dwell + wHeight}`;
+                },
+                pinSpacing: false,
+                pin: true,
+                scrub: 0.5,
+                invalidateOnRefresh: true,
+              },
+            });
+
+            if (difference > 0) {
+              tl.to(inner, {
+                y: () => -(Math.max(0, inner.offsetHeight - window.innerHeight)),
+                duration: difference,
+                ease: "none",
+              });
+            }
+
+            if (dwellDistance > 0) {
+              tl.to({}, { duration: dwellDistance });
+            }
+
+            tl.fromTo(
+              panel,
+              { scale: 1, opacity: 1 },
+              {
+                scale: 0.88,
+                opacity: 0.35,
+                duration: transitionDistance * 0.9,
+                ease: "power1.inOut",
+              }
+            ).to(panel, { opacity: 0, duration: transitionDistance * 0.1 });
           });
+
+          ScrollTrigger.refresh();
         };
 
-        // Apply initial margins
-        applyPanelMetrics();
-
-        // Listen for refreshInit to recalculate margins before ScrollTrigger updates
-        ScrollTrigger.addEventListener("refreshInit", applyPanelMetrics);
-
-        panels.forEach((panel) => {
-          const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
-          if (!inner) return;
-
-          const panelHeight = inner.offsetHeight;
-          const windowHeight = window.innerHeight;
-          const difference = Math.max(0, panelHeight - windowHeight);
-          const dwellDistance = Math.round(Math.max(windowHeight * 0.45, 340));
-          const transitionDistance = windowHeight;
-          const totalScroll = difference + dwellDistance + transitionDistance;
-
-          const tl = gsap.timeline({
-            scrollTrigger: {
-              trigger: panel,
-              start: "bottom bottom",
-              end: () => {
-                const pHeight = inner.offsetHeight;
-                const wHeight = window.innerHeight;
-                const diff = Math.max(0, pHeight - wHeight);
-                const dwell = Math.round(Math.max(wHeight * 0.45, 340));
-                return `+=${diff + dwell + wHeight}`;
-              },
-              pinSpacing: false,
-              pin: true,
-              scrub: 0.5,
-              invalidateOnRefresh: true,
-            },
-          });
-
-          // 1. If section is taller than viewport, smoothly scroll inner content to bottom 1:1
-          if (difference > 0) {
-            tl.to(inner, {
-              y: () => -(Math.max(0, inner.offsetHeight - window.innerHeight)),
-              duration: difference,
-              ease: "none",
-            });
-          }
-
-          // 2. Dwell / Hold cushion: keep the section resting fully visible at 100% scale and opacity
-          // This gives the user time to read, inspect, and hover without any sudden flipping
-          if (dwellDistance > 0) {
-            tl.to({}, { duration: dwellDistance });
-          }
-
-          // 3. Flip transition: as next panel enters from bottom, scale down and dim outgoing panel
-          tl.fromTo(
-            panel,
-            { scale: 1, opacity: 1 },
-            {
-              scale: 0.88,
-              opacity: 0.35,
-              duration: transitionDistance * 0.9,
-              ease: "power1.inOut",
-            }
-          ).to(panel, { opacity: 0, duration: transitionDistance * 0.1 });
-        });
-
-        // Refresh triggers once all measurements settle
-        const timer = setTimeout(() => {
-          ScrollTrigger.refresh();
-        }, 600);
+        // Defer until after initial paint so TBT remains near zero
+        timer = setTimeout(initPanels, 100);
 
         return () => {
-          clearTimeout(timer);
-          ScrollTrigger.removeEventListener("refreshInit", applyPanelMetrics);
+          if (timer) clearTimeout(timer);
+          if (refreshListener) {
+            ScrollTrigger.removeEventListener("refreshInit", refreshListener);
+          }
           panels.forEach((panel) => {
             panel.style.marginBottom = "";
             const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;

@@ -25,6 +25,24 @@ import { TypewriterHeader, TypewriterParagraph } from "@/components/ui/typewrite
 
 // ... existing imports
 
+function optimizeImageUrl(url: string | null | undefined, width = 80, height = 80): string | undefined {
+    if (!url) return undefined;
+    try {
+        if (url.includes("images.unsplash.com")) {
+            const u = new URL(url);
+            u.searchParams.set("w", width.toString());
+            if (height) u.searchParams.set("h", height.toString());
+            u.searchParams.set("fit", "crop");
+            u.searchParams.set("auto", "format");
+            u.searchParams.set("q", "75");
+            return u.toString();
+        }
+    } catch {
+        // Return original if parsing fails
+    }
+    return url;
+}
+
 export default async function Home() {
     const settings = await getSiteSettings();
 
@@ -54,7 +72,7 @@ export default async function Home() {
         clientName: project.clientName || "Enterprise Partner",
         description: project.description || "Detailed case study of enterprise software and scalable cloud architecture.",
         href: `/projects/${project.slug}`,
-        image: project.coverImage || "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop",
+        image: optimizeImageUrl(project.coverImage, 900, 600) || "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=75&w=900&auto=format&fit=crop",
         technologies: Array.isArray(project.technologies) ? project.technologies : [],
     }));
 
@@ -62,7 +80,7 @@ export default async function Home() {
         author: {
             name: t.name,
             handle: t.role ? `${t.role}${t.company ? ` @ ${t.company}` : ''}` : (t.company ?? ''),
-            avatar: t.image ?? undefined,
+            avatar: optimizeImageUrl(t.image, 80, 80),
         },
         text: t.content,
         rating: t.rating ?? 5,
@@ -73,7 +91,7 @@ export default async function Home() {
         title: post.title,
         summary: post.excerpt || post.title,
         url: `/blog/${post.slug}`,
-        image: post.coverImage || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2670&auto=format&fit=crop",
+        image: optimizeImageUrl(post.coverImage, 900, 600) || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=75&w=900&auto=format&fit=crop",
     }));
 
     // Helper: auto-convert YouTube/Facebook watch URLs to embed URLs

@@ -221,6 +221,7 @@ const Gallery4 = ({
                       alt={item.title}
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 420px, 460px"
+                      quality={70}
                       className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105 opacity-65 group-hover:opacity-45"
                       loading="lazy"
                     />

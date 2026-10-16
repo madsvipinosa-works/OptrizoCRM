@@ -35,6 +35,9 @@ export default function GalleryHoverCarousel({
                                     fill
                                     src={item.image}
                                     alt={item.title}
+                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                                    quality={70}
+                                    loading="lazy"
                                     className="object-cover object-center group-hover:scale-105 transition-transform duration-700"
                                 />
 

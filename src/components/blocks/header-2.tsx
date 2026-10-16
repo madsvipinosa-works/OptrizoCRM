@@ -91,6 +91,8 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                         alt="Logo"
                                         fill
                                         priority
+                                        sizes="112px"
+                                        quality={80}
                                         className={cn(
                                             "object-contain object-left",
                                             settings.logoDarkUrl
@@ -105,6 +107,8 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                         alt="Logo Dark"
                                         fill
                                         priority
+                                        sizes="112px"
+                                        quality={80}
                                         className={cn(
                                             "object-contain object-left",
                                             settings.logoUrl ? "hidden dark:block" : ""

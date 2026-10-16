@@ -64,7 +64,13 @@ export function TestimonialCard({
 
             <div className="mt-auto pt-4 border-t border-border/60 flex items-center gap-3.5 w-full min-w-0 overflow-hidden">
                 <Avatar className="h-10 w-10 shrink-0 border border-border/80 ring-2 ring-primary/20">
-                    <AvatarImage src={author.avatar} alt={author.name} />
+                    <AvatarImage
+                        src={author.avatar}
+                        alt={author.name}
+                        width={40}
+                        height={40}
+                        loading="lazy"
+                    />
                     <AvatarFallback className="bg-primary/10 text-primary font-mono text-xs font-bold">
                         {author.name.charAt(0)}
                     </AvatarFallback>

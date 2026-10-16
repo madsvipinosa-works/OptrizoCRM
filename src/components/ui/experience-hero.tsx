@@ -333,39 +333,39 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       enterTl
         .fromTo(
           revealRef.current,
-          { filter: "blur(18px)", opacity: 0 },
-          { filter: "blur(0px)", opacity: 1, duration: 1.2, ease: "expo.out" }
+          { opacity: 0 },
+          { opacity: 1, duration: 0.8, ease: "power2.out" }
         )
         .fromTo(
           topBarRef.current,
-          { y: -20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.9 },
-          "-=0.9"
-        )
-        .fromTo(
-          headlineRef.current,
-          { y: 35, opacity: 0, filter: "blur(10px)" },
-          { y: 0, opacity: 1, filter: "blur(0px)", duration: 1.3 },
+          { y: -15, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.7 },
           "-=0.7"
         )
         .fromTo(
-          ctaWrapperRef.current,
+          headlineRef.current,
           { y: 25, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.9 },
-          "-=0.8"
+          { y: 0, opacity: 1, duration: 0.8 },
+          "-=0.5"
+        )
+        .fromTo(
+          ctaWrapperRef.current,
+          { y: 20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.7 },
+          "-=0.6"
         )
         .fromTo(
           ".command-cell",
-          { x: 45, opacity: 0, scale: 0.96 },
+          { x: 30, opacity: 0, scale: 0.98 },
           {
             x: 0,
             opacity: 1,
             scale: 1,
-            stagger: 0.12,
-            duration: 1.1,
+            stagger: 0.08,
+            duration: 0.7,
             clearProps: "transform,opacity",
           },
-          "-=0.9"
+          "-=0.6"
         );
 
       // 2. Scroll-Driven Parallax & Optical Dissolution Timeline
@@ -396,7 +396,6 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
           {
             y: -85,
             opacity: 0,
-            filter: "blur(10px)",
             ease: "none",
           },
           0
