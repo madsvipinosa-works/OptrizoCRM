@@ -178,7 +178,13 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                     <div className="flex items-center gap-2 md:hidden">
                         {session && <NotificationBell />}
                         <ThemeToggle variant="icon" />
-                        <Button size="icon" variant="outline" onClick={() => setOpen(!open)} className="rounded-xl bg-transparent border-border/50">
+                        <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => setOpen(!open)}
+                            aria-label={open ? "Close navigation menu" : "Open navigation menu"}
+                            className="rounded-xl bg-transparent border-border/50"
+                        >
                             <MenuToggleIcon open={open} className="size-5" />
                         </Button>
                     </div>

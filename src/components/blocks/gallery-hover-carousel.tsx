@@ -43,9 +43,9 @@ export default function GalleryHoverCarousel({
                                     <span className="font-mono text-[10px] uppercase tracking-widest text-[#00D639] font-bold mb-1">
                                         INSIGHT // 0{index + 1}
                                     </span>
-                                    <h4 className="text-white font-black text-sm sm:text-base leading-snug line-clamp-2 uppercase tracking-tight">
+                                    <p className="text-white font-black text-sm sm:text-base leading-snug line-clamp-2 uppercase tracking-tight">
                                         {item.title}
-                                    </h4>
+                                    </p>
                                 </div>
                             </div>
 

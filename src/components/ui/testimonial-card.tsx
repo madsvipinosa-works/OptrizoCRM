@@ -70,9 +70,9 @@ export function TestimonialCard({
                     </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start min-w-0 flex-1 overflow-hidden">
-                    <h4 className="text-sm font-black uppercase tracking-tight text-foreground truncate w-full block">
+                    <p className="text-sm font-black uppercase tracking-tight text-foreground truncate w-full block">
                         {author.name}
-                    </h4>
+                    </p>
                     <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mt-0.5 line-clamp-2 break-words leading-snug w-full block">
                         {author.handle}
                     </p>

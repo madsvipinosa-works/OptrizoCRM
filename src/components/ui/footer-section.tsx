@@ -84,12 +84,18 @@ export function FooterSection({ contactEmail = 'hello@optrizo.com', className }:
                     <p className="text-muted-foreground text-sm max-w-xs">
                         Forging digital excellence with code. Scalable, high-performance web applications for the modern web.
                     </p>
-                    <p className="text-muted-foreground text-xs flex items-center gap-1.5">
-                        <Mail className="h-3.5 w-3.5" />
-                        <a href={`mailto:${contactEmail}`} className="hover:text-primary transition-colors font-mono">
-                            {contactEmail}
-                        </a>
-                    </p>
+                    {contactEmail && contactEmail.trim().length > 0 && (
+                        <p className="text-muted-foreground text-xs flex items-center gap-1.5">
+                            <Mail className="h-3.5 w-3.5 shrink-0" />
+                            <a
+                                href={`mailto:${contactEmail}`}
+                                aria-label={`Email us at ${contactEmail}`}
+                                className="hover:text-primary transition-colors font-mono"
+                            >
+                                {contactEmail}
+                            </a>
+                        </p>
+                    )}
                     <p className="text-muted-foreground text-xs mt-4">
                         © {new Date().getFullYear()} Optrizo Digital Solutions. All rights reserved.
                     </p>

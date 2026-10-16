@@ -196,7 +196,7 @@ export function ServicesWithAnimatedHoverModal({
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 md:mb-16">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-mono tracking-widest uppercase mb-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-emerald-800 dark:text-primary text-xs font-mono tracking-widest uppercase mb-4 font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                             {badgeText}
                         </div>

@@ -37,7 +37,7 @@ export function TestimonialsSection({
             <div className="mx-auto flex max-w-[1400px] flex-col items-center gap-8 text-center sm:gap-14">
                 {/* Header matching Hero & Services */}
                 <div className="flex flex-col items-center text-center px-4 max-w-3xl">
-                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-mono tracking-widest uppercase w-fit mb-4 shadow-xs">
+                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-emerald-800 dark:text-primary text-xs font-mono tracking-widest uppercase w-fit mb-4 shadow-xs font-semibold">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />

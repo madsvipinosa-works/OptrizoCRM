@@ -1190,10 +1190,10 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
 
               {item.type === "progress" ? (
                 <div className="flex justify-between items-end mt-2">
-                  <h4 className="text-2xl sm:text-3xl font-bold tracking-tighter flex items-center gap-2">
+                  <p className="text-2xl sm:text-3xl font-bold tracking-tighter flex items-center gap-2">
                     {item.val}
                     <span className="inline-block w-2 h-2 rounded-full bg-[#00D639] animate-pulse" />
-                  </h4>
+                  </p>
                   <div
                     className={`h-[2px] w-20 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-neutral-900/10"
                       }`}

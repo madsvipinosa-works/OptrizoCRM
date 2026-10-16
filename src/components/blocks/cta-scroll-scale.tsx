@@ -36,7 +36,6 @@ export function CTAScrollScale() {
     const modelOpacity = useTransform(scrollYProgress, [0, 0.25, 1], [0.15, 0.85, 1]);
 
     const textY = useTransform(scrollYProgress, [0, 1], [50, 0]);
-    const textOpacity = useTransform(scrollYProgress, [0, 0.35, 1], [0.25, 0.9, 1]);
 
     // Ambient halo expansion linked to scroll
     const glowScale = useTransform(scrollYProgress, [0, 1], [0.75, 1.25]);
@@ -63,10 +62,10 @@ export function CTAScrollScale() {
                 {/* Left Column: Heading, Subtitle, Actions, & 3-Metric Feature Row */}
                 <motion.div
                     className="w-full lg:w-[46%] xl:w-[44%] text-left flex flex-col items-start justify-center"
-                    style={shouldAnimate ? { y: textY, opacity: textOpacity } : undefined}
+                    style={shouldAnimate ? { y: textY } : undefined}
                 >
                     {/* Optrizo Pulsing Beacon Badge */}
-                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-mono tracking-widest uppercase mb-5 sm:mb-6 shadow-xs">
+                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-emerald-800 dark:text-primary text-xs font-mono tracking-widest uppercase mb-5 sm:mb-6 shadow-xs font-semibold">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />

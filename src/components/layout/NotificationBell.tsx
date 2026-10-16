@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getUnreadNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/features/notifications/actions";
 import { useRouter, usePathname } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -124,13 +123,15 @@ export function NotificationBell() {
 
     if (!mounted) {
         return (
-            <Button variant="ghost" size="icon" className="relative hover:bg-muted shrink-0 text-foreground rounded-xl">
+            <Button variant="ghost" size="icon" aria-label="Notifications" className="relative hover:bg-muted shrink-0 text-foreground rounded-xl">
                 <Bell className="h-5 w-5 text-muted-foreground" />
             </Button>
         );
     }
 
     const unreadCount = notifications.length;
+    const badgeText = unreadCount > 9 ? "9+" : unreadCount > 0 ? `${unreadCount}` : "";
+    const accessibleLabel = unreadCount > 0 ? `Notifications, ${badgeText} unread` : "Notifications";
 
     return (
         <DropdownMenu>
@@ -139,12 +140,12 @@ export function NotificationBell() {
                     variant="ghost" 
                     size="icon" 
                     className="relative hover:bg-muted shrink-0 text-foreground rounded-xl transition-all"
-                    aria-label={`Notifications (${unreadCount} unread)`}
+                    aria-label={accessibleLabel}
                 >
                     <Bell className="h-5 w-5 text-foreground" />
                     {unreadCount > 0 && (
                         <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-black text-[10px] font-extrabold flex items-center justify-center border-2 border-background animate-in zoom-in shadow-xs">
-                            {unreadCount > 9 ? "9+" : unreadCount}
+                            {badgeText}
                         </span>
                     )}
                 </Button>

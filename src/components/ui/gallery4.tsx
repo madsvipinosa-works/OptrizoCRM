@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { TypewriterHeader, TypewriterParagraph } from "@/components/ui/typewriter-text";
 
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ const defaultData: Gallery4Item[] = [
       "Re-architecting a legacy dispatch operations engine into a sub-second reactive telemetry system, scaling to 45,000 active freight units.",
     href: "/projects/nexus-logistics-fleet-telemetry",
     image:
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2670&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1200&auto=format&fit=crop",
     technologies: ["Next.js 15", "Kafka", "TimescaleDB", "Tailwind CSS"],
   },
   {
@@ -52,7 +53,7 @@ const defaultData: Gallery4Item[] = [
       "A headless Shopify Plus transformation featuring interactive WebGL 3D spatial previews, driving a 78% boost in mobile checkout completion.",
     href: "/projects/aura-living-headless-commerce",
     image:
-      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=2600&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1200&auto=format&fit=crop",
     technologies: ["Next.js", "React Three Fiber", "Three.js", "Shopify"],
   },
   {
@@ -63,7 +64,7 @@ const defaultData: Gallery4Item[] = [
       "Zero-trust, HIPAA-compliant patient management platform with integrated WebRTC end-to-end encrypted video consultations.",
     href: "/projects/vanguard-health-patient-portal",
     image:
-      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=2670&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1200&auto=format&fit=crop",
     technologies: ["Next.js", "WebRTC", "PostgreSQL", "AWS GovCloud"],
   },
   {
@@ -74,7 +75,7 @@ const defaultData: Gallery4Item[] = [
       "Institutional-grade risk modeling suite processing 2.4M transactions daily with real-time portfolio stress testing.",
     href: "/projects/finpulse-capital-risk-intelligence",
     image:
-      "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=2670&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=1200&auto=format&fit=crop",
     technologies: ["Next.js", "FastAPI", "ClickHouse", "D3.js"],
   },
   {
@@ -85,7 +86,7 @@ const defaultData: Gallery4Item[] = [
       "Next-generation computer vision web app delivering instant kinematic feedback and rep-tracking for Olympic weightlifters.",
     href: "/projects/kinetix-athletic-ai-coaching",
     image:
-      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=2670&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1200&auto=format&fit=crop",
     technologies: ["Next.js", "WebAssembly", "WebGPU", "MediaPipe"],
   },
 ];
@@ -128,7 +129,7 @@ const Gallery4 = ({
         <div className="mb-12 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div className="flex flex-col gap-3 max-w-2xl">
             {badge && (
-              <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-mono tracking-widest uppercase w-fit mb-1 shadow-xs">
+              <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-emerald-800 dark:text-primary text-xs font-mono tracking-widest uppercase w-fit mb-1 shadow-xs font-semibold">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
@@ -215,10 +216,13 @@ const Gallery4 = ({
                 <Link href={item.href} className="group block h-full">
                   <div className="group relative h-full min-h-[32rem] overflow-hidden rounded-3xl border border-border/80 dark:border-white/10 bg-card transition-all duration-500 group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(0,214,57,0.15)] flex flex-col justify-end">
                     {/* Background Image */}
-                    <img
+                    <Image
                       src={item.image}
                       alt={item.title}
-                      className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105 opacity-65 group-hover:opacity-45"
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 420px, 460px"
+                      className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105 opacity-65 group-hover:opacity-45"
+                      loading="lazy"
                     />
 
                     {/* Gradient Overlays consistent with Hero section */}
@@ -271,19 +275,23 @@ const Gallery4 = ({
           </CarouselContent>
         </Carousel>
 
-        {/* Dynamic Pagination Indicators with high-contrast in Alabaster and Noir */}
-        <div className="mt-8 flex justify-center items-center gap-2">
+        {/* Dynamic Pagination Indicators with accessible touch targets */}
+        <div className="mt-8 flex justify-center items-center gap-1">
           {items.map((_, index) => (
             <button
               key={index}
-              className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${
-                currentSlide === index
-                  ? "w-8 bg-primary shadow-[0_0_12px_rgba(0,214,57,0.7)]"
-                  : "w-2 bg-foreground/20 hover:bg-foreground/40"
-              }`}
+              className="h-8 min-w-8 flex items-center justify-center cursor-pointer p-1"
               onClick={() => carouselApi?.scrollTo(index)}
               aria-label={`Go to slide ${index + 1}`}
-            />
+            >
+              <span
+                className={`h-2 transition-all duration-300 rounded-full block ${
+                  currentSlide === index
+                    ? "w-8 bg-primary shadow-[0_0_12px_rgba(0,214,57,0.7)]"
+                    : "w-2 bg-foreground/20 hover:bg-foreground/40"
+                }`}
+              />
+            </button>
           ))}
         </div>
       </div>
