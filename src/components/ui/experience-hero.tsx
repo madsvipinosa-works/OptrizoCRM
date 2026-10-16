@@ -29,15 +29,24 @@ export const TypewriterHeadline: React.FC<TypewriterProps> = ({
   words,
   typeSpeed = 80,
   deleteSpeed = 40,
-  pauseDelay = 2200,
+  pauseDelay = 3500,
   className = "",
 }) => {
   const [index, setIndex] = useState(0);
-  const [subIndex, setSubIndex] = useState(0);
+  const [subIndex, setSubIndex] = useState(words && words[0] ? words[0].length : 0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
     if (!words || words.length === 0) return;
+
+    if (!hasStarted) {
+      const startTimer = setTimeout(() => {
+        setHasStarted(true);
+        setIsDeleting(true);
+      }, pauseDelay);
+      return () => clearTimeout(startTimer);
+    }
 
     const currentWord = words[index % words.length];
 
@@ -62,7 +71,7 @@ export const TypewriterHeadline: React.FC<TypewriterProps> = ({
     );
 
     return () => clearTimeout(timeout);
-  }, [subIndex, index, isDeleting, words, typeSpeed, deleteSpeed, pauseDelay]);
+  }, [subIndex, index, isDeleting, words, typeSpeed, deleteSpeed, pauseDelay, hasStarted]);
 
   const currentWord = words[index % words.length] || "";
   const displayedText = currentWord.substring(0, subIndex);
@@ -214,8 +223,23 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
   const scrollProgressRef = useRef<number>(0);
 
   const [mounted, setMounted] = useState(false);
+  const [load3D, setLoad3D] = useState(false);
   const [hasWebGL, setHasWebGL] = useState(true);
   const [isDark, setIsDark] = useState(initialTheme === "dark");
+
+  useEffect(() => {
+    // Defer 3D scene loading until after initial critical paint (2s)
+    if (typeof window !== "undefined") {
+      const timer = setTimeout(() => {
+        if ("requestIdleCallback" in window) {
+          (window as any).requestIdleCallback(() => setLoad3D(true));
+        } else {
+          setLoad3D(true);
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     setHasWebGL(isWebGLAvailable());
@@ -331,41 +355,31 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       const enterTl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
       enterTl
-        .fromTo(
-          revealRef.current,
-          { opacity: 0 },
-          { opacity: 1, duration: 0.8, ease: "power2.out" }
-        )
-        .fromTo(
+        .from(
           topBarRef.current,
-          { y: -15, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.7 },
-          "-=0.7"
+          { y: -15, duration: 0.6, ease: "power2.out" }
         )
-        .fromTo(
+        .from(
           headlineRef.current,
-          { y: 25, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8 },
+          { y: 18, duration: 0.7, ease: "power2.out" },
           "-=0.5"
         )
-        .fromTo(
+        .from(
           ctaWrapperRef.current,
-          { y: 20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.7 },
-          "-=0.6"
+          { y: 15, duration: 0.6, ease: "power2.out" },
+          "-=0.5"
         )
-        .fromTo(
+        .from(
           ".command-cell",
-          { x: 30, opacity: 0, scale: 0.98 },
           {
-            x: 0,
-            opacity: 1,
-            scale: 1,
-            stagger: 0.08,
-            duration: 0.7,
-            clearProps: "transform,opacity",
+            x: 25,
+            scale: 0.98,
+            stagger: 0.06,
+            duration: 0.6,
+            ease: "power2.out",
+            clearProps: "transform",
           },
-          "-=0.6"
+          "-=0.5"
         );
 
       // 2. Scroll-Driven Parallax & Optical Dissolution Timeline
@@ -520,16 +534,14 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
     >
       {/* Optimized 3D WebGL Canvas Layer with Capability Guard & Error Boundary */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        {mounted && (
-          hasWebGL ? (
-            <Hero3DScene
-              isDark={isDark}
-              scrollRef={scrollProgressRef}
-              fallback={<HeroCyberFallback isDark={isDark} />}
-            />
-          ) : (
-            <HeroCyberFallback isDark={isDark} />
-          )
+        {mounted && load3D && hasWebGL ? (
+          <Hero3DScene
+            isDark={isDark}
+            scrollRef={scrollProgressRef}
+            fallback={<HeroCyberFallback isDark={isDark} />}
+          />
+        ) : (
+          <HeroCyberFallback isDark={isDark} />
         )}
       </div>
 
