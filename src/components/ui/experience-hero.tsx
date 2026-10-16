@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Float, MeshDistortMaterial, useGLTF, Center } from "@react-three/drei";
-import * as THREE from "three";
+import dynamic from "next/dynamic";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Sun, Moon } from "lucide-react";
+
+const Hero3DScene = dynamic(() => import("./hero-3d-scene"), {
+  ssr: false,
+  loading: () => null,
+});
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -74,450 +77,6 @@ export const TypewriterHeadline: React.FC<TypewriterProps> = ({
     </span>
   );
 };
-
-// --- Optimized GPU Liquid Shader ---
-interface LiquidBackgroundProps {
-  isDark: boolean;
-  scrollRef?: React.RefObject<number>;
-}
-
-const LiquidBackground: React.FC<LiquidBackgroundProps> = ({ isDark, scrollRef }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { viewport } = useThree();
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector2(0, 0) },
-      uIsDark: { value: isDark ? 1.0 : 0.0 },
-      uScroll: { value: 0.0 },
-    }),
-    [isDark]
-  );
-
-  useEffect(() => {
-    if (meshRef.current) {
-      const mat = meshRef.current.material as THREE.ShaderMaterial;
-      if (mat?.uniforms?.uIsDark) {
-        gsap.to(mat.uniforms.uIsDark, {
-          value: isDark ? 1.0 : 0.0,
-          duration: 0.8,
-          ease: "power2.out",
-        });
-      }
-    }
-  }, [isDark]);
-
-  useFrame((state, delta) => {
-    const { clock, mouse } = state;
-    if (meshRef.current) {
-      const mat = meshRef.current.material as THREE.ShaderMaterial;
-      if (mat?.uniforms) {
-        mat.uniforms.uTime.value = clock.getElapsedTime();
-        mat.uniforms.uMouse.value.lerp(mouse, 0.04);
-        const targetScroll = scrollRef?.current ?? 0;
-        mat.uniforms.uScroll.value = THREE.MathUtils.damp(
-          mat.uniforms.uScroll.value,
-          targetScroll,
-          4.0,
-          delta
-        );
-      }
-    }
-  });
-
-  return (
-    <mesh ref={meshRef} position={[0, 0, -35]} scale={[viewport.width * 1.6, viewport.height * 1.6, 1]}>
-      <planeGeometry args={[1, 1]} />
-      <shaderMaterial
-        transparent
-        depthWrite={false}
-        uniforms={uniforms}
-        vertexShader={`
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          precision mediump float;
-          uniform float uTime;
-          uniform vec2 uMouse;
-          uniform float uIsDark;
-          uniform float uScroll;
-          varying vec2 vUv;
-          void main() {
-            vec2 uv = vUv;
-            float t = uTime * 0.14;
-            vec2 m = uMouse * 0.08;
-            float color = smoothstep(0.0, 1.0, (sin(uv.x * 7.0 + t + m.x * 10.0) + sin(uv.y * 5.5 - t + m.y * 10.0)) * 0.5 + 0.5);
-            
-            // Dynamic vertical falloff: softly dissolve shader caustics and glow toward bottom as user scrolls
-            float scrollFade = clamp(1.0 - uScroll * 1.1, 0.0, 1.0);
-            float bottomFalloff = smoothstep(0.08, 0.42, uv.y) * scrollFade;
-
-            // Alabaster background matching oklch(97.02% 0.0020 148.67) ~ #F6F8F6
-            vec3 lightBg = vec3(0.965, 0.970, 0.966);
-            vec3 lightPearl = mix(lightBg, vec3(0.945, 0.958, 0.948), color * 0.4);
-            vec3 lightGreenGlow = vec3(0.0, 0.84, 0.22) * pow(color, 3.5) * 0.05 * bottomFalloff;
-            vec3 lightColor = mix(lightBg, lightPearl + lightGreenGlow, bottomFalloff);
-
-            // Noir dark background matching oklch(12.00% 0.0020 148.67) ~ #0A0D0B
-            vec3 darkBg = vec3(0.035, 0.038, 0.036);
-            vec3 darkCaustics = mix(darkBg, vec3(0.050, 0.065, 0.055), color);
-            vec3 darkGreenGlow = vec3(0.0, 0.84, 0.22) * pow(color, 4.0) * 0.18 * bottomFalloff;
-            vec3 darkColor = mix(darkBg, darkCaustics + darkGreenGlow, bottomFalloff);
-
-            vec3 finalColor = mix(lightColor, darkColor, uIsDark);
-            gl_FragColor = vec4(finalColor, 1.0);
-          }
-        `}
-      />
-    </mesh>
-  );
-};
-
-// --- Procedural 3D Optrizo Logo Model (Option 1: Pure Three.js Extrusion) ---
-interface OptrizoLogo3DProps {
-  isDark: boolean;
-  scrollRef?: React.RefObject<number>;
-}
-
-const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
-  const scrollGroupRef = useRef<THREE.Group>(null);
-  const groupRef = useRef<THREE.Group>(null);
-  const frameRef = useRef<THREE.Mesh>(null);
-  const pillarsRef = useRef<THREE.Group>(null);
-  const currentScroll = useRef(0);
-  const materialsRef = useRef<THREE.Material[]>([]);
-
-  // Generate the 3D geometries for the Optrizo Logo mark
-  const { frameGeometry, pillar1Geo, pillar2Geo, pillar3Geo } = useMemo(() => {
-    // 1. Outer Hexagon Frame Shape with Inner Cutout Hole
-    const frameShape = new THREE.Shape();
-    const R = 9.5; // Outer radius
-    const r = 7.6; // Inner cutout radius (creates the clean hexagonal ribbon thickness)
-
-    // Calculate hexagon 6-point vertices (pointed top)
-    const getHexPoints = (radius: number) => {
-      const pts: [number, number][] = [];
-      for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i - Math.PI / 2; // Pointed at top and bottom
-        pts.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
-      }
-      return pts;
-    };
-
-    const outerPts = getHexPoints(R);
-    frameShape.moveTo(outerPts[0][0], outerPts[0][1]);
-    for (let i = 1; i < outerPts.length; i++) {
-      frameShape.lineTo(outerPts[i][0], outerPts[i][1]);
-    }
-    frameShape.closePath();
-
-    // Hole: inner hexagon cutout
-    const holePath = new THREE.Path();
-    const innerPts = getHexPoints(r);
-    holePath.moveTo(innerPts[0][0], innerPts[0][1]);
-    for (let i = 1; i < innerPts.length; i++) {
-      holePath.lineTo(innerPts[i][0], innerPts[i][1]);
-    }
-    holePath.closePath();
-    frameShape.holes.push(holePath);
-
-    const extrudeSettings = {
-      depth: 3.2,
-      bevelEnabled: true,
-      bevelSegments: 4,
-      steps: 1,
-      bevelSize: 0.35,
-      bevelThickness: 0.35,
-    };
-
-    const frameGeo = new THREE.ExtrudeGeometry(frameShape, extrudeSettings);
-    frameGeo.center();
-
-    // 2. The 3 Ascending Interior Pillars (forming the growth chart / M-shape inside the Optrizo logo)
-    const pillarWidth = 1.35;
-    const pillarDepth = 3.0;
-
-    // Pillar 1 (Left, lower height)
-    const p1Height = 5.2;
-    const p1Geo = new THREE.BoxGeometry(pillarWidth, p1Height, pillarDepth);
-
-    // Pillar 2 (Center, tallest peak)
-    const p2Height = 8.6;
-    const p2Geo = new THREE.BoxGeometry(pillarWidth, p2Height, pillarDepth);
-
-    // Pillar 3 (Right, medium-high)
-    const p3Height = 6.8;
-    const p3Geo = new THREE.BoxGeometry(pillarWidth, p3Height, pillarDepth);
-
-    return {
-      frameGeometry: frameGeo,
-      pillar1Geo: p1Geo,
-      pillar2Geo: p2Geo,
-      pillar3Geo: p3Geo,
-    };
-  }, []);
-
-  useFrame((state, delta) => {
-    const t = state.clock.getElapsedTime();
-    const target = scrollRef?.current ?? 0;
-
-    // Frame-rate independent smooth damping
-    currentScroll.current = THREE.MathUtils.damp(
-      currentScroll.current,
-      target,
-      5.5,
-      delta
-    );
-    const p = currentScroll.current;
-
-    // Sinking & recede physics on the outer group
-    if (scrollGroupRef.current) {
-      const sinkY = -p * 30;
-      const sinkZ = -p * 24;
-      const scaleMultiplier = THREE.MathUtils.lerp(1.0, 0.28, p);
-      const tiltX = p * 0.65;
-      const spinY = p * 0.9;
-
-      scrollGroupRef.current.position.set(0, sinkY, sinkZ);
-      scrollGroupRef.current.scale.setScalar(scaleMultiplier);
-      scrollGroupRef.current.rotation.set(tiltX, spinY, 0);
-
-      // Disappear transition: smooth opacity fade out
-      const fadeStart = 0.10;
-      const fadeEnd = 0.65;
-      const fadeRatio = THREE.MathUtils.clamp((p - fadeStart) / (fadeEnd - fadeStart), 0, 1);
-      const currentOpacity = 1.0 - fadeRatio;
-
-      materialsRef.current.forEach((mat) => {
-        mat.opacity = currentOpacity;
-        mat.transparent = true;
-      });
-
-      scrollGroupRef.current.visible = currentOpacity > 0.002;
-    }
-
-    if (groupRef.current) {
-      // Elegant 3D floating and isometric rotation showcasing depth & bevels
-      groupRef.current.rotation.y = t * 0.22;
-      groupRef.current.rotation.x = Math.sin(t * 0.15) * 0.08 + 0.36; // Isometric tilt
-    }
-  });
-
-  return (
-    <group ref={scrollGroupRef}>
-      <Float speed={1.8} rotationIntensity={0.5} floatIntensity={1.2}>
-        <group ref={groupRef} rotation={[0.36, Math.PI / 6, 0]} scale={[1.15, 1.15, 1.15]}>
-          {/* Outer Hexagonal Frame in Optrizo Electric Green & Chrome */}
-          <mesh ref={frameRef} geometry={frameGeometry} castShadow receiveShadow>
-            <MeshDistortMaterial
-              ref={(el) => {
-                if (el && !materialsRef.current.includes(el)) materialsRef.current.push(el);
-              }}
-              color="#00D639"
-              speed={1.5}
-              distort={0.08}
-              roughness={isDark ? 0.15 : 0.2}
-              metalness={isDark ? 0.88 : 0.75}
-              transparent
-            />
-          </mesh>
-
-          {/* Interior Ascending Pillars */}
-          <group ref={pillarsRef} position={[0, -0.6, 0]}>
-            {/* Pillar 1 (Left) */}
-            <mesh position={[-2.4, -0.8, 0]} geometry={pillar1Geo} castShadow receiveShadow>
-              <meshStandardMaterial
-                ref={(el) => {
-                  if (el && !materialsRef.current.includes(el)) materialsRef.current.push(el);
-                }}
-                color="#00D639"
-                roughness={0.2}
-                metalness={0.8}
-                transparent
-              />
-            </mesh>
-
-            {/* Pillar 2 (Center - Tallest) */}
-            <mesh position={[0, 0.9, 0]} geometry={pillar2Geo} castShadow receiveShadow>
-              <meshStandardMaterial
-                ref={(el) => {
-                  if (el && !materialsRef.current.includes(el)) materialsRef.current.push(el);
-                }}
-                color="#00D639"
-                roughness={0.15}
-                metalness={0.85}
-                emissive={isDark ? "#003b0f" : "#000000"}
-                emissiveIntensity={0.3}
-                transparent
-              />
-            </mesh>
-
-            {/* Pillar 3 (Right) */}
-            <mesh position={[2.4, 0.0, 0]} geometry={pillar3Geo} castShadow receiveShadow>
-              <meshStandardMaterial
-                ref={(el) => {
-                  if (el && !materialsRef.current.includes(el)) materialsRef.current.push(el);
-                }}
-                color="#00D639"
-                roughness={0.2}
-                metalness={0.8}
-                transparent
-              />
-            </mesh>
-          </group>
-
-          {/* Floating Wireframe Edge Accent for Modern Tech Vibe */}
-          <mesh geometry={frameGeometry} scale={[1.01, 1.01, 1.01]}>
-            <meshBasicMaterial
-              ref={(el) => {
-                if (el && !materialsRef.current.includes(el)) materialsRef.current.push(el);
-              }}
-              wireframe
-              color={isDark ? "#ffffff" : "#0a0a0a"}
-              transparent
-              opacity={isDark ? 0.18 : 0.12}
-            />
-          </mesh>
-        </group>
-      </Float>
-    </group>
-  );
-};
-
-// --- Custom Imported GLB 3D Model Loader ---
-const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
-  const { scene } = useGLTF("/models/optrizo-3d-model.glb");
-  const scrollGroupRef = useRef<THREE.Group>(null);
-  const groupRef = useRef<THREE.Group>(null);
-  const shadowMatRef = useRef<THREE.ShadowMaterial>(null);
-  const materialsRef = useRef<THREE.MeshStandardMaterial[]>([]);
-  const currentScroll = useRef(0);
-
-  const posX = 0;
-  const posY = 0;
-
-  // Clone scene & tune materials for deeper shadow contrast and Optrizo brand luster
-  const clonedScene = useMemo(() => {
-    const clone = scene.clone(true);
-    const mats: THREE.MeshStandardMaterial[] = [];
-    clone.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        // Rich high-contrast material with deep shadow definition & self-shadowing
-        const mat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color("#00D639"),
-          roughness: isDark ? 0.26 : 0.28,
-          metalness: isDark ? 0.42 : 0.32,
-          emissive: new THREE.Color("#000000"),
-          emissiveIntensity: 0.0, // Zero self-illumination in crevices so shadows are deep and rich
-          transparent: true,
-          opacity: 1.0,
-          depthWrite: true,
-          side: THREE.DoubleSide,
-        });
-        mesh.material = mat;
-        mats.push(mat);
-      }
-    });
-    materialsRef.current = mats;
-    return clone;
-  }, [scene, isDark]);
-
-  useFrame((state, delta) => {
-    const t = state.clock.getElapsedTime();
-    const { mouse } = state;
-    const target = scrollRef?.current ?? 0;
-
-    // High-performance smooth damping across all refresh rates
-    currentScroll.current = THREE.MathUtils.damp(
-      currentScroll.current,
-      target,
-      5.5,
-      delta
-    );
-    const p = currentScroll.current;
-
-    // Mouse responsiveness dampens as the model submerges
-    const mouseInfluence = Math.max(0, 1 - p * 1.8);
-    if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(t * 0.45) * 0.32 + mouse.x * 0.25 * mouseInfluence;
-      groupRef.current.rotation.x = Math.sin(t * 0.35) * 0.08 + 0.12 - mouse.y * 0.18 * mouseInfluence;
-    }
-
-    // Dynamic Sinking, Receding & Disappearing on outer scroll group
-    if (scrollGroupRef.current) {
-      // Y: Sinks vertically into the bottom abyss
-      const sinkY = -p * 32;
-      // Z: Drops deeper into the liquid depth plane
-      const sinkZ = -p * 26;
-      // Scale: Shrinks down gracefully as it plunges away
-      const currentScale = THREE.MathUtils.lerp(1.0, 0.25, p);
-      // Angular tilt: pitches backward as it sinks
-      const tiltX = p * 0.70;
-      const spinY = p * 0.90;
-
-      scrollGroupRef.current.position.set(posX, posY + sinkY, sinkZ);
-      scrollGroupRef.current.scale.setScalar(currentScale);
-      scrollGroupRef.current.rotation.set(tiltX, spinY, 0);
-
-      // Disappear transition: fades out between 0.10 and 0.65 scroll progress
-      const fadeStart = 0.10;
-      const fadeEnd = 0.65;
-      const fadeRatio = THREE.MathUtils.clamp((p - fadeStart) / (fadeEnd - fadeStart), 0, 1);
-      const currentOpacity = 1.0 - fadeRatio;
-
-      materialsRef.current.forEach((mat) => {
-        mat.opacity = currentOpacity;
-        mat.depthWrite = currentOpacity > 0.85; // Avoid transparency sort artifacts during fade
-      });
-
-      scrollGroupRef.current.visible = currentOpacity > 0.002;
-
-      // Shadow receiver fades out in lockstep
-      if (shadowMatRef.current) {
-        const baseShadow = isDark ? 0.40 : 0.15;
-        shadowMatRef.current.opacity = baseShadow * currentOpacity;
-      }
-    }
-  });
-
-  return (
-    <>
-      <group ref={scrollGroupRef} position={[posX, posY, 0]}>
-        <Float speed={1.6} rotationIntensity={0.3} floatIntensity={0.8}>
-          <group ref={groupRef}>
-            <Center>
-              {/* Rotate +90deg on X to bring -Z (top apex) to +Y (up) and +Y (front face) to +Z (facing viewer) */}
-              {/* Scale 4.5 for grand, impressive presence */}
-              <primitive object={clonedScene} rotation={[Math.PI / 2, 0, 0]} scale={4.5} />
-            </Center>
-          </group>
-        </Float>
-      </group>
-
-      {/* Architectural Wall Shadow Receiver directly behind the 3D sculpture */}
-      <mesh position={[posX, posY, -6]} receiveShadow>
-        <planeGeometry args={[60, 60]} />
-        <shadowMaterial
-          ref={shadowMatRef}
-          transparent
-          opacity={isDark ? 0.40 : 0.15}
-          color={isDark ? "#000000" : "#001a06"}
-        />
-      </mesh>
-    </>
-  );
-};
-
-if (typeof window !== "undefined") {
-  useGLTF.preload("/models/optrizo-3d-model.glb");
-}
 
 export interface ExperienceHeroProps {
   badgeText?: string;
@@ -668,7 +227,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const h = rect.height || window.innerHeight;
-      const p = THREE.MathUtils.clamp(-rect.top / h, 0, 1);
+      const p = Math.min(Math.max(-rect.top / h, 0), 1);
       scrollProgressRef.current = p;
     };
 
@@ -964,57 +523,11 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       <div className="absolute inset-0 z-0 pointer-events-none">
         {mounted && (
           hasWebGL ? (
-            <WebGLErrorBoundary fallback={<HeroCyberFallback isDark={isDark} />}>
-              <Canvas
-                shadows
-                dpr={[1, 1.5]}
-                gl={{
-                  powerPreference: "default",
-                  antialias: true,
-                  alpha: true,
-                  stencil: false,
-                  depth: true,
-                  failIfMajorPerformanceCaveat: false,
-                }}
-                camera={{ position: [0, 0, 60], fov: 35 }}
-              >
-                <ambientLight intensity={isDark ? 0.22 : 0.45} />
-                <directionalLight
-                  position={[12, 26, 48]}
-                  intensity={isDark ? 3.4 : 3.8}
-                  castShadow
-                  shadow-mapSize={[1024, 1024]}
-                  shadow-camera-near={10}
-                  shadow-camera-far={90}
-                  shadow-camera-left={-22}
-                  shadow-camera-right={22}
-                  shadow-camera-top={22}
-                  shadow-camera-bottom={-22}
-                  shadow-bias={-0.0002}
-                  shadow-normalBias={0.03}
-                  shadow-radius={4.0}
-                />
-                <directionalLight
-                  position={[-15, 10, 35]}
-                  intensity={isDark ? 1.0 : 1.2}
-                />
-                <pointLight
-                  position={[25, -10, 20]}
-                  intensity={isDark ? 2.0 : 1.4}
-                  color="#00D639"
-                  distance={90}
-                />
-                <pointLight
-                  position={[-30, 20, 15]}
-                  intensity={isDark ? 1.0 : 1.0}
-                  color="#ffffff"
-                />
-                <LiquidBackground isDark={isDark} scrollRef={scrollProgressRef} />
-                <React.Suspense fallback={<OptrizoLogo3D isDark={isDark} scrollRef={scrollProgressRef} />}>
-                  <OptrizoLogoModel isDark={isDark} scrollRef={scrollProgressRef} />
-                </React.Suspense>
-              </Canvas>
-            </WebGLErrorBoundary>
+            <Hero3DScene
+              isDark={isDark}
+              scrollRef={scrollProgressRef}
+              fallback={<HeroCyberFallback isDark={isDark} />}
+            />
           ) : (
             <HeroCyberFallback isDark={isDark} />
           )
@@ -1223,7 +736,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                   </div>
                 </div>
               ) : (
-                <h3
+                <p
                   className={`text-sm font-medium mt-3 leading-snug ${isDark ? "text-white/70" : "text-neutral-800"
                     }`}
                 >
@@ -1236,7 +749,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                       .
                     </>
                   )}
-                </h3>
+                </p>
               )}
             </div>
           ))}
