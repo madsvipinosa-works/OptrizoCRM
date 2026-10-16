@@ -253,9 +253,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
     window.addEventListener("pointermove", trigger3D, { passive: true, once: true });
     window.addEventListener("scroll", trigger3D, { passive: true, once: true });
     window.addEventListener("keydown", trigger3D, { passive: true, once: true });
-
-    // Fallback: load after 4.5s idle if no user interaction occurs
-    timer = setTimeout(trigger3D, 4500);
+    window.addEventListener("touchstart", trigger3D, { passive: true, once: true });
 
     return () => {
       if (timer) clearTimeout(timer);
@@ -263,6 +261,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       window.removeEventListener("pointermove", trigger3D);
       window.removeEventListener("scroll", trigger3D);
       window.removeEventListener("keydown", trigger3D);
+      window.removeEventListener("touchstart", trigger3D);
     };
   }, []);
 

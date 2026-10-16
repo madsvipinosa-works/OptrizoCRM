@@ -42,7 +42,7 @@ const defaultData: Gallery4Item[] = [
       "Re-architecting a legacy dispatch operations engine into a sub-second reactive telemetry system, scaling to 45,000 active freight units.",
     href: "/projects/nexus-logistics-fleet-telemetry",
     image:
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=65&w=640&auto=format&fit=crop",
     technologies: ["Next.js 15", "Kafka", "TimescaleDB", "Tailwind CSS"],
   },
   {
@@ -53,7 +53,7 @@ const defaultData: Gallery4Item[] = [
       "A headless Shopify Plus transformation featuring interactive WebGL 3D spatial previews, driving a 78% boost in mobile checkout completion.",
     href: "/projects/aura-living-headless-commerce",
     image:
-      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=65&w=640&auto=format&fit=crop",
     technologies: ["Next.js", "React Three Fiber", "Three.js", "Shopify"],
   },
   {
@@ -64,7 +64,7 @@ const defaultData: Gallery4Item[] = [
       "Zero-trust, HIPAA-compliant patient management platform with integrated WebRTC end-to-end encrypted video consultations.",
     href: "/projects/vanguard-health-patient-portal",
     image:
-      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=65&w=640&auto=format&fit=crop",
     technologies: ["Next.js", "WebRTC", "PostgreSQL", "AWS GovCloud"],
   },
   {
@@ -75,7 +75,7 @@ const defaultData: Gallery4Item[] = [
       "Institutional-grade risk modeling suite processing 2.4M transactions daily with real-time portfolio stress testing.",
     href: "/projects/finpulse-capital-risk-intelligence",
     image:
-      "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=65&w=640&auto=format&fit=crop",
     technologies: ["Next.js", "FastAPI", "ClickHouse", "D3.js"],
   },
   {
@@ -86,7 +86,7 @@ const defaultData: Gallery4Item[] = [
       "Next-generation computer vision web app delivering instant kinematic feedback and rep-tracking for Olympic weightlifters.",
     href: "/projects/kinetix-athletic-ai-coaching",
     image:
-      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=65&w=640&auto=format&fit=crop",
     technologies: ["Next.js", "WebAssembly", "WebGPU", "MediaPipe"],
   },
 ];
