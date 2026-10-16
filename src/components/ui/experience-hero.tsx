@@ -166,14 +166,13 @@ function HeroCyberFallback({ isDark }: { isDark: boolean }) {
         }`}
       />
       {/* Cybernetic Geometric Monogram Silhouette */}
-      <div className="relative w-64 h-64 md:w-80 md:h-80 opacity-35 animate-pulse">
+      <div className="relative w-64 h-64 md:w-80 md:h-80 opacity-40">
         <svg viewBox="0 0 100 115" fill="none" className="w-full h-full">
           <polygon
             points="50 0, 100 28.8, 100 86.6, 50 115.5, 0 86.6, 0 28.8"
             stroke="#00D639"
             strokeWidth="1.5"
             strokeDasharray="4 4"
-            className="animate-[spin_40s_linear_infinite]"
             style={{ transformOrigin: "50px 57.75px" }}
           />
           <polygon
@@ -228,17 +227,43 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
   const [isDark, setIsDark] = useState(initialTheme === "dark");
 
   useEffect(() => {
-    // Defer 3D scene loading until after initial critical paint (2s)
-    if (typeof window !== "undefined") {
-      const timer = setTimeout(() => {
-        if ("requestIdleCallback" in window) {
-          (window as any).requestIdleCallback(() => setLoad3D(true));
-        } else {
-          setLoad3D(true);
-        }
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
+    if (typeof window === "undefined") return;
+
+    let loaded = false;
+    let timer: NodeJS.Timeout | null = null;
+
+    const trigger3D = () => {
+      if (loaded) return;
+      loaded = true;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("pointerdown", trigger3D);
+      window.removeEventListener("pointermove", trigger3D);
+      window.removeEventListener("scroll", trigger3D);
+      window.removeEventListener("keydown", trigger3D);
+
+      if ("requestIdleCallback" in window) {
+        (window as any).requestIdleCallback(() => setLoad3D(true));
+      } else {
+        setLoad3D(true);
+      }
+    };
+
+    // User interactions trigger 3D scene instantly
+    window.addEventListener("pointerdown", trigger3D, { passive: true, once: true });
+    window.addEventListener("pointermove", trigger3D, { passive: true, once: true });
+    window.addEventListener("scroll", trigger3D, { passive: true, once: true });
+    window.addEventListener("keydown", trigger3D, { passive: true, once: true });
+
+    // Fallback: load after 4.5s idle if no user interaction occurs
+    timer = setTimeout(trigger3D, 4500);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("pointerdown", trigger3D);
+      window.removeEventListener("pointermove", trigger3D);
+      window.removeEventListener("scroll", trigger3D);
+      window.removeEventListener("keydown", trigger3D);
+    };
   }, []);
 
   useEffect(() => {
@@ -351,35 +376,34 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // 1. Sleek Cinematic Entrance Timeline
-      const enterTl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      // 1. Sleek Snappy Cinematic Entrance Timeline
+      const enterTl = gsap.timeline({ defaults: { ease: "power2.out" } });
 
       enterTl
         .from(
           topBarRef.current,
-          { y: -15, duration: 0.6, ease: "power2.out" }
+          { y: -10, duration: 0.35 }
         )
         .from(
           headlineRef.current,
-          { y: 18, duration: 0.7, ease: "power2.out" },
-          "-=0.5"
+          { y: 12, duration: 0.35 },
+          "-=0.25"
         )
         .from(
           ctaWrapperRef.current,
-          { y: 15, duration: 0.6, ease: "power2.out" },
-          "-=0.5"
+          { y: 10, duration: 0.3 },
+          "-=0.25"
         )
         .from(
           ".command-cell",
           {
-            x: 25,
+            x: 15,
             scale: 0.98,
-            stagger: 0.06,
-            duration: 0.6,
-            ease: "power2.out",
+            stagger: 0.04,
+            duration: 0.35,
             clearProps: "transform",
           },
-          "-=0.5"
+          "-=0.25"
         );
 
       // 2. Scroll-Driven Parallax & Optical Dissolution Timeline
