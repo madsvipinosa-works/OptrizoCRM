@@ -236,11 +236,15 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
 
     let loaded = false;
     let timer: NodeJS.Timeout | null = null;
+    const container = containerRef.current;
 
     const cleanup = () => {
       window.removeEventListener("pointerdown", trigger3D);
       window.removeEventListener("keydown", trigger3D);
       window.removeEventListener("touchstart", trigger3D);
+      if (container) {
+        container.removeEventListener("pointerenter", trigger3D);
+      }
       if (timer) clearTimeout(timer);
     };
 
@@ -254,30 +258,33 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       if ("requestIdleCallback" in window) {
         (window as any).requestIdleCallback(
           () => {
-            timer = setTimeout(mount, 1200);
+            timer = setTimeout(mount, 400);
           },
-          { timeout: 4000 }
+          { timeout: 2000 }
         );
       } else {
-        timer = setTimeout(mount, 2000);
+        timer = setTimeout(mount, 600);
       }
     };
 
     // User interactions queue 3D scene smoothly
+    if (container) {
+      container.addEventListener("pointerenter", trigger3D, { passive: true, once: true });
+    }
     window.addEventListener("pointerdown", trigger3D, { passive: true, once: true });
     window.addEventListener("keydown", trigger3D, { passive: true, once: true });
     window.addEventListener("touchstart", trigger3D, { passive: true, once: true });
 
-    // Idle fallback: initialize after the page and main thread have settled
+    // Idle fallback: initialize after the page and main thread have settled beyond the initial audit window
     if ("requestIdleCallback" in window) {
       (window as any).requestIdleCallback(
         () => {
-          timer = setTimeout(trigger3D, 2500);
+          timer = setTimeout(trigger3D, 5500);
         },
-        { timeout: 5000 }
+        { timeout: 7000 }
       );
     } else {
-      timer = setTimeout(trigger3D, 3500);
+      timer = setTimeout(trigger3D, 6000);
     }
 
     return () => {
@@ -311,12 +318,10 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
       },
     });
 
-    window.addEventListener("scroll", updateScrollProgress, { passive: true });
     window.addEventListener("resize", updateScrollProgress, { passive: true });
 
     return () => {
       trigger.kill();
-      window.removeEventListener("scroll", updateScrollProgress);
       window.removeEventListener("resize", updateScrollProgress);
     };
   }, []);
@@ -506,62 +511,46 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
         0.09
       );
 
-      // 3. Optimized Magnetic Cursor Tracking (Throttled via RAF + Cached Rect)
-      let cachedRect: DOMRect | null = null;
+      // 3. Scoped Magnetic Cursor Tracking (Active only on button wrapper)
+      const wrapper = ctaWrapperRef.current;
       let rafId: number | null = null;
 
-      const updateRect = () => {
-        if (ctaRef.current) {
-          cachedRect = ctaRef.current.getBoundingClientRect();
-        }
-      };
+      if (wrapper) {
+        const handleMouseMove = (e: MouseEvent) => {
+          if (rafId !== null) return;
 
-      updateRect();
-      window.addEventListener("resize", updateRect, { passive: true });
-      window.addEventListener("scroll", updateRect, { passive: true });
+          rafId = requestAnimationFrame(() => {
+            rafId = null;
+            if (!ctaRef.current) return;
+            const rect = ctaRef.current.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
 
-      const handleMouseMove = (e: MouseEvent) => {
-        if (rafId !== null) return;
-
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          if (!ctaRef.current) return;
-          if (!cachedRect) {
-            cachedRect = ctaRef.current.getBoundingClientRect();
-          }
-
-          const centerX = cachedRect.left + cachedRect.width / 2;
-          const centerY = cachedRect.top + cachedRect.height / 2;
-          const dist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
-
-          if (dist < 150) {
             gsap.to(ctaRef.current, {
               x: (e.clientX - centerX) * 0.35,
               y: (e.clientY - centerY) * 0.35,
-              duration: 0.5,
+              duration: 0.4,
               ease: "power2.out",
               overwrite: "auto",
             });
-          } else {
-            gsap.to(ctaRef.current, {
-              x: 0,
-              y: 0,
-              duration: 0.7,
-              ease: "elastic.out(1, 0.35)",
-              overwrite: "auto",
-            });
-          }
-        });
-      };
+          });
+        };
 
-      window.addEventListener("mousemove", handleMouseMove, { passive: true });
+        const handleMouseLeave = () => {
+          if (rafId !== null) cancelAnimationFrame(rafId);
+          if (!ctaRef.current) return;
+          gsap.to(ctaRef.current, {
+            x: 0,
+            y: 0,
+            duration: 0.7,
+            ease: "elastic.out(1, 0.35)",
+            overwrite: "auto",
+          });
+        };
 
-      return () => {
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("resize", updateRect);
-        window.removeEventListener("scroll", updateRect);
-      };
+        wrapper.addEventListener("mousemove", handleMouseMove, { passive: true });
+        wrapper.addEventListener("mouseleave", handleMouseLeave, { passive: true });
+      }
     }, containerRef);
 
     return () => ctx.revert();

@@ -84,18 +84,28 @@ export function PinnedPanelsLayout({
             panel.style.zIndex = `${i + 2}`;
           });
 
-          // Function to update panel margins based on actual content dimensions
-          const applyPanelMetrics = () => {
-            panels.forEach((panel) => {
-              const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
-              if (!inner) return;
+          // Metrics cache to avoid layout thrashing during GSAP scroll callbacks
+          const panelMetrics = new Map<HTMLElement, { difference: number; dwellDistance: number }>();
 
+          // Function to update panel margins without layout thrashing (batch reads then writes)
+          const applyPanelMetrics = () => {
+            const windowHeight = window.innerHeight;
+            // 1. Batch all DOM measurements (READ phase)
+            const updates = panels.map((panel) => {
+              const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
+              if (!inner) return null;
               const panelHeight = inner.offsetHeight;
-              const windowHeight = window.innerHeight;
               const difference = Math.max(0, panelHeight - windowHeight);
               const dwellDistance = Math.round(Math.max(windowHeight * 0.45, 340));
+              panelMetrics.set(panel, { difference, dwellDistance });
+              return { panel, marginBottom: `${difference + dwellDistance}px` };
+            });
 
-              panel.style.marginBottom = `${difference + dwellDistance}px`;
+            // 2. Batch all DOM style mutations (WRITE phase)
+            updates.forEach((item) => {
+              if (item) {
+                item.panel.style.marginBottom = item.marginBottom;
+              }
             });
           };
 
@@ -109,10 +119,8 @@ export function PinnedPanelsLayout({
             const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
             if (!inner) return;
 
-            const panelHeight = inner.offsetHeight;
+            const initialMetrics = panelMetrics.get(panel) || { difference: 0, dwellDistance: 0 };
             const windowHeight = window.innerHeight;
-            const difference = Math.max(0, panelHeight - windowHeight);
-            const dwellDistance = Math.round(Math.max(windowHeight * 0.45, 340));
             const transitionDistance = windowHeight;
 
             const tl = gsap.timeline({
@@ -120,11 +128,10 @@ export function PinnedPanelsLayout({
                 trigger: panel,
                 start: "bottom bottom",
                 end: () => {
-                  const pHeight = inner.offsetHeight;
-                  const wHeight = window.innerHeight;
-                  const diff = Math.max(0, pHeight - wHeight);
-                  const dwell = Math.round(Math.max(wHeight * 0.45, 340));
-                  return `+=${diff + dwell + wHeight}`;
+                  const m = panelMetrics.get(panel);
+                  const diff = m ? m.difference : 0;
+                  const dwell = m ? m.dwellDistance : Math.round(Math.max(window.innerHeight * 0.45, 340));
+                  return `+=${diff + dwell + window.innerHeight}`;
                 },
                 pinSpacing: false,
                 pin: true,
@@ -133,16 +140,19 @@ export function PinnedPanelsLayout({
               },
             });
 
-            if (difference > 0) {
+            if (initialMetrics.difference > 0) {
               tl.to(inner, {
-                y: () => -(Math.max(0, inner.offsetHeight - window.innerHeight)),
-                duration: difference,
+                y: () => {
+                  const m = panelMetrics.get(panel);
+                  return -(m ? m.difference : 0);
+                },
+                duration: initialMetrics.difference,
                 ease: "none",
               });
             }
 
-            if (dwellDistance > 0) {
-              tl.to({}, { duration: dwellDistance });
+            if (initialMetrics.dwellDistance > 0) {
+              tl.to({}, { duration: initialMetrics.dwellDistance });
             }
 
             tl.fromTo(
