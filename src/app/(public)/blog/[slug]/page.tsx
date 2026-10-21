@@ -64,7 +64,7 @@ export default async function BlogPostPage({ params }: Props) {
                 <time className="text-sm text-primary font-medium mb-4 block">
                     {format(post.createdAt, 'MMMM d, yyyy')}
                 </time>
-                <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-8 text-glow">
+                <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-8 text-foreground">
                     {post.title}
                 </h1>
                 <div className="h-px w-24 bg-primary mx-auto" />
@@ -72,7 +72,7 @@ export default async function BlogPostPage({ params }: Props) {
 
             {/* Render Tiptap HTML Content */}
             <div
-                className="prose prose-invert prose-lg mx-auto prose-headings:text-white prose-a:text-primary hover:prose-a:text-primary/80"
+                className="prose dark:prose-invert prose-lg mx-auto text-foreground/85 dark:text-muted-foreground prose-headings:text-foreground prose-headings:font-black prose-a:text-primary hover:prose-a:text-primary/80 prose-strong:text-foreground"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
             />
         </article>

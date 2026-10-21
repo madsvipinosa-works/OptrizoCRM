@@ -4,6 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { NewsCards, type NewsCard } from "@/components/ui/news-cards";
 import { formatDistanceToNow } from "date-fns";
 
+export const dynamic = "force-static";
 export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
 export default async function BlogIndexPage() {
@@ -21,8 +22,9 @@ export default async function BlogIndexPage() {
         location: "Optrizo HQ",
         image: post.coverImage || "https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2670&auto=format&fit=crop",
         gradientColors: ["from-primary/20", "to-purple-500/20"],
+        slug: post.slug,
+        excerpt: post.excerpt || undefined,
         content: [
-            post.slug,
             post.content || "Full article content coming soon."
         ]
     }));
