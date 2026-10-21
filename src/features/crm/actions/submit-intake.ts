@@ -6,14 +6,36 @@ import { leads } from "@/db/schema";
 import { auth } from "@/auth";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
+import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
+
+export type IntakeFormValues = {
+    businessName?: string;
+    industry?: string;
+    targetAudience?: string;
+    budget?: string;
+    timelineExpectation?: string;
+    goals?: string;
+    serviceId?: string;
+};
 
 export type IntakeState = {
     message: string;
     success: boolean;
     errors: Record<string, string[]>;
+    values?: IntakeFormValues;
 };
 
 export async function submitIntakeForm(prevState: IntakeState, formData: FormData): Promise<IntakeState> {
+    const rawValues: IntakeFormValues = {
+        businessName: (formData.get("businessName") as string) || "",
+        industry: (formData.get("industry") as string) || "",
+        targetAudience: (formData.get("targetAudience") as string) || "",
+        budget: (formData.get("budget") as string) || "",
+        timelineExpectation: (formData.get("timelineExpectation") as string) || "",
+        goals: (formData.get("goals") as string) || "",
+        serviceId: (formData.get("serviceId") as string) || undefined,
+    };
+
     const session = await auth();
     
     if (!session?.user?.id) {
@@ -21,24 +43,28 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             message: "You must be logged in to submit an intake form.",
             success: false,
             errors: {},
+            values: rawValues,
         };
     }
 
-    const validatedFields = intakeFormSchema.safeParse({
-        businessName: formData.get("businessName"),
-        industry: formData.get("industry"),
-        targetAudience: formData.get("targetAudience"),
-        budget: formData.get("budget"),
-        timelineExpectation: formData.get("timelineExpectation"),
-        goals: formData.get("goals"),
-        serviceId: formData.get("serviceId") || undefined,
-    });
+    const rateLimit = await checkRateLimit("intake", session.user.id);
+    if (!rateLimit.success) {
+        return {
+            message: `You have submitted too many requests. Please try again in ${formatRetryAfter(rateLimit.retryAfterSeconds)}.`,
+            success: false,
+            errors: {},
+            values: rawValues,
+        };
+    }
+
+    const validatedFields = intakeFormSchema.safeParse(rawValues);
 
     if (!validatedFields.success) {
         return {
             message: "Please check your inputs.",
             success: false,
             errors: validatedFields.error.flatten().fieldErrors,
+            values: rawValues,
         };
     }
 
@@ -87,6 +113,7 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             message: "Something went wrong. Please try again later.",
             success: false,
             errors: {},
+            values: rawValues,
         };
     }
 }

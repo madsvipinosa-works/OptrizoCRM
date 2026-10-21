@@ -11,12 +11,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
+    "db:seed:demo": "npx tsx scripts/seed-demo-accounts.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:progress": "npx tsx tests/test-progress.ts",
     "test:dependencies": "npx tsx tests/test-task-dependencies.ts",
     "test:error-logging": "npx tsx tests/test-error-logging.ts",
-    "test:capstone": "npx tsx test-crm-routing.ts && npx tsx tests/test-progress.ts && npx tsx tests/test-scope-engine.ts && npx tsx tests/test-quality-gate.ts && npx tsx tests/test-task-dependencies.ts && npx tsx tests/test-error-logging.ts"
+    "test:capstone": "npx tsx test-crm-routing.ts && npx tsx tests/test-progress.ts && npx tsx tests/test-scope-engine.ts && npx tsx tests/test-quality-gate.ts && npx tsx tests/test-task-dependencies.ts && npx tsx tests/test-error-logging.ts",
+    "clean:cache": "node scripts/clean-cache.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.64",

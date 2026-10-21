@@ -9,12 +9,41 @@ import bcrypt from "bcryptjs";
 import { logAction } from "@/features/audit/actions"; // Optional audit
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "@/lib/notifications";
+import { headers } from "next/headers";
+import {
+    checkRateLimit,
+    formatRetryAfter,
+    getClientIp,
+    normalizeEmail,
+    RATE_LIMIT_ERROR_NAME,
+} from "@/lib/rate-limit";
+
+async function getRequestIp(): Promise<string | null> {
+    try {
+        return getClientIp(await headers());
+    } catch {
+        return null;
+    }
+}
+
+export type AuthActionResult = {
+    success: boolean;
+    message?: string;
+    redirect?: string;
+};
+
+function tooManyAttempts(retryAfterSeconds: number): AuthActionResult {
+    return {
+        success: false,
+        message: `Too many attempts. Please try again in ${formatRetryAfter(retryAfterSeconds)}.`,
+    };
+}
 
 export async function googleSignIn() {
     await signIn("google", { redirectTo: "/dashboard" });
 }
 
-export async function signInWithEmail(prevState: unknown, formData: FormData) {
+export async function signInWithEmail(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
@@ -36,7 +65,12 @@ export async function signInWithEmail(prevState: unknown, formData: FormData) {
         return { success: true, redirect: targetRedirect };
     } catch (error) {
         if (error instanceof AuthError) {
-            const customMessage = error.cause?.err?.message;
+            const cause = error.cause?.err;
+            // Rate-limit rejections are thrown from the credentials authorize() callback.
+            if (cause?.name === RATE_LIMIT_ERROR_NAME) {
+                return { success: false, message: cause.message };
+            }
+            const customMessage = cause?.message;
             if (customMessage === "Account deactivated. Please contact an administrator.") {
                 return { success: false, message: customMessage };
             }
@@ -52,7 +86,7 @@ export async function signInWithEmail(prevState: unknown, formData: FormData) {
     }
 }
 
-export async function signUpWithEmail(prevState: unknown, formData: FormData) {
+export async function signUpWithEmail(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const name = formData.get("name") as string;
@@ -63,6 +97,15 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData) {
     if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
     if (!/[A-Z]/.test(password)) return { success: false, message: "Password must contain at least one uppercase letter" };
     if (!/[^a-zA-Z]/.test(password)) return { success: false, message: "Password must contain at least one number or symbol" };
+
+    const ip = await getRequestIp();
+    if (ip) {
+        const limit = await checkRateLimit("signupIp", ip);
+        if (!limit.success) {
+            console.warn(`[Security] Signup rate limit hit: ip=${ip}`);
+            return tooManyAttempts(limit.retryAfterSeconds);
+        }
+    }
 
     try {
         const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
@@ -96,10 +139,24 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData) {
     }
 }
 
-export async function requestPasswordReset(prevState: unknown, formData: FormData) {
+export async function requestPasswordReset(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
     const email = formData.get("email") as string;
 
     if (!email) return { success: false, message: "Email is required" };
+
+    // Applied regardless of whether the account exists, so limits don't reveal valid emails.
+    const ip = await getRequestIp();
+    if (ip) {
+        const ipLimit = await checkRateLimit("passwordResetRequestIp", ip);
+        if (!ipLimit.success) {
+            console.warn(`[Security] Password reset request rate limit (IP) hit: ip=${ip}`);
+            return tooManyAttempts(ipLimit.retryAfterSeconds);
+        }
+    }
+    const emailLimit = await checkRateLimit("passwordResetRequestEmail", normalizeEmail(email));
+    if (!emailLimit.success) {
+        return tooManyAttempts(emailLimit.retryAfterSeconds);
+    }
 
     try {
         const existingUser = await db.query.users.findFirst({ where: eq(users.email, email) });
@@ -132,7 +189,7 @@ export async function requestPasswordReset(prevState: unknown, formData: FormDat
     }
 }
 
-export async function resetPassword(prevState: unknown, formData: FormData) {
+export async function resetPassword(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
     const token = formData.get("token") as string;
     const password = formData.get("password") as string;
 
@@ -140,6 +197,15 @@ export async function resetPassword(prevState: unknown, formData: FormData) {
     if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
     if (!/[A-Z]/.test(password)) return { success: false, message: "Password must contain at least one uppercase letter" };
     if (!/[^a-zA-Z]/.test(password)) return { success: false, message: "Password must contain at least one number or symbol" };
+
+    const ip = await getRequestIp();
+    if (ip) {
+        const limit = await checkRateLimit("passwordResetSubmitIp", ip);
+        if (!limit.success) {
+            console.warn(`[Security] Password reset submit rate limit hit: ip=${ip}`);
+            return tooManyAttempts(limit.retryAfterSeconds);
+        }
+    }
 
     try {
         const record = await db.query.passwordResetTokens.findFirst({

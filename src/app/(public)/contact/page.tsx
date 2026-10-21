@@ -10,6 +10,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+export const revalidate = 3600;
+
 export default async function ContactPage() {
 
     const settings = await getSiteSettings();

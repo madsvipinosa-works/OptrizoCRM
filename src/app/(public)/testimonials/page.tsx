@@ -4,6 +4,8 @@ import { desc, eq } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+export const revalidate = 3600; // Cache and revalidate every hour (ISR)
+
 export default async function TestimonialsPage() {
     const allTestimonials = await db.query.testimonials.findMany({
         where: eq(testimonials.active, true),

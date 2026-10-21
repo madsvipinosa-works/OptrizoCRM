@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useActionState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,26 @@ interface ServiceCardItemProps {
     title: string;
     description: string;
     icon?: string | null;
+    image?: string | null;
+    category?: string | null;
+    color?: string | null;
   };
-  images: string[];
+  images?: string[];
   tags: string[];
-  isLoggedIn: boolean;
+  isLoggedIn?: boolean;
 }
+
+const DEFAULT_SERVICE_IMAGES: Record<string, string> = {
+  "Web Development": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop",
+  "Custom Web Applications": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop",
+  "UI/UX Design": "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?q=80&w=1000&auto=format&fit=crop",
+  "UI/UX Design & Brand Systems": "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?q=80&w=1000&auto=format&fit=crop",
+  "Mobile App Development": "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=1000&auto=format&fit=crop",
+  "Mobile App Engineering": "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=1000&auto=format&fit=crop",
+  "AI Integration": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop",
+  "Cloud & Scalable Infrastructure": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1000&auto=format&fit=crop",
+  "Cloud & DevOps": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1000&auto=format&fit=crop",
+};
 
 const initialState: IntakeState = {
     message: "",
@@ -31,12 +47,28 @@ const initialState: IntakeState = {
     success: false,
 }
 
-export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemProps) {
+export function ServiceCardItem({ service, tags, isLoggedIn: initialIsLoggedIn }: ServiceCardItemProps) {
   const router = useRouter();
   const redirectTarget = `/portal/request-proposal?serviceId=${service.id}`;
   const [isOpen, setIsOpen] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn ?? false);
   
+  useEffect(() => {
+    if (initialIsLoggedIn !== undefined) {
+      setIsLoggedIn(initialIsLoggedIn);
+      return;
+    }
+    // Dynamic client-side session resolution (avoids blocking static page rendering on server)
+    import("next-auth/react").then(({ getSession }) => {
+      getSession().then((session) => {
+        if (session?.user) {
+          setIsLoggedIn(true);
+        }
+      });
+    }).catch(() => {});
+  }, [initialIsLoggedIn]);
+
   const [state, formAction, isPending] = useActionState(submitIntakeForm, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -86,10 +118,29 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
         {service.description}
       </p>
 
-      {/* Placeholder graphic container */}
-      <div className="w-full h-32 bg-muted/50 rounded-xl mb-6 border border-border flex items-center justify-center overflow-hidden relative group-hover:border-primary/20 transition-colors">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <span className="text-muted-foreground font-mono text-sm">[ Graphic Visualization ]</span>
+      {/* High-fidelity Graphic Visualization */}
+      <div className="relative w-full h-40 rounded-xl mb-6 border border-border/80 overflow-hidden group-hover:border-primary/40 transition-all duration-500 bg-muted/40 shadow-xs">
+        <Image
+          src={
+            service.image ||
+            DEFAULT_SERVICE_IMAGES[service.title] ||
+            "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop"
+          }
+          alt={service.title}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/20 to-transparent" />
+        <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between pointer-events-none">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-white/95 font-bold bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            {service.category || "Optrizo Solution"}
+          </span>
+          <span className="text-[10px] font-mono text-white/70 bg-black/40 backdrop-blur-xs px-2 py-0.5 rounded">
+            SPEC // 01
+          </span>
+        </div>
       </div>
 
       <div className="mt-auto pt-4 border-t border-border">
@@ -123,7 +174,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
                       Provide some brief details about your project to get started.
                     </DialogDescription>
                   </DialogHeader>
-                  <form action={formAction} ref={formRef} className="space-y-6 pt-4">
+                  <form key={state.success ? "success-reset" : "active-service-intake-form"} action={formAction} ref={formRef} className="space-y-6 pt-4">
                     <input type="hidden" name="serviceId" value={service.id} />
                     
                     {state?.message && (
@@ -138,6 +189,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
                         id="businessName" 
                         name="businessName"
                         required 
+                        defaultValue={state.values?.businessName}
                         className="bg-background border-input text-foreground focus-visible:ring-primary focus-visible:border-primary placeholder:text-muted-foreground" 
                         placeholder="Acme Corp"
                       />
@@ -153,6 +205,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
                                 id="industry" 
                                 name="industry" 
                                 placeholder="e.g. Real Estate, E-commerce" 
+                                defaultValue={state.values?.industry}
                                 className="bg-background border-input text-foreground focus-visible:ring-primary placeholder:text-muted-foreground" 
                             />
                             {state?.errors?.industry && (
@@ -165,6 +218,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
                                 id="targetAudience" 
                                 name="targetAudience" 
                                 placeholder="Who are your customers?" 
+                                defaultValue={state.values?.targetAudience}
                                 className="bg-background border-input text-foreground focus-visible:ring-primary placeholder:text-muted-foreground" 
                             />
                             {state?.errors?.targetAudience && (
@@ -179,6 +233,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
                             <select
                                 id="budget"
                                 name="budget"
+                                defaultValue={state.values?.budget || ""}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="" className="bg-card">Select a budget...</option>
@@ -197,6 +252,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
                             <select
                                 id="timelineExpectation"
                                 name="timelineExpectation"
+                                defaultValue={state.values?.timelineExpectation || ""}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="" className="bg-card">Select a timeline...</option>
@@ -218,6 +274,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn }: ServiceCardItemPr
                         name="goals"
                         required 
                         rows={4}
+                        defaultValue={state.values?.goals}
                         className="bg-background border-input text-foreground focus-visible:ring-primary focus-visible:border-primary placeholder:text-muted-foreground resize-none" 
                         placeholder="What are you trying to achieve? What are the key deliverables?"
                       />

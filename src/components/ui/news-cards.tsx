@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSmoothScroll } from "@/components/providers/SmoothScrollProvider";
 
 export interface NewsCard {
     id: string;
@@ -53,6 +54,36 @@ export function NewsCards({
     const closeCard = () => {
         setSelectedCard(null);
     };
+
+    const { lenis } = useSmoothScroll();
+
+    useEffect(() => {
+        if (!selectedCard) return;
+
+        lenis?.stop();
+        const prevOverflow = document.body.style.overflow;
+        const prevPaddingRight = document.body.style.paddingRight;
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+        if (scrollbarWidth > 0) {
+            document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+        document.body.style.overflow = "hidden";
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setSelectedCard(null);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            document.body.style.overflow = prevOverflow;
+            document.body.style.paddingRight = prevPaddingRight;
+            lenis?.start();
+        };
+    }, [selectedCard, lenis]);
 
     useEffect(() => {
         if (shouldAnimate) {
@@ -277,6 +308,7 @@ export function NewsCards({
                             <>
                                 {/* Backdrop */}
                                 <motion.div
+                                    data-lenis-prevent=""
                                     className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100]"
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -287,6 +319,7 @@ export function NewsCards({
                                 {/* Expanded Card */}
                                 <motion.div
                                     layoutId={`card-${selectedCard.id}`}
+                                    data-lenis-prevent=""
                                     className="fixed inset-4 md:inset-12 lg:inset-y-16 lg:inset-x-[15%] bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden z-[100] shadow-2xl flex flex-col"
                                 >
                                     {/* Close Button */}
@@ -302,7 +335,11 @@ export function NewsCards({
                                         <X className="w-5 h-5" />
                                     </motion.button>
 
-                                    <div className="flex-1 overflow-y-auto hide-scrollbar">
+                                    <div
+                                        data-lenis-prevent=""
+                                        onWheel={(e) => e.stopPropagation()}
+                                        className="flex-1 overflow-y-auto overscroll-contain"
+                                    >
                                         {/* Header Image */}
                                         <motion.div
                                             layoutId={`card-image-${selectedCard.id}`}

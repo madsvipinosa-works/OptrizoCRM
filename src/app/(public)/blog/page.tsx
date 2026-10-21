@@ -4,6 +4,8 @@ import { desc, eq } from "drizzle-orm";
 import { NewsCards, type NewsCard } from "@/components/ui/news-cards";
 import { formatDistanceToNow } from "date-fns";
 
+export const revalidate = 3600; // Cache and revalidate every hour (ISR)
+
 export default async function BlogIndexPage() {
     const publishedPosts = await db.query.posts.findMany({
         where: eq(posts.published, true),

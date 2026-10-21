@@ -27,7 +27,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Team, { TeamMemberItem } from "@/components/ui/team-02";
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
 export default async function AboutPage() {
     // Parallel Fetching

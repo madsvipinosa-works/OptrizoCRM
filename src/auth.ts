@@ -7,6 +7,25 @@ import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import authConfig from "./auth.config"
 import bcrypt from "bcryptjs"
+import { headers as nextHeaders } from "next/headers"
+import {
+    checkRateLimit,
+    formatRetryAfter,
+    getClientIp,
+    normalizeEmail,
+    RateLimitError,
+    resetRateLimit,
+} from "@/lib/rate-limit"
+
+async function resolveClientIp(request: Request | undefined): Promise<string | null> {
+    const fromRequest = getClientIp(request?.headers);
+    if (fromRequest) return fromRequest;
+    try {
+        return getClientIp(await nextHeaders());
+    } catch {
+        return null;
+    }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
@@ -23,11 +42,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" }
             },
-            async authorize(credentials) {
+            async authorize(credentials, request) {
                 if (!credentials?.email || !credentials?.password) return null;
 
                 const email = credentials.email as string;
                 const password = credentials.password as string;
+                const emailKey = normalizeEmail(email);
+
+                // --- Brute-force / DoS guard: runs BEFORE the DB query and bcrypt.compare ---
+                const ip = await resolveClientIp(request);
+                if (ip) {
+                    const ipCheck = await checkRateLimit("loginIp", ip);
+                    if (!ipCheck.success) {
+                        console.warn(`[Security] Login rate limit (IP) hit: ip=${ip}`);
+                        throw new RateLimitError(
+                            `Too many login attempts from your network. Please try again in ${formatRetryAfter(ipCheck.retryAfterSeconds)}.`,
+                            ipCheck.retryAfterSeconds,
+                        );
+                    }
+                }
+                const emailCheck = await checkRateLimit("loginEmail", emailKey);
+                if (!emailCheck.success) {
+                    console.warn(`[Security] Login rate limit (account) hit: email=${emailKey} ip=${ip ?? "unknown"}`);
+                    throw new RateLimitError(
+                        `Too many login attempts for this account. Please try again in ${formatRetryAfter(emailCheck.retryAfterSeconds)}.`,
+                        emailCheck.retryAfterSeconds,
+                    );
+                }
 
                 // Fetch user from DB
                 const user = await db.query.users.findFirst({
@@ -45,6 +86,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
                 const isValid = await bcrypt.compare(password, user.password);
                 if (!isValid) return null;
+
+                // Successful login clears the per-account counter (the IP counter keeps running).
+                await resetRateLimit("loginEmail", emailKey);
 
                 return {
                     id: user.id,

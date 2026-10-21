@@ -25,7 +25,7 @@ export function ContactForm() {
                 <CardDescription>We usually respond within 24 hours.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form action={formAction} className="space-y-6">
+                <form key={state.success ? "success-reset" : "active-form"} action={formAction} className="space-y-6">
                     {state?.message && (
                         <div className={`p-3 rounded-md text-sm ${state.success ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
                             {state.message}
@@ -39,6 +39,7 @@ export function ContactForm() {
                                 id="firstName" 
                                 name="firstName" 
                                 placeholder="John" 
+                                defaultValue={state.values?.firstName}
                                 className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                                 aria-describedby="firstName-error" 
                             />
@@ -52,6 +53,7 @@ export function ContactForm() {
                                 id="lastName" 
                                 name="lastName" 
                                 placeholder="Doe" 
+                                defaultValue={state.values?.lastName}
                                 className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                                 aria-describedby="lastName-error" 
                             />
@@ -68,6 +70,7 @@ export function ContactForm() {
                             name="email" 
                             type="email" 
                             placeholder="john@example.com" 
+                            defaultValue={state.values?.email}
                             className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                             aria-describedby="email-error" 
                         />
@@ -82,6 +85,7 @@ export function ContactForm() {
                             id="subject" 
                             name="subject" 
                             placeholder="Project Inquiry" 
+                            defaultValue={state.values?.subject}
                             className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                             aria-describedby="subject-error" 
                         />
@@ -96,6 +100,7 @@ export function ContactForm() {
                             id="message" 
                             name="message" 
                             placeholder="Tell us about your project..." 
+                            defaultValue={state.values?.message}
                             className="min-h-[150px] bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                             aria-describedby="message-error" 
                         />

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export const revalidate = 3600; // Cache and revalidate every hour (ISR)
+
 export const metadata = {
     title: "Case Studies & Portfolio | Optrizo Digital Solutions",
     description: "Explore our featured software engineering case studies, digital platforms, and cloud architecture deployments.",

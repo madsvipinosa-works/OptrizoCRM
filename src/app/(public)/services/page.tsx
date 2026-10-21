@@ -2,10 +2,11 @@ import { db } from "@/db";
 import { services } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/auth";
 import Link from "next/link";
 import { ArrowRight, Lock, Users, Zap } from "lucide-react";
 import { ServiceCardItem } from "@/components/public/ServiceCardItem";
+
+export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
 const SERVICE_ASSETS: Record<string, { tags: string[] }> = {
     "Web Development": {
@@ -26,9 +27,6 @@ const SERVICE_ASSETS: Record<string, { tags: string[] }> = {
 };
 
 export default async function ServicesPage() {
-    const session = await auth();
-    const isLoggedIn = !!session?.user;
-
     const allServices = await db.query.services.findMany({
         orderBy: [asc(services.order)],
     });
@@ -72,7 +70,6 @@ export default async function ServicesPage() {
                                 service={service}
                                 images={[]}
                                 tags={mappedAsset.tags}
-                                isLoggedIn={isLoggedIn}
                             />
                         );
                     })}

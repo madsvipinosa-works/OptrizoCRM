@@ -47,6 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 import { Toaster } from "sonner";
+import { NavigationProgress } from "@/components/ui/navigation-progress";
 
 export default function RootLayout({
   children,
@@ -66,6 +67,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground transition-colors duration-300`}
         suppressHydrationWarning
       >
+        <NavigationProgress />
         {children}
         <Toaster richColors position="top-center" />
       </body>

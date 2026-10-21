@@ -70,7 +70,7 @@ export function LoginModal({
       if (isResetting) {
         const result = await requestPasswordReset(null, formData);
         if (!result.success) setError(result.message || "An error occurred");
-        else setSuccessMessage(result.message);
+        else setSuccessMessage(result.message ?? null);
       } else {
         const result = isLogin
           ? await signInWithEmail(null, formData)

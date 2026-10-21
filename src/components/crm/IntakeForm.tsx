@@ -36,7 +36,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                 <CardDescription>Provide details about your business and goals to help us create a tailored proposal.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form action={formAction} className="space-y-6">
+                <form key={state.success ? "success-reset" : "active-intake-form"} action={formAction} className="space-y-6">
                     {state?.message && (
                         <div className={`p-3 rounded-md text-sm ${state.success ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
                             {state.message}
@@ -49,6 +49,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             id="businessName" 
                             name="businessName" 
                             placeholder="Acme Corp" 
+                            defaultValue={state.values?.businessName}
                             className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                         />
                         {state?.errors?.businessName && (
@@ -63,6 +64,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                 id="industry" 
                                 name="industry" 
                                 placeholder="e.g. Real Estate, E-commerce" 
+                                defaultValue={state.values?.industry}
                                 className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                             />
                             {state?.errors?.industry && (
@@ -75,6 +77,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                 id="targetAudience" 
                                 name="targetAudience" 
                                 placeholder="Who are your customers?" 
+                                defaultValue={state.values?.targetAudience}
                                 className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                             />
                             {state?.errors?.targetAudience && (
@@ -89,7 +92,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             <select
                                 id="serviceId"
                                 name="serviceId"
-                                defaultValue={preSelectedServiceId || ""}
+                                defaultValue={state.values?.serviceId || preSelectedServiceId || ""}
                                 className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                             >
                                 <option value="" className="bg-card text-foreground">Select a service...</option>
@@ -105,6 +108,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             <select
                                 id="budget"
                                 name="budget"
+                                defaultValue={state.values?.budget || ""}
                                 className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                             >
                                 <option value="" className="bg-card text-foreground">Select a budget...</option>
@@ -125,6 +129,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                         <select
                             id="timelineExpectation"
                             name="timelineExpectation"
+                            defaultValue={state.values?.timelineExpectation || ""}
                             className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                         >
                             <option value="" className="bg-card text-foreground">Select a timeline...</option>
@@ -144,6 +149,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             id="goals" 
                             name="goals" 
                             placeholder="What are you trying to achieve? What are the key deliverables?" 
+                            defaultValue={state.values?.goals}
                             className="min-h-[150px] bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                         />
                         {state?.errors?.goals && (

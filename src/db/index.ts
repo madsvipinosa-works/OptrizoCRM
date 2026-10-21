@@ -22,9 +22,9 @@ const pool =
             : undefined,
         max: process.env.DB_MAX_CONNECTIONS
             ? Number(process.env.DB_MAX_CONNECTIONS)
-            : (process.env.NODE_ENV === "production" ? 1 : 5),
+            : 10,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000,
+        connectionTimeoutMillis: 10000,
         keepAlive: true,
         keepAliveInitialDelayMillis: 10000,
     });

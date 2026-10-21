@@ -121,6 +121,10 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
 
         revalidatePath("/");
         revalidatePath("/contact");
+        revalidatePath("/services");
+        revalidatePath("/about");
+        revalidatePath("/projects");
+        revalidatePath("/blog");
         return { success: true, message: "Settings updated successfully!" };
     } catch (error) {
         console.error("Failed to update settings:", error);
@@ -170,6 +174,7 @@ export async function createPost(prevState: ActionState, formData: FormData) {
 
         revalidatePath("/dashboard/posts");
         revalidatePath("/blog");
+        revalidatePath("/");
         return { success: true, message: "Post created successfully!" };
     } catch (error) {
         console.error(error);
@@ -188,6 +193,8 @@ export async function deletePost(id: string) {
 
     await db.delete(posts).where(eq(posts.id, id));
     revalidatePath("/dashboard/posts");
+    revalidatePath("/blog");
+    revalidatePath("/");
 }
 
 export async function updatePost(prevState: ActionState, formData: FormData) {
@@ -229,6 +236,8 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
 
         revalidatePath("/dashboard/posts");
         revalidatePath(`/blog/${sanitizedSlug}`);
+        revalidatePath("/blog");
+        revalidatePath("/");
         return { success: true, message: "Post updated successfully!" };
     } catch (error) {
         console.error(error);
@@ -295,6 +304,7 @@ export async function deleteCaseStudy(id: string) {
     await db.delete(caseStudies).where(eq(caseStudies.id, id));
     revalidatePath("/dashboard/portfolio");
     revalidatePath("/projects");
+    revalidatePath("/");
 }
 export const deleteProject = deleteCaseStudy;
 
@@ -394,6 +404,7 @@ export async function createService(prevState: ActionState, formData: FormData) 
 
         revalidatePath("/dashboard/services");
         revalidatePath("/dashboard/cms");
+        revalidatePath("/services");
         revalidatePath("/");
         return { success: true, message: "Service created successfully!" };
     } catch (error) {
@@ -449,6 +460,7 @@ export async function updateService(prevState: ActionState, formData: FormData) 
 
         revalidatePath("/dashboard/services");
         revalidatePath("/dashboard/cms");
+        revalidatePath("/services");
         revalidatePath("/");
         return { success: true, message: "Service updated successfully!" };
     } catch (error) {
@@ -479,6 +491,7 @@ export async function toggleServiceFeatured(id: string, isFeatured: boolean) {
 
         revalidatePath("/dashboard/services");
         revalidatePath("/dashboard/cms");
+        revalidatePath("/services");
         revalidatePath("/");
 
         return {
@@ -498,6 +511,7 @@ export async function deleteService(id: string) {
     await db.delete(services).where(eq(services.id, id));
     revalidatePath("/dashboard/services");
     revalidatePath("/dashboard/cms");
+    revalidatePath("/services");
     revalidatePath("/");
 }
 
@@ -531,6 +545,7 @@ export async function createTestimonial(prevState: ActionState, formData: FormDa
         });
 
         revalidatePath("/dashboard/testimonials");
+        revalidatePath("/testimonials");
         revalidatePath("/");
         return { success: true, message: "Testimonial added!" };
     } catch (error) {
@@ -571,6 +586,7 @@ export async function updateTestimonial(prevState: ActionState, formData: FormDa
             .where(eq(testimonials.id, id));
 
         revalidatePath("/dashboard/testimonials");
+        revalidatePath("/testimonials");
         revalidatePath("/");
         return { success: true, message: "Testimonial updated!" };
     } catch (error) {
@@ -590,5 +606,6 @@ export async function deleteTestimonial(id: string) {
 
     await db.delete(testimonials).where(eq(testimonials.id, id));
     revalidatePath("/dashboard/testimonials");
+    revalidatePath("/testimonials");
     revalidatePath("/");
 }
