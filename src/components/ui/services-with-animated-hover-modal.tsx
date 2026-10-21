@@ -117,6 +117,11 @@ export function ServicesWithAnimatedHoverModal({
     const cursorLabel = useRef<HTMLDivElement>(null);
     const hasPositioned = useRef(false);
 
+    const isModalActive = useRef(false);
+    useEffect(() => {
+        isModalActive.current = modal.active;
+    }, [modal.active]);
+
     // Track cursor with GSAP physics
     useEffect(() => {
         if (!modalContainer.current || !cursor.current || !cursorLabel.current) return;
@@ -148,33 +153,42 @@ export function ServicesWithAnimatedHoverModal({
             ease: "power3",
         });
 
+        let rafId: number | null = null;
         const handleMouseMove = (e: MouseEvent) => {
-            const { clientX, clientY } = e;
+            if (!isModalActive.current) return;
+            if (rafId !== null) return;
 
-            // Instant initial position snap so modal doesn't fly across screen from (0,0)
-            if (!hasPositioned.current && modalContainer.current && cursor.current && cursorLabel.current) {
-                gsap.set([modalContainer.current, cursor.current, cursorLabel.current], {
-                    left: clientX,
-                    top: clientY,
-                });
-                hasPositioned.current = true;
-            }
+            rafId = requestAnimationFrame(() => {
+                rafId = null;
+                const { clientX, clientY } = e;
 
-            xMoveContainer(clientX);
-            yMoveContainer(clientY);
-            xMoveCursor(clientX);
-            yMoveCursor(clientY);
-            xMoveCursorLabel(clientX);
-            yMoveCursorLabel(clientY);
+                // Instant initial position snap so modal doesn't fly across screen from (0,0)
+                if (!hasPositioned.current && modalContainer.current && cursor.current && cursorLabel.current) {
+                    gsap.set([modalContainer.current, cursor.current, cursorLabel.current], {
+                        left: clientX,
+                        top: clientY,
+                    });
+                    hasPositioned.current = true;
+                }
+
+                xMoveContainer(clientX);
+                yMoveContainer(clientY);
+                xMoveCursor(clientX);
+                yMoveCursor(clientY);
+                xMoveCursorLabel(clientX);
+                yMoveCursorLabel(clientY);
+            });
         };
 
         const handleMouseLeave = () => {
+            if (rafId !== null) cancelAnimationFrame(rafId);
             setModal((prev) => ({ ...prev, active: false }));
         };
 
         window.addEventListener("mousemove", handleMouseMove, { passive: true });
-        window.addEventListener("mouseleave", handleMouseLeave);
+        window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
         return () => {
+            if (rafId !== null) cancelAnimationFrame(rafId);
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseleave", handleMouseLeave);
         };

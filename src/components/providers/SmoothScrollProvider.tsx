@@ -78,13 +78,27 @@ export function SmoothScrollProvider({
 
     document.addEventListener("click", handleAnchorClick);
 
-    // Recalculate ScrollTrigger measurements once layout settles
-    const refreshTimer = setTimeout(() => {
-      ScrollTrigger.refresh();
-    }, 500);
+    // Recalculate ScrollTrigger measurements once layout settles during browser idle
+    let refreshId: any;
+    if ("requestIdleCallback" in window) {
+      refreshId = (window as any).requestIdleCallback(
+        () => {
+          ScrollTrigger.refresh();
+        },
+        { timeout: 2500 }
+      );
+    } else {
+      refreshId = setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 1200);
+    }
 
     return () => {
-      clearTimeout(refreshTimer);
+      if ("cancelIdleCallback" in window && typeof refreshId === "number") {
+        (window as any).cancelIdleCallback(refreshId);
+      } else {
+        clearTimeout(refreshId);
+      }
       document.removeEventListener("click", handleAnchorClick);
       gsap.ticker.remove(onTicker);
       lenis.destroy();

@@ -1,6 +1,5 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { MouseEffectBackground } from "@/components/ui/mouse-effect-background";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
 
 export default function PublicLayout({

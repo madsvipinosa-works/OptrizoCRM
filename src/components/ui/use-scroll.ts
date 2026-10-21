@@ -9,7 +9,7 @@ export function useScroll(threshold: number) {
     }, [threshold]);
 
     React.useEffect(() => {
-        window.addEventListener('scroll', onScroll);
+        window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
     }, [onScroll]);
 
