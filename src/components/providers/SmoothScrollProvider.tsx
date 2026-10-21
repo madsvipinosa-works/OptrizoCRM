@@ -54,7 +54,8 @@ export function SmoothScrollProvider({
     };
 
     gsap.ticker.add(onTicker);
-    gsap.ticker.lagSmoothing(0);
+    // Allow GSAP lag smoothing to clamp frame bursts during hydration, preventing main-thread TBT spikes
+    gsap.ticker.lagSmoothing(500, 33);
 
     // Support smooth programmatic scrolling for anchor links (e.g. #services, #contact)
     const handleAnchorClick = (e: MouseEvent) => {

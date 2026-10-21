@@ -436,10 +436,10 @@ export default function Hero3DScene({
     <WebGLErrorBoundary fallback={fallback}>
       <Canvas
         shadows
-        dpr={[1, 1.5]}
+        dpr={[1, 1.25]}
         gl={{
-          powerPreference: "default",
-          antialias: true,
+          powerPreference: "high-performance",
+          antialias: false,
           alpha: true,
           stencil: false,
           depth: true,
@@ -452,7 +452,7 @@ export default function Hero3DScene({
           position={[12, 26, 48]}
           intensity={isDark ? 3.4 : 3.8}
           castShadow
-          shadow-mapSize={[1024, 1024]}
+          shadow-mapSize={[512, 512]}
           shadow-camera-near={10}
           shadow-camera-far={90}
           shadow-camera-left={-22}
@@ -461,7 +461,7 @@ export default function Hero3DScene({
           shadow-camera-bottom={-22}
           shadow-bias={-0.0002}
           shadow-normalBias={0.03}
-          shadow-radius={4.0}
+          shadow-radius={3.0}
         />
         <directionalLight
           position={[-15, 10, 35]}

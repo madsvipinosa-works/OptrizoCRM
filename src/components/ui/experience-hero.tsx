@@ -229,39 +229,59 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Respect reduced motion preference for accessibility and performance
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
     let loaded = false;
     let timer: NodeJS.Timeout | null = null;
+
+    const cleanup = () => {
+      window.removeEventListener("pointerdown", trigger3D);
+      window.removeEventListener("keydown", trigger3D);
+      window.removeEventListener("touchstart", trigger3D);
+      if (timer) clearTimeout(timer);
+    };
 
     const trigger3D = () => {
       if (loaded) return;
       loaded = true;
-      if (timer) clearTimeout(timer);
-      window.removeEventListener("pointerdown", trigger3D);
-      window.removeEventListener("pointermove", trigger3D);
-      window.removeEventListener("scroll", trigger3D);
-      window.removeEventListener("keydown", trigger3D);
+      cleanup();
 
+      // Defer Three.js canvas mount so it never competes with initial hydration or interaction metrics (TBT/INP)
+      const mount = () => setLoad3D(true);
       if ("requestIdleCallback" in window) {
-        (window as any).requestIdleCallback(() => setLoad3D(true));
+        (window as any).requestIdleCallback(
+          () => {
+            timer = setTimeout(mount, 1200);
+          },
+          { timeout: 4000 }
+        );
       } else {
-        setLoad3D(true);
+        timer = setTimeout(mount, 2000);
       }
     };
 
-    // User interactions trigger 3D scene instantly
+    // User interactions queue 3D scene smoothly
     window.addEventListener("pointerdown", trigger3D, { passive: true, once: true });
-    window.addEventListener("pointermove", trigger3D, { passive: true, once: true });
-    window.addEventListener("scroll", trigger3D, { passive: true, once: true });
     window.addEventListener("keydown", trigger3D, { passive: true, once: true });
     window.addEventListener("touchstart", trigger3D, { passive: true, once: true });
 
+    // Idle fallback: initialize after the page and main thread have settled
+    if ("requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(
+        () => {
+          timer = setTimeout(trigger3D, 2500);
+        },
+        { timeout: 5000 }
+      );
+    } else {
+      timer = setTimeout(trigger3D, 3500);
+    }
+
     return () => {
-      if (timer) clearTimeout(timer);
-      window.removeEventListener("pointerdown", trigger3D);
-      window.removeEventListener("pointermove", trigger3D);
-      window.removeEventListener("scroll", trigger3D);
-      window.removeEventListener("keydown", trigger3D);
-      window.removeEventListener("touchstart", trigger3D);
+      cleanup();
     };
   }, []);
 
