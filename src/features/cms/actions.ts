@@ -4,11 +4,10 @@ import { db } from "@/db";
 import { deleteImage } from "@/features/upload/actions";
 
 import { siteSettings, posts, caseStudies, services, testimonials } from "@/db/schema";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { eq, and, ne } from "drizzle-orm";
 import { auth, requireRole, hasRole } from "@/auth";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { cache } from "react";
 import { z } from "zod";
 import {
     siteSettingsSchema,
@@ -44,19 +43,19 @@ async function requireEditor() {
 
 // --- Global Settings ---
 
-const getCachedSiteSettings = cache(async () => {
-    try {
-        const settings = await db.select().from(siteSettings).limit(1);
-        return settings[0] || null;
-    } catch (error) {
-        console.error("⚠️ [CMS] Failed to fetch site settings:", error);
-        return null;
-    }
-});
-
-export async function getSiteSettings() {
-    return getCachedSiteSettings();
-}
+export const getSiteSettings = unstable_cache(
+    async () => {
+        try {
+            const settings = await db.select().from(siteSettings).limit(1);
+            return settings[0] || null;
+        } catch (error) {
+            console.error("⚠️ [CMS] Failed to fetch site settings:", error);
+            return null;
+        }
+    },
+    ["site-settings-singleton"],
+    { revalidate: 3600, tags: ["site-settings"] }
+);
 
 export type ActionState = {
     message: string;
@@ -119,6 +118,7 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
                 set: payload,
             });
 
+        revalidateTag("site-settings", "max");
         revalidatePath("/");
         revalidatePath("/contact");
         revalidatePath("/services");

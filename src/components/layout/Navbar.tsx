@@ -1,15 +1,14 @@
-import { auth, signOut, hasRole } from "@/auth";
+import { Suspense } from "react";
 import { getSiteSettings } from "@/features/cms/actions";
 import { Header } from "@/components/blocks/header-2";
+import {
+    NavbarAuthDesktop,
+    NavbarAuthMobile,
+    NavbarMobileBell,
+    NavbarAuthFallback,
+} from "./NavbarAuth";
 
 export async function Navbar() {
-    let session = null;
-    try {
-        session = await auth();
-    } catch (error) {
-        console.warn("[Navbar] Invalid/stale session token encountered, falling back to guest mode:", error);
-    }
-    const isAdmin = hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"]);
     const settings = await getSiteSettings();
 
     const navLinks = [
@@ -19,18 +18,25 @@ export async function Navbar() {
         { href: "/blog", label: "Blog" },
     ];
 
-    const handleSignOut = async () => {
-        "use server";
-        await signOut({ redirectTo: "/" });
-    };
-
     return (
         <Header
-            session={session}
-            isAdmin={isAdmin}
             settings={settings || null}
             navLinks={navLinks}
-            onSignOut={handleSignOut}
+            authSlot={
+                <Suspense fallback={<NavbarAuthFallback settings={settings} />}>
+                    <NavbarAuthDesktop settings={settings} />
+                </Suspense>
+            }
+            mobileBellSlot={
+                <Suspense fallback={null}>
+                    <NavbarMobileBell />
+                </Suspense>
+            }
+            mobileAuthSlot={
+                <Suspense fallback={<NavbarAuthFallback mobile settings={settings} />}>
+                    <NavbarAuthMobile settings={settings} />
+                </Suspense>
+            }
         />
     );
 }

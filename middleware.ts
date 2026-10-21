@@ -58,7 +58,11 @@ export default auth((req) => {
     return;
 });
 
-// Configure which paths middleware runs on
+// Configure which paths middleware runs on - only protected application routes
 export const config = {
-    matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+    matcher: [
+        "/dashboard/:path*",
+        "/portal/:path*",
+        "/proposal/:path*",
+    ],
 };

@@ -16,7 +16,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 
 export type HeaderProps = {
-    session: {
+    session?: {
         user: {
             name?: string | null;
             email?: string | null;
@@ -24,16 +24,28 @@ export type HeaderProps = {
             role?: string | null;
         };
     } | null;
-    isAdmin: boolean;
+    isAdmin?: boolean;
     settings: {
         logoUrl?: string | null;
         logoDarkUrl?: string | null;
     } | null;
     navLinks: { href: string; label: string }[];
-    onSignOut: () => Promise<void>;
+    onSignOut?: () => Promise<void>;
+    authSlot?: React.ReactNode;
+    mobileAuthSlot?: React.ReactNode;
+    mobileBellSlot?: React.ReactNode;
 };
 
-export function Header({ session, isAdmin, settings, navLinks, onSignOut }: HeaderProps) {
+export function Header({
+    session,
+    isAdmin = false,
+    settings,
+    navLinks,
+    onSignOut,
+    authSlot,
+    mobileAuthSlot,
+    mobileBellSlot,
+}: HeaderProps) {
     const [open, setOpen] = React.useState(false);
     const scrolled = useScroll(10);
     const [isPending, startTransition] = useTransition();
@@ -147,7 +159,9 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
 
                         <ThemeToggle variant="icon" />
 
-                        {session ? (
+                        {authSlot !== undefined ? (
+                            authSlot
+                        ) : session ? (
                             <div className="flex items-center gap-2">
                                 <NotificationBell />
                                 <UserNav
@@ -155,7 +169,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                     isAdmin={isAdmin}
                                     onSignOut={async () => {
                                         startTransition(async () => {
-                                            await onSignOut();
+                                            if (onSignOut) await onSignOut();
                                         });
                                     }}
                                     isPending={isPending}
@@ -180,7 +194,11 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
 
                     {/* Mobile Actions */}
                     <div className="flex items-center gap-2 md:hidden">
-                        {session && <NotificationBell />}
+                        {mobileBellSlot !== undefined ? (
+                            mobileBellSlot
+                        ) : (
+                            session && <NotificationBell />
+                        )}
                         <ThemeToggle variant="icon" />
                         <Button
                             size="icon"
@@ -225,7 +243,9 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                         ))}
                     </div>
                     <div className="flex flex-col gap-3">
-                        {session ? (
+                        {mobileAuthSlot !== undefined ? (
+                            mobileAuthSlot
+                        ) : session ? (
                             <>
                                 <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
                                     <Link href="/portal" onClick={() => setOpen(false)}>My Dashboard</Link>
@@ -242,7 +262,7 @@ export function Header({ session, isAdmin, settings, navLinks, onSignOut }: Head
                                     variant="outline"
                                     className="w-full rounded-xl h-12 font-medium text-destructive hover:bg-destructive/10 border-border"
                                     onClick={() => startTransition(async () => {
-                                        await onSignOut();
+                                        if (onSignOut) await onSignOut();
                                         setOpen(false);
                                     })}
                                     disabled={isPending}
