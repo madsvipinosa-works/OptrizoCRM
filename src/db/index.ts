@@ -2,10 +2,10 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
 
-const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
 
 if (!connectionString) {
-    console.warn("⚠️ Neither DIRECT_URL nor DATABASE_URL is set in environment variables.");
+    console.warn("⚠️ Neither DATABASE_URL nor DIRECT_URL is set in environment variables.");
 }
 
 // Global pattern for pg.Pool in Next.js development mode to prevent connection pool exhaustion during hot reloads
@@ -22,7 +22,7 @@ const pool =
             : undefined,
         max: process.env.DB_MAX_CONNECTIONS
             ? Number(process.env.DB_MAX_CONNECTIONS)
-            : 10,
+            : 3,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
         keepAlive: true,
