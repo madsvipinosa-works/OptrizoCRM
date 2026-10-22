@@ -52,10 +52,10 @@ export function MilestoneStatusDropdown({ status, onStatusChange }: MilestoneSta
       {open && (
         <div
           className={cn(
-            "absolute left-[calc(100%+0.5rem)] top-0 w-48 rounded-xl overflow-hidden z-[100]",
+            "absolute top-full left-0 mt-1 sm:left-[calc(100%+0.5rem)] sm:top-0 sm:mt-0 w-48 rounded-xl overflow-hidden z-[100]",
             "bg-card/95 backdrop-blur-xl text-foreground",
             "shadow-2xl border border-border",
-            "animate-in fade-in zoom-in-95 slide-in-from-left-2 duration-200"
+            "animate-in fade-in zoom-in-95 slide-in-from-top-1 sm:slide-in-from-left-2 duration-200"
           )}
         >
           {STATUSES.map((s) => (

@@ -57,22 +57,24 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
     });
 
     return (
-        <div className="space-y-3 h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500 w-full max-w-full min-w-0">
-            <div className="flex items-center justify-between gap-4 shrink-0">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild className="hover:bg-muted text-foreground">
+        <div className="space-y-3 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500 w-full max-w-full min-w-0">
+            <div className="flex items-center justify-between gap-2.5 sm:gap-4 shrink-0">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                    <Button variant="ghost" size="icon" asChild className="hover:bg-muted text-foreground shrink-0">
                         <Link href="/dashboard/pm">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight text-foreground">{project.title}</h2>
-                        <p className="text-sm text-muted-foreground hidden sm:flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                        <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate" title={project.title}>
+                            {project.title}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 truncate">
                             {project.stakeholders?.[0]?.user?.name || "Unknown Client"} • Status: <span className="text-foreground font-semibold font-mono">{project.status}</span>
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <ProjectResourcesSidebar project={project} />
                     <ProjectSettingsModal project={project} />
                 </div>

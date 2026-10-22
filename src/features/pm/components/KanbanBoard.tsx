@@ -556,12 +556,12 @@ export function KanbanBoard({
     return (
         <div className="h-full flex flex-col pt-2">
             {/* Milestone Tabs */}
-            <div className="flex gap-2 mb-2.5 overflow-x-auto pb-1 shrink-0 items-center scrollbar-none">
+            <div className="flex gap-2 mb-2.5 overflow-x-auto pb-1 shrink-0 items-center scrollbar-none touch-pan-x">
                 {optimisticMilestones.map((m) => (
                     <button
                         key={m.id}
                         onClick={() => setActiveMilestoneId(m.id)}
-                        className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${activeMilestoneId === m.id
+                        className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${activeMilestoneId === m.id
                                 ? "bg-primary text-black font-bold border-primary shadow-xs"
                                 : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground"
                             }`}
@@ -573,7 +573,7 @@ export function KanbanBoard({
                 {["superadmin", "manager"].includes(currentUserRole || "") && (
                     <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
                         <DialogTrigger asChild>
-                            <button className="px-3 py-2 rounded-lg text-xs font-medium border border-border hover:bg-muted text-muted-foreground hover:text-foreground whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
+                            <button className="px-3 py-1.5 sm:py-2 rounded-lg text-xs font-medium border border-border hover:bg-muted text-muted-foreground hover:text-foreground whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
                                 <Plus className="h-3.5 w-3.5" /> Add
                             </button>
                         </DialogTrigger>
@@ -606,17 +606,17 @@ export function KanbanBoard({
             </div>
 
             {/* Active Milestone Context Bar & Toolbar */}
-            <div className="flex items-center justify-between bg-card/70 px-3.5 py-2 rounded-xl border border-border mb-3 shrink-0 flex-wrap gap-2.5">
-                <div className="flex items-center gap-2.5">
-                    <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                        {activeMilestone.title}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-card/70 p-2.5 sm:px-3.5 sm:py-2 rounded-xl border border-border mb-3 shrink-0 gap-2.5 w-full min-w-0">
+                <div className="flex items-center justify-between sm:justify-start gap-2.5 w-full sm:w-auto min-w-0">
+                    <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2 truncate min-w-0">
+                        <span className="truncate">{activeMilestone.title}</span>
                         {["superadmin", "manager"].includes(currentUserRole || "") && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-6 w-6 opacity-50 hover:opacity-100 text-muted-foreground hover:text-foreground"
+                                        className="h-6 w-6 opacity-50 hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
                                     >
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -657,19 +657,21 @@ export function KanbanBoard({
                                 </DropdownMenu>
                         )}
                     </h3>
-                    {["superadmin", "manager"].includes(currentUserRole || "") ? (
-                        <MilestoneStatusDropdown
-                            status={activeMilestone.status}
-                            onStatusChange={handleMilestoneStatusChange}
-                        />
-                    ) : (
-                        <Badge variant="outline" className="border-border text-muted-foreground font-mono text-[10px]">
-                            {activeMilestone.status}
-                        </Badge>
-                    )}
+                    <div className="shrink-0">
+                        {["superadmin", "manager"].includes(currentUserRole || "") ? (
+                            <MilestoneStatusDropdown
+                                status={activeMilestone.status}
+                                onStatusChange={handleMilestoneStatusChange}
+                            />
+                        ) : (
+                            <Badge variant="outline" className="border-border text-muted-foreground font-mono text-[10px]">
+                                {activeMilestone.status}
+                            </Badge>
+                        )}
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 sm:pb-0 w-full sm:w-auto scrollbar-none shrink-0">
                     {/* Team Capacity Tracker Popover */}
                     {["superadmin", "manager"].includes(currentUserRole || "") && (
                         <Popover>
@@ -678,14 +680,14 @@ export function KanbanBoard({
                                     variant="outline"
                                     size="sm"
                                     className={cn(
-                                        "h-8 text-xs border-border bg-card/80 gap-1.5",
+                                        "h-8 text-xs border-border bg-card/80 gap-1.5 shrink-0 px-2 sm:px-3",
                                         overloadedMembers.length > 0
                                             ? "text-rose-500 hover:text-rose-600 border-rose-500/30 hover:bg-rose-500/10"
                                             : "text-foreground hover:bg-muted"
                                     )}
                                     title="View team workload & capacity allocation"
                                 >
-                                    <Users className="w-3.5 h-3.5 text-primary" />
+                                    <Users className="w-3.5 h-3.5 text-primary shrink-0" />
                                     <span className="hidden sm:inline">Capacity</span>
                                     {overloadedMembers.length > 0 ? (
                                         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-500 border border-rose-500/40">
@@ -778,7 +780,7 @@ export function KanbanBoard({
                                     if (val !== "all") setMyTasksOnly(false);
                                 }}
                             >
-                                <SelectTrigger className="w-[155px] h-8 bg-card border-border text-xs text-foreground">
+                                <SelectTrigger className="w-[125px] sm:w-[155px] h-8 bg-card border-border text-xs text-foreground shrink-0">
                                     <SelectValue placeholder="All Tasks" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border text-foreground">
@@ -817,7 +819,7 @@ export function KanbanBoard({
                         <Button
                             variant={myTasksOnly ? "default" : "outline"}
                             size="sm"
-                            className={`h-8 text-xs ${myTasksOnly
+                            className={`h-8 text-xs shrink-0 px-2.5 sm:px-3 ${myTasksOnly
                                     ? "bg-primary text-black font-semibold border-primary shadow-xs"
                                     : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                                 }`}
@@ -833,7 +835,7 @@ export function KanbanBoard({
                     {["superadmin", "manager"].includes(currentUserRole || "") && (
                         <Dialog>
                             <DialogTrigger asChild>
-                                <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs text-xs">
+                                <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs text-xs shrink-0 ml-auto sm:ml-0">
                                     <Plus className="h-3.5 w-3.5 mr-1" /> Add Task
                                 </Button>
                             </DialogTrigger>

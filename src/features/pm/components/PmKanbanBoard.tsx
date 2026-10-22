@@ -4,7 +4,8 @@ import React, { useState, useOptimistic } from "react";
 import {
     DndContext,
     DragOverlay,
-    PointerSensor,
+    MouseSensor,
+    TouchSensor,
     KeyboardSensor,
     useSensor,
     useSensors,
@@ -95,6 +96,8 @@ export function PmKanbanBoard({
     onClickTask,
 }: PmKanbanBoardProps) {
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+    const [selectedMobileColumn, setSelectedMobileColumn] = useState<"Todo" | "In Progress" | "Blocked" | "In Review" | "Done">("Todo");
+    const boardScrollRef = React.useRef<HTMLDivElement>(null);
 
     // Optimistic UI updates
     const [optimisticTasks, setOptimisticTasks] = useOptimistic(
@@ -114,13 +117,47 @@ export function PmKanbanBoard({
     );
 
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(MouseSensor, {
             activationConstraint: {
-                distance: 5,
+                distance: 8,
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 200,
+                tolerance: 6,
             },
         }),
         useSensor(KeyboardSensor)
     );
+
+    const scrollToColumn = (colId: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done") => {
+        setSelectedMobileColumn(colId);
+        const colEl = document.getElementById(`pm-column-${colId}`);
+        if (colEl && boardScrollRef.current) {
+            colEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        }
+    };
+
+    const handleBoardScroll = () => {
+        if (!boardScrollRef.current) return;
+        const container = boardScrollRef.current;
+        const containerCenter = container.scrollLeft + container.offsetWidth / 2;
+        let closestCol = COLUMNS[0].id;
+        let minDiff = Infinity;
+        for (const col of COLUMNS) {
+            const el = document.getElementById(`pm-column-${col.id}`);
+            if (el) {
+                const elCenter = el.offsetLeft + el.offsetWidth / 2;
+                const diff = Math.abs(containerCenter - elCenter);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestCol = col.id;
+                }
+            }
+        }
+        setSelectedMobileColumn(closestCol);
+    };
 
     const activeTask = optimisticTasks.find((t) => t.id === activeTaskId);
 
@@ -157,8 +194,50 @@ export function PmKanbanBoard({
 
     return (
         <DndContext id="pm-kanban-dnd-context" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden pb-2 scrollbar-none">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5 items-stretch min-w-[950px] lg:min-w-full h-full">
+            {/* Mobile Column Quick-Switcher */}
+            <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none shrink-0 px-0.5">
+                {COLUMNS.map((col) => {
+                    const count = optimisticTasks.filter((t) => {
+                        if (col.id === "In Progress") {
+                            return t.status === "In Progress" || t.status === "Changes Requested";
+                        }
+                        return t.status === col.id;
+                    }).length;
+                    const isSelected = selectedMobileColumn === col.id;
+
+                    return (
+                        <button
+                            key={col.id}
+                            type="button"
+                            onClick={() => scrollToColumn(col.id)}
+                            className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shrink-0",
+                                isSelected
+                                    ? "bg-primary text-black border-primary shadow-xs"
+                                    : "bg-card/90 text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+                            )}
+                        >
+                            <span className={cn("w-2 h-2 rounded-full", col.dotColor)} />
+                            <span>{col.title}</span>
+                            <span
+                                className={cn(
+                                    "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
+                                    isSelected ? "bg-black/20 text-black font-bold" : "bg-muted text-foreground"
+                                )}
+                            >
+                                {count}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div
+                ref={boardScrollRef}
+                onScroll={handleBoardScroll}
+                className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden pb-2 scrollbar-none snap-x snap-mandatory md:snap-none"
+            >
+                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-5 gap-3.5 items-stretch w-full min-w-0 md:min-w-[950px] lg:min-w-full h-full">
                     {COLUMNS.map((col) => {
                         // "In Progress" column houses both "In Progress" and "Changes Requested" tasks
                         const columnTasks = optimisticTasks.filter((t) => {
@@ -222,9 +301,11 @@ function PmKanbanColumn({
 
     return (
         <div
+            id={`pm-column-${column.id}`}
             ref={setNodeRef}
             className={cn(
                 "bg-card/75 border border-border rounded-2xl p-3.5 sm:p-4 flex flex-col h-full min-h-[460px] transition-all shadow-xs",
+                "w-[84vw] max-w-[320px] min-w-[270px] shrink-0 snap-center md:w-auto md:max-w-none md:min-w-0 md:shrink",
                 isOver && "border-primary/60 bg-primary/10 ring-1 ring-primary/20"
             )}
         >
@@ -243,7 +324,7 @@ function PmKanbanColumn({
 
             {/* Cards List */}
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-17rem)] pr-1 scrollbar-thin">
+                <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-21rem)] sm:max-h-[calc(100vh-17rem)] pr-1 scrollbar-thin">
                     {tasks.length === 0 ? (
                         <div className="h-24 rounded-xl border-2 border-dashed border-border/70 flex items-center justify-center text-xs text-muted-foreground font-medium">
                             No tasks
@@ -371,13 +452,13 @@ function TaskCardContent({
 
                 {/* Delete Button for Admins/Managers */}
                 {["superadmin", "manager"].includes(currentUserRole || "") && onDeleteTask && (
-                    <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center shrink-0 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteTask();
                             }}
-                            className="p-1 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-500 transition-colors"
+                            className="p-1.5 sm:p-1 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-500 transition-colors"
                             title="Delete task"
                         >
                             <Trash2 className="w-3.5 h-3.5" />

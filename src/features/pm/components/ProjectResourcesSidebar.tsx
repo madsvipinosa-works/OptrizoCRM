@@ -220,12 +220,13 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
             <SheetTrigger asChild>
                 <Button 
                     variant="outline" 
-                    className="border-border text-foreground hover:bg-muted transition-all shadow-xs"
+                    className="border-border text-foreground hover:bg-muted transition-all shadow-xs h-9 px-2.5 sm:px-4 shrink-0"
                 >
-                    <FolderOpen className="h-4 w-4 mr-2 text-primary" />
-                    Project Resources
+                    <FolderOpen className="h-4 w-4 sm:mr-2 text-primary shrink-0" />
+                    <span className="hidden sm:inline">Project Resources</span>
+                    <span className="sm:hidden ml-1.5 text-xs font-semibold">Assets</span>
                     {(documents.length > 0 || (stagingUrls && stagingUrls.length > 0)) && (
-                        <span className="ml-2 px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary border border-primary/20 font-mono">
+                        <span className="ml-1.5 sm:ml-2 px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary border border-primary/20 font-mono">
                             {documents.length + (stagingUrls?.filter(Boolean).length || 0)}
                         </span>
                     )}
