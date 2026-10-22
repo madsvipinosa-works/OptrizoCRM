@@ -65,7 +65,6 @@ const navGroups: NavGroup[] = [
         items: [
             { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare, allowedRoles: ["superadmin", "manager", "developer"] },
             { href: "/dashboard/cms", label: "Content Manager", icon: Monitor, allowedRoles: ["superadmin", "content_editor"] },
-            { href: "/dashboard/about", label: "About Page", icon: Info, allowedRoles: ["superadmin", "content_editor"] },
         ],
     },
     {

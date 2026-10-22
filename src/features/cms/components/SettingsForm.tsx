@@ -124,15 +124,15 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                     <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <Info className="w-4 h-4 text-purple-400 shrink-0" />
-                            <h4 className="text-sm font-semibold text-foreground">About Page Bento Layout</h4>
+                            <h4 className="text-sm font-semibold text-foreground">About Section & Bento Layout</h4>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-1">
-                            Company stats, mission statement, and core values are managed in the About Page Manager.
+                            Company stats, mission statement, tech stack, and core values are managed in Content Manager.
                         </p>
                     </div>
                     <Button asChild size="sm" variant="outline" className="border-border text-foreground shrink-0 group-hover:border-purple-400/50">
-                        <Link href="/dashboard/about">
-                            Manage About <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                        <Link href="/dashboard/cms">
+                            Open CMS <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                         </Link>
                     </Button>
                 </div>

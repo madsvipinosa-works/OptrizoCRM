@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { posts, caseStudies, services, testimonials } from "@/db/schema";
+import { posts, caseStudies, services, testimonials, aboutValues } from "@/db/schema";
 import { desc, asc } from "drizzle-orm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostsTab } from "@/features/cms/components/PostsTab";
@@ -7,19 +7,23 @@ import { PortfolioTab } from "@/features/cms/components/PortfolioTab";
 import { ServicesTab } from "@/features/cms/components/ServicesTab";
 import { TestimonialsTab } from "@/features/cms/components/TestimonialsTab";
 import { HeroTab } from "@/features/cms/components/HeroTab";
+import { AboutTab } from "@/features/cms/components/AboutTab";
 import { getSiteSettings } from "@/features/cms/actions";
-import { FileText, FolderGit2, Layers, MessageSquareQuote, Sparkles, Star, Plus, Tv } from "lucide-react";
+import { FileText, FolderGit2, Layers, MessageSquareQuote, Sparkles, Star, Plus, Tv, Info } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default async function CMSDashboardPage() {
-    // Parallel fetch for all content types and site settings
-    const [allPosts, allProjects, allServices, allTestimonials, settings] = await Promise.all([
+    // Parallel fetch for all content types, site settings, and about page values
+    const [allPosts, allProjects, allServices, allTestimonials, settings, values] = await Promise.all([
         db.query.posts.findMany({ orderBy: [desc(posts.createdAt)] }),
         db.query.caseStudies.findMany({ orderBy: [desc(caseStudies.createdAt)] }),
         db.query.services.findMany({ orderBy: [asc(services.order)] }),
         db.query.testimonials.findMany({ orderBy: [desc(testimonials.id)] }),
         getSiteSettings(),
+        db.query.aboutValues.findMany({
+            orderBy: (aboutValues, { asc }) => [asc(aboutValues.order)],
+        }),
     ]);
 
     // Analytics overview calculations
@@ -110,7 +114,7 @@ export default async function CMSDashboardPage() {
             {/* Main Tabs Container */}
             <Tabs defaultValue="posts" className="w-full">
                 <div className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 bg-muted/50 backdrop-blur-xl border border-border p-1.5 rounded-xl gap-1.5 h-auto">
+                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 bg-muted/50 backdrop-blur-xl border border-border p-1.5 rounded-xl gap-1.5 h-auto">
                         <TabsTrigger 
                             value="posts" 
                             className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
@@ -149,10 +153,18 @@ export default async function CMSDashboardPage() {
 
                         <TabsTrigger 
                             value="hero" 
-                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all col-span-2 sm:col-span-1"
+                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
                         >
                             <Tv className="w-4 h-4 shrink-0" />
                             <span className="whitespace-nowrap">Hero & Media</span>
+                        </TabsTrigger>
+
+                        <TabsTrigger 
+                            value="about" 
+                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
+                        >
+                            <Info className="w-4 h-4 shrink-0" />
+                            <span className="whitespace-nowrap">About Section</span>
                         </TabsTrigger>
                     </TabsList>
                 </div>
@@ -176,6 +188,10 @@ export default async function CMSDashboardPage() {
 
                     <TabsContent value="hero" className="mt-0 outline-none">
                         <HeroTab settings={settings} />
+                    </TabsContent>
+
+                    <TabsContent value="about" className="mt-0 outline-none">
+                        <AboutTab settings={settings || {}} values={values} />
                     </TabsContent>
                 </div>
             </Tabs>
