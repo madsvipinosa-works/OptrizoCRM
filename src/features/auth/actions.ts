@@ -39,8 +39,9 @@ function tooManyAttempts(retryAfterSeconds: number): AuthActionResult {
     };
 }
 
-export async function googleSignIn() {
-    await signIn("google", { redirectTo: "/dashboard" });
+export async function googleSignIn(callbackUrl?: string) {
+    const targetRedirect = callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+    await signIn("google", { redirectTo: targetRedirect });
 }
 
 export async function signInWithEmail(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
