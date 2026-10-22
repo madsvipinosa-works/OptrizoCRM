@@ -77,11 +77,14 @@ export const TypewriterHeadline: React.FC<TypewriterProps> = ({
   const displayedText = currentWord.substring(0, subIndex);
 
   return (
-    <span className={`inline relative ${className}`}>
-      <span className="text-outline will-change-contents">{displayedText}</span>
+    <span className={`inline relative ${className}`} suppressHydrationWarning>
+      <span className="text-outline will-change-contents" suppressHydrationWarning>
+        {displayedText}
+      </span>
       <span
         className="inline-block w-[3px] sm:w-[4px] md:w-[6px] h-[0.78em] ml-1.5 bg-[#00D639] animate-pulse align-[-0.04em] rounded-[1px]"
         aria-hidden="true"
+        suppressHydrationWarning
       />
     </span>
   );
