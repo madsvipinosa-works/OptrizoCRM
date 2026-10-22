@@ -7,6 +7,7 @@ import { MenuToggleIcon } from '@/components/ui/menu-toggle-icon';
 import { useScroll } from '@/components/ui/use-scroll';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Code2 } from 'lucide-react';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { UserNav } from '@/components/auth/UserNav';
@@ -49,6 +50,12 @@ export function Header({
     const [open, setOpen] = React.useState(false);
     const scrolled = useScroll(10);
     const [isPending, startTransition] = useTransition();
+    const pathname = usePathname();
+
+    // Automatically close the mobile menu on route change
+    React.useEffect(() => {
+        setOpen(false);
+    }, [pathname]);
 
     React.useEffect(() => {
         if (open) {
@@ -242,7 +249,15 @@ export function Header({
                             </Link>
                         ))}
                     </div>
-                    <div className="flex flex-col gap-3">
+                    <div 
+                        className="flex flex-col gap-3"
+                        onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest("a, button:not([data-nested])")) {
+                                setOpen(false);
+                            }
+                        }}
+                    >
                         {mobileAuthSlot !== undefined ? (
                             mobileAuthSlot
                         ) : session ? (

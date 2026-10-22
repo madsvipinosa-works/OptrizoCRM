@@ -19,7 +19,8 @@ export default auth((req) => {
 
     // 1. Redirect unauthenticated users
     if (isProtectedRoute && !isLoggedIn) {
-        return Response.redirect(new URL("/services?login=required", nextUrl));
+        const callbackUrl = encodeURIComponent(nextUrl.pathname + nextUrl.search);
+        return Response.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, nextUrl));
     }
 
     // 2. Strict RBAC Firewalls for authenticated users

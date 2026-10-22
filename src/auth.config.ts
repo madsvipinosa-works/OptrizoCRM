@@ -3,6 +3,8 @@ import type { NextAuthConfig } from "next-auth"
 // Notice this is only an export object, not the full NextAuth() instantiation.
 // This file does NOT contain the DrizzleAdapter or any database queries, allowing it to run on the Edge.
 export default {
+    trustHost: true,
+    session: { strategy: "jwt" },
     providers: [], // Empty array for Edge middleware compatibility
     callbacks: {
         jwt({ token, user }) {

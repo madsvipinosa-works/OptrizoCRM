@@ -29,6 +29,7 @@ async function resolveClientIp(request: Request | undefined): Promise<string | n
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
+    trustHost: true,
     adapter: DrizzleAdapter(db),
     session: { strategy: "jwt" },
     providers: [
@@ -145,11 +146,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         .where(eq(users.email, token.email))
                         .limit(1);
 
+                    token.lastDbCheck = now;
                     if (dbUser && dbUser.isActive) {
                         token.id = dbUser.id;
                         token.role = dbUser.role;
                         token.jobTitle = dbUser.jobTitle;
-                        token.lastDbCheck = now;
                     }
                 } catch (e: any) {
                     console.warn("[Auth] DB lookup skipped in JWT callback (session preserved):", e?.cause?.message || e?.message || e);

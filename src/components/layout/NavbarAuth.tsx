@@ -1,9 +1,13 @@
-import { auth, signOut, hasRole } from "@/auth";
+"use client";
+
+import React, { useTransition } from "react";
+import { useSession, signOut as clientSignOut } from "next-auth/react";
 import { UserNav } from "@/components/auth/UserNav";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import Link from "next/link";
+import { handleSignOut as serverSignOut } from "@/features/auth/signout-action";
 
 interface AuthProps {
     settings: {
@@ -12,21 +16,36 @@ interface AuthProps {
     } | null;
 }
 
-const handleSignOut = async () => {
-    "use server";
-    await signOut({ redirectTo: "/" });
-};
+const ADMIN_ROLES = ["superadmin", "sales", "manager", "developer", "content_editor"];
 
-export async function NavbarAuthDesktop({ settings }: AuthProps) {
-    let session = null;
-    try {
-        session = await auth();
-    } catch {
-        // Fallback to guest mode on any session read error
+export function NavbarAuthDesktop({ settings }: AuthProps) {
+    const { data: session, status } = useSession();
+    const [isPending, startTransition] = useTransition();
+
+    const handleSignOut = async () => {
+        startTransition(async () => {
+            try {
+                await serverSignOut();
+            } catch {
+                // Fallback to client signout
+            }
+            await clientSignOut({ callbackUrl: "/" });
+        });
+    };
+
+    if (status === "loading") {
+        return (
+            <div className="flex items-center gap-2 animate-pulse">
+                <div className="w-9 h-9 rounded-xl bg-muted/60" />
+                <div className="w-24 h-9 rounded-xl bg-muted/60" />
+            </div>
+        );
     }
 
     if (session?.user) {
-        const isAdmin = hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"]);
+        const userRole = (session.user as any)?.role || "client";
+        const isAdmin = ADMIN_ROLES.includes(userRole);
+
         return (
             <div className="flex items-center gap-2">
                 <NotificationBell />
@@ -34,6 +53,7 @@ export async function NavbarAuthDesktop({ settings }: AuthProps) {
                     user={session.user}
                     isAdmin={isAdmin}
                     onSignOut={handleSignOut}
+                    isPending={isPending}
                 />
             </div>
         );
@@ -56,13 +76,8 @@ export async function NavbarAuthDesktop({ settings }: AuthProps) {
     );
 }
 
-export async function NavbarMobileBell() {
-    let session = null;
-    try {
-        session = await auth();
-    } catch {
-        return null;
-    }
+export function NavbarMobileBell() {
+    const { data: session } = useSession();
 
     if (session?.user) {
         return <NotificationBell />;
@@ -71,16 +86,34 @@ export async function NavbarMobileBell() {
     return null;
 }
 
-export async function NavbarAuthMobile({ settings }: AuthProps) {
-    let session = null;
-    try {
-        session = await auth();
-    } catch {
-        // Fallback to guest mode
+export function NavbarAuthMobile({ settings }: AuthProps) {
+    const { data: session, status } = useSession();
+    const [isPending, startTransition] = useTransition();
+
+    const handleSignOut = async () => {
+        startTransition(async () => {
+            try {
+                await serverSignOut();
+            } catch {
+                // Ignore
+            }
+            await clientSignOut({ callbackUrl: "/" });
+        });
+    };
+
+    if (status === "loading") {
+        return (
+            <div className="flex flex-col gap-3 animate-pulse">
+                <div className="w-full h-12 rounded-xl bg-muted/50" />
+                <div className="w-full h-12 rounded-xl bg-muted/50" />
+            </div>
+        );
     }
 
     if (session?.user) {
-        const isAdmin = hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"]);
+        const userRole = (session.user as any)?.role || "client";
+        const isAdmin = ADMIN_ROLES.includes(userRole);
+
         return (
             <>
                 <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
@@ -94,15 +127,15 @@ export async function NavbarAuthMobile({ settings }: AuthProps) {
                         <Link href="/dashboard">Admin Panel</Link>
                     </Button>
                 )}
-                <form action={handleSignOut} className="w-full">
-                    <Button
-                        type="submit"
-                        variant="outline"
-                        className="w-full rounded-xl h-12 font-medium text-destructive hover:bg-destructive/10 border-border"
-                    >
-                        Log out
-                    </Button>
-                </form>
+                <Button
+                    type="button"
+                    onClick={handleSignOut}
+                    disabled={isPending}
+                    variant="outline"
+                    className="w-full rounded-xl h-12 font-medium text-destructive hover:bg-destructive/10 border-border"
+                >
+                    {isPending ? "Logging out..." : "Log out"}
+                </Button>
             </>
         );
     }
@@ -124,7 +157,7 @@ export async function NavbarAuthMobile({ settings }: AuthProps) {
 export function NavbarAuthFallback({ settings, mobile }: { settings: AuthProps["settings"]; mobile?: boolean }) {
     if (mobile) {
         return (
-            <>
+            <div className="flex flex-col gap-3">
                 <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
                     <Button variant="outline" className="w-full rounded-xl h-12 font-medium border-border/50">
                         Login
@@ -133,7 +166,7 @@ export function NavbarAuthFallback({ settings, mobile }: { settings: AuthProps["
                 <Button asChild className="w-full rounded-xl h-12 font-semibold tracking-tight shadow-md">
                     <Link href="/contact">Get Started</Link>
                 </Button>
-            </>
+            </div>
         );
     }
 

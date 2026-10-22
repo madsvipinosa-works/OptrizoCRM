@@ -39,11 +39,16 @@ interface LoginModalProps {
 export function LoginModal({
   children,
   defaultRedirect,
-  open,
-  onOpenChange,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
   logoUrl,
   logoDarkUrl,
 }: LoginModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const onOpenChange = isControlled ? controlledOnOpenChange : setInternalOpen;
+
   const [isLogin, setIsLogin] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -79,6 +84,7 @@ export function LoginModal({
         if (!result.success) {
           setError(result.message || "An error occurred");
         } else if (result.redirect) {
+          onOpenChange?.(false);
           router.push(defaultRedirect || result.redirect);
           router.refresh();
         }
