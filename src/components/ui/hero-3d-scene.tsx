@@ -113,6 +113,16 @@ interface OptrizoLogo3DProps {
 }
 
 const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
+  const { viewport } = useThree();
+  const isMobile = viewport.width < 25;
+  const isTablet = viewport.width >= 25 && viewport.width < 34;
+  const baseY = isMobile ? -5.8 : (isTablet ? -2.5 : 0);
+  const baseScale: [number, number, number] = isMobile
+    ? [0.65, 0.65, 0.65]
+    : isTablet
+    ? [0.9, 0.9, 0.9]
+    : [1.15, 1.15, 1.15];
+
   const scrollGroupRef = useRef<THREE.Group>(null);
   const groupRef = useRef<THREE.Group>(null);
   const frameRef = useRef<THREE.Mesh>(null);
@@ -195,7 +205,7 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
     const p = currentScroll.current;
 
     if (scrollGroupRef.current) {
-      scrollGroupRef.current.position.y = -p * 28;
+      scrollGroupRef.current.position.y = baseY - p * 28;
       scrollGroupRef.current.position.z = -p * 14;
 
       const fadeStart = 0.12;
@@ -217,9 +227,9 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
   });
 
   return (
-    <group ref={scrollGroupRef}>
-      <Float speed={1.8} rotationIntensity={0.5} floatIntensity={1.2}>
-        <group ref={groupRef} rotation={[0.36, Math.PI / 6, 0]} scale={[1.15, 1.15, 1.15]}>
+    <group ref={scrollGroupRef} position={[0, baseY, 0]}>
+      <Float speed={1.8} rotationIntensity={isMobile ? 0.2 : 0.5} floatIntensity={isMobile ? 0.35 : 1.2}>
+        <group ref={groupRef} rotation={[0.36, Math.PI / 6, 0]} scale={baseScale}>
           <mesh ref={frameRef} geometry={frameGeometry} castShadow receiveShadow>
             <MeshDistortMaterial
               ref={(el) => {
@@ -294,6 +304,12 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
 // --- Custom Imported GLB 3D Model Loader ---
 const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
   const { scene } = useGLTF("/models/optrizo-3d-model.glb");
+  const { viewport } = useThree();
+  const isMobile = viewport.width < 25;
+  const isTablet = viewport.width >= 25 && viewport.width < 34;
+  const baseY = isMobile ? -5.8 : (isTablet ? -2.5 : 0);
+  const modelScale = isMobile ? 2.3 : (isTablet ? 3.3 : 4.5);
+
   const scrollGroupRef = useRef<THREE.Group>(null);
   const groupRef = useRef<THREE.Group>(null);
   const shadowMatRef = useRef<THREE.ShadowMaterial>(null);
@@ -309,11 +325,11 @@ const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) =
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         const mat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color("#00D639"),
-          roughness: isDark ? 0.26 : 0.28,
-          metalness: isDark ? 0.42 : 0.32,
-          emissive: new THREE.Color("#000000"),
-          emissiveIntensity: 0.0,
+          color: new THREE.Color(isDark ? "#00D639" : "#00DF3D"),
+          roughness: isDark ? 0.26 : 0.42,
+          metalness: isDark ? 0.42 : 0.15,
+          emissive: new THREE.Color(isDark ? "#000000" : "#003b0f"),
+          emissiveIntensity: isDark ? 0.0 : 0.04,
           transparent: true,
           opacity: 1.0,
           depthWrite: true,
@@ -351,7 +367,7 @@ const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) =
     }
 
     if (scrollGroupRef.current) {
-      scrollGroupRef.current.position.y = -p * 32;
+      scrollGroupRef.current.position.y = baseY - p * 32;
       scrollGroupRef.current.position.z = -p * 20;
 
       const fadeStart = 0.10;
@@ -367,7 +383,7 @@ const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) =
       scrollGroupRef.current.visible = currentOpacity > 0.002;
 
       if (shadowMatRef.current) {
-        const baseShadow = isDark ? 0.40 : 0.15;
+        const baseShadow = isDark ? 0.40 : (isMobile ? 0.06 : 0.14);
         shadowMatRef.current.opacity = baseShadow * currentOpacity;
       }
     }
@@ -375,22 +391,22 @@ const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) =
 
   return (
     <>
-      <group ref={scrollGroupRef} position={[0, 0, 0]}>
-        <Float speed={1.6} rotationIntensity={0.3} floatIntensity={0.8}>
+      <group ref={scrollGroupRef} position={[0, baseY, 0]}>
+        <Float speed={1.6} rotationIntensity={isMobile ? 0.15 : 0.3} floatIntensity={isMobile ? 0.35 : 0.8}>
           <group ref={groupRef}>
             <Center>
-              <primitive object={clonedScene.clone} rotation={[Math.PI / 2, 0, 0]} scale={4.5} />
+              <primitive object={clonedScene.clone} rotation={[Math.PI / 2, 0, 0]} scale={modelScale} />
             </Center>
           </group>
         </Float>
       </group>
 
-      <mesh position={[0, 0, -6]} receiveShadow>
+      <mesh position={[0, baseY, -6]} receiveShadow>
         <planeGeometry args={[60, 60]} />
         <shadowMaterial
           ref={shadowMatRef}
           transparent
-          opacity={isDark ? 0.40 : 0.15}
+          opacity={isDark ? 0.40 : (isMobile ? 0.06 : 0.14)}
           color={isDark ? "#000000" : "#001a06"}
         />
       </mesh>
@@ -447,10 +463,10 @@ export default function Hero3DScene({
         }}
         camera={{ position: [0, 0, 60], fov: 35 }}
       >
-        <ambientLight intensity={isDark ? 0.22 : 0.45} />
+        <ambientLight intensity={isDark ? 0.22 : 0.65} />
         <directionalLight
           position={[12, 26, 48]}
-          intensity={isDark ? 3.4 : 3.8}
+          intensity={isDark ? 3.4 : 3.5}
           castShadow
           shadow-mapSize={[512, 512]}
           shadow-camera-near={10}

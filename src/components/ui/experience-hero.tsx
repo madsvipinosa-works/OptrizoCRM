@@ -166,7 +166,7 @@ function HeroCyberFallback({ isDark }: { isDark: boolean }) {
         }`}
       />
       {/* Cybernetic Geometric Monogram Silhouette */}
-      <div className="relative w-64 h-64 md:w-80 md:h-80 opacity-40">
+      <div className="relative w-64 h-64 md:w-80 md:h-80 opacity-40 translate-y-16 md:translate-y-0">
         <svg viewBox="0 0 100 115" fill="none" className="w-full h-full">
           <polygon
             points="50 0, 100 28.8, 100 86.6, 50 115.5, 0 86.6, 0 28.8"
@@ -677,7 +677,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                 <span className="text-[#00D639] font-black">{" //"}</span>
               </p>
               <p
-                className={`font-mono text-[11px] uppercase tracking-[0.28em] leading-relaxed ${isDark ? "text-white/45" : "text-neutral-700 font-medium"
+                className={`font-mono text-[11px] uppercase tracking-[0.28em] leading-relaxed ${isDark ? "text-white/70" : "text-neutral-900 font-medium"
                   }`}
               >
                 {description}
@@ -694,8 +694,8 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
             >
               <div
                 className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 overflow-hidden ${isDark
-                    ? "border-white/20 group-hover:border-[#00D639] group-hover:bg-[#00D639] shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.4)]"
-                    : "border-neutral-900/20 group-hover:border-[#00D639] group-hover:bg-[#00D639] shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.3)]"
+                    ? "border-white/20 group-hover:border-[#00D639] group-hover:bg-[#00D639] shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.4)] bg-background/40 backdrop-blur-sm"
+                    : "border-neutral-900/20 group-hover:border-[#00D639] group-hover:bg-[#00D639] shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.3)] bg-background/60 backdrop-blur-sm"
                   }`}
               >
                 <svg
