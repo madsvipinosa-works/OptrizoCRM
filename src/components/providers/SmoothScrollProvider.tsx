@@ -32,15 +32,18 @@ export function SmoothScrollProvider({
 
     gsap.registerPlugin(ScrollTrigger);
 
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+
     // Initialize Lenis with cinematic inertia curve
     const lenis = new Lenis({
-      duration: 1.2,
+      duration: isTouch ? 1.0 : 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // Exponential deceleration for buttery feel
       orientation: "vertical",
       gestureOrientation: "vertical",
       smoothWheel: true,
       wheelMultiplier: 0.9, // Tactile organic wheel response
-      touchMultiplier: 1.5,
+      touchMultiplier: 1.0, // Avoid fighting native inertial touch scrolling
+      syncTouch: false,
     });
 
     lenisRef.current = lenis;
@@ -78,6 +81,16 @@ export function SmoothScrollProvider({
 
     document.addEventListener("click", handleAnchorClick);
 
+    // Debounced ScrollTrigger refresh on window resize to avoid mobile URL bar collapse thrashing
+    let resizeTimer: any;
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 250);
+    };
+    window.addEventListener("resize", handleResize, { passive: true });
+
     // Recalculate ScrollTrigger measurements once layout settles during browser idle
     let refreshId: any;
     if ("requestIdleCallback" in window) {
@@ -99,6 +112,8 @@ export function SmoothScrollProvider({
       } else {
         clearTimeout(refreshId);
       }
+      clearTimeout(resizeTimer);
+      window.removeEventListener("resize", handleResize);
       document.removeEventListener("click", handleAnchorClick);
       gsap.ticker.remove(onTicker);
       lenis.destroy();

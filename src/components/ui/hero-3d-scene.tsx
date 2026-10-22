@@ -448,11 +448,13 @@ export default function Hero3DScene({
   scrollRef?: React.RefObject<number>;
   fallback?: React.ReactNode;
 }) {
+  const isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false;
+
   return (
     <WebGLErrorBoundary fallback={fallback}>
       <Canvas
         shadows
-        dpr={[1, 1.25]}
+        dpr={isMobile ? [1, 1.1] : [1, 1.25]}
         gl={{
           powerPreference: "high-performance",
           antialias: false,
@@ -468,7 +470,7 @@ export default function Hero3DScene({
           position={[12, 26, 48]}
           intensity={isDark ? 3.4 : 3.5}
           castShadow
-          shadow-mapSize={[512, 512]}
+          shadow-mapSize={isMobile ? [256, 256] : [512, 512]}
           shadow-camera-near={10}
           shadow-camera-far={90}
           shadow-camera-left={-22}
@@ -477,7 +479,7 @@ export default function Hero3DScene({
           shadow-camera-bottom={-22}
           shadow-bias={-0.0002}
           shadow-normalBias={0.03}
-          shadow-radius={3.0}
+          shadow-radius={isMobile ? 2.0 : 3.0}
         />
         <directionalLight
           position={[-15, 10, 35]}

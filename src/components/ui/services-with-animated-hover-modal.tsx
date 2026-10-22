@@ -130,9 +130,10 @@ export function ServicesWithAnimatedHoverModal({
         isModalActive.current = modal.active;
     }, [modal.active]);
 
-    // Track cursor with GSAP physics
+    // Track cursor with GSAP physics (only when mouse hover is supported)
     useEffect(() => {
         if (!modalContainer.current || !cursor.current || !cursorLabel.current) return;
+        if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) return;
 
         const xMoveContainer = gsap.quickTo(modalContainer.current, "left", {
             duration: 0.6,
