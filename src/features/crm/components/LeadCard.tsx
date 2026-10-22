@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 import {
     DollarSign,
     Building2,
@@ -151,20 +151,23 @@ export function LeadCard({
     return (
         <div
             onClick={() => onSelect?.(lead)}
-            className={`group relative rounded-xl border bg-card/90 hover:bg-card hover:border-primary/40 transition-all duration-200 p-3.5 space-y-2.5 cursor-pointer shadow-xs hover:shadow-md select-none ${
+            className={`group relative rounded-xl border bg-card/90 hover:bg-card hover:border-primary/40 transition-all duration-200 p-3.5 space-y-2.5 cursor-pointer shadow-xs hover:shadow-md select-none w-full min-w-0 overflow-hidden ${
                 isStale
                     ? "border-l-4 border-l-amber-500 border-border"
                     : "border-border"
             }`}
         >
             {/* Top Row: Company Name, Priority / Score, and 3-Dot Menu */}
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-2 min-w-0">
                 <div className="space-y-0.5 min-w-0 flex-1">
-                    <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-all duration-200 truncate group-hover:whitespace-normal group-hover:overflow-visible group-hover:text-clip leading-snug">
+                    <h4
+                        className="font-semibold text-sm text-foreground group-hover:text-primary transition-all duration-200 line-clamp-1 group-hover:line-clamp-2 break-words leading-snug"
+                        title={leadTitle}
+                    >
                         {leadTitle}
                     </h4>
                     {lead.contactEmail && (
-                        <p className="text-[11px] text-muted-foreground truncate">
+                        <p className="text-[11px] text-muted-foreground truncate" title={lead.contactEmail}>
                             {lead.contactEmail}
                         </p>
                     )}
@@ -282,8 +285,8 @@ export function LeadCard({
             </div>
 
             {/* Middle Row: Industry / Focus & Estimated Value */}
-            <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50">
-                <div className="flex items-center gap-1.5 text-muted-foreground truncate max-w-[60%]">
+            <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50 gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 text-muted-foreground truncate min-w-0 flex-1">
                     <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
                     <span className="truncate">{lead.industry || "General Focus"}</span>
                 </div>
@@ -296,7 +299,7 @@ export function LeadCard({
 
             {/* Next Urgent Task Preview (Zero N+1 query - read from eager loaded lead.crmTasks) */}
             {nextTask && (
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] transition-colors truncate ${
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] transition-colors truncate min-w-0 ${
                     isNextTaskOverdue
                         ? "bg-rose-500/10 border-rose-500/20 text-rose-500 dark:text-rose-400"
                         : "bg-muted/40 border-border/60 text-muted-foreground"
@@ -316,7 +319,7 @@ export function LeadCard({
             )}
 
             {nextFollowUp && (
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] ${
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] min-w-0 ${
                     isFollowUpOverdue
                         ? "bg-rose-500/10 border-rose-500/20 text-rose-500 dark:text-rose-400"
                         : "bg-muted/40 border-border/60 text-muted-foreground"
@@ -329,12 +332,12 @@ export function LeadCard({
             )}
 
             {/* Bottom Row: Assignee avatars, task alert badges, last activity time, SOW link */}
-            <div className="flex items-center justify-between pt-1.5 border-t border-border/50 text-[11px] text-muted-foreground">
-                {/* Assignees avatar stack */}
-                <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground min-w-0">
+                {/* Assignees avatar stack & activity */}
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     {lead.assignees && lead.assignees.length > 0 ? (
-                        <div className="flex items-center gap-1.5" title={`Owner${lead.assignees.length > 1 ? "s" : ""}: ${lead.assignees.map((assignee: any) => assignee.name || "Staff").join(", ")}`}>
-                            <div className="flex -space-x-1.5 overflow-hidden">
+                        <div className="flex items-center gap-1.5 min-w-0 shrink" title={`Owner${lead.assignees.length > 1 ? "s" : ""}: ${lead.assignees.map((assignee: any) => assignee.name || "Staff").join(", ")}`}>
+                            <div className="flex -space-x-1.5 overflow-hidden shrink-0">
                                 {lead.assignees.slice(0, 3).map((assignee: any) => (
                                     <Avatar key={assignee.id} size="sm" className="h-5 w-5 border border-border">
                                         {assignee.image && <AvatarImage src={assignee.image} alt={assignee.name || "Assigned owner"} />}
@@ -344,36 +347,41 @@ export function LeadCard({
                                     </Avatar>
                                 ))}
                             </div>
-                            <span className="max-w-20 truncate text-[10px]">
+                            <span className="max-w-[70px] truncate text-[10px]">
                                 {lead.assignees[0].name || "Assigned"}{lead.assignees.length > 1 ? ` +${lead.assignees.length - 1}` : ""}
                             </span>
                         </div>
                     ) : (
-                        <span className="text-muted-foreground/60 italic text-[10px]">Unassigned</span>
+                        <span className="text-muted-foreground/60 italic text-[10px] shrink-0">Unassigned</span>
                     )}
 
-                    <span className="text-muted-foreground/40">•</span>
+                    <span className="text-muted-foreground/40 shrink-0">•</span>
 
                     {/* Relative Activity */}
                     <span
-                        className={`flex items-center gap-1 ${
+                        title={`Last activity: ${format(lastContactTime, "PPpp")}`}
+                        className={`flex items-center gap-1 whitespace-nowrap shrink-0 text-[10px] ${
                             isStale ? "text-amber-500 dark:text-amber-400 font-semibold" : "text-muted-foreground"
                         }`}
                     >
-                        <Clock className="h-2.5 w-2.5" />
-                        {isStale ? `${daysSinceContact}d idle` : formatDistanceToNow(lastContactTime, { addSuffix: true })}
+                        <Clock className="h-2.5 w-2.5 shrink-0" />
+                        {isStale
+                            ? `${daysSinceContact}d idle`
+                            : daysSinceContact === 0
+                            ? "Today"
+                            : `${daysSinceContact}d ago`}
                     </span>
                 </div>
 
                 {/* Right badges & SOW Studio shortcut */}
-                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
                     {overdueTasksCount > 0 && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/20">
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/20 shrink-0">
                             {overdueTasksCount} Overdue
                         </Badge>
                     )}
                     {overdueTasksCount === 0 && dueTodayTasksCount > 0 && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20">
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20 shrink-0">
                             {dueTodayTasksCount} Due Today
                         </Badge>
                     )}
@@ -381,8 +389,8 @@ export function LeadCard({
                     <Link
                         href={`/dashboard/proposals/builder/${lead.proposals && lead.proposals.length > 0 ? lead.proposals[0].id : lead.id}`}
                         prefetch={false}
-                        className="p-1 rounded bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
-                        title="Open Proposal Studio"
+                        className="p-1 rounded bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors shrink-0"
+                        title="Open SOW / Proposal Studio"
                     >
                         <FileText className="h-3.5 w-3.5" />
                     </Link>
@@ -408,7 +416,7 @@ export function LeadCard({
                                 }
                             }}
                             disabled={isConverting}
-                            className="p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400 transition-colors"
+                            className="p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400 transition-colors shrink-0"
                             title="Open PM Project Delivery Workspace"
                         >
                             <Rocket className="h-3.5 w-3.5" />

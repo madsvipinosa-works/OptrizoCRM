@@ -101,25 +101,27 @@ export function LeadsKanbanBoard({
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start pb-4">
-                {STAGES.map((stage) => {
-                    const columnLeads = leads.filter((l) => l.status === stage);
-                    const totalColumnValue = columnLeads.reduce((acc, l) => acc + (l.estimatedValue || 0), 0);
+            <div className="w-full overflow-x-auto pb-4 scrollbar-thin">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start min-w-[1400px] 2xl:min-w-full">
+                    {STAGES.map((stage) => {
+                        const columnLeads = leads.filter((l) => l.status === stage);
+                        const totalColumnValue = columnLeads.reduce((acc, l) => acc + (l.estimatedValue || 0), 0);
 
-                    return (
-                        <KanbanColumn
-                            key={stage}
-                            stage={stage}
-                            leads={columnLeads}
-                            totalValue={totalColumnValue}
-                            assignableUsers={assignableUsers}
-                            isAdmin={isAdmin}
-                            onSelectLead={onSelectLead}
-                            onEditLead={onEditLead}
-                            onArchiveLead={onArchiveLead}
-                        />
-                    );
-                })}
+                        return (
+                            <KanbanColumn
+                                key={stage}
+                                stage={stage}
+                                leads={columnLeads}
+                                totalValue={totalColumnValue}
+                                assignableUsers={assignableUsers}
+                                isAdmin={isAdmin}
+                                onSelectLead={onSelectLead}
+                                onEditLead={onEditLead}
+                                onArchiveLead={onArchiveLead}
+                            />
+                        );
+                    })}
+                </div>
             </div>
 
             <DragOverlay>
@@ -159,7 +161,7 @@ function KanbanColumn({
     return (
         <div
             ref={setNodeRef}
-            className={`flex flex-col rounded-xl border border-border bg-card/60 backdrop-blur-xs p-3 min-h-[550px] transition-colors ${
+            className={`flex flex-col rounded-xl border border-border bg-card/60 backdrop-blur-xs p-3 min-h-[550px] transition-colors w-full min-w-0 ${
                 isOver ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30" : ""
             }`}
         >
@@ -241,7 +243,7 @@ function DraggableKanbanCard({
             style={style}
             {...attributes}
             {...listeners}
-            className={`cursor-grab active:cursor-grabbing transition-all ${
+            className={`cursor-grab active:cursor-grabbing transition-all w-full min-w-0 ${
                 isDragging ? "opacity-30 scale-95" : ""
             }`}
         >
