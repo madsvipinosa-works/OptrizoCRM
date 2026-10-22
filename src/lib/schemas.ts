@@ -132,6 +132,7 @@ export type ProjectValues = CaseStudyValues;
 export const serviceSchema = z.object({
     id: z.string().optional(),
     title: z.string().min(1, "Title is required"),
+    slug: z.string().optional(),
     description: z.string().min(1, "Description is required"),
     category: z.string().optional(),
     image: z.string().optional(),
@@ -143,7 +144,38 @@ export const serviceSchema = z.object({
         (val) => val === true || val === "true" || val === "on" || val === 1 || val === "1",
         z.boolean()
     ).optional().default(false),
+    inclusions: z.preprocess((val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        if (typeof val === "string") {
+            try {
+                const parsed = JSON.parse(val);
+                if (Array.isArray(parsed)) return parsed;
+            } catch {
+                return val.split("\n").map((s) => s.trim()).filter(Boolean);
+            }
+        }
+        return [];
+    }, z.array(z.string())).optional().default([]),
+    deliverables: z.preprocess((val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        if (typeof val === "string") {
+            try {
+                const parsed = JSON.parse(val);
+                if (Array.isArray(parsed)) return parsed;
+            } catch {
+                return val.split("\n").map((s) => s.trim()).filter(Boolean);
+            }
+        }
+        return [];
+    }, z.array(z.string())).optional().default([]),
+    scopeOverview: z.string().optional(),
+    timelineEstimate: z.string().optional().default("2-4 Weeks"),
+    targetAudience: z.string().optional(),
 });
+
+export type ServiceValues = z.infer<typeof serviceSchema>;
 
 export const testimonialSchema = z.object({
     id: z.string().optional(),

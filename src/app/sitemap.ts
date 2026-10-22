@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { posts, caseStudies } from "@/db/schema";
+import { posts, caseStudies, services } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { MetadataRoute } from "next";
 
@@ -43,5 +43,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
     }));
 
-    return [...routes, ...postRoutes, ...projectRoutes];
+    // 4. Dynamic Services
+    const allServices = await db.select({ slug: services.slug, id: services.id })
+        .from(services);
+    const serviceRoutes = allServices.map((service) => ({
+        url: `${baseUrl}/services/${service.slug || service.id}`,
+        lastModified: new Date(),
+        changeFrequency: "monthly" as const,
+        priority: 0.8,
+    }));
+
+    return [...routes, ...postRoutes, ...projectRoutes, ...serviceRoutes];
 }
+

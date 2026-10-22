@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { services } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { ServicesWithAnimatedHoverModal, ServiceItem } from "@/components/ui/services-with-animated-hover-modal";
+import { SERVICE_METADATA_PRESETS } from "@/features/cms/constants/service-defaults";
 
 const defaultFallbackServices: ServiceItem[] = [
     {
@@ -12,6 +13,11 @@ const defaultFallbackServices: ServiceItem[] = [
         image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop",
         color: "#05160b",
         link: "/contact",
+        inclusions: SERVICE_METADATA_PRESETS["Custom Web Applications"].inclusions,
+        deliverables: SERVICE_METADATA_PRESETS["Custom Web Applications"].deliverables,
+        scopeOverview: SERVICE_METADATA_PRESETS["Custom Web Applications"].scopeOverview,
+        timelineEstimate: SERVICE_METADATA_PRESETS["Custom Web Applications"].timelineEstimate,
+        targetAudience: SERVICE_METADATA_PRESETS["Custom Web Applications"].targetAudience,
     },
     {
         id: "default-2",
@@ -21,6 +27,11 @@ const defaultFallbackServices: ServiceItem[] = [
         image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1000&auto=format&fit=crop",
         color: "#0a0a0a",
         link: "/contact",
+        inclusions: SERVICE_METADATA_PRESETS["Cloud & Scalable Infrastructure"].inclusions,
+        deliverables: SERVICE_METADATA_PRESETS["Cloud & Scalable Infrastructure"].deliverables,
+        scopeOverview: SERVICE_METADATA_PRESETS["Cloud & Scalable Infrastructure"].scopeOverview,
+        timelineEstimate: SERVICE_METADATA_PRESETS["Cloud & Scalable Infrastructure"].timelineEstimate,
+        targetAudience: SERVICE_METADATA_PRESETS["Cloud & Scalable Infrastructure"].targetAudience,
     },
     {
         id: "default-3",
@@ -30,6 +41,11 @@ const defaultFallbackServices: ServiceItem[] = [
         image: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?q=80&w=1000&auto=format&fit=crop",
         color: "#02240e",
         link: "/contact",
+        inclusions: SERVICE_METADATA_PRESETS["UI/UX Design & Brand Systems"].inclusions,
+        deliverables: SERVICE_METADATA_PRESETS["UI/UX Design & Brand Systems"].deliverables,
+        scopeOverview: SERVICE_METADATA_PRESETS["UI/UX Design & Brand Systems"].scopeOverview,
+        timelineEstimate: SERVICE_METADATA_PRESETS["UI/UX Design & Brand Systems"].timelineEstimate,
+        targetAudience: SERVICE_METADATA_PRESETS["UI/UX Design & Brand Systems"].targetAudience,
     },
     {
         id: "default-4",
@@ -39,6 +55,11 @@ const defaultFallbackServices: ServiceItem[] = [
         image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=1000&auto=format&fit=crop",
         color: "#0b1928",
         link: "/contact",
+        inclusions: SERVICE_METADATA_PRESETS["Mobile App Engineering"].inclusions,
+        deliverables: SERVICE_METADATA_PRESETS["Mobile App Engineering"].deliverables,
+        scopeOverview: SERVICE_METADATA_PRESETS["Mobile App Engineering"].scopeOverview,
+        timelineEstimate: SERVICE_METADATA_PRESETS["Mobile App Engineering"].timelineEstimate,
+        targetAudience: SERVICE_METADATA_PRESETS["Mobile App Engineering"].targetAudience,
     },
 ];
 
@@ -62,6 +83,7 @@ export async function ServicesGrid() {
         ? dbServices.slice(0, 4).map((service, index) => ({
             id: service.id,
             title: service.title,
+            slug: service.slug,
             description: service.description,
             category: service.category || (index === 0 ? "Architecture & Fullstack" : index === 1 ? "Cloud & DevOps" : "Digital Systems"),
             image: service.image || defaultFallbackServices[index % defaultFallbackServices.length].image,
@@ -69,6 +91,11 @@ export async function ServicesGrid() {
             link: service.link || "/contact",
             icon: service.icon,
             order: service.order,
+            inclusions: (service.inclusions as string[]) || null,
+            deliverables: (service.deliverables as string[]) || null,
+            scopeOverview: service.scopeOverview,
+            timelineEstimate: service.timelineEstimate,
+            targetAudience: service.targetAudience,
         }))
         : defaultFallbackServices;
 

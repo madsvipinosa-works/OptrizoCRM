@@ -18,6 +18,7 @@ export interface ServiceItem {
     id: string;
     title: string;
     description: string;
+    slug?: string | null;
     category?: string | null;
     image?: string | null;
     color?: string | null;
@@ -26,7 +27,11 @@ export interface ServiceItem {
     order?: number | null;
     isFeatured?: boolean | null;
     tags?: string[] | null;
-    deliverables?: string[] | null;
+    inclusions?: unknown;
+    deliverables?: unknown;
+    scopeOverview?: string | null;
+    timelineEstimate?: string | null;
+    targetAudience?: string | null;
     imageUrl?: string | null;
     threeDModelUrl?: string | null;
 }
@@ -212,6 +217,23 @@ export function ServicesTab({ services }: { services: ServiceItem[] }) {
                                 <CardDescription className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                                     {service.description}
                                 </CardDescription>
+
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                    {Array.isArray(service.inclusions) && service.inclusions.length > 0 ? (
+                                        <Badge variant="outline" className="text-[10px] text-primary border-primary/20 bg-primary/5">
+                                            {service.inclusions.length} Inclusions
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="text-[10px] text-muted-foreground border-border">
+                                            Preset Inclusions
+                                        </Badge>
+                                    )}
+                                    {service.timelineEstimate && (
+                                        <Badge variant="outline" className="text-[10px] text-muted-foreground border-border">
+                                            {service.timelineEstimate}
+                                        </Badge>
+                                    )}
+                                </div>
                             </CardHeader>
                         </div>
 

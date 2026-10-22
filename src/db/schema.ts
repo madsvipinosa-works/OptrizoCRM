@@ -148,6 +148,12 @@ export const services = pgTable("service", {
     icon: text("icon"), // Name of Lucide icon
     order: integer("order").default(0),
     isFeatured: boolean("is_featured").default(false).notNull(),
+    slug: text("slug"),
+    inclusions: jsonb("inclusions").$type<string[]>().default([]),
+    deliverables: jsonb("deliverables").$type<string[]>().default([]),
+    scopeOverview: text("scope_overview"),
+    timelineEstimate: text("timeline_estimate").default("2-4 Weeks"),
+    targetAudience: text("target_audience"),
 });
 
 // 9. Testimonials

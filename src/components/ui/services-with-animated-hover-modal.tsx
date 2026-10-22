@@ -8,11 +8,13 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TypewriterHeader, TypewriterParagraph } from "@/components/ui/typewriter-text";
+import { ServiceDetailModal } from "@/components/public/ServiceDetailModal";
 
 export interface ServiceItem {
     id: string;
     title: string;
     description: string;
+    slug?: string | null;
     category?: string | null;
     image?: string | null;
     color?: string | null;
@@ -20,6 +22,11 @@ export interface ServiceItem {
     icon?: string | null;
     order?: number | null;
     isFeatured?: boolean | null;
+    inclusions?: string[] | null;
+    deliverables?: string[] | null;
+    scopeOverview?: string | null;
+    timelineEstimate?: string | null;
+    targetAudience?: string | null;
 }
 
 export interface ServicesHoverModalProps {
@@ -110,6 +117,7 @@ export function ServicesWithAnimatedHoverModal({
         index: 0,
     });
     const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+    const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
     const shouldReduceMotion = useReducedMotion();
 
     const modalContainer = useRef<HTMLDivElement>(null);
@@ -236,7 +244,6 @@ export function ServicesWithAnimatedHoverModal({
                     className="hidden md:flex flex-col w-full"
                 >
                     {services.map((service, index) => {
-                        const href = service.link || "/contact";
                         const isHovered = modal.active && modal.index === index;
                         const isOtherHovered = modal.active && modal.index !== index;
                         const isLast = index === services.length - 1;
@@ -259,10 +266,22 @@ export function ServicesWithAnimatedHoverModal({
                                     )}
                                 />
 
-                                <Link
-                                    href={href}
+                                <div
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                        setModal({ active: false, index: 0 });
+                                        setSelectedService(service);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            setModal({ active: false, index: 0 });
+                                            setSelectedService(service);
+                                        }
+                                    }}
                                     className={cn(
-                                        "group relative flex w-full items-center justify-between py-8 lg:py-10 px-4 transition-all duration-500 overflow-hidden",
+                                        "group relative flex w-full items-center justify-between py-8 lg:py-10 px-4 transition-all duration-500 overflow-hidden cursor-pointer select-none",
                                         isOtherHovered && "opacity-30",
                                         isHovered && "bg-gradient-to-r from-primary/[0.05] via-primary/[0.015] to-transparent"
                                     )}
@@ -337,7 +356,7 @@ export function ServicesWithAnimatedHoverModal({
                                             />
                                         </div>
                                     </div>
-                                </Link>
+                                </div>
 
                                 {/* Bottom Border Sweep for the Last Item */}
                                 {isLast && (
@@ -400,7 +419,10 @@ export function ServicesWithAnimatedHoverModal({
                                             transition={{ duration: 0.3 }}
                                             className="overflow-hidden pt-4 space-y-4"
                                         >
-                                            <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-white/10">
+                                            <div
+                                                onClick={() => setSelectedService(service)}
+                                                className="relative aspect-video w-full rounded-xl overflow-hidden border border-white/10 cursor-pointer"
+                                            >
                                                 <Image
                                                     src={imgSrc}
                                                     alt={service.title}
@@ -411,13 +433,23 @@ export function ServicesWithAnimatedHoverModal({
                                             <p className="text-sm text-muted-foreground leading-relaxed">
                                                 {service.description}
                                             </p>
-                                            <Link
-                                                href={service.link || "/contact"}
-                                                className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-primary pt-2"
-                                            >
-                                                <span>Start Project</span>
-                                                <ArrowUpRight className="w-4 h-4" />
-                                            </Link>
+                                            <div className="flex flex-wrap items-center gap-3 pt-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedService(service)}
+                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors"
+                                                >
+                                                    <span>View Inclusions & Details</span>
+                                                    <ArrowUpRight className="w-3.5 h-3.5" />
+                                                </button>
+                                                <Link
+                                                    href={service.link || "/contact"}
+                                                    className="text-xs font-mono text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                                                >
+                                                    <span>Contact Us</span>
+                                                    <ArrowUpRight className="w-3 h-3" />
+                                                </Link>
+                                            </div>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
@@ -432,7 +464,7 @@ export function ServicesWithAnimatedHoverModal({
                 ref={modalContainer}
                 variants={scaleAnimation}
                 initial="initial"
-                animate={modal.active ? "enter" : "closed"}
+                animate={modal.active && !selectedService ? "enter" : "closed"}
                 className="hidden md:flex fixed top-0 left-0 pointer-events-none z-40 items-center justify-center overflow-hidden rounded-2xl shadow-2xl border border-white/20 backdrop-blur-xl bg-neutral-950/95"
                 style={{
                     width: 440,
@@ -490,7 +522,7 @@ export function ServicesWithAnimatedHoverModal({
                 ref={cursor}
                 variants={scaleAnimation}
                 initial="initial"
-                animate={modal.active ? "enter" : "closed"}
+                animate={modal.active && !selectedService ? "enter" : "closed"}
                 className="hidden md:flex fixed top-0 left-0 pointer-events-none z-50 items-center justify-center rounded-full bg-[#00D639] shadow-[0_0_35px_rgba(0,214,57,0.6)]"
                 style={{
                     width: 80,
@@ -503,7 +535,7 @@ export function ServicesWithAnimatedHoverModal({
                 ref={cursorLabel}
                 variants={scaleAnimation}
                 initial="initial"
-                animate={modal.active ? "enter" : "closed"}
+                animate={modal.active && !selectedService ? "enter" : "closed"}
                 className="hidden md:flex fixed top-0 left-0 pointer-events-none z-50 items-center justify-center rounded-full font-mono text-[11px] font-black uppercase tracking-widest text-black"
                 style={{
                     width: 80,
@@ -512,6 +544,13 @@ export function ServicesWithAnimatedHoverModal({
             >
                 View
             </motion.div>
+
+            {/* Service Detail Modal Pop-up with Inclusions & Scope */}
+            <ServiceDetailModal
+                service={selectedService}
+                isOpen={!!selectedService}
+                onClose={() => setSelectedService(null)}
+            />
         </section>
     );
 }

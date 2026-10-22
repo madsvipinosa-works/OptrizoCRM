@@ -376,7 +376,25 @@ export async function createService(prevState: ActionState, formData: FormData) 
             };
         }
 
-        const { title, description, category, image, color, link, icon, order, isFeatured } = validated.data;
+        const {
+            title,
+            slug,
+            description,
+            category,
+            image,
+            color,
+            link,
+            icon,
+            order,
+            isFeatured,
+            inclusions,
+            deliverables,
+            scopeOverview,
+            timelineEstimate,
+            targetAudience,
+        } = validated.data;
+
+        const effectiveSlug = slug ? sanitizeSlug(slug) : sanitizeSlug(title);
 
         if (isFeatured) {
             const featured = await db.query.services.findMany({
@@ -392,6 +410,7 @@ export async function createService(prevState: ActionState, formData: FormData) 
 
         await db.insert(services).values({
             title,
+            slug: effectiveSlug,
             description,
             category,
             image,
@@ -400,6 +419,11 @@ export async function createService(prevState: ActionState, formData: FormData) 
             icon,
             order: order ?? 0,
             isFeatured: isFeatured ?? false,
+            inclusions: inclusions ?? [],
+            deliverables: deliverables ?? [],
+            scopeOverview: scopeOverview || null,
+            timelineEstimate: timelineEstimate || "2-4 Weeks",
+            targetAudience: targetAudience || null,
         });
 
         revalidatePath("/dashboard/services");
@@ -428,9 +452,28 @@ export async function updateService(prevState: ActionState, formData: FormData) 
             };
         }
 
-        const { id, title, description, category, image, color, link, icon, order, isFeatured } = validated.data;
+        const {
+            id,
+            title,
+            slug,
+            description,
+            category,
+            image,
+            color,
+            link,
+            icon,
+            order,
+            isFeatured,
+            inclusions,
+            deliverables,
+            scopeOverview,
+            timelineEstimate,
+            targetAudience,
+        } = validated.data;
 
         if (!id) return { success: false, message: "Missing Service ID" };
+
+        const effectiveSlug = slug ? sanitizeSlug(slug) : sanitizeSlug(title);
 
         if (isFeatured) {
             const otherFeatured = await db.query.services.findMany({
@@ -447,6 +490,7 @@ export async function updateService(prevState: ActionState, formData: FormData) 
         await db.update(services)
             .set({
                 title,
+                slug: effectiveSlug,
                 description,
                 category,
                 image,
@@ -455,6 +499,11 @@ export async function updateService(prevState: ActionState, formData: FormData) 
                 icon,
                 order: order ?? 0,
                 isFeatured: isFeatured ?? false,
+                inclusions: inclusions ?? [],
+                deliverables: deliverables ?? [],
+                scopeOverview: scopeOverview || null,
+                timelineEstimate: timelineEstimate || "2-4 Weeks",
+                targetAudience: targetAudience || null,
             })
             .where(eq(services.id, id));
 
