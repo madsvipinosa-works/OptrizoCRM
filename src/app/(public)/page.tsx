@@ -15,7 +15,7 @@ import { desc, eq } from "drizzle-orm";
 import { Gallery4, type Gallery4Item } from "@/components/ui/gallery4";
 
 export const dynamic = "force-static";
-export const revalidate = 3600; // Revalidate every hour (ISR)
+export const revalidate = 3600; // Revalidate every hour (ISR - refreshed)
 
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { SectionHeading } from "@/components/ui/section-heading";

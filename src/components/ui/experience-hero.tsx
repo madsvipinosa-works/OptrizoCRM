@@ -82,7 +82,7 @@ export const TypewriterHeadline: React.FC<TypewriterProps> = ({
         {displayedText}
       </span>
       <span
-        className="inline-block w-[3px] sm:w-[4px] md:w-[6px] h-[0.78em] ml-1.5 bg-[#00D639] animate-pulse align-[-0.04em] rounded-[1px]"
+        className="inline-block w-[3px] sm:w-[4px] md:w-[6px] h-[0.78em] ml-1.5 bg-[#00D639] animate-pulse align-[-0.04em] shadow-[0_0_12px_#00D639] rounded-[1px]"
         aria-hidden="true"
         suppressHydrationWarning
       />
