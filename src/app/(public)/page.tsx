@@ -124,6 +124,7 @@ export default async function Home() {
             {/* Panel 1: Hero Section */}
             <PinnedPanel id="hero" hasTopRounding={false}>
                 <HeroSection
+                    title={settings?.heroTitle || undefined}
                     titleLine1="OPTRIZO"
                     titleLine2="CUSTOM SOLUTIONS"
                     badgeText="OPTRIZO // CUSTOM SOLUTIONS"

@@ -15,11 +15,15 @@ const initialState: ContactState = {
     success: false,
 }
 
-export function ContactForm() {
+interface ContactFormProps {
+    className?: string;
+}
+
+export function ContactForm({ className = "" }: ContactFormProps) {
     const [state, formAction, isPending] = useActionState(submitContactForm, initialState);
 
     return (
-        <Card className="glass-card border-primary/20">
+        <Card className={`glass-card border-primary/20 w-full h-fit self-start ${className}`}>
             <CardHeader>
                 <CardTitle>Send a Message</CardTitle>
                 <CardDescription>We usually respond within 24 hours.</CardDescription>

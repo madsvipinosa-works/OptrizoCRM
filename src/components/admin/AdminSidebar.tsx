@@ -20,6 +20,7 @@ import {
     Monitor,
     Search,
     Sparkles,
+    Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -64,6 +65,7 @@ const navGroups: NavGroup[] = [
         items: [
             { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare, allowedRoles: ["superadmin", "manager", "developer"] },
             { href: "/dashboard/cms", label: "Content Manager", icon: Monitor, allowedRoles: ["superadmin", "content_editor"] },
+            { href: "/dashboard/about", label: "About Page", icon: Info, allowedRoles: ["superadmin", "content_editor"] },
         ],
     },
     {

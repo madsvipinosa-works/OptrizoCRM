@@ -37,10 +37,7 @@ export function HeroSection({
             const parts = title.split("//").map((s) => s.trim());
             line1 = parts[0];
         } else {
-            const words = title.trim().split(/\s+/);
-            if (words.length > 0) {
-                line1 = words[0];
-            }
+            line1 = title.trim();
         }
     }
 

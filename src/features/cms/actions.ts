@@ -77,39 +77,48 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
             };
         }
 
-        const notificationEmailsList = validated.data.notificationEmails
-            ? validated.data.notificationEmails.split(',').map(e => e.trim()).filter(Boolean)
-            : [];
+        const payload: Record<string, any> = {};
 
-        let faqs: {question: string, answer: string}[] = [];
-        try {
-            if (validated.data.faqs) {
-                const parsed = JSON.parse(validated.data.faqs);
-                const faqSchema = z.array(z.object({
-                    question: z.string().min(1),
-                    answer: z.string().min(1),
-                })).max(10, "Maximum of 10 FAQs allowed");
-                
-                const faqParsed = faqSchema.safeParse(parsed);
-                if (!faqParsed.success) {
-                    return {
-                        success: false,
-                        message: "Validation failed for FAQs",
-                        errors: { faqs: faqParsed.error.issues.map(issue => issue.message) },
-                    };
-                }
-                faqs = faqParsed.data;
-            }
-        } catch (e) {
-            console.error("Failed to parse faqs:", e);
-            return { success: false, message: "Invalid JSON format for FAQs" };
+        if (validated.data.logoUrl !== undefined) payload.logoUrl = validated.data.logoUrl;
+        if (validated.data.logoDarkUrl !== undefined) payload.logoDarkUrl = validated.data.logoDarkUrl;
+        if (validated.data.faviconUrl !== undefined) payload.faviconUrl = validated.data.faviconUrl;
+        if (validated.data.contactEmail !== undefined) payload.contactEmail = validated.data.contactEmail;
+        if (validated.data.heroTitle !== undefined) payload.heroTitle = validated.data.heroTitle;
+        if (validated.data.heroDescription !== undefined) payload.heroDescription = validated.data.heroDescription;
+        if (validated.data.demoVideoUrl !== undefined) payload.demoVideoUrl = validated.data.demoVideoUrl;
+
+        if (validated.data.notificationEmails !== undefined) {
+            payload.notificationEmails = validated.data.notificationEmails
+                ? validated.data.notificationEmails.split(',').map(e => e.trim()).filter(Boolean)
+                : [];
         }
 
-        const payload = {
-            ...validated.data,
-            notificationEmails: notificationEmailsList,
-            faqs,
-        };
+        if (validated.data.faqs !== undefined) {
+            let faqs: {question: string, answer: string}[] = [];
+            try {
+                if (validated.data.faqs) {
+                    const parsed = JSON.parse(validated.data.faqs);
+                    const faqSchema = z.array(z.object({
+                        question: z.string().min(1),
+                        answer: z.string().min(1),
+                    })).max(10, "Maximum of 10 FAQs allowed");
+                    
+                    const faqParsed = faqSchema.safeParse(parsed);
+                    if (!faqParsed.success) {
+                        return {
+                            success: false,
+                            message: "Validation failed for FAQs",
+                            errors: { faqs: faqParsed.error.issues.map(issue => issue.message) },
+                        };
+                    }
+                    faqs = faqParsed.data;
+                }
+            } catch (e) {
+                console.error("Failed to parse faqs:", e);
+                return { success: false, message: "Invalid JSON format for FAQs" };
+            }
+            payload.faqs = faqs;
+        }
 
         await db.insert(siteSettings)
             .values({ id: "singleton_root", ...payload })
@@ -129,6 +138,48 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
     } catch (error) {
         console.error("Failed to update settings:", error);
         return { success: false, message: "Failed to update settings." };
+    }
+}
+
+export async function updateHeroSettings(prevState: ActionState, formData: FormData): Promise<ActionState> {
+    try {
+        await requireEditor();
+
+        const rawData = Object.fromEntries(formData);
+        const heroSchema = z.object({
+            heroTitle: z.string().optional(),
+            heroDescription: z.string().optional(),
+            demoVideoUrl: z.string().optional(),
+        });
+
+        const validated = heroSchema.safeParse(rawData);
+        if (!validated.success) {
+            return {
+                success: false,
+                message: "Validation failed",
+                errors: validated.error.flatten().fieldErrors,
+            };
+        }
+
+        const payload = {
+            heroTitle: validated.data.heroTitle?.trim() || null,
+            heroDescription: validated.data.heroDescription?.trim() || null,
+            demoVideoUrl: validated.data.demoVideoUrl?.trim() || null,
+        };
+
+        await db.insert(siteSettings)
+            .values({ id: "singleton_root", ...payload })
+            .onConflictDoUpdate({
+                target: siteSettings.id,
+                set: payload,
+            });
+
+        revalidateTag("site-settings", "max");
+        revalidatePath("/");
+        return { success: true, message: "Homepage Hero & Media updated successfully!" };
+    } catch (error) {
+        console.error("Failed to update hero settings:", error);
+        return { success: false, message: "Failed to update hero settings." };
     }
 }
 
