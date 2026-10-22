@@ -140,8 +140,8 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
                         </Select>
                     </div>
 
-                    <div className="w-full sm:w-auto flex-1 max-w-[300px]">
-                        <DatePickerWithRange date={dateRange} setDate={setDateRange} className="w-full" />
+                    <div className="w-full sm:w-auto min-w-0">
+                        <DatePickerWithRange date={dateRange} setDate={setDateRange} className="w-full sm:w-auto" />
                     </div>
 
                     {(actionFilter !== "ALL" || roleFilter !== "ALL" || dateRange !== undefined) && (

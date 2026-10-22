@@ -21,9 +21,11 @@ import {
 import {
   AlertOctagon,
   AlertTriangle,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Eye,
   FilterX,
   RefreshCw,
@@ -102,6 +104,17 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
   const [resolvingLog, setResolvingLog] = useState<SystemErrorLog | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [isSubmittingResolution, setIsSubmittingResolution] = useState(false);
+
+  // Copy state
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopy = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => {
+      setCopiedKey(null);
+    }, 2000);
+  };
 
   const fetchLogs = async (page: number) => {
     setLoading(true);
@@ -272,8 +285,8 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
             </div>
 
             {/* Date Range Picker */}
-            <div className="w-full sm:w-auto flex-1 max-w-[260px]">
-              <DatePickerWithRange date={dateRange} setDate={setDateRange} className="w-full" />
+            <div className="w-full sm:w-auto min-w-0">
+              <DatePickerWithRange date={dateRange} setDate={setDateRange} className="w-full sm:w-auto" />
             </div>
 
             {(severityFilter !== "ALL" ||
@@ -437,63 +450,209 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
       {/* Inspector Modal */}
       {selectedLog && (
         <Dialog open={inspectOpen} onOpenChange={setInspectOpen}>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-card border-border text-foreground">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-                <Badge
-                  variant="outline"
-                  className={`${severityStyles[selectedLog.severity]} font-mono text-xs`}
-                >
-                  {selectedLog.severity}
-                </Badge>
-                <span className="font-mono">{selectedLog.errorCode}</span>
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Occurred on {format(new Date(selectedLog.createdAt), "MMMM d, yyyy HH:mm:ss")} • Source: {selectedLog.source}
+          <DialogContent className="w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[88vh] flex flex-col p-0 overflow-hidden bg-card border-border text-foreground shadow-2xl rounded-2xl focus:outline-none">
+            {/* Pinned Header */}
+            <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-border bg-card/95 backdrop-blur z-10 text-left">
+              <div className="flex flex-wrap items-center justify-between gap-3 pr-6">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge
+                    variant="outline"
+                    className={`${severityStyles[selectedLog.severity]} font-mono text-xs font-bold px-2 py-0.5`}
+                  >
+                    {selectedLog.severity}
+                  </Badge>
+                  <DialogTitle className="font-mono text-base sm:text-lg font-bold tracking-tight text-foreground break-all">
+                    {selectedLog.errorCode}
+                  </DialogTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    onClick={() => handleCopy("code", selectedLog.errorCode)}
+                    title="Copy Error Code"
+                  >
+                    {copiedKey === "code" ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
+
+                {selectedLog.isResolved ? (
+                  <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Resolved
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                    <AlertTriangle className="w-3 h-3 mr-1" /> Unresolved
+                  </Badge>
+                )}
+              </div>
+
+              <DialogDescription className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>Occurred on {format(new Date(selectedLog.createdAt), "MMMM d, yyyy HH:mm:ss")}</span>
+                <span>•</span>
+                <span className="font-mono text-foreground font-medium">Source: {selectedLog.source}</span>
+                {selectedLog.user && (
+                  <>
+                    <span>•</span>
+                    <span>Actor: {selectedLog.user.name || selectedLog.user.email} ({selectedLog.user.role})</span>
+                  </>
+                )}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 pt-2">
+            {/* Scrollable Body - Strictly No Horizontal Scrollbar */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-5 sm:p-6 space-y-5">
+              {/* Error Message */}
               <div>
-                <h4 className="text-xs font-semibold uppercase font-mono text-muted-foreground mb-1">Error Message</h4>
-                <div className="p-3 bg-muted/30 rounded border border-border text-sm font-medium text-foreground">
+                <div className="flex items-center justify-between mb-1.5">
+                  <h4 className="text-xs font-bold uppercase tracking-wider font-mono text-muted-foreground">
+                    Error Message
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    onClick={() => handleCopy("message", selectedLog.message)}
+                  >
+                    {copiedKey === "message" ? (
+                      <>
+                        <Check className="h-3 w-3 mr-1 text-emerald-500" />
+                        <span className="text-emerald-500 font-medium">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3 mr-1" />
+                        <span>Copy Message</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="p-3.5 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/25 text-xs sm:text-sm font-mono font-medium text-foreground break-words whitespace-pre-wrap leading-relaxed select-text shadow-xs">
                   {selectedLog.message}
                 </div>
               </div>
 
+              {/* Stack Trace */}
               {selectedLog.stackTrace && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase font-mono text-muted-foreground mb-1">Stack Trace</h4>
-                  <pre className="p-3 bg-black/70 rounded border border-border text-xs font-mono text-red-300 overflow-x-auto max-h-56">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider font-mono text-muted-foreground flex items-center gap-2">
+                      <span>Stack Trace</span>
+                      <span className="text-[10px] font-normal text-muted-foreground/80 lowercase">
+                        ({selectedLog.stackTrace.split("\n").length} lines)
+                      </span>
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      onClick={() => handleCopy("trace", selectedLog.stackTrace || "")}
+                    >
+                      {copiedKey === "trace" ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1 text-emerald-500" />
+                          <span className="text-emerald-500 font-medium">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-1" />
+                          <span>Copy Trace</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="p-3.5 sm:p-4 rounded-xl bg-zinc-950 dark:bg-black/90 border border-zinc-800 text-xs sm:text-[13px] font-mono leading-relaxed max-h-72 overflow-y-auto overflow-x-hidden text-rose-400 dark:text-rose-300 whitespace-pre-wrap break-all sm:break-words select-text scrollbar-thin">
                     {selectedLog.stackTrace}
                   </pre>
                 </div>
               )}
 
+              {/* Contextual Metadata */}
               {selectedLog.context && Object.keys(selectedLog.context).length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase font-mono text-muted-foreground mb-1">Contextual Metadata</h4>
-                  <pre className="p-3 bg-black/70 rounded border border-border text-xs font-mono text-blue-300 overflow-x-auto max-h-40">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider font-mono text-muted-foreground">
+                      Contextual Metadata
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      onClick={() => handleCopy("context", JSON.stringify(selectedLog.context, null, 2))}
+                    >
+                      {copiedKey === "context" ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1 text-emerald-500" />
+                          <span className="text-emerald-500 font-medium">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-1" />
+                          <span>Copy JSON</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="p-3.5 sm:p-4 rounded-xl bg-zinc-950 dark:bg-black/90 border border-zinc-800 text-xs font-mono leading-relaxed max-h-52 overflow-y-auto overflow-x-hidden text-sky-400 dark:text-sky-300 whitespace-pre-wrap break-all select-text scrollbar-thin">
                     {JSON.stringify(selectedLog.context, null, 2)}
                   </pre>
                 </div>
               )}
 
+              {/* Resolution Info */}
               {selectedLog.isResolved && (
-                <div className="p-3 rounded bg-green-500/10 border border-green-500/20 text-xs text-green-400 space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" /> Resolved by {selectedLog.resolvedBy?.name || selectedLog.resolvedBy?.email || "Admin"}
-                    {selectedLog.resolvedAt && ` on ${format(new Date(selectedLog.resolvedAt), "MMM d, yyyy HH:mm")}`}
+                <div className="p-3.5 sm:p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-foreground space-y-1.5">
+                  <div className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-sm">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>Resolved by {selectedLog.resolvedBy?.name || selectedLog.resolvedBy?.email || "Admin"}</span>
+                    {selectedLog.resolvedAt && (
+                      <span className="font-normal text-muted-foreground text-xs">
+                        on {format(new Date(selectedLog.resolvedAt), "MMM d, yyyy HH:mm")}
+                      </span>
+                    )}
                   </div>
                   {selectedLog.resolutionNotes && (
-                    <p className="text-muted-foreground">Notes: {selectedLog.resolutionNotes}</p>
+                    <p className="text-muted-foreground pl-5 leading-relaxed break-words">
+                      <span className="font-medium text-foreground">Notes:</span> {selectedLog.resolutionNotes}
+                    </p>
                   )}
                 </div>
               )}
             </div>
 
-            <DialogFooter className="pt-4">
-              <Button variant="outline" onClick={() => setInspectOpen(false)}>
+            {/* Pinned Footer */}
+            <DialogFooter className="p-4 sm:p-5 border-t border-border bg-muted/20 shrink-0 flex flex-row items-center justify-between gap-3">
+              <div>
+                {!selectedLog.isResolved ? (
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs"
+                    onClick={() => {
+                      setInspectOpen(false);
+                      handleOpenResolve(selectedLog);
+                    }}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Resolve Issue
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-border hover:bg-muted text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      handleReopen(selectedLog.id);
+                      setSelectedLog((prev) => prev ? { ...prev, isResolved: false, resolvedAt: null, resolutionNotes: null } : null);
+                    }}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reopen Incident
+                  </Button>
+                )}
+              </div>
+
+              <Button variant="outline" size="sm" className="text-xs border-border hover:bg-muted" onClick={() => setInspectOpen(false)}>
                 Close
               </Button>
             </DialogFooter>
