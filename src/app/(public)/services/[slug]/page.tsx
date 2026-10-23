@@ -276,7 +276,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
                             className="border-border hover:bg-muted text-foreground font-semibold rounded-full px-8 bg-transparent"
                         >
                             <Link href="/contact">
-                                <MessageSquare className="mr-2 h-4 w-4" /> Talk to an Architect
+                                <MessageSquare className="mr-2 h-4 w-4" /> Contact Us
                             </Link>
                         </Button>
                     </div>

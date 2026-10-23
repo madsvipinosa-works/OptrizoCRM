@@ -261,7 +261,7 @@ export function ServiceDetailModal({
                         >
                             <Link href="/contact" onClick={onClose}>
                                 <MessageSquare className="w-4 h-4" />
-                                <span>Talk to an Architect</span>
+                                <span>Contact Us</span>
                             </Link>
                         </Button>
                     </div>
