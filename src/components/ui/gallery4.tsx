@@ -103,6 +103,7 @@ const Gallery4 = ({
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
 
   useEffect(() => {
     if (!carouselApi) {
@@ -113,10 +114,18 @@ const Gallery4 = ({
       setCanScrollNext(carouselApi.canScrollNext());
       setCurrentSlide(carouselApi.selectedScrollSnap());
     };
-    updateSelection();
+    const onInit = () => {
+      setScrollSnaps(carouselApi.scrollSnapList());
+      updateSelection();
+    };
+
+    onInit();
     carouselApi.on("select", updateSelection);
+    carouselApi.on("reInit", onInit);
+
     return () => {
       carouselApi.off("select", updateSelection);
+      carouselApi.off("reInit", onInit);
     };
   }, [carouselApi]);
 
@@ -276,25 +285,27 @@ const Gallery4 = ({
           </CarouselContent>
         </Carousel>
 
-        {/* Dynamic Pagination Indicators with accessible touch targets */}
-        <div className="mt-8 flex justify-center items-center gap-1">
-          {items.map((_, index) => (
-            <button
-              key={index}
-              className="h-8 min-w-8 flex items-center justify-center cursor-pointer p-1"
-              onClick={() => carouselApi?.scrollTo(index)}
-              aria-label={`Go to slide ${index + 1}`}
-            >
-              <span
-                className={`h-2 transition-all duration-300 rounded-full block ${
-                  currentSlide === index
-                    ? "w-8 bg-primary shadow-[0_0_12px_rgba(0,214,57,0.7)]"
-                    : "w-2 bg-foreground/20 hover:bg-foreground/40"
-                }`}
-              />
-            </button>
-          ))}
-        </div>
+        {/* Dynamic Pagination Indicators representing actual scroll steps */}
+        {scrollSnaps.length > 1 && (
+          <div className="mt-8 flex justify-center items-center gap-1">
+            {scrollSnaps.map((_, index) => (
+              <button
+                key={index}
+                className="h-8 min-w-8 flex items-center justify-center cursor-pointer p-1"
+                onClick={() => carouselApi?.scrollTo(index)}
+                aria-label={`Go to scroll step ${index + 1} of ${scrollSnaps.length}`}
+              >
+                <span
+                  className={`h-2 transition-all duration-300 rounded-full block ${
+                    currentSlide === index
+                      ? "w-8 bg-primary shadow-[0_0_12px_rgba(0,214,57,0.7)]"
+                      : "w-2 bg-foreground/20 hover:bg-foreground/40"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
