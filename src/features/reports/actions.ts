@@ -1,13 +1,69 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, tasks, milestones, users, taskAssignees } from "@/db/schema";
-import { and, gte, lte, eq, isNotNull, sql } from "drizzle-orm";
+import { leads, tasks, agencyProjects } from "@/db/schema";
+import { and, gte, lte, eq, isNotNull, or } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 
 export type ReportDateRange = {
     from: Date;
     to: Date;
+};
+
+export type LeadConversionReportResult = {
+    totalLeads: number;
+    wonCount: number;
+    conversionRate: number;
+    averageConversionTimeDays: number;
+    totalWonValue: number;
+    cohortLeads: Array<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        closedWonAt: Date | null;
+        estimatedValue: number | string | null;
+    }>;
+};
+
+export type UserVelocityItem = {
+    name: string;
+    tasksCompleted: number;
+    totalWeight: number;
+};
+
+export type TeamVelocityReportResult = {
+    totalCompletedTasks: number;
+    totalWeight: number;
+    averageTurnaroundTimeDays: number;
+    userVelocity: UserVelocityItem[];
+    completedTasks: unknown[];
+};
+
+export type CompletedProjectItem = {
+    id: string;
+    title: string;
+    clientName: string;
+    companyName: string;
+    status: string;
+    startDate: string;
+    completedDate: string;
+    targetDate: string | null;
+    durationDays: number;
+    isOnTime: boolean;
+    milestonesCompleted: number;
+    totalMilestones: number;
+    totalStoryPoints: number;
+    contractValue: number;
+};
+
+export type ProjectCompletionReportResult = {
+    totalProjectsCompleted: number;
+    onTimeDeliveryRate: number;
+    averageProjectDurationDays: number;
+    totalValueDelivered: number;
+    totalMilestonesCompleted: number;
+    totalStoryPointsDelivered: number;
+    projects: CompletedProjectItem[];
 };
 
 export async function getLeadConversionReport(dateRange: ReportDateRange) {
@@ -118,3 +174,105 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange) {
         completedTasks,
     };
 }
+
+export async function getProjectCompletionReport(dateRange: ReportDateRange): Promise<ProjectCompletionReportResult> {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin", "manager", "sales"])) {
+        throw new Error("Unauthorized");
+    }
+
+    // Projects completed or archived in the period
+    const rawProjects = await db.query.agencyProjects.findMany({
+        where: and(
+            or(
+                eq(agencyProjects.status, "Completed"),
+                eq(agencyProjects.isArchived, true)
+            ),
+            gte(agencyProjects.updatedAt, dateRange.from),
+            lte(agencyProjects.updatedAt, dateRange.to)
+        ),
+        with: {
+            lead: {
+                with: {
+                    client: true,
+                }
+            },
+            milestones: true,
+            tasks: true,
+        },
+        orderBy: (p, { desc }) => [desc(p.updatedAt)]
+    });
+
+    let totalWonValue = 0;
+    let totalDurationMs = 0;
+    let onTimeCount = 0;
+    let totalMilestonesCompletedCount = 0;
+    let totalStoryPointsDeliveredCount = 0;
+
+    const projects: CompletedProjectItem[] = rawProjects.map(project => {
+        const lead = project.lead;
+        const clientUser = lead?.client;
+        const clientName = clientUser?.name || lead?.contactName || "Client";
+        const companyName = clientUser?.companyName || lead?.businessName || "Direct Client";
+        const contractValue = lead?.estimatedValue ? Number(lead.estimatedValue) : 0;
+        totalWonValue += contractValue;
+
+        // Completion and start times
+        const start = project.startDate ? new Date(project.startDate) : new Date(project.createdAt);
+        const completed = new Date(project.updatedAt);
+        const durationMs = Math.max(0, completed.getTime() - start.getTime());
+        totalDurationMs += durationMs;
+        const durationDays = Math.max(1, Math.round(durationMs / (1000 * 3600 * 24)));
+
+        // On-time calculation
+        let isOnTime = true;
+        if (project.targetDate) {
+            const target = new Date(project.targetDate);
+            target.setHours(23, 59, 59, 999);
+            isOnTime = completed.getTime() <= target.getTime();
+        }
+        if (isOnTime) onTimeCount++;
+
+        // Milestones
+        const projectMilestones = project.milestones || [];
+        const completedMs = projectMilestones.filter(m => m.status === "Completed").length;
+        totalMilestonesCompletedCount += completedMs;
+
+        // Story Points / Tasks
+        const projectTasks = project.tasks || [];
+        const points = projectTasks.reduce((sum, t) => sum + (t.weight || 1), 0);
+        totalStoryPointsDeliveredCount += points;
+
+        return {
+            id: project.id,
+            title: project.title,
+            clientName,
+            companyName,
+            status: project.status,
+            startDate: start.toISOString(),
+            completedDate: completed.toISOString(),
+            targetDate: project.targetDate ? new Date(project.targetDate).toISOString() : null,
+            durationDays,
+            isOnTime,
+            milestonesCompleted: completedMs,
+            totalMilestones: projectMilestones.length,
+            totalStoryPoints: points,
+            contractValue,
+        };
+    });
+
+    const totalProjectsCompleted = projects.length;
+    const onTimeDeliveryRate = totalProjectsCompleted > 0 ? (onTimeCount / totalProjectsCompleted) * 100 : 100;
+    const averageProjectDurationDays = totalProjectsCompleted > 0 ? (totalDurationMs / totalProjectsCompleted) / (1000 * 3600 * 24) : 0;
+
+    return {
+        totalProjectsCompleted,
+        onTimeDeliveryRate,
+        averageProjectDurationDays,
+        totalValueDelivered: totalWonValue,
+        totalMilestonesCompleted: totalMilestonesCompletedCount,
+        totalStoryPointsDelivered: totalStoryPointsDeliveredCount,
+        projects,
+    };
+}
+
