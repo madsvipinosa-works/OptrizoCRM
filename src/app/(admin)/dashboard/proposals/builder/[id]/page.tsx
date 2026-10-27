@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { proposals, leads } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ProposalBuilderStudio } from "@/features/proposals/components/ProposalBuilderStudio";
+import { getSiteSettings } from "@/features/cms/actions";
 
 export const metadata = {
     title: "Proposal Studio | Optrizo",
@@ -88,6 +89,13 @@ export default async function ProposalBuilderPage({
                 terms: "Payment Milestone Schedule: 50% initial commitment upon agreement signing, 50% upon final acceptance and handover.",
                 validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                 status: "Draft",
+                contractSettings: {
+                    agencyRegistration: "CS202612345",
+                    agencyAddress: "4th Floor, Innovation Hub Building, Metro Manila, Philippines",
+                    agencyPhone: "+63 (917) 555-1234",
+                    governingLaw: "Republic of the Philippines",
+                    paymentMethod: "Bank Transfer, GCash, PayPal, or Stripe",
+                },
             }).returning();
 
             // Render studio directly with attached lead relation without throwing NEXT_REDIRECT
@@ -102,5 +110,17 @@ export default async function ProposalBuilderPage({
         notFound();
     }
 
-    return <ProposalBuilderStudio proposal={proposal as any} />;
+    const settings = await getSiteSettings();
+
+    return (
+        <ProposalBuilderStudio
+            proposal={proposal as any}
+            settings={settings ? {
+                logoUrl: settings.logoUrl,
+                logoDarkUrl: settings.logoDarkUrl,
+                faviconUrl: settings.faviconUrl,
+                heroTitle: settings.heroTitle,
+            } : null}
+        />
+    );
 }

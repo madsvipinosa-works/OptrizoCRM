@@ -214,5 +214,7 @@ export async function uploadSecureAsset(formData: FormData) {
     }
 }
 
-export const uploadImage = uploadSecureAsset;
+export async function uploadImage(...args: Parameters<typeof uploadSecureAsset>) {
+    return uploadSecureAsset(...args);
+}
 

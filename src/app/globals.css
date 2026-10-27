@@ -240,49 +240,79 @@ body {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 15mm 15mm 15mm 15mm;
+    margin: 12mm 12mm 14mm 12mm;
   }
 
   /* 1. Global Reset & Print Isolation */
   html, body {
     background: #ffffff !important;
     background-color: #ffffff !important;
-    color: #111827 !important;
-    font-size: 11pt !important;
-    line-height: 1.5 !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    line-height: 1.45 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
   }
 
-  /* Hide everything on the page by default */
-  body * {
-    visibility: hidden;
+  /* Reset layout containers so height/overflow constraints never clip multi-page documents */
+  main, div, section, article {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
   }
 
-  /* Only make the formal document container and its contents visible */
-  #printable-proposal,
-  #printable-proposal * {
-    visibility: visible;
+  /* 2. Hide Web Chrome / Non-printable UI strictly without hiding document headers/footers */
+  .no-print,
+  .no-print *,
+  body > header,
+  nav:not(#printable-proposal *),
+  aside:not(#printable-proposal *),
+  button:not(#printable-proposal *),
+  .sticky:not(#printable-proposal *),
+  .fixed:not(#printable-proposal *),
+  [role="dialog"]:not(#printable-proposal *),
+  .floating-action-bar,
+  .override-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    visibility: hidden !important;
   }
 
-  /* Position printable sheet at the top-left of the physical page */
+  /* 3. Proposal Document Sheet Container in Print */
   #printable-proposal {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
     background: #ffffff !important;
-    color: #111827 !important;
+    color: #0f172a !important;
   }
 
-  /* 2. Page Break Rules */
+  #printable-proposal * {
+    visibility: visible !important;
+  }
+
+  /* Explicitly ensure the letterhead header and document footer are rendered */
+  #printable-proposal header,
+  #printable-proposal footer,
+  #printable-proposal .proposal-sheet-header,
+  #printable-proposal .proposal-document-footer {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* 4. Page Break Controls */
   .print-page-break {
     break-before: page !important;
     page-break-before: always !important;
@@ -293,18 +323,12 @@ body {
     page-break-inside: avoid !important;
   }
 
-  /* 3. Force Hide Web UI Chrome */
-  .no-print,
-  nav,
-  header,
-  footer,
-  button,
-  .sticky,
-  .fixed,
-  [role="dialog"],
-  .floating-action-bar {
-    display: none !important;
-    visibility: hidden !important;
+  table {
+    page-break-inside: auto !important;
+  }
+
+  tr, td, th {
+    page-break-inside: avoid !important;
   }
 }
 

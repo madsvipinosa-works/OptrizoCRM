@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Table,
     TableBody,
@@ -19,6 +19,13 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     DollarSign,
@@ -34,8 +41,15 @@ import {
     MoreVertical,
     Edit3,
     Archive,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Search,
+    RotateCcw,
+    Globe,
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 
 export type LeadItem = {
@@ -79,6 +93,7 @@ interface LeadsDataTableProps {
     onSelectLead?: (lead: LeadItem) => void;
     onEditLead?: (lead: LeadItem) => void;
     onArchiveLead?: (leadId: string) => void;
+    onResetFilters?: () => void;
 }
 
 const STAGES = [
@@ -100,18 +115,20 @@ export function LeadsDataTable({
     onSelectLead,
     onEditLead,
     onArchiveLead,
+    onResetFilters,
 }: LeadsDataTableProps) {
     const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
     const [sortField, setSortField] = useState<"createdAt" | "businessName" | "estimatedValue">("createdAt");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    const toggleSelectAll = () => {
-        if (selectedLeadIds.length === leads.length) {
-            setSelectedLeadIds([]);
-        } else {
-            setSelectedLeadIds(leads.map((l) => l.id));
-        }
-    };
+    // Pagination State: Defaults to 10 items as requested
+    const [pageSize, setPageSize] = useState<number>(10);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+
+    // Reset pagination to page 1 whenever leads length, sortField, or sortOrder change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [leads.length, sortField, sortOrder]);
 
     const toggleSelectRow = (id: string) => {
         setSelectedLeadIds((prev) =>
@@ -119,21 +136,51 @@ export function LeadsDataTable({
         );
     };
 
-    const sortedLeads = [...leads].sort((a, b) => {
-        if (sortField === "businessName") {
-            const nameA = (a.businessName || a.contactName || a.client?.name || "").toLowerCase();
-            const nameB = (b.businessName || b.contactName || b.client?.name || "").toLowerCase();
-            return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-        } else if (sortField === "estimatedValue") {
-            const valA = a.estimatedValue || 0;
-            const valB = b.estimatedValue || 0;
-            return sortOrder === "asc" ? valA - valB : valB - valA;
+    const sortedLeads = useMemo(() => {
+        return [...leads].sort((a, b) => {
+            if (sortField === "businessName") {
+                const nameA = (a.businessName || a.contactName || a.client?.name || "").toLowerCase();
+                const nameB = (b.businessName || b.contactName || b.client?.name || "").toLowerCase();
+                return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+            } else if (sortField === "estimatedValue") {
+                const valA = a.estimatedValue || 0;
+                const valB = b.estimatedValue || 0;
+                return sortOrder === "asc" ? valA - valB : valB - valA;
+            } else {
+                const timeA = new Date(a.createdAt).getTime();
+                const timeB = new Date(b.createdAt).getTime();
+                return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
+            }
+        });
+    }, [leads, sortField, sortOrder]);
+
+    // Pagination calculations
+    const totalItems = sortedLeads.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalItems);
+    const paginatedLeads = useMemo(() => {
+        return sortedLeads.slice(startIndex, endIndex);
+    }, [sortedLeads, startIndex, endIndex]);
+
+    // Current page selection state
+    const isCurrentPageAllSelected =
+        paginatedLeads.length > 0 && paginatedLeads.every((l) => selectedLeadIds.includes(l.id));
+
+    const toggleSelectCurrentPage = () => {
+        if (isCurrentPageAllSelected) {
+            const pageIds = new Set(paginatedLeads.map((l) => l.id));
+            setSelectedLeadIds((prev) => prev.filter((id) => !pageIds.has(id)));
         } else {
-            const timeA = new Date(a.createdAt).getTime();
-            const timeB = new Date(b.createdAt).getTime();
-            return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
+            const pageIds = paginatedLeads.map((l) => l.id);
+            setSelectedLeadIds((prev) => Array.from(new Set([...prev, ...pageIds])));
         }
-    });
+    };
+
+    const selectAllMatching = () => {
+        setSelectedLeadIds(sortedLeads.map((l) => l.id));
+    };
 
     const toggleSort = (field: "createdAt" | "businessName" | "estimatedValue") => {
         if (sortField === field) {
@@ -246,6 +293,38 @@ export function LeadsDataTable({
                 </div>
             )}
 
+            {/* Smart Multi-Page Selection Banner */}
+            {isCurrentPageAllSelected && totalItems > paginatedLeads.length && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-primary/10 border border-primary/30 rounded-xl text-xs text-foreground animate-in fade-in duration-150">
+                    <div>
+                        <span>
+                            All <strong className="font-semibold text-primary">{paginatedLeads.length}</strong> opportunities on this page are selected.
+                        </span>
+                        {selectedLeadIds.length < totalItems ? (
+                            <button
+                                type="button"
+                                onClick={selectAllMatching}
+                                className="ml-2 font-semibold text-primary underline hover:text-primary/80 transition-colors"
+                            >
+                                Select all {totalItems} opportunities across all pages
+                            </button>
+                        ) : (
+                            <span className="ml-2 font-semibold text-primary">
+                                All {totalItems} opportunities across all pages are selected.
+                            </span>
+                        )}
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setSelectedLeadIds([])}
+                        className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                        Clear Selection
+                    </Button>
+                </div>
+            )}
+
             {/* High Density Table */}
             <div className="rounded-xl border border-border glass-card overflow-hidden shadow-xs">
                 <Table>
@@ -253,9 +332,10 @@ export function LeadsDataTable({
                         <TableRow className="hover:bg-transparent border-border">
                             <TableHead className="w-[40px] px-3">
                                 <Checkbox
-                                    checked={selectedLeadIds.length === leads.length && leads.length > 0}
-                                    onCheckedChange={toggleSelectAll}
+                                    checked={isCurrentPageAllSelected}
+                                    onCheckedChange={toggleSelectCurrentPage}
                                     className="border-border data-[state=checked]:bg-primary data-[state=checked]:text-black"
+                                    aria-label="Select all rows on current page"
                                 />
                             </TableHead>
                             <TableHead className="min-w-[200px]">
@@ -293,14 +373,33 @@ export function LeadsDataTable({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {sortedLeads.length === 0 ? (
+                        {paginatedLeads.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground text-xs">
-                                    No opportunities found matching your filters.
+                                <TableCell colSpan={9} className="text-center py-16 text-muted-foreground text-xs">
+                                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                                        <div className="h-10 w-10 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground">
+                                            <Search className="h-5 w-5" />
+                                        </div>
+                                        <p className="font-semibold text-foreground text-sm">No opportunities found</p>
+                                        <p className="text-muted-foreground text-xs text-center">
+                                            No pipeline deals match your active filters and search query. Try broadening your criteria.
+                                        </p>
+                                        {onResetFilters && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={onResetFilters}
+                                                className="mt-2 text-xs gap-1.5 bg-card border-border text-foreground hover:bg-muted"
+                                            >
+                                                <RotateCcw className="h-3.5 w-3.5" />
+                                                Reset All Filters
+                                            </Button>
+                                        )}
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            sortedLeads.map((lead) => {
+                            paginatedLeads.map((lead) => {
                                 const isSelected = selectedLeadIds.includes(lead.id);
                                 const leadTitle = lead.businessName || lead.contactName || lead.client?.name || "Unknown Opportunity";
                                 const email = lead.contactEmail || lead.client?.email;
@@ -374,9 +473,17 @@ export function LeadsDataTable({
                                             </DropdownMenu>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex items-center gap-1.5 text-xs text-foreground">
-                                                <Building2 className="h-3 w-3 text-muted-foreground" />
-                                                <span>{lead.industry || "General"}</span>
+                                            <div className="flex flex-col gap-0.5">
+                                                <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
+                                                    <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                                                    <span className="truncate max-w-[130px]">{lead.industry || "General"}</span>
+                                                </div>
+                                                {lead.source && (
+                                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground truncate max-w-[140px]" title={`Acquisition Source: ${lead.source}`}>
+                                                        <Globe className="h-2.5 w-2.5 text-primary/70 shrink-0" />
+                                                        <span className="truncate">{lead.source}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -459,9 +566,139 @@ export function LeadsDataTable({
                         )}
                     </TableBody>
                 </Table>
+
+                {/* Pagination Footer: 10 items default + navigation + selector */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3.5 bg-muted/20 border-t border-border text-xs">
+                    {/* Left: Range and Rows per Page */}
+                    <div className="flex flex-wrap items-center gap-4">
+                        <span className="text-muted-foreground font-medium">
+                            Showing{" "}
+                            <strong className="text-foreground font-semibold">
+                                {totalItems === 0 ? "0" : `${startIndex + 1}–${endIndex}`}
+                            </strong>{" "}
+                            of <strong className="text-foreground font-semibold">{totalItems}</strong> opportunities
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">Rows per page:</span>
+                            <Select
+                                value={String(pageSize)}
+                                onValueChange={(val) => {
+                                    setPageSize(Number(val));
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="h-7 w-[68px] text-xs bg-card border-border text-foreground">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-card border-border text-foreground">
+                                    <SelectItem value="10" className="text-xs">10</SelectItem>
+                                    <SelectItem value="25" className="text-xs">25</SelectItem>
+                                    <SelectItem value="50" className="text-xs">50</SelectItem>
+                                    <SelectItem value="100" className="text-xs">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* Right: Page Navigation Controls */}
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground mr-2 font-medium">
+                            Page <strong className="text-foreground">{safeCurrentPage}</strong> of{" "}
+                            <strong className="text-foreground">{totalPages}</strong>
+                        </span>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(1)}
+                            disabled={safeCurrentPage <= 1}
+                            className="h-7 w-7 p-0 bg-card border-border text-foreground disabled:opacity-40"
+                            title="First Page"
+                        >
+                            <ChevronsLeft className="h-3.5 w-3.5" />
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={safeCurrentPage <= 1}
+                            className="h-7 px-2.5 gap-1 bg-card border-border text-xs text-foreground disabled:opacity-40"
+                        >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Prev</span>
+                        </Button>
+
+                        {/* Page Number Pills */}
+                        <div className="flex items-center gap-1 mx-1">
+                            {getPageNumbers(safeCurrentPage, totalPages).map((p, idx) => {
+                                if (p === "...") {
+                                    return (
+                                        <span key={`dots-${idx}`} className="px-1 text-muted-foreground">
+                                            ...
+                                        </span>
+                                    );
+                                }
+                                const pageNum = Number(p);
+                                const isActive = pageNum === safeCurrentPage;
+                                return (
+                                    <Button
+                                        key={pageNum}
+                                        variant={isActive ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setCurrentPage(pageNum)}
+                                        className={`h-7 w-7 p-0 text-xs font-semibold ${
+                                            isActive
+                                                ? "bg-primary text-black hover:bg-primary/90"
+                                                : "bg-card border-border text-foreground hover:bg-muted"
+                                        }`}
+                                    >
+                                        {pageNum}
+                                    </Button>
+                                );
+                            })}
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={safeCurrentPage >= totalPages}
+                            className="h-7 px-2.5 gap-1 bg-card border-border text-xs text-foreground disabled:opacity-40"
+                        >
+                            <span className="hidden sm:inline">Next</span>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={safeCurrentPage >= totalPages}
+                            className="h-7 w-7 p-0 bg-card border-border text-foreground disabled:opacity-40"
+                            title="Last Page"
+                        >
+                            <ChevronsRight className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+                </div>
             </div>
         </div>
     );
+}
+
+function getPageNumbers(currentPage: number, totalPages: number): (number | "...")[] {
+    if (totalPages <= 5) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 3) {
+        return [1, 2, 3, 4, "...", totalPages];
+    }
+    if (currentPage >= totalPages - 2) {
+        return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
 }
 
 function getStatusBadgeColor(status: string) {

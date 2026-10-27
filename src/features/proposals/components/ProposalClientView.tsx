@@ -70,6 +70,12 @@ interface Props {
         tax?: number;
     };
     isPreview?: boolean;
+    settings?: {
+        logoUrl?: string | null;
+        logoDarkUrl?: string | null;
+        faviconUrl?: string | null;
+        heroTitle?: string | null;
+    } | null;
 }
 
 export function ProposalClientView({
@@ -77,6 +83,7 @@ export function ProposalClientView({
     parsedDeliverables,
     parsedPricing,
     isPreview = false,
+    settings,
 }: Props) {
     const router = useRouter();
     const [isRejecting, setIsRejecting] = useState(false);
@@ -96,6 +103,9 @@ export function ProposalClientView({
             toast.info("Generating executive Statement of Work PDF...");
             const res = await fetch(`/api/proposals/${proposal.id}/pdf`);
             if (!res.ok) {
+                const errText = await res.text().catch(() => "");
+                console.error("PDF generation endpoint returned non-200:", res.status, errText);
+                toast.error(`PDF generation failed (${res.status}). Opening print preview as fallback...`);
                 window.print();
                 return;
             }
@@ -109,8 +119,9 @@ export function ProposalClientView({
             a.remove();
             window.URL.revokeObjectURL(url);
             toast.success("Statement of Work PDF downloaded!");
-        } catch (e) {
+        } catch (e: any) {
             console.error("PDF download error:", e);
+            toast.error("Could not download PDF. Opening print preview...");
             window.print();
         } finally {
             setIsDownloadingPdf(false);
@@ -161,6 +172,8 @@ export function ProposalClientView({
         signatureData: proposal.signatureData,
         createdAt: proposal.createdAt,
         contractSettings: (proposal.contractSettings as any) || null,
+        agencyLogoUrl: settings?.logoUrl || null,
+        agencyFaviconUrl: settings?.faviconUrl || null,
     };
 
     const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -170,7 +183,7 @@ export function ProposalClientView({
     });
 
     return (
-        <div className="space-y-8 pb-24">
+        <div className="space-y-8 pb-24 w-full min-w-0 print:p-0 print:m-0 print:space-y-0 print:pb-0">
             {/* Staff Preview Banner */}
             {isPreview && (
                 <div className="bg-sky-500/10 border border-sky-500/20 rounded-lg p-3 text-center text-xs text-sky-400 font-mono no-print flex items-center justify-center gap-2">
@@ -204,7 +217,12 @@ export function ProposalClientView({
             )}
 
             {/* Main Shared Document Sheet */}
-            <ProposalDocumentSheet data={documentData} />
+            <ProposalDocumentSheet
+                data={documentData}
+                agencyName={settings?.heroTitle ? `${settings.heroTitle} Digital Solutions` : "Optrizo Digital Solutions"}
+                agencyLogoUrl={settings?.logoUrl || null}
+                agencyFaviconUrl={settings?.faviconUrl || null}
+            />
 
             {/* Status Callout (Approved / Rejected) */}
             {isApproved && (

@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/actions";
 import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
 import { logAction } from "@/features/audit/actions";
+import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
 
 export interface ContractSettings {
     clientAddress?: string;
@@ -51,7 +52,7 @@ export interface ProposalData {
 
 export async function createDraftProposalForLead(leadId: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
         return { success: false, message: "Unauthorized: Insufficient permissions to generate proposals" };
     }
 
@@ -91,6 +92,13 @@ export async function createDraftProposalForLead(leadId: string) {
             terms: "Payment Milestone Schedule: 50% initial commitment upon agreement signing, 50% upon final acceptance and handover.",
             validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             status: "Draft",
+            contractSettings: {
+                agencyRegistration: "CS202612345",
+                agencyAddress: "4th Floor, Innovation Hub Building, Metro Manila, Philippines",
+                agencyPhone: "+63 (917) 555-1234",
+                governingLaw: "Republic of the Philippines",
+                paymentMethod: "Bank Transfer, GCash, PayPal, or Stripe",
+            },
         }).returning();
 
         await logAction("CREATE", "Proposal", `Draft proposal generated for Lead ${lead.businessName || lead.id} (${proposalCode})`);
@@ -109,8 +117,13 @@ export async function createDraftProposalForLead(leadId: string) {
 
 export async function createProposal(leadId: string, data: ProposalData) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
-        return { success: false, message: "Unauthorized" };
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+        return { success: false, message: "Unauthorized: Insufficient permissions to create proposals" };
+    }
+
+    const validated = SaveProposalSchema.safeParse(data);
+    if (!validated.success) {
+        return { success: false, message: validated.error.issues[0]?.message || "Validation Error" };
     }
 
     try {
@@ -145,8 +158,13 @@ export async function createProposal(leadId: string, data: ProposalData) {
 
 export async function updateProposal(id: string, data: ProposalData, status?: "Draft" | "Sent" | "Approved" | "Rejected") {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
-        return { success: false, message: "Unauthorized" };
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+        return { success: false, message: "Unauthorized: Insufficient permissions to update proposals" };
+    }
+
+    const validated = SaveProposalSchema.safeParse(data);
+    if (!validated.success) {
+        return { success: false, message: validated.error.issues[0]?.message || "Validation Error" };
     }
 
     try {
@@ -236,18 +254,36 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
 
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, id),
-            with: { lead: true }
+            with: {
+                lead: {
+                    with: {
+                        client: true,
+                    },
+                },
+            },
         });
 
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        const isLeadOwner = session.user.id === proposal.lead.clientId;
-        const isStaff = hasRole(session, ["superadmin", "sales", "manager"]);
+        const userRole = (session.user as any)?.role;
+        const isLeadOwner =
+            proposal.lead &&
+            (session.user.id === proposal.lead.clientId ||
+             session.user.email === proposal.lead.client?.email ||
+             session.user.email === proposal.lead.contactEmail);
 
-        // Ownership: client can only accept proposals linked to their lead (or staff test)
-        if (!isLeadOwner && !isStaff) {
-            return { success: false, message: "Unauthorized: Proposal ownership mismatch" };
+        // Strict RBAC: Administrators and internal staff are blocked from signing on behalf of clients.
+        if (userRole !== "client") {
+            return {
+                success: false,
+                message: "Forbidden: Administrators and internal staff cannot sign proposals on behalf of clients. Proposal acceptance must be completed by the authorized client organization.",
+            };
+        }
+
+        // Ownership check: client can only accept proposals linked to their lead
+        if (!isLeadOwner) {
+            return { success: false, message: "Forbidden: You do not own this proposal" };
         }
 
         if (proposal.status === "Approved") return { success: false, message: "Proposal has already been approved" };
@@ -304,7 +340,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         revalidatePath("/portal/projects");
         revalidatePath("/dashboard/pm");
         
-        return { success: true, message: "Proposal accepted and legally executed! Project board has been provisioned." };
+        return { success: true, message: "Proposal accepted and authorized! Project board has been provisioned." };
     } catch (error) {
         console.error("Failed to accept proposal:", error);
         return { success: false, message: "System error while accepting proposal." };
@@ -320,15 +356,28 @@ export async function rejectProposalByClient(id: string, reason?: string) {
 
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, id),
-            with: { lead: true }
+            with: {
+                lead: {
+                    with: {
+                        client: true,
+                    },
+                },
+            },
         });
 
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        // Ownership: client can only reject proposals linked to their lead.
-        if (session.user.id !== proposal.lead.clientId) {
-            return { success: false, message: "Unauthorized: Proposal ownership mismatch" };
+        const userRole = (session.user as any)?.role;
+        const isLeadOwner =
+            proposal.lead &&
+            (session.user.id === proposal.lead.clientId ||
+             session.user.email === proposal.lead.client?.email ||
+             session.user.email === proposal.lead.contactEmail);
+
+        // Ownership: client can only reject proposals linked to their lead
+        if (userRole !== "client" || !isLeadOwner) {
+            return { success: false, message: "Forbidden: You do not own this proposal" };
         }
 
         if (proposal.status === "Rejected") return { success: false, message: "Already rejected" };
@@ -399,8 +448,8 @@ export async function sendProposalEmail(proposalId: string) {
 
 export async function getProposalById(id: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
-        return { success: false, message: "Unauthorized" };
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+        return { success: false, message: "Unauthorized: Insufficient permissions to view proposals" };
     }
 
     try {
@@ -449,8 +498,8 @@ export async function deleteProposal(id: string) {
 
 export async function getOrCreateDraftProposal(leadId: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
-        return { success: false, message: "Unauthorized" };
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+        return { success: false, message: "Unauthorized: Insufficient permissions" };
     }
 
     try {

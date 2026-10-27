@@ -56,6 +56,7 @@ import {
     Edit3,
     Archive,
     Rocket,
+    Globe,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { logLeadActivity, archiveLead, convertLeadToProject, getProjectForLead } from "@/features/crm/actions";
@@ -632,6 +633,12 @@ export function LeadDetailsDrawer({
                         {contactName && contactName !== leadTitle && (
                             <span className="text-xs text-muted-foreground py-1">Contact: {contactName}</span>
                         )}
+                        {lead.source && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/50 border border-border text-xs text-muted-foreground" title="Acquisition Source">
+                                <Globe className="h-3 w-3 text-primary/70 shrink-0" />
+                                <span>{lead.source}</span>
+                            </span>
+                        )}
                     </div>
 
                     {/* Stale Alert Banner */}
@@ -721,7 +728,7 @@ export function LeadDetailsDrawer({
                         {/* TAB 1: OVERVIEW */}
                         <TabsContent value="overview" className="flex-1 overflow-y-auto p-6 space-y-6 m-0">
                             {/* Financial & Deal Summary Grid */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="p-3.5 rounded-xl bg-card border border-border space-y-1">
                                     <div className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
                                         <DollarSign className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" /> Estimated Value
@@ -743,6 +750,18 @@ export function LeadDetailsDrawer({
                                     </div>
                                     <div className="text-[10px] text-muted-foreground">
                                         Timeline: {lead.timelineExpectation || "Flexible"}
+                                    </div>
+                                </div>
+
+                                <div className="p-3.5 rounded-xl bg-card border border-border space-y-1">
+                                    <div className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                                        <Globe className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" /> Acquisition Source
+                                    </div>
+                                    <div className="text-sm font-semibold text-foreground truncate">
+                                        {lead.source || "Website Form"}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                        Channel Attribution
                                     </div>
                                 </div>
                             </div>

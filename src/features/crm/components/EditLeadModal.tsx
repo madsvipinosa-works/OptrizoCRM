@@ -21,8 +21,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { updateLead } from "@/features/crm/actions";
+import { STANDARD_LEAD_SOURCES } from "@/lib/schemas";
 import { toast } from "sonner";
-import { Edit3, Loader2, DollarSign, Building2, User, Phone, Mail, Flame, Zap, Snowflake } from "lucide-react";
+import { Edit3, Loader2, DollarSign, Building2, User, Phone, Mail, Flame, Zap, Snowflake, Tag, Globe } from "lucide-react";
 import type { LeadItem } from "./LeadsDataTable";
 
 interface EditLeadModalProps {
@@ -52,6 +53,8 @@ export function EditLeadModal({
     const [priority, setPriority] = useState<"Hot" | "Warm" | "Cold">("Warm");
     const [leadScore, setLeadScore] = useState<string>("50");
     const [goals, setGoals] = useState("");
+    const [selectedSource, setSelectedSource] = useState<string>("Website Form");
+    const [customSource, setCustomSource] = useState<string>("");
 
     // Populate when lead changes
     useEffect(() => {
@@ -67,6 +70,21 @@ export function EditLeadModal({
             setPriority((lead.priority as any) || "Warm");
             setLeadScore(String(lead.leadScore ?? 50));
             setGoals(lead.goals || "");
+
+            const leadSrc = lead.source?.trim() || "Website Form";
+            const isStandard = STANDARD_LEAD_SOURCES.some(
+                (s) => s !== "Other" && s.toLowerCase() === leadSrc.toLowerCase()
+            );
+            if (isStandard) {
+                const matched = STANDARD_LEAD_SOURCES.find(
+                    (s) => s !== "Other" && s.toLowerCase() === leadSrc.toLowerCase()
+                )!;
+                setSelectedSource(matched);
+                setCustomSource("");
+            } else {
+                setSelectedSource("Other");
+                setCustomSource(leadSrc);
+            }
         }
     }, [lead]);
 
@@ -79,6 +97,10 @@ export function EditLeadModal({
         const parsedValue = parseInt(estimatedValue, 10) || 0;
         const parsedScore = Math.min(100, Math.max(0, parseInt(leadScore, 10) || 50));
 
+        const finalSource = selectedSource === "Other"
+            ? (customSource.trim().slice(0, 40) || "Other")
+            : selectedSource;
+
         try {
             const res = await updateLead(lead.id, {
                 businessName: businessName.trim() || undefined,
@@ -88,6 +110,7 @@ export function EditLeadModal({
                 estimatedValue: parsedValue,
                 budget: budget.trim() || undefined,
                 industry: industry.trim() || undefined,
+                source: finalSource,
                 timelineExpectation: timelineExpectation.trim() || undefined,
                 priority,
                 leadScore: parsedScore,
@@ -106,6 +129,7 @@ export function EditLeadModal({
                     estimatedValue: parsedValue,
                     budget: budget.trim() || null,
                     industry: industry.trim() || null,
+                    source: finalSource,
                     timelineExpectation: timelineExpectation.trim() || null,
                     priority,
                     leadScore: parsedScore,
@@ -256,6 +280,46 @@ export function EditLeadModal({
                                 className="h-8 text-xs bg-muted/30 border-border text-foreground"
                             />
                         </div>
+                    </div>
+
+                    {/* Acquisition Source & Custom Source */}
+                    <div className="space-y-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                                <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                                Acquisition Source
+                            </Label>
+                            <Select value={selectedSource} onValueChange={setSelectedSource}>
+                                <SelectTrigger className="h-8 text-xs bg-muted/30 border-border text-foreground">
+                                    <SelectValue placeholder="Source" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-card border-border text-foreground">
+                                    {STANDARD_LEAD_SOURCES.map((s) => (
+                                        <SelectItem key={s} value={s} className="text-xs focus:bg-muted">
+                                            {s === "Other" ? "Other (Please specify...)" : s}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {selectedSource === "Other" && (
+                            <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/25 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label htmlFor="edit-custom-source" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                                    <Tag className="h-3 w-3 text-primary" />
+                                    Specify Custom Acquisition Channel
+                                </Label>
+                                <Input
+                                    id="edit-custom-source"
+                                    value={customSource}
+                                    maxLength={40}
+                                    onChange={(e) => setCustomSource(e.target.value)}
+                                    placeholder="e.g. Tech Expo 2026, TikTok Ads, Podcast..."
+                                    className="h-8 text-xs bg-muted/30 border-border text-foreground focus:border-primary"
+                                    required
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Priority & Lead Score */}

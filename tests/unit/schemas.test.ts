@@ -4,6 +4,10 @@ import {
   intakeFormSchema,
   transitionLeadSchema,
   lossReasonSchema,
+  leadUpdateSchema,
+  STANDARD_LEAD_SOURCES,
+  ProposalLineItemSchema,
+  SaveProposalSchema,
 } from "@/lib/schemas";
 
 describe("CRM & Client Zod Validation Schemas", () => {
@@ -124,6 +128,119 @@ describe("CRM & Client Zod Validation Schemas", () => {
       };
       const result = intakeFormSchema.safeParse(missingGoals);
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("leadUpdateSchema & Lead Sources", () => {
+    it("should accept updating lead source with standard and custom values", () => {
+      expect(STANDARD_LEAD_SOURCES).toContain("LinkedIn / Social Media");
+      expect(STANDARD_LEAD_SOURCES).toContain("Other");
+
+      const updateWithStandard = {
+        source: "Conference / Networking Event",
+        budget: "$15,000",
+      };
+      const res1 = leadUpdateSchema.safeParse(updateWithStandard);
+      expect(res1.success).toBe(true);
+
+      const updateWithCustom = {
+        source: "Tech Expo 2026 - Booth 4A",
+        estimatedValue: 45000,
+      };
+      const res2 = leadUpdateSchema.safeParse(updateWithCustom);
+      expect(res2.success).toBe(true);
+      if (res2.success) {
+        expect(res2.data.source).toBe("Tech Expo 2026 - Booth 4A");
+      }
+    });
+  });
+
+  describe("SaveProposalSchema & ProposalLineItemSchema Validation", () => {
+    it("should accept valid proposal and line item data", () => {
+      const validLineItem = {
+        name: "Full-Stack Web Development",
+        description: "Next.js + Drizzle ORM implementation",
+        quantity: 1,
+        unitPrice: 5000,
+        total: 5000,
+      };
+      const lineRes = ProposalLineItemSchema.safeParse(validLineItem);
+      expect(lineRes.success).toBe(true);
+
+      const validProposal = {
+        proposalCode: "OPT-2026-9999",
+        businessName: "Acme Corp",
+        scope: "Build a complete web application with authentication and CRM.",
+        deliverables: ["Auth System", "CRM Board"],
+        pricingStructure: [validLineItem],
+        subtotal: 5000,
+        discount: 500,
+        tax: 250,
+        total: 4750,
+      };
+      const propRes = SaveProposalSchema.safeParse(validProposal);
+      expect(propRes.success).toBe(true);
+    });
+
+    it("should reject line item with quantity exceeding 9999 or below 1", () => {
+      const overQty = {
+        name: "Consultation",
+        quantity: 10000,
+        unitPrice: 100,
+      };
+      const resOver = ProposalLineItemSchema.safeParse(overQty);
+      expect(resOver.success).toBe(false);
+      if (!resOver.success) {
+        expect(resOver.error.issues[0].message).toContain("cannot exceed 9,999");
+      }
+
+      const zeroQty = {
+        name: "Consultation",
+        quantity: 0,
+        unitPrice: 100,
+      };
+      const resZero = ProposalLineItemSchema.safeParse(zeroQty);
+      expect(resZero.success).toBe(false);
+    });
+
+    it("should reject negative unit price or price exceeding $10,000,000", () => {
+      const negPrice = {
+        name: "Service",
+        quantity: 1,
+        unitPrice: -50,
+      };
+      const resNeg = ProposalLineItemSchema.safeParse(negPrice);
+      expect(resNeg.success).toBe(false);
+
+      const overPrice = {
+        name: "Service",
+        quantity: 1,
+        unitPrice: 15_000_000,
+      };
+      const resOver = ProposalLineItemSchema.safeParse(overPrice);
+      expect(resOver.success).toBe(false);
+      if (!resOver.success) {
+        expect(resOver.error.issues[0].message).toContain("cannot exceed $10,000,000");
+      }
+    });
+
+    it("should enforce refinement that discount cannot exceed subtotal", () => {
+      const invalidDiscount = {
+        proposalCode: "OPT-2026-1234",
+        businessName: "Beta LLC",
+        pricingStructure: [
+          { name: "Design Phase", quantity: 1, unitPrice: 2000, total: 2000 },
+        ],
+        subtotal: 2000,
+        discount: 2500, // Exceeds subtotal $2,000!
+        tax: 0,
+        total: 0,
+      };
+      const result = SaveProposalSchema.safeParse(invalidDiscount);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain("Discount cannot exceed the proposal subtotal");
+      }
     });
   });
 });

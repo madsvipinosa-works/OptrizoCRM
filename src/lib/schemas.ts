@@ -69,6 +69,23 @@ export const logLeadActivitySchema = z.object({
 
 export type LogLeadActivityValues = z.infer<typeof logLeadActivitySchema>;
 
+export const STANDARD_LEAD_SOURCES = [
+    "Website Form",
+    "Client Intake Portal",
+    "Referral / Word of Mouth",
+    "LinkedIn / Social Media",
+    "Cold Outreach (Email/Call)",
+    "Conference / Networking Event",
+    "Google Search / Organic SEO",
+    "Paid Advertising (Meta/Google Ads)",
+    "Partner / Agency Network",
+    "Existing Client (Upsell)",
+    "Inbound Phone / Direct Email",
+    "Other",
+] as const;
+
+export type StandardLeadSource = (typeof STANDARD_LEAD_SOURCES)[number];
+
 export const leadUpdateSchema = z.object({
     status: leadStatusEnum.optional(),
     businessName: z.string().optional(),
@@ -83,6 +100,7 @@ export const leadUpdateSchema = z.object({
     qualificationStatus: z.enum(["Lead", "MQL", "SQL"]).optional(),
     goals: z.string().optional(),
     industry: z.string().optional(),
+    source: z.string().optional(),
     timelineExpectation: z.string().optional(),
     notes: z.string().optional(),
     assigneeIds: z.array(z.string()).optional(),
@@ -185,4 +203,42 @@ export const testimonialSchema = z.object({
     content: z.string().min(1, "Content is required"),
     rating: z.coerce.number().min(1).max(5).default(5),
     image: z.string().optional(),
+});
+
+export const ProposalLineItemSchema = z.object({
+    name: z.string().trim().min(1, "Line item description is required").max(180, "Item description too long"),
+    description: z.string().trim().max(500).optional().nullable(),
+    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1").max(9999, "Quantity cannot exceed 9,999"),
+    unitPrice: z.coerce.number().min(0, "Unit price cannot be negative").max(10_000_000, "Unit price cannot exceed $10,000,000"),
+    total: z.coerce.number().min(0).max(100_000_000).optional(),
+});
+
+export const SaveProposalSchema = z.object({
+    proposalCode: z.string().trim().max(50).optional(),
+    businessName: z.string().trim().max(150).optional(),
+    scope: z.string().trim().max(5000).optional().nullable(),
+    technicalApproach: z.string().trim().max(5000).optional().nullable(),
+    timeline: z.string().trim().max(100).optional().nullable(),
+    deliverables: z.array(z.string().trim().max(250)).optional(),
+    pricingStructure: z.array(ProposalLineItemSchema).min(1, "At least one line item is required").optional(),
+    subtotal: z.coerce.number().min(0).max(100_000_000).optional(),
+    discount: z.coerce.number().min(0, "Discount cannot be negative").max(10_000_000, "Discount exceeds maximum allowed").default(0),
+    tax: z.coerce.number().min(0, "Tax cannot be negative").max(10_000_000, "Tax exceeds maximum allowed").default(0),
+    total: z.coerce.number().min(0).max(100_000_000).optional(),
+    terms: z.string().trim().max(5000).optional().nullable(),
+    validUntil: z.any().optional(),
+    fileUrl: z.string().nullable().optional(),
+    contractSettings: z.record(z.string(), z.any()).optional().nullable(),
+}).refine((data) => {
+    if (data.pricingStructure && data.pricingStructure.length > 0) {
+        const subtotal = data.pricingStructure.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+        return (data.discount ?? 0) <= subtotal;
+    }
+    if (data.subtotal !== undefined) {
+        return (data.discount ?? 0) <= data.subtotal;
+    }
+    return true;
+}, {
+    message: "Discount cannot exceed the proposal subtotal.",
+    path: ["discount"],
 });

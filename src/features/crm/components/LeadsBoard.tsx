@@ -17,6 +17,8 @@ export function LeadsBoard({
     leads,
     assignableUsers,
     currentUserId,
+    query,
+    status,
     isAdmin,
     initialLeadId,
 }: LeadsBoardProps) {
@@ -27,6 +29,8 @@ export function LeadsBoard({
             currentUserId={currentUserId}
             isAdmin={isAdmin}
             initialLeadId={initialLeadId}
+            initialQuery={query}
+            initialStatus={status}
         />
     );
 }

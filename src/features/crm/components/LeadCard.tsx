@@ -22,6 +22,7 @@ import {
     Loader2,
     CheckCircle2,
     Rocket,
+    Globe,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -284,11 +285,22 @@ export function LeadCard({
                 </div>
             </div>
 
-            {/* Middle Row: Industry / Focus & Estimated Value */}
+            {/* Middle Row: Industry / Focus, Acquisition Source & Estimated Value */}
             <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50 gap-2 min-w-0">
                 <div className="flex items-center gap-1.5 text-muted-foreground truncate min-w-0 flex-1">
-                    <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span className="truncate">{lead.industry || "General Focus"}</span>
+                    <div className="flex items-center gap-1 truncate min-w-0">
+                        <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="truncate">{lead.industry || "General Focus"}</span>
+                    </div>
+                    {lead.source && (
+                        <div
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground/80 bg-muted/60 px-1.5 py-0.5 rounded border border-border/40 shrink-0 max-w-[110px]"
+                            title={`Acquisition Source: ${lead.source}`}
+                        >
+                            <Globe className="h-2.5 w-2.5 text-primary/70 shrink-0" />
+                            <span className="truncate">{lead.source}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-1 font-mono font-bold text-emerald-500 dark:text-emerald-400 shrink-0">

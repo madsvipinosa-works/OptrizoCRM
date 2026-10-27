@@ -16,18 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createLead } from "@/features/crm/actions";
 import { DEFAULT_CRM_PLAYBOOK, PlaybookTaskTemplate } from "@/config/crm-playbook";
+import { STANDARD_LEAD_SOURCES } from "@/lib/schemas";
 import { toast } from "sonner";
-import { Plus, UserPlus, Loader2, UserCheck, Zap, ChevronDown, ChevronUp, Trash2, Clock, CheckSquare } from "lucide-react";
-
-const LEAD_SOURCES = [
-    "Website Form",
-    "LinkedIn",
-    "Referral",
-    "Cold Outreach (Email/Call)",
-    "Networking / Event",
-    "Existing Client (Upsell)",
-    "Other"
-];
+import { Plus, UserPlus, Loader2, UserCheck, Zap, ChevronDown, ChevronUp, Trash2, Clock, CheckSquare, Tag } from "lucide-react";
 
 interface AssignableUser {
     id: string;
@@ -48,6 +39,8 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
 
     // Rep Assignment
     const [assignedRepId, setAssignedRepId] = useState<string>("auto");
+    const [selectedSource, setSelectedSource] = useState<string>("Website Form");
+    const [customSource, setCustomSource] = useState<string>("");
 
     // Playbook tasks customization
     const [enablePlaybook, setEnablePlaybook] = useState<boolean>(true);
@@ -88,11 +81,14 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
         const contactName = formData.get("contactName") as string;
         const contactEmail = formData.get("contactEmail") as string;
         const contactPhone = formData.get("contactPhone") as string;
-        const source = formData.get("source") as string;
         const industry = formData.get("industry") as string;
         const budget = formData.get("budget") as string;
         const goals = formData.get("goals") as string;
         const timelineExpectation = formData.get("timeline") as string;
+
+        const finalSource = selectedSource === "Other"
+            ? (customSource.trim().slice(0, 40) || "Other")
+            : selectedSource;
 
         const res = await createLead({
             businessName: businessName || contactName,
@@ -100,7 +96,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
             contactEmail,
             contactPhone: contactPhone || undefined,
             industry: industry || undefined,
-            source: source || "Manual Entry",
+            source: finalSource,
             budget: budget || undefined,
             timelineExpectation: timelineExpectation || undefined,
             goals: goals || undefined,
@@ -116,6 +112,8 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
             // Reset to defaults
             setPlaybookTasks(DEFAULT_CRM_PLAYBOOK.defaultTasks.map(t => ({ ...t })));
             setAssignedRepId("auto");
+            setSelectedSource("Website Form");
+            setCustomSource("");
         } else {
             toast.error(res.message || "Failed to create opportunity");
         }
@@ -200,18 +198,42 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                         </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="source" className="text-xs font-medium text-foreground">Lead Source</Label>
-                            <Select name="source" defaultValue="Website Form">
+                            <Select value={selectedSource} onValueChange={setSelectedSource}>
                                 <SelectTrigger className="bg-muted/30 border-border text-xs h-9 text-foreground focus:border-primary">
                                     <SelectValue placeholder="Source" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border text-foreground">
-                                    {LEAD_SOURCES.map(source => (
-                                        <SelectItem key={source} value={source} className="text-xs focus:bg-muted">{source}</SelectItem>
+                                    {STANDARD_LEAD_SOURCES.map(source => (
+                                        <SelectItem key={source} value={source} className="text-xs focus:bg-muted">
+                                            {source === "Other" ? "Other (Please specify...)" : source}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
+
+                    {selectedSource === "Other" && (
+                        <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/25 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <Label htmlFor="customSource" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                                <Tag className="h-3.5 w-3.5 text-primary" />
+                                Specify Custom Lead Source
+                            </Label>
+                            <Input
+                                id="customSource"
+                                placeholder="e.g. Tech Expo 2026, TikTok Ads, Billboard, Podcast, Clutch.co..."
+                                value={customSource}
+                                maxLength={40}
+                                onChange={(e) => setCustomSource(e.target.value)}
+                                className="bg-muted/30 border-border text-foreground text-xs h-9 placeholder:text-muted-foreground focus:border-primary"
+                                autoFocus
+                                required
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                                This custom channel will be automatically tracked in CRM filters and analytics charts.
+                            </p>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">

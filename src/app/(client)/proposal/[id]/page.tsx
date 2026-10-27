@@ -5,6 +5,7 @@ import { proposals } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { ProposalClientView } from "@/features/proposals/components/ProposalClientView";
 import { PricingLineItem } from "@/features/proposals/components/ProposalDocumentSheet";
+import { getSiteSettings } from "@/features/cms/actions";
 
 export const metadata = {
     title: "Project Proposal | Optrizo",
@@ -46,12 +47,38 @@ export default async function ProposalPage({
     }
 
     // Access Control: 
-    // Allow if the user is an admin or editor (staff preview).
-    // Otherwise, require the user's ID to match the lead's clientId exactly.
-    const isAdminOrEditor = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
-    const isOwner = proposal.lead && session.user.id === proposal.lead.clientId;
+    // Strictly block internal production/marketing roles from financial proposal data
+    const userRole = (session.user as any)?.role;
+    if (["editor", "developer", "content_editor"].includes(userRole)) {
+        return (
+            <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+                <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
+                    <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
+                    <p className="text-foreground/80 text-sm">Forbidden: Insufficient permissions to view financial proposal agreements.</p>
+                </div>
+            </div>
+        );
+    }
 
-    if (!isAdminOrEditor && !isOwner) {
+    const isStaff = hasRole(session, ["superadmin", "manager", "sales"]);
+    const isOwner =
+        proposal.lead &&
+        (session.user.id === proposal.lead.clientId ||
+         session.user.email === proposal.lead.client?.email ||
+         session.user.email === proposal.lead.contactEmail);
+
+    if (userRole === "client") {
+        if (!isOwner) {
+            return (
+                <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+                    <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
+                        <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
+                        <p className="text-foreground/80 text-sm">Forbidden: You do not own this proposal.</p>
+                    </div>
+                </div>
+            );
+        }
+    } else if (!isStaff) {
         return (
             <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
                 <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
@@ -114,14 +141,22 @@ export default async function ProposalPage({
         console.error("Error parsing proposal data:", e);
     }
 
+    const settings = await getSiteSettings();
+
     return (
-        <div className="min-h-screen bg-muted/20 text-foreground selection:bg-primary/30 py-8 md:py-14 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-4xl mx-auto">
+        <div className="min-h-screen bg-muted/20 text-foreground selection:bg-primary/30 py-8 md:py-14 px-4 sm:px-6 lg:px-8 print:min-h-0 print:bg-white print:p-0 print:m-0 print:w-full">
+            <div className="max-w-4xl mx-auto print:max-w-none print:w-full print:m-0 print:p-0">
                 <ProposalClientView 
                     proposal={proposal} 
                     parsedDeliverables={parsedDeliverables}
                     parsedPricing={parsedPricing}
                     isPreview={!isOwner}
+                    settings={settings ? {
+                        logoUrl: settings.logoUrl,
+                        logoDarkUrl: settings.logoDarkUrl,
+                        faviconUrl: settings.faviconUrl,
+                        heroTitle: settings.heroTitle,
+                    } : null}
                 />
             </div>
         </div>

@@ -43,7 +43,7 @@ async function requireEditor() {
 
 // --- Global Settings ---
 
-export const getSiteSettings = unstable_cache(
+const fetchSiteSettingsCached = unstable_cache(
     async () => {
         try {
             const settings = await db.select().from(siteSettings).limit(1);
@@ -56,6 +56,10 @@ export const getSiteSettings = unstable_cache(
     ["site-settings-singleton"],
     { revalidate: 3600, tags: ["site-settings"] }
 );
+
+export async function getSiteSettings() {
+    return fetchSiteSettingsCached();
+}
 
 export type ActionState = {
     message: string;
@@ -341,7 +345,9 @@ export async function createCaseStudy(prevState: ActionState, formData: FormData
         return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
-export const createProject = createCaseStudy;
+export async function createProject(...args: Parameters<typeof createCaseStudy>) {
+    return createCaseStudy(...args);
+}
 
 export async function deleteCaseStudy(id: string) {
     await requireEditor();
@@ -357,7 +363,9 @@ export async function deleteCaseStudy(id: string) {
     revalidatePath("/projects");
     revalidatePath("/");
 }
-export const deleteProject = deleteCaseStudy;
+export async function deleteProject(...args: Parameters<typeof deleteCaseStudy>) {
+    return deleteCaseStudy(...args);
+}
 
 export async function updateCaseStudy(prevState: ActionState, formData: FormData) {
     try {
@@ -408,7 +416,9 @@ export async function updateCaseStudy(prevState: ActionState, formData: FormData
         return { success: false, message: "Failed. " + (error as Error).message };
     }
 }
-export const updateProject = updateCaseStudy;
+export async function updateProject(...args: Parameters<typeof updateCaseStudy>) {
+    return updateCaseStudy(...args);
+}
 
 // --- Services ---
 

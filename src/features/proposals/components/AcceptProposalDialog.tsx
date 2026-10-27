@@ -18,6 +18,7 @@ import { acceptProposalByClient } from "@/features/proposals/actions";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
+import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 
 interface AcceptProposalDialogProps {
     open: boolean;
@@ -211,6 +212,7 @@ export function AcceptProposalDialog({
                             <Input
                                 id="legalName"
                                 value={legalName}
+                                maxLength={100}
                                 onChange={(e) => setLegalName(e.target.value)}
                                 placeholder="e.g. Eleanor Vance"
                                 className="text-sm"
@@ -224,6 +226,7 @@ export function AcceptProposalDialog({
                             <Input
                                 id="signerTitle"
                                 value={title}
+                                maxLength={100}
                                 onChange={(e) => setTitle(e.target.value)}
                                 placeholder="e.g. Managing Director"
                                 className="text-sm"
@@ -242,6 +245,7 @@ export function AcceptProposalDialog({
                                     <Input
                                         id="clientAddress"
                                         value={clientAddress}
+                                        maxLength={250}
                                         onChange={(e) => setClientAddress(e.target.value)}
                                         placeholder="e.g. 123 Business St., Makati City"
                                         className="text-sm"
@@ -254,12 +258,11 @@ export function AcceptProposalDialog({
                                     <Label htmlFor="clientPhone" className="text-xs">
                                         Phone Number <span className="text-destructive">*</span>
                                     </Label>
-                                    <Input
+                                    <CountryPhoneInput
                                         id="clientPhone"
                                         value={clientPhone}
-                                        onChange={(e) => setClientPhone(e.target.value)}
-                                        placeholder="e.g. +63 917 123 4567"
-                                        className="text-sm"
+                                        onChange={(val) => setClientPhone(val)}
+                                        placeholder="(917) 123-4567"
                                         required
                                     />
                                 </div>
@@ -272,6 +275,7 @@ export function AcceptProposalDialog({
                                     <Input
                                         id="clientTaxId"
                                         value={clientTaxId}
+                                        maxLength={30}
                                         onChange={(e) => setClientTaxId(e.target.value)}
                                         placeholder="e.g. TIN: 123-456-789"
                                         className="text-sm"
@@ -341,7 +345,7 @@ export function AcceptProposalDialog({
                         </Tabs>
                     </div>
 
-                    {/* ESIGN Legal Consent */}
+                    {/* Client Acceptance & Sign-off Consent */}
                     <div className="p-3 rounded-md bg-muted/40 border border-border/80 flex items-start gap-2.5">
                         <input
                             id="termsCheckbox"
@@ -351,7 +355,7 @@ export function AcceptProposalDialog({
                             className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                         />
                         <label htmlFor="termsCheckbox" className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none">
-                            I verify that I am authorized to execute agreements on behalf of my organization. By submitting, I adopt this digital signature as my legally binding consent under the ESIGN Act and UETA regulations.
+                            I verify that I am authorized to accept proposals on behalf of my organization. By submitting, I confirm agreement to the scope of work and authorize project onboarding via the Optrizo Client Portal.
                         </label>
                     </div>
                 </div>

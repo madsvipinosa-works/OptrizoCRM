@@ -164,6 +164,7 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                     required={activeTab === "dynamic"}
                                     placeholder="Describe what the project aims to achieve..." 
                                     className="bg-card border-border text-foreground min-h-[100px]"
+                                    maxLength={3000}
                                     value={scope}
                                     onChange={(e) => setScope(e.target.value)}
                                 />
@@ -183,6 +184,7 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                             <Input 
                                                 placeholder={`Deliverable ${idx + 1}`} 
                                                 className="bg-card border-border text-foreground"
+                                                maxLength={180}
                                                 value={item}
                                                 onChange={(e) => updateDeliverable(idx, e.target.value)}
                                                 required={activeTab === "dynamic"}
@@ -204,6 +206,7 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                     required={activeTab === "dynamic"}
                                     placeholder="e.g., 4-6 Weeks" 
                                     className="bg-card border-border text-foreground"
+                                    maxLength={100}
                                     value={timeline}
                                     onChange={(e) => setTimeline(e.target.value)}
                                 />
@@ -223,6 +226,7 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                             <Input 
                                                 placeholder="Item Name (e.g. Design Phase)" 
                                                 className="bg-card border-border text-foreground flex-1"
+                                                maxLength={120}
                                                 value={item.name}
                                                 onChange={(e) => updatePricingItem(idx, "name", e.target.value)}
                                                 required={activeTab === "dynamic"}
@@ -233,9 +237,13 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
                                                     type="number"
                                                     className="bg-card border-border text-foreground pl-7 font-mono"
                                                     value={item.price}
-                                                    onChange={(e) => updatePricingItem(idx, "price", parseFloat(e.target.value) || 0)}
+                                                    onChange={(e) => {
+                                                        const raw = parseFloat(e.target.value) || 0;
+                                                        updatePricingItem(idx, "price", Math.min(10000000, Math.max(0, raw)));
+                                                    }}
                                                     required={activeTab === "dynamic"}
                                                     min="0"
+                                                    max="10000000"
                                                 />
                                             </div>
                                             {pricingItems.length > 1 && (

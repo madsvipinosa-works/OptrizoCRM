@@ -22,6 +22,7 @@ import {
     Copy,
     Check,
     Mail,
+    Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { updateProposal, sendProposalEmail, ProposalData, ContractSettings } from "@/features/proposals/actions";
+import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 import {
     ProposalDocumentSheet,
     ProposalDocumentData,
@@ -88,6 +90,12 @@ interface ProposalBuilderStudioProps {
             } | null;
         } | null;
     };
+    settings?: {
+        logoUrl?: string | null;
+        logoDarkUrl?: string | null;
+        faviconUrl?: string | null;
+        heroTitle?: string | null;
+    } | null;
 }
 
 const TEMPLATES = [
@@ -146,7 +154,7 @@ const TEMPLATES = [
     },
 ];
 
-export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) {
+export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStudioProps) {
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
@@ -398,6 +406,9 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
             toast.info("Generating executive Statement of Work PDF...");
             const res = await fetch(`/api/proposals/${proposal.id}/pdf`);
             if (!res.ok) {
+                const errText = await res.text().catch(() => "");
+                console.error("PDF generation endpoint returned non-200:", res.status, errText);
+                toast.error(`PDF generation failed (${res.status}). Opening print preview as fallback...`);
                 window.print();
                 return;
             }
@@ -411,12 +422,17 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
             a.remove();
             window.URL.revokeObjectURL(url);
             toast.success("Statement of Work PDF downloaded!");
-        } catch (e) {
+        } catch (e: any) {
             console.error("PDF download error:", e);
+            toast.error("Could not download PDF. Opening print preview...");
             window.print();
         } finally {
             setIsDownloadingPdf(false);
         }
+    };
+
+    const handlePrint = () => {
+        window.print();
     };
 
     // Live preview document data
@@ -444,6 +460,8 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
         signatureData: proposal.signatureData,
         createdAt: proposal.createdAt,
         contractSettings,
+        agencyLogoUrl: settings?.logoUrl || null,
+        agencyFaviconUrl: settings?.faviconUrl || null,
     };
 
     return (
@@ -521,18 +539,29 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* Print / PDF Trigger */}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadPdf}
-                        disabled={isDownloadingPdf}
-                        className="items-center gap-1.5"
-                        title="Download Statement of Work PDF"
-                    >
-                        {isDownloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-                        <span className="hidden sm:inline">Export SOW PDF</span>
-                    </Button>
+                    {/* Print / PDF Trigger Group */}
+                    <div className="flex items-center">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloadingPdf}
+                            className="items-center gap-1.5 rounded-r-none border-r-0"
+                            title="Download official Statement of Work PDF"
+                        >
+                            {isDownloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            <span className="hidden sm:inline">Export SOW PDF</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePrint}
+                            className="items-center px-2 rounded-l-none text-muted-foreground hover:text-foreground"
+                            title="Open browser print dialog / save as PDF"
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                    </div>
 
                     {/* Share Client Link Trigger */}
                     {currentStatus !== "Draft" && (
@@ -574,7 +603,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
             </header>
 
             {/* Split Screen Workspace */}
-            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0">
+            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 print:block print:w-full print:m-0 print:p-0">
                 {/* Left Panel: Form & Line Items (50% / 6 cols on lg) */}
                 <div className="lg:col-span-6 border-r border-border p-6 lg:p-8 space-y-8 overflow-y-auto max-h-[calc(100vh-61px)] no-print override-scrollbar">
                     {/* Section: Metadata */}
@@ -588,6 +617,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                 <Input
                                     id="proposalCode"
                                     value={proposalCode}
+                                    maxLength={30}
                                     onChange={(e) => setProposalCode(e.target.value)}
                                     placeholder="OPT-2026-0001"
                                     className="font-mono text-xs"
@@ -598,6 +628,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                 <Input
                                     id="businessName"
                                     value={businessName}
+                                    maxLength={100}
                                     onChange={(e) => setBusinessName(e.target.value)}
                                     placeholder="Company / Client"
                                 />
@@ -626,6 +657,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                 <Textarea
                                     id="scope"
                                     rows={4}
+                                    maxLength={3000}
                                     value={scope}
                                     onChange={(e) => setScope(e.target.value)}
                                     placeholder="Detail what problem this project solves and the core solution architecture..."
@@ -637,6 +669,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                 <Textarea
                                     id="technicalApproach"
                                     rows={3}
+                                    maxLength={3000}
                                     value={technicalApproach}
                                     onChange={(e) => setTechnicalApproach(e.target.value)}
                                     placeholder="Outline the tech stack, security standards, and deployment pipelines..."
@@ -662,6 +695,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                     <span className="text-xs font-mono text-muted-foreground w-6 text-center">{idx + 1}.</span>
                                     <Input
                                         value={item}
+                                        maxLength={180}
                                         onChange={(e) => updateDeliverable(idx, e.target.value)}
                                         placeholder={`Deliverable ${idx + 1} item...`}
                                         className="text-sm"
@@ -689,6 +723,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                         </div>
                         <Input
                             value={timeline}
+                            maxLength={100}
                             onChange={(e) => setTimeline(e.target.value)}
                             placeholder="e.g. 4 - 6 Weeks (Milestone-based delivery)"
                             className="text-sm"
@@ -716,12 +751,14 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                         <div className="flex-1 space-y-1">
                                             <Input
                                                 value={item.name}
+                                                maxLength={120}
                                                 onChange={(e) => updatePricingItem(idx, "name", e.target.value)}
                                                 placeholder="Service / Phase Name (e.g. Frontend Architecture)"
                                                 className="font-medium text-sm"
                                             />
                                             <Input
                                                 value={item.description || ""}
+                                                maxLength={300}
                                                 onChange={(e) => updatePricingItem(idx, "description", e.target.value)}
                                                 placeholder="Description or sub-scope (optional)"
                                                 className="text-xs text-muted-foreground"
@@ -742,14 +779,28 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
 
                                     <div className="grid grid-cols-3 gap-3 pt-1">
                                         <div>
-                                            <Label className="text-[10px] text-muted-foreground uppercase">Qty</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase">Qty (1–9,999)</Label>
                                             <Input
                                                 type="number"
                                                 min="1"
-                                                value={item.quantity}
-                                                onChange={(e) =>
-                                                    updatePricingItem(idx, "quantity", parseInt(e.target.value) || 1)
-                                                }
+                                                max="9999"
+                                                value={item.quantity === 0 ? "" : item.quantity}
+                                                placeholder="1"
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === "") {
+                                                        updatePricingItem(idx, "quantity", 0);
+                                                        return;
+                                                    }
+                                                    const raw = parseInt(val, 10);
+                                                    if (!isNaN(raw)) {
+                                                        updatePricingItem(idx, "quantity", Math.min(9999, Math.max(0, raw)));
+                                                    }
+                                                }}
+                                                onBlur={(e) => {
+                                                    const raw = parseInt(e.target.value, 10);
+                                                    updatePricingItem(idx, "quantity", isNaN(raw) || raw < 1 ? 1 : Math.min(9999, raw));
+                                                }}
                                                 className="h-8 text-xs font-mono"
                                             />
                                         </div>
@@ -758,10 +809,24 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                             <Input
                                                 type="number"
                                                 min="0"
-                                                value={item.unitPrice}
-                                                onChange={(e) =>
-                                                    updatePricingItem(idx, "unitPrice", parseFloat(e.target.value) || 0)
-                                                }
+                                                max="10000000"
+                                                value={item.unitPrice === 0 ? "" : item.unitPrice}
+                                                placeholder="0"
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === "") {
+                                                        updatePricingItem(idx, "unitPrice", 0);
+                                                        return;
+                                                    }
+                                                    const raw = parseFloat(val);
+                                                    if (!isNaN(raw)) {
+                                                        updatePricingItem(idx, "unitPrice", Math.min(10000000, Math.max(0, raw)));
+                                                    }
+                                                }}
+                                                onBlur={(e) => {
+                                                    const raw = parseFloat(e.target.value);
+                                                    updatePricingItem(idx, "unitPrice", isNaN(raw) || raw < 0 ? 0 : Math.min(10000000, raw));
+                                                }}
                                                 className="h-8 text-xs font-mono"
                                             />
                                         </div>
@@ -789,8 +854,24 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                         id="discount"
                                         type="number"
                                         min="0"
-                                        value={discount}
-                                        onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                                        max={subtotal}
+                                        value={discount === 0 ? "" : discount}
+                                        placeholder="0"
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "") {
+                                                setDiscount(0);
+                                                return;
+                                            }
+                                            const raw = parseFloat(val);
+                                            if (!isNaN(raw)) {
+                                                setDiscount(Math.min(subtotal, Math.max(0, raw)));
+                                            }
+                                        }}
+                                        onBlur={(e) => {
+                                            const raw = parseFloat(e.target.value);
+                                            setDiscount(isNaN(raw) || raw < 0 ? 0 : Math.min(subtotal, raw));
+                                        }}
                                         className="h-7 text-xs font-mono"
                                     />
                                 </div>
@@ -800,8 +881,24 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                         id="tax"
                                         type="number"
                                         min="0"
-                                        value={tax}
-                                        onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
+                                        max="10000000"
+                                        value={tax === 0 ? "" : tax}
+                                        placeholder="0"
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "") {
+                                                setTax(0);
+                                                return;
+                                            }
+                                            const raw = parseFloat(val);
+                                            if (!isNaN(raw)) {
+                                                setTax(Math.min(10000000, Math.max(0, raw)));
+                                            }
+                                        }}
+                                        onBlur={(e) => {
+                                            const raw = parseFloat(e.target.value);
+                                            setTax(isNaN(raw) || raw < 0 ? 0 : Math.min(10000000, raw));
+                                        }}
                                         className="h-7 text-xs font-mono"
                                     />
                                 </div>
@@ -836,16 +933,20 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <Label className="text-xs">Client Contact Person</Label>
-                                            <Input placeholder="e.g. Juan dela Cruz" value={contractSettings.clientContactPerson || ""} onChange={(e) => updateCS("clientContactPerson", e.target.value)} className="text-xs" />
+                                            <Input placeholder="e.g. Juan dela Cruz" maxLength={100} value={contractSettings.clientContactPerson || ""} onChange={(e) => updateCS("clientContactPerson", e.target.value)} className="text-xs" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-xs">Client Phone</Label>
-                                            <Input placeholder="e.g. +63 917 123 4567" value={contractSettings.clientPhone || ""} onChange={(e) => updateCS("clientPhone", e.target.value)} className="text-xs" />
+                                            <Label className="text-xs">Client Phone Number</Label>
+                                            <CountryPhoneInput
+                                                value={contractSettings.clientPhone || ""}
+                                                onChange={(val) => updateCS("clientPhone", val)}
+                                                placeholder="(917) 123-4567"
+                                            />
                                         </div>
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-xs">Client Address <span className="text-muted-foreground font-normal">(leave blank if not yet available)</span></Label>
-                                        <Input placeholder="e.g. 123 Business St., Makati City — or leave blank" value={contractSettings.clientAddress || ""} onChange={(e) => updateCS("clientAddress", e.target.value)} className="text-xs" />
+                                        <Input placeholder="e.g. 123 Business St., Makati City — or leave blank" maxLength={250} value={contractSettings.clientAddress || ""} onChange={(e) => updateCS("clientAddress", e.target.value)} className="text-xs" />
                                     </div>
                                 </div>
 
@@ -855,16 +956,26 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <Label className="text-xs">Agency Phone</Label>
-                                            <Input placeholder="e.g. +63 917 000 0000" value={contractSettings.agencyPhone || ""} onChange={(e) => updateCS("agencyPhone", e.target.value)} className="text-xs" />
+                                            <CountryPhoneInput
+                                                value={contractSettings.agencyPhone || "+63 (917) 555-1234"}
+                                                onChange={(val) => updateCS("agencyPhone", val)}
+                                                defaultCountryCode="PH"
+                                            />
                                         </div>
                                         <div className="space-y-1">
                                             <Label className="text-xs">Company Reg. / SEC No.</Label>
-                                            <Input placeholder="e.g. CS202500001" value={contractSettings.agencyRegistration || ""} onChange={(e) => updateCS("agencyRegistration", e.target.value)} className="text-xs" />
+                                            <Input
+                                                placeholder="CS202612345"
+                                                maxLength={30}
+                                                value={contractSettings.agencyRegistration || "CS202612345"}
+                                                onChange={(e) => updateCS("agencyRegistration", e.target.value.toUpperCase().replace(/[^A-Z0-9.-]/g, ""))}
+                                                className="text-xs font-mono"
+                                            />
                                         </div>
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-xs">Agency Address</Label>
-                                        <Input placeholder="e.g. BGC, Taguig City, Metro Manila" value={contractSettings.agencyAddress || ""} onChange={(e) => updateCS("agencyAddress", e.target.value)} className="text-xs" />
+                                        <Input placeholder="e.g. 4th Floor, Innovation Hub Building, Metro Manila, Philippines" maxLength={200} value={contractSettings.agencyAddress || ""} onChange={(e) => updateCS("agencyAddress", e.target.value)} className="text-xs" />
                                     </div>
                                 </div>
 
@@ -874,11 +985,11 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <Label className="text-xs">Governing Law / Jurisdiction</Label>
-                                            <Input placeholder="e.g. Republic of the Philippines" value={contractSettings.governingLaw || ""} onChange={(e) => updateCS("governingLaw", e.target.value)} className="text-xs" />
+                                            <Input placeholder="e.g. Republic of the Philippines" maxLength={100} value={contractSettings.governingLaw || ""} onChange={(e) => updateCS("governingLaw", e.target.value)} className="text-xs" />
                                         </div>
                                         <div className="space-y-1">
                                             <Label className="text-xs">Accepted Payment Method</Label>
-                                            <Input placeholder="e.g. Bank Transfer, GCash, PayPal" value={contractSettings.paymentMethod || ""} onChange={(e) => updateCS("paymentMethod", e.target.value)} className="text-xs" />
+                                            <Input placeholder="e.g. Bank Transfer, GCash, PayPal" maxLength={120} value={contractSettings.paymentMethod || ""} onChange={(e) => updateCS("paymentMethod", e.target.value)} className="text-xs" />
                                         </div>
                                     </div>
                                 </div>
@@ -938,6 +1049,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                                     <Label className="text-xs">Additional / Custom Clauses <span className="text-muted-foreground font-normal">(optional free text)</span></Label>
                                     <Textarea
                                         rows={3}
+                                        maxLength={5000}
                                         placeholder="Any other agreed terms, special conditions, or additional clauses..."
                                         value={contractSettings.customClauses || ""}
                                         onChange={(e) => updateCS("customClauses", e.target.value)}
@@ -964,7 +1076,7 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                 </div>
 
                 {/* Right Panel: Live Document Canvas Preview (50% / 6 cols on lg) */}
-                <div className="lg:col-span-6 bg-muted/20 p-4 lg:p-10 flex flex-col items-center justify-start overflow-y-auto max-h-[calc(100vh-61px)] override-scrollbar">
+                <div className="lg:col-span-6 bg-muted/20 p-3 sm:p-6 lg:p-8 flex flex-col items-center justify-start overflow-y-auto max-h-[calc(100vh-61px)] override-scrollbar w-full min-w-0 print:p-0 print:m-0 print:max-h-none print:overflow-visible print:bg-white print:w-full print:block">
                     <div className="w-full max-w-[850px] mb-4 flex items-center justify-between text-xs text-muted-foreground no-print">
                         <div className="flex items-center gap-1.5 font-mono">
                             <Eye className="w-3.5 h-3.5 text-primary" /> Live Document Canvas Preview
@@ -973,7 +1085,12 @@ export function ProposalBuilderStudio({ proposal }: ProposalBuilderStudioProps) 
                     </div>
 
                     {/* Render The Shared Pure Presentational Sheet */}
-                    <ProposalDocumentSheet data={previewData} />
+                    <ProposalDocumentSheet
+                        data={previewData}
+                        agencyName={settings?.heroTitle ? `${settings.heroTitle} Digital Solutions` : "Optrizo Digital Solutions"}
+                        agencyLogoUrl={settings?.logoUrl || null}
+                        agencyFaviconUrl={settings?.faviconUrl || null}
+                    />
                 </div>
             </main>
 
