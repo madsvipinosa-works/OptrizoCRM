@@ -522,7 +522,7 @@ export async function getUnifiedDashboardData() {
         return null;
     }
 
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
         return null;
     }
 
@@ -812,7 +812,7 @@ export async function getAnalyticsData() {
         return null; // Return null gracefully instead of crashing the page
     }
 
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
         return null;
     }
 
