@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 
 export type LeadItem = {
     id: string;
@@ -143,8 +144,8 @@ export function LeadsDataTable({
                 const nameB = (b.businessName || b.contactName || b.client?.name || "").toLowerCase();
                 return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
             } else if (sortField === "estimatedValue") {
-                const valA = a.estimatedValue || 0;
-                const valB = b.estimatedValue || 0;
+                const valA = getLeadEffectiveValue(a);
+                const valB = getLeadEffectiveValue(b);
                 return sortOrder === "asc" ? valA - valB : valB - valA;
             } else {
                 const timeA = new Date(a.createdAt).getTime();
@@ -489,7 +490,7 @@ export function LeadsDataTable({
                                         <TableCell>
                                             <div className="flex items-center gap-0.5 text-xs text-emerald-500 dark:text-emerald-400 font-mono font-bold">
                                                 <DollarSign className="h-3 w-3" />
-                                                {(lead.estimatedValue || 0).toLocaleString()}
+                                                {getLeadEffectiveValue(lead).toLocaleString()}
                                             </div>
                                         </TableCell>
                                         <TableCell>

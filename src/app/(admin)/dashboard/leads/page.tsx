@@ -66,7 +66,8 @@ export default async function LeadsPage({
             },
             assignees: { with: { user: true } },
             proposals: {
-                orderBy: (p, { desc }) => [desc(p.createdAt)]
+                where: (p, { isNull }) => isNull(p.deletedAt),
+                orderBy: (p, { desc }) => [desc(p.updatedAt)]
             },
             crmTasks: {
                 with: { assignee: true },
@@ -88,7 +89,10 @@ export default async function LeadsPage({
                     orderBy: (logs, { desc }) => [desc(logs.createdAt)],
                 },
                 assignees: { with: { user: true } },
-                proposals: { orderBy: (proposal, { desc }) => [desc(proposal.createdAt)] },
+                proposals: {
+                    where: (proposal, { isNull }) => isNull(proposal.deletedAt),
+                    orderBy: (proposal, { desc }) => [desc(proposal.updatedAt)]
+                },
                 crmTasks: {
                     with: { assignee: true },
                     orderBy: (task, { asc }) => [asc(task.dueDate)],

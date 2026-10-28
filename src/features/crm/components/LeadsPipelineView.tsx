@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { LossReason } from "@/lib/schemas";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 
 interface LeadsPipelineViewProps {
     initialLeads: LeadItem[];
@@ -218,7 +219,7 @@ export function LeadsPipelineView({
 
         // Deal Value ($) Range filter
         if (selectedValueFilter !== "all") {
-            const val = lead.estimatedValue ?? 0;
+            const val = getLeadEffectiveValue(lead);
             if (selectedValueFilter === "under-10k" && val >= 10000) return false;
             if (selectedValueFilter === "10k-25k" && (val < 10000 || val > 25000)) return false;
             if (selectedValueFilter === "25k-50k" && (val <= 25000 || val > 50000)) return false;

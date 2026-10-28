@@ -38,6 +38,7 @@ import {
     DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { archiveLead, convertLeadToProject } from "@/features/crm/actions";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { toast } from "sonner";
 import type { LeadItem } from "./LeadsDataTable";
 import Link from "next/link";
@@ -305,7 +306,7 @@ export function LeadCard({
 
                 <div className="flex items-center gap-1 font-mono font-bold text-emerald-500 dark:text-emerald-400 shrink-0">
                     <DollarSign className="h-3 w-3" />
-                    {(lead.estimatedValue || 0).toLocaleString()}
+                    {getLeadEffectiveValue(lead).toLocaleString()}
                 </div>
             </div>
 

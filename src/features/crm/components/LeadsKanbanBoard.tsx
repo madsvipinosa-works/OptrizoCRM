@@ -21,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { LeadCard } from "./LeadCard";
 import type { LeadItem } from "./LeadsDataTable";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 
 interface LeadsKanbanBoardProps {
     leads: LeadItem[];
@@ -105,7 +106,7 @@ export function LeadsKanbanBoard({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start min-w-[1400px] 2xl:min-w-full">
                     {STAGES.map((stage) => {
                         const columnLeads = leads.filter((l) => l.status === stage);
-                        const totalColumnValue = columnLeads.reduce((acc, l) => acc + (l.estimatedValue || 0), 0);
+                        const totalColumnValue = columnLeads.reduce((acc, l) => acc + getLeadEffectiveValue(l), 0);
 
                         return (
                             <KanbanColumn
@@ -177,7 +178,7 @@ function KanbanColumn({
                 </div>
                 {totalValue > 0 && (
                     <div className="text-[11px] font-mono text-emerald-500 dark:text-emerald-400 font-semibold flex items-center justify-end">
-                        ${totalValue >= 1000 ? `${(totalValue / 1000).toFixed(0)}k` : totalValue.toLocaleString()}
+                        ${totalValue >= 1000 ? `${Number((totalValue / 1000).toFixed(1))}k` : totalValue.toLocaleString()}
                     </div>
                 )}
             </div>

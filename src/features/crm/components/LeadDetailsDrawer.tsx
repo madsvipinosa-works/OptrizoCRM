@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { logLeadActivity, archiveLead, convertLeadToProject, getProjectForLead } from "@/features/crm/actions";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { completeCrmTask, createCrmTask, deleteCrmTask } from "@/actions/crm-tasks";
 import { createDraftProposalForLead } from "@/features/proposals/actions";
 import { toast } from "sonner";
@@ -734,7 +735,7 @@ export function LeadDetailsDrawer({
                                         <DollarSign className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" /> Estimated Value
                                     </div>
                                     <div className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono">
-                                        ${(lead.estimatedValue || 0).toLocaleString()}
+                                        ${getLeadEffectiveValue(lead).toLocaleString()}
                                     </div>
                                     <div className="text-[10px] text-muted-foreground">
                                         Budget: {lead.budget || "Not specified"}

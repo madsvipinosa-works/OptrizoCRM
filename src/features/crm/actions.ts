@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { leads, inquiries, users, leadActivityLogs, agencyProjects, leadAssignees, tasks, proposals, passwordResetTokens, crmTasks } from "@/db/schema";
 import { revalidatePath } from "next/cache";
-import { eq, inArray, and, sql, not } from "drizzle-orm";
+import { eq, inArray, and, sql, not, isNull, desc } from "drizzle-orm";
 import { leadUpdateSchema, transitionLeadSchema, logLeadActivitySchema, type LeadUpdateValues, type TransitionLeadValues, type LogLeadActivityValues } from "@/lib/schemas";
 import { calculateLeadScore } from "@/features/crm/utils/leadScoring";
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
@@ -542,7 +542,10 @@ export async function getUnifiedDashboardData() {
             db.query.leads.findMany({
                 where: eq(leads.isArchived, false),
                 with: {
-                    proposals: true,
+                    proposals: {
+                        where: isNull(proposals.deletedAt),
+                        orderBy: [desc(proposals.updatedAt)],
+                    },
                 }
             }),
             db.query.agencyProjects.findMany({
@@ -551,11 +554,13 @@ export async function getUnifiedDashboardData() {
                 }
             }),
             db.query.tasks.findMany({
+                where: isNull(tasks.deletedAt),
                 with: {
                     project: true,
                 }
             }),
             db.query.proposals.findMany({
+                where: isNull(proposals.deletedAt),
                 with: {
                     lead: true,
                 }
@@ -566,7 +571,6 @@ export async function getUnifiedDashboardData() {
         let totalPipelineValue = 0;
         let weightedPipelineValue = 0;
         const now = new Date();
-        const staleThresholdMs = 5 * 24 * 60 * 60 * 1000; // 5 days
 
         let staleDealsCount = 0;
 
@@ -586,9 +590,12 @@ export async function getUnifiedDashboardData() {
                     weightedPipelineValue += dealValue * 0.85;
                 }
 
-                // Check stale status (>5 days uncontacted)
-                const lastActivity = l.lastContactedAt ? new Date(l.lastContactedAt).getTime() : new Date(l.createdAt).getTime();
-                if (now.getTime() - lastActivity > staleThresholdMs) {
+                // Check stale status (>=5 days uncontacted, matching Action Queue & Kanban)
+                const lastActivity = l.lastContactedAt
+                    ? new Date(l.lastContactedAt)
+                    : (l.updatedAt ? new Date(l.updatedAt) : new Date(l.createdAt));
+                const daysInactive = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 3600 * 24));
+                if (daysInactive >= 5) {
                     staleDealsCount++;
                 }
             }
@@ -603,13 +610,14 @@ export async function getUnifiedDashboardData() {
             ? ((Number(kpi.wonLeadsCount) / allLeads.length) * 100).toFixed(1)
             : "0.0";
 
-        // Active Projects
-        const activeProjects = allProjects.filter(p => !["Completed", "Archived"].includes(p.status));
+        // Active Projects (exclude archived boolean flag as well as terminal status)
+        const activeProjects = allProjects.filter(p => !p.isArchived && !["Completed", "Archived"].includes(p.status));
         const activeProjectsCount = activeProjects.length;
 
-        // Task Completion Velocity
-        const doneTasksCount = allTasks.filter(t => t.status === "Done").length;
-        const totalTasksCount = allTasks.length;
+        // Task Completion Velocity (exclude soft-deleted tasks and tasks in archived projects)
+        const validTasks = allTasks.filter(t => !t.deletedAt && !t.project?.isArchived);
+        const doneTasksCount = validTasks.filter(t => t.status === "Done").length;
+        const totalTasksCount = validTasks.length;
         const taskCompletionRate = totalTasksCount > 0
             ? ((doneTasksCount / totalTasksCount) * 100).toFixed(1)
             : "0.0";
@@ -623,7 +631,7 @@ export async function getUnifiedDashboardData() {
             Blocked: 0,
             Done: 0,
         };
-        allTasks.forEach(t => {
+        validTasks.forEach(t => {
             if (taskStatusCounts[t.status as keyof typeof taskStatusCounts] !== undefined) {
                 taskStatusCounts[t.status as keyof typeof taskStatusCounts]++;
             }
@@ -692,7 +700,7 @@ export async function getUnifiedDashboardData() {
         }> = [];
 
         // Blocked & Changes Requested Tasks (High / Red)
-        allTasks.forEach(t => {
+        validTasks.forEach(t => {
             if (t.status === "Blocked" || t.isBlockedByClient) {
                 actionQueue.push({
                     id: `task-${t.id}`,
@@ -720,7 +728,7 @@ export async function getUnifiedDashboardData() {
 
         // Pending Proposals (Medium / Yellow)
         allProposals.forEach(p => {
-            if (p.status === "Sent") {
+            if (p.status === "Sent" && !p.deletedAt && !p.lead?.isArchived) {
                 actionQueue.push({
                     id: `prop-${p.id}`,
                     type: "pending_proposal",
@@ -812,7 +820,10 @@ export async function getAnalyticsData() {
         const allLeads = await db.query.leads.findMany({
             where: eq(leads.isArchived, false),
             with: {
-                proposals: true,
+                proposals: {
+                    where: isNull(proposals.deletedAt),
+                    orderBy: [desc(proposals.updatedAt)],
+                },
             }
         });
 
@@ -897,8 +908,8 @@ export async function getAnalyticsData() {
                 agedLeadsCount++;
             }
 
-            // Stale Leads: Not in terminal state AND untouched for > 5 days
-            if (!(["Closed Won", "Closed Lost"] as string[]).includes(l.status || "") && daysSinceActivity > 5) {
+            // Stale Leads: Not in terminal state AND untouched for >= 5 days
+            if (!(["Closed Won", "Closed Lost"] as string[]).includes(l.status || "") && Math.floor(daysSinceActivity) >= 5) {
                 staleLeadsCount++;
             }
 

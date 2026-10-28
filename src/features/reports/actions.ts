@@ -1,9 +1,10 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, tasks, agencyProjects } from "@/db/schema";
-import { and, gte, lte, eq, isNotNull, or } from "drizzle-orm";
+import { leads, tasks, agencyProjects, proposals, milestones } from "@/db/schema";
+import { and, gte, lte, eq, isNotNull, isNull, desc } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 
 export type ReportDateRange = {
     from: Date;
@@ -72,9 +73,10 @@ export async function getLeadConversionReport(dateRange: ReportDateRange) {
         throw new Error("Unauthorized");
     }
 
-    // A lead belongs to the cohort if it was created in the period
+    // A lead belongs to the cohort if it was created in the period and is not archived
     const cohortLeads = await db.query.leads.findMany({
         where: and(
+            eq(leads.isArchived, false),
             gte(leads.createdAt, dateRange.from),
             lte(leads.createdAt, dateRange.to)
         ),
@@ -84,6 +86,12 @@ export async function getLeadConversionReport(dateRange: ReportDateRange) {
             createdAt: true,
             closedWonAt: true,
             estimatedValue: true,
+        },
+        with: {
+            proposals: {
+                where: isNull(proposals.deletedAt),
+                orderBy: [desc(proposals.updatedAt)],
+            },
         },
     });
 
@@ -95,7 +103,7 @@ export async function getLeadConversionReport(dateRange: ReportDateRange) {
     cohortLeads.forEach(lead => {
         if (lead.status === "Closed Won" || lead.closedWonAt) {
             wonCount++;
-            totalWonValue += Number(lead.estimatedValue) || 0;
+            totalWonValue += getLeadEffectiveValue(lead);
             if (lead.closedWonAt) {
                 const timeToConvert = new Date(lead.closedWonAt).getTime() - new Date(lead.createdAt).getTime();
                 if (timeToConvert > 0) totalConversionTimeMs += timeToConvert;
@@ -122,9 +130,10 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange) {
         throw new Error("Unauthorized");
     }
 
-    // Tasks completed in the date range
+    // Tasks completed in the date range (excluding soft-deleted tasks)
     const completedTasks = await db.query.tasks.findMany({
         where: and(
+            isNull(tasks.deletedAt),
             eq(tasks.status, "Done"),
             isNotNull(tasks.completedAt),
             gte(tasks.completedAt, dateRange.from),
@@ -181,13 +190,10 @@ export async function getProjectCompletionReport(dateRange: ReportDateRange): Pr
         throw new Error("Unauthorized");
     }
 
-    // Projects completed or archived in the period
+    // Projects completed in the period (excluding archived non-completed projects)
     const rawProjects = await db.query.agencyProjects.findMany({
         where: and(
-            or(
-                eq(agencyProjects.status, "Completed"),
-                eq(agencyProjects.isArchived, true)
-            ),
+            eq(agencyProjects.status, "Completed"),
             gte(agencyProjects.updatedAt, dateRange.from),
             lte(agencyProjects.updatedAt, dateRange.to)
         ),
@@ -195,10 +201,18 @@ export async function getProjectCompletionReport(dateRange: ReportDateRange): Pr
             lead: {
                 with: {
                     client: true,
+                    proposals: {
+                        where: isNull(proposals.deletedAt),
+                        orderBy: [desc(proposals.updatedAt)],
+                    },
                 }
             },
-            milestones: true,
-            tasks: true,
+            milestones: {
+                where: isNull(milestones.deletedAt),
+            },
+            tasks: {
+                where: isNull(tasks.deletedAt),
+            },
         },
         orderBy: (p, { desc }) => [desc(p.updatedAt)]
     });
@@ -214,7 +228,7 @@ export async function getProjectCompletionReport(dateRange: ReportDateRange): Pr
         const clientUser = lead?.client;
         const clientName = clientUser?.name || lead?.contactName || "Client";
         const companyName = clientUser?.companyName || lead?.businessName || "Direct Client";
-        const contractValue = lead?.estimatedValue ? Number(lead.estimatedValue) : 0;
+        const contractValue = lead ? getLeadEffectiveValue(lead) : 0;
         totalWonValue += contractValue;
 
         // Completion and start times

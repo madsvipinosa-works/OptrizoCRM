@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 
 interface PricingLineItem {
   name: string;
@@ -85,6 +86,45 @@ describe("Proposal & SOW Studio Calculations Unit Tests", () => {
 
       expect(fallbackNull).toBe(expectedDate);
       expect(fallbackInvalid).toBe(expectedDate);
+    });
+  });
+
+  describe("Lead Effective Deal Value (getLeadEffectiveValue)", () => {
+    it("prioritizes Approved > Sent > Draft > estimatedValue", () => {
+      expect(
+        getLeadEffectiveValue({
+          estimatedValue: 3000,
+          proposals: [
+            { status: "Draft", total: 5000, updatedAt: "2026-10-01T00:00:00Z" },
+            { status: "Sent", total: 8000, updatedAt: "2026-10-02T00:00:00Z" },
+            { status: "Approved", total: 12000, updatedAt: "2026-10-03T00:00:00Z" },
+          ],
+        })
+      ).toBe(12000);
+    });
+
+    it("ignores soft-deleted proposals and selects the latest updated proposal", () => {
+      expect(
+        getLeadEffectiveValue({
+          estimatedValue: 2500,
+          proposals: [
+            { status: "Sent", total: 15000, deletedAt: "2026-10-10T00:00:00Z", updatedAt: "2026-10-09T00:00:00Z" },
+            { status: "Draft", total: 4000, updatedAt: "2026-10-01T00:00:00Z" },
+            { status: "Draft", total: 6500, updatedAt: "2026-10-05T00:00:00Z" },
+          ],
+        })
+      ).toBe(6500);
+    });
+
+    it("falls back to lead.estimatedValue when no active proposals exist", () => {
+      expect(
+        getLeadEffectiveValue({
+          estimatedValue: 7500,
+          proposals: [
+            { status: "Draft", total: 10000, deletedAt: "2026-10-10T00:00:00Z" },
+          ],
+        })
+      ).toBe(7500);
     });
   });
 });
