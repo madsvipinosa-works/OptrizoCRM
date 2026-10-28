@@ -2,6 +2,7 @@
 
 import { useState, use } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
     const [showPassword, setShowPassword] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
     const router = useRouter();
+    const { update: updateSession } = useSession();
 
     async function handleGoogle() {
         setIsGoogleLoading(true);
@@ -58,6 +60,11 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
             if (!result.success) {
                 setError(result.message || "Authentication failed");
             } else if (result.redirect) {
+                try {
+                    await updateSession();
+                } catch {
+                    // Non-blocking session refresh
+                }
                 router.push(result.redirect);
                 router.refresh();
             }

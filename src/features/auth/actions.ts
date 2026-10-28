@@ -111,8 +111,19 @@ export async function signInWithEmail(prevState: unknown, formData: FormData): P
         // Audit log on login
         await logAction("LOGIN", "User", `Email login: ${email}`);
 
-        const callbackUrl = (formData.get("callbackUrl") as string) || "/dashboard";
-        const targetRedirect = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+        // Lookup user role to determine smart redirect
+        const user = await db.query.users.findFirst({
+            where: eq(users.email, email),
+            columns: { role: true },
+        });
+
+        const isClient = user?.role === "client";
+        const callbackUrl = (formData.get("callbackUrl") as string);
+        const hasExplicitCallback = callbackUrl && callbackUrl.startsWith("/") && callbackUrl !== "/dashboard";
+
+        const targetRedirect = hasExplicitCallback
+            ? callbackUrl
+            : (isClient ? "/portal" : "/dashboard");
 
         return { success: true, redirect: targetRedirect };
     } catch (error) {

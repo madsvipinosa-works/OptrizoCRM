@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +58,7 @@ export function LoginModal({
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const router = useRouter();
+  const { update: updateSession } = useSession();
 
   function reset() {
     setError(null);
@@ -85,6 +87,11 @@ export function LoginModal({
           setError(result.message || "An error occurred");
         } else if (result.redirect) {
           onOpenChange?.(false);
+          try {
+            await updateSession();
+          } catch {
+            // Non-blocking session refresh
+          }
           router.push(defaultRedirect || result.redirect);
           router.refresh();
         }

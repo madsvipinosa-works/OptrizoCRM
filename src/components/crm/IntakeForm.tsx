@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +30,18 @@ interface IntakeFormProps {
 
 export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFormProps) {
     const [state, formAction, isPending] = useActionState(submitIntakeForm, initialState);
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!state.success) return;
+        toast.success("Your service request has been submitted.", {
+            description: "You can track it in Availed Services.",
+            action: {
+                label: "View Availed Services",
+                onClick: () => router.push("/portal/services"),
+            },
+        });
+    }, [state.success, router]);
 
     return (
         <Card className="glass-card border-primary/20">

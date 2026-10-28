@@ -11,7 +11,8 @@ import {
     Briefcase, 
     ShieldCheck, 
     ExternalLink,
-    Sparkles
+    Sparkles,
+    Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +48,8 @@ function getNotificationTypeIcon(type: string | null) {
             return <Briefcase className="h-4 w-4" />;
         case "task":
             return <ShieldCheck className="h-4 w-4" />;
+        case "service":
+            return <Layers className="h-4 w-4" />;
         default:
             return <Bell className="h-4 w-4" />;
     }
@@ -64,6 +67,8 @@ function getNotificationBadgeStyle(type: string | null) {
             return "bg-amber-500/15 text-amber-500 border-amber-500/30";
         case "task":
             return "bg-cyan-500/15 text-cyan-500 border-cyan-500/30";
+        case "service":
+            return "bg-primary/15 text-primary border-primary/30";
         default:
             return "bg-primary/15 text-primary border-primary/30";
     }

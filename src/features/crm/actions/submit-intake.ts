@@ -2,9 +2,9 @@
 
 import { intakeFormSchema } from "@/lib/schemas";
 import { db } from "@/db";
-import { leads } from "@/db/schema";
+import { leads, services } from "@/db/schema";
 import { auth } from "@/auth";
-import { notifyAllAdmins } from "@/features/notifications/actions";
+import { createSystemNotification, notifyAllAdmins } from "@/features/notifications/actions";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 
@@ -70,6 +70,12 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
 
     try {
         const estimatedValue = parseBudgetToEstimatedValue(validatedFields.data.budget);
+        const selectedService = validatedFields.data.serviceId
+            ? await db.query.services.findFirst({
+                where: (service, { eq }) => eq(service.id, validatedFields.data.serviceId!),
+                columns: { title: true },
+            })
+            : null;
         const { calculateLeadScore } = await import("@/features/crm/utils/leadScoring");
         const { score: leadScore, priority } = calculateLeadScore({
             estimatedValue,
@@ -101,6 +107,14 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
         });
 
         await notifyAllAdmins(`New lead intake from ${session.user.name || session.user.email}`, "lead", "/dashboard/leads");
+
+        const serviceLabel = selectedService?.title || "service";
+        await createSystemNotification(
+            session.user.id,
+            `Your request for ${serviceLabel} has been submitted. View its status in Availed Services.`,
+            "service",
+            "/portal/services",
+        );
 
         return {
             message: "Your request has been submitted successfully! We will review it and get back to you.",

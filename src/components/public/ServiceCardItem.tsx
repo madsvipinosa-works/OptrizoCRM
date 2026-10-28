@@ -109,7 +109,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn: initialIsLoggedIn }
       const timer = setTimeout(() => {
         setIsOpen(false);
         setIsSuccess(false);
-        router.push("/portal/projects");
+        router.push("/portal/services");
       }, 2000);
       return () => clearTimeout(timer);
     }
