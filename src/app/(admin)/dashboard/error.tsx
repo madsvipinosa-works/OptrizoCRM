@@ -48,9 +48,38 @@ export default function DashboardError({
           )}
         </div>
 
-        <div className="flex gap-3 justify-center pt-2">
-          <Button onClick={() => reset()} variant="default" className="gap-2">
-            <RefreshCw className="h-4 w-4" /> Try Again
+        <div className="flex gap-3 justify-center pt-2 flex-wrap">
+          <Button
+            onClick={() => {
+              if (
+                typeof window !== "undefined" &&
+                (error.message?.includes("HMR update") ||
+                  error.message?.includes("module factory") ||
+                  error.message?.includes("Failed to find Server Action"))
+              ) {
+                window.location.reload();
+              } else {
+                reset();
+              }
+            }}
+            variant="default"
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {error.message?.includes("HMR") || error.message?.includes("module factory")
+              ? "Reload Page"
+              : "Try Again"}
+          </Button>
+          <Button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.href = window.location.pathname;
+              }
+            }}
+            variant="outline"
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" /> Hard Refresh
           </Button>
           <Button asChild variant="outline" className="gap-2">
             <Link href="/dashboard">

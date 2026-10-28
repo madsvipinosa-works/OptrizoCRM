@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { updateProposal, sendProposalEmail, ProposalData, ContractSettings } from "@/features/proposals/actions";
 import { CountryPhoneInput } from "@/components/ui/country-phone-input";
+import { printProposalPdf } from "@/features/proposals/utils/printProposalPdf";
 import {
     ProposalDocumentSheet,
     ProposalDocumentData,
@@ -431,8 +432,15 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         }
     };
 
-    const handlePrint = () => {
-        window.print();
+    const handlePrint = async () => {
+        try {
+            toast.info("Preparing print-ready Statement of Work...");
+            await printProposalPdf(proposal.id);
+        } catch (e) {
+            console.error("Print PDF error:", e);
+            toast.error("Could not prepare PDF. Opening browser print instead...");
+            window.print();
+        }
     };
 
     // Live preview document data

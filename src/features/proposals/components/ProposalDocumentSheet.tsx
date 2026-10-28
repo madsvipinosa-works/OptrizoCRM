@@ -114,11 +114,22 @@ export function ProposalDocumentSheet({
                         {/* Official Optrizo Emblem or Uploaded Brand Logo */}
                         {activeLogoUrl ? (
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="relative h-11 max-w-[160px] sm:max-w-[200px] flex items-center shrink-0">
+                                <div
+                                    className="flex items-center shrink-0 overflow-hidden"
+                                    style={{ height: 40, maxHeight: 40, maxWidth: 170 }}
+                                >
                                     <img
                                         src={activeLogoUrl}
                                         alt={agencyName}
-                                        className="max-h-11 max-w-[160px] sm:max-w-[180px] w-auto h-auto object-contain object-left shrink-0"
+                                        style={{
+                                            display: "block",
+                                            height: "auto",
+                                            width: "auto",
+                                            maxHeight: 40,
+                                            maxWidth: 170,
+                                            objectFit: "contain",
+                                            objectPosition: "left center",
+                                        }}
                                     />
                                 </div>
                                 <div className="border-l border-border/70 pl-3 hidden sm:block min-w-0">
