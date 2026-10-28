@@ -122,6 +122,9 @@ export function NavbarAuthMobile({ settings }: AuthProps) {
                 <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
                     <Link href="/portal/services">Availed Services</Link>
                 </Button>
+                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
+                    <Link href="/portal/settings">Account Settings</Link>
+                </Button>
                 {isAdmin && (
                     <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight">
                         <Link href="/dashboard">Admin Panel</Link>

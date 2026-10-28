@@ -473,9 +473,9 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     };
 
     return (
-        <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <div className="-mx-4 sm:-mx-8 -mt-24 md:-mt-8 -mb-8 bg-background text-foreground flex flex-col min-h-screen">
             {/* Top Navigation / Action Bar */}
-            <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 lg:px-8 py-3.5 flex items-center justify-between no-print">
+            <header className="h-[61px] shrink-0 sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 lg:px-8 py-3.5 flex items-center justify-between no-print">
                 <div className="flex items-center gap-4">
                     <Button
                         variant="ghost"
@@ -611,9 +611,9 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             </header>
 
             {/* Split Screen Workspace */}
-            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 print:block print:w-full print:m-0 print:p-0">
+            <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 print:block print:w-full print:h-auto print:overflow-visible print:m-0 print:p-0">
                 {/* Left Panel: Form & Line Items (50% / 6 cols on lg) */}
-                <div className="lg:col-span-6 border-r border-border p-6 lg:p-8 space-y-8 overflow-y-auto max-h-[calc(100vh-61px)] no-print override-scrollbar">
+                <div className="lg:col-span-6 border-r border-border p-6 lg:p-8 space-y-8 overflow-y-auto lg:h-[calc(100vh-61px)] no-print override-scrollbar">
                     {/* Section: Metadata */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground uppercase tracking-wider font-mono">
@@ -1084,21 +1084,23 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                 </div>
 
                 {/* Right Panel: Live Document Canvas Preview (50% / 6 cols on lg) */}
-                <div className="lg:col-span-6 bg-muted/20 p-3 sm:p-6 lg:p-8 flex flex-col items-center justify-start overflow-y-auto max-h-[calc(100vh-61px)] override-scrollbar w-full min-w-0 print:p-0 print:m-0 print:max-h-none print:overflow-visible print:bg-white print:w-full print:block">
-                    <div className="w-full max-w-[850px] mb-4 flex items-center justify-between text-xs text-muted-foreground no-print">
-                        <div className="flex items-center gap-1.5 font-mono">
-                            <Eye className="w-3.5 h-3.5 text-primary" /> Live Document Canvas Preview
+                <div className="lg:col-span-6 bg-muted/20 p-3 sm:p-6 lg:p-8 overflow-y-auto lg:h-[calc(100vh-61px)] w-full min-w-0 override-scrollbar print:p-0 print:m-0 print:h-auto print:overflow-visible print:bg-white print:w-full print:block">
+                    <div className="w-full max-w-[850px] mx-auto space-y-4">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground no-print">
+                            <div className="flex items-center gap-1.5 font-mono">
+                                <Eye className="w-3.5 h-3.5 text-primary" /> Live Document Canvas Preview
+                            </div>
+                            <span className="font-mono text-[11px]">Real-time Sync Active</span>
                         </div>
-                        <span className="font-mono text-[11px]">Real-time Sync Active</span>
-                    </div>
 
-                    {/* Render The Shared Pure Presentational Sheet */}
-                    <ProposalDocumentSheet
-                        data={previewData}
-                        agencyName={settings?.heroTitle ? `${settings.heroTitle} Digital Solutions` : "Optrizo Digital Solutions"}
-                        agencyLogoUrl={settings?.logoUrl || null}
-                        agencyFaviconUrl={settings?.faviconUrl || null}
-                    />
+                        {/* Render The Shared Pure Presentational Sheet */}
+                        <ProposalDocumentSheet
+                            data={previewData}
+                            agencyName={settings?.heroTitle ? `${settings.heroTitle} Digital Solutions` : "Optrizo Digital Solutions"}
+                            agencyLogoUrl={settings?.logoUrl || null}
+                            agencyFaviconUrl={settings?.faviconUrl || null}
+                        />
+                    </div>
                 </div>
             </main>
 

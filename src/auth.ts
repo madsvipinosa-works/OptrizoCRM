@@ -138,6 +138,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     const [dbUser] = await db
                         .select({
                             id: users.id,
+                            name: users.name,
                             role: users.role,
                             jobTitle: users.jobTitle,
                             isActive: users.isActive,
@@ -149,6 +150,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     token.lastDbCheck = now;
                     if (dbUser && dbUser.isActive) {
                         token.id = dbUser.id;
+                        token.name = dbUser.name;
                         token.role = dbUser.role;
                         token.jobTitle = dbUser.jobTitle;
                     }
@@ -161,6 +163,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         async session({ session, token }) {
             if (session.user && token?.id) {
                 session.user.id = token.id as string;
+                session.user.name = (token.name as string) ?? session.user.name;
                 let role = (token.role as string) || "client";
                 
                 // Graceful fallback for existing JWT sessions after 6-tier migration

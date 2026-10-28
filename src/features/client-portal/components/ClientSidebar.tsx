@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Layers, ChevronRight, Sparkles } from "lucide-react";
+import { LayoutDashboard, Layers, ChevronRight, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -26,6 +26,12 @@ export function ClientSidebar({ className }: ClientSidebarProps) {
             href: "/portal/services",
             icon: Layers,
             description: "View purchased services & proposals",
+        },
+        {
+            title: "Account Settings",
+            href: "/portal/settings",
+            icon: Settings,
+            description: "Manage your profile and password",
         },
     ];
 

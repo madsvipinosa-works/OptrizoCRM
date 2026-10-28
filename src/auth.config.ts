@@ -18,6 +18,7 @@ export default {
         session({ session, token }) {
             if (session.user && token) {
                 session.user.id = token.id as string;
+                session.user.name = (token.name as string) ?? session.user.name;
                 let role = (token.role as string) || "client";
                 
                 // Graceful fallback for existing JWT sessions

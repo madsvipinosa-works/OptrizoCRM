@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Layers, ShieldAlert, LogOut, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Layers, ShieldAlert, LogOut, ChevronDown, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface UserNavProps {
@@ -117,6 +117,17 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
                             <Link href="/portal" className="flex items-center w-full">
                                 <LayoutDashboard className="mr-2.5 h-4 w-4 text-primary" />
                                 <span>My Dashboard</span>
+                            </Link>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                            asChild
+                            onClick={() => setOpen(false)}
+                            className="hover:bg-muted focus:bg-muted text-foreground rounded-lg cursor-pointer text-xs py-2 px-2.5 font-medium transition-colors"
+                        >
+                            <Link href="/portal/settings" className="flex items-center w-full">
+                                <Settings className="mr-2.5 h-4 w-4 text-primary" />
+                                <span>Account Settings</span>
                             </Link>
                         </DropdownMenuItem>
 

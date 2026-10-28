@@ -10,6 +10,8 @@ import { logAction } from "@/features/audit/actions"; // Optional audit
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "@/lib/notifications";
 import { headers } from "next/headers";
+import { auth } from "@/auth";
+import { revalidatePath } from "next/cache";
 import {
     checkRateLimit,
     formatRetryAfter,
@@ -31,6 +33,55 @@ export type AuthActionResult = {
     message?: string;
     redirect?: string;
 };
+
+export async function updateAccountName(nameValue: string): Promise<AuthActionResult> {
+    const session = await auth();
+    const userId = session?.user?.id;
+    const name = nameValue.trim();
+    if (!userId) return { success: false, message: "Please sign in to update your account." };
+    if (name.length < 2 || name.length > 80) {
+        return { success: false, message: "Name must be between 2 and 80 characters." };
+    }
+
+    try {
+        await db.update(users).set({ name }).where(eq(users.id, userId));
+        revalidatePath("/portal/settings");
+        return { success: true, message: "Your name has been updated." };
+    } catch (error) {
+        console.error("Account name update error:", error);
+        return { success: false, message: "Could not update your name. Please try again." };
+    }
+}
+
+export async function updateAccountPassword(
+    currentPassword: string,
+    newPassword: string,
+): Promise<AuthActionResult> {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) return { success: false, message: "Please sign in to update your password." };
+    if (!currentPassword || !newPassword) return { success: false, message: "Complete all password fields." };
+    if (newPassword.length < 8) return { success: false, message: "Password must be at least 8 characters long." };
+    if (!/[A-Z]/.test(newPassword)) return { success: false, message: "Password must contain at least one uppercase letter." };
+    if (!/[^a-zA-Z]/.test(newPassword)) return { success: false, message: "Password must contain at least one number or symbol." };
+
+    try {
+        const [user] = await db.select({ password: users.password }).from(users).where(eq(users.id, userId)).limit(1);
+        if (!user?.password) {
+            return { success: false, message: "This account does not have a password. Use password reset to set one." };
+        }
+        if (!(await bcrypt.compare(currentPassword, user.password))) {
+            return { success: false, message: "Your current password is incorrect." };
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+        await logAction("UPDATE", "User", `Password changed for account: ${session.user?.email ?? userId}`);
+        return { success: true, message: "Your password has been updated." };
+    } catch (error) {
+        console.error("Account password update error:", error);
+        return { success: false, message: "Could not update your password. Please try again." };
+    }
+}
 
 function tooManyAttempts(retryAfterSeconds: number): AuthActionResult {
     return {
