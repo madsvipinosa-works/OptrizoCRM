@@ -64,8 +64,7 @@ Blueprint requirement (still to be fully implemented operationally):
 - Apply rate limiting and anti-abuse throttling per uploader/session.
 
 ### 6. Backdoor Safety
-- The debug endpoint `api/make-me-admin` is disabled by default.
-- It can only be enabled if an explicit environment variable `ALLOW_MAKE_ME_ADMIN=true` is set.
+- The debug endpoints `api/make-me-admin`, `api/debug` and `api/test-db` have been deleted.
 
 ### 7. Compliance Considerations (Data Privacy)
 Given the system processes personal data (names/emails/inquiry content):
