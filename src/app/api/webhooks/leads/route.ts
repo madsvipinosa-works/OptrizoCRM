@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/db";
 import { inquiries } from "@/db/schema";
 import { z } from "zod";
@@ -12,13 +13,23 @@ const webhookPayloadSchema = z.object({
     notes: z.string().optional(),
 });
 
+function isValidBearer(header: string | null, secret: string): boolean {
+    if (!header) return false;
+    const given = Buffer.from(header);
+    const expected = Buffer.from(`Bearer ${secret}`);
+    return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
 export async function POST(req: Request) {
     try {
-        // Simple Bearer token authentication
-        const authHeader = req.headers.get("Authorization");
-        const expectedToken = process.env.WEBHOOK_SECRET || "optrizo-dev-secret-token"; // Fallback for dev
-        
-        if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
+        // No fallback secret: a missing WEBHOOK_SECRET must never leave the endpoint open or guessable.
+        const secret = process.env.WEBHOOK_SECRET;
+        if (!secret) {
+            console.error("[Webhook] WEBHOOK_SECRET is not set; rejecting all requests.");
+            return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+        }
+
+        if (!isValidBearer(req.headers.get("Authorization"), secret)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
