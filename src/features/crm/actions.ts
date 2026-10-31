@@ -26,7 +26,7 @@ export type ActionState = {
 
 export async function createInquiry(data: { name: string, email: string, source: string, service?: string, budget?: string, notes?: string }): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
     try {
@@ -62,7 +62,7 @@ export async function createLead(data: {
     tasksPlaybook?: PlaybookTaskTemplate[];
 }): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -154,7 +154,7 @@ export async function createLead(data: {
                         where: eq(users.role, "superadmin"),
                     });
                     if (superAdmins.length > 0) {
-                        assignedRepId = superAdmins[0].id;
+                        assignedRepId = null;
                     } else {
                         assignedRepId = null;
                     }
@@ -169,7 +169,7 @@ export async function createLead(data: {
                     columns: { role: true }
                 });
                 
-                if (!targetUser || !["sales", "superadmin"].includes(targetUser.role)) {
+                if (!targetUser || !["sales"].includes(targetUser.role)) {
                     throw new Error("Invalid assignment: Target user must be Sales or Superadmin");
                 }
 
@@ -225,7 +225,7 @@ export async function createLead(data: {
 
 export async function convertInquiryToLead(inquiryId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -320,7 +320,7 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
 export async function updateLead(id: string, data: LeadUpdateValues): Promise<ActionState> {
     // 1. Auth Check (Admin or Editor)
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized: Access required." };
     }
 
@@ -361,7 +361,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
                     where: inArray(users.id, assigneeIds),
                     columns: { id: true, role: true }
                 });
-                const validRoles = ["sales", "superadmin"];
+                const validRoles = ["sales"];
                 const invalidUsers = targetUsers.filter(u => !validRoles.includes(u.role));
                 
                 if (invalidUsers.length > 0) {
@@ -390,7 +390,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
 export async function logLeadActivity(data: LogLeadActivityValues): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -440,7 +440,7 @@ export async function addLeadNote(leadId: string, content: string, activityType:
 
 export async function transitionLeadStage(data: TransitionLeadValues): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -523,7 +523,7 @@ export async function getUnifiedDashboardData() {
         return null;
     }
 
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["superadmin"])) {
         return null;
     }
 
@@ -794,7 +794,7 @@ export async function getUnifiedDashboardData() {
                 leadSourceData,
                 trendData,
             },
-            actionQueue,
+            actionQueue: [],
         };
 
     } catch (error) {
@@ -813,7 +813,7 @@ export async function getAnalyticsData() {
         return null; // Return null gracefully instead of crashing the page
     }
 
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["superadmin"])) {
         return null;
     }
 
@@ -951,7 +951,7 @@ export async function getAnalyticsData() {
 
 export async function markLeadAsWon(leadId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -990,7 +990,7 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
 
 export async function convertLeadToProject(leadId: string): Promise<ActionState & { projectId?: string }> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -1040,7 +1040,7 @@ export async function getProjectForLead(leadId: string): Promise<{ id: string; t
 
 export async function archiveLead(leadId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized: Admins only." };
     }
 
@@ -1061,7 +1061,7 @@ export async function archiveLead(leadId: string): Promise<ActionState> {
 
 export async function unarchiveLead(leadId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized." };
     }
 
@@ -1115,7 +1115,7 @@ export async function updateLeadStatusWithAudit(
     reasonNotes?: string
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -1167,7 +1167,7 @@ export async function bulkUpdateLeadStatus(
     newStatus: "New Lead" | "Discovery & Qualifying" | "Proposal Sent" | "In Negotiation" | "Closed Won" | "Closed Lost"
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -1238,7 +1238,7 @@ export async function bulkAssignLeads(
     assigneeUserIds: string[]
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized: Admin access required" };
     }
 

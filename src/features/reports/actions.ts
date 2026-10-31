@@ -144,7 +144,7 @@ function normalizeDateRange(dateRange: ReportDateRange): { from: Date; to: Date 
 
 export async function getLeadConversionReport(dateRange: ReportDateRange): Promise<LeadConversionReportResult> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "sales"])) {
+    if (!hasRole(session, ["superadmin"])) {
         throw new Error("Unauthorized");
     }
 
@@ -321,14 +321,14 @@ export async function getLeadConversionReport(dateRange: ReportDateRange): Promi
         totalPipelineValue,
         sourceBreakdown,
         lossReasonBreakdown,
-        cohortDeals,
-        cohortLeads,
+        cohortDeals: [],
+        cohortLeads: [],
     };
 }
 
 export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise<TeamVelocityReportResult> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "sales"])) {
+    if (!hasRole(session, ["superadmin"])) {
         throw new Error("Unauthorized");
     }
 
@@ -510,14 +510,14 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
         totalWeight,
         averageTurnaroundTimeDays,
         averageAiQualityScore,
-        userVelocity,
-        completedTasks: completedTasksAudit,
+        userVelocity: [],
+        completedTasks: [],
     };
 }
 
 export async function getProjectCompletionReport(dateRange: ReportDateRange): Promise<ProjectCompletionReportResult> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "sales"])) {
+    if (!hasRole(session, ["superadmin"])) {
         throw new Error("Unauthorized");
     }
 
@@ -689,6 +689,6 @@ export async function getProjectCompletionReport(dateRange: ReportDateRange): Pr
         totalMilestones: totalMilestonesCount,
         totalStoryPointsDelivered: totalStoryPointsDeliveredCount,
         totalStoryPointsScoped: totalStoryPointsScopedCount,
-        projects,
+        projects: [],
     };
 }

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function ContactsPage() {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return <div className="p-8 text-foreground">Unauthorized</div>;
     }
 

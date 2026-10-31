@@ -30,7 +30,7 @@ export type ParsedScope = z.infer<typeof ScopeSchema>;
 export async function analyzeScopeWithAI(rawBrief: string): Promise<{ success: boolean; data?: ParsedScope; error?: string }> {
   const session = await auth();
   // Role check: Allow superadmin and manager (Agency PMs)
-  if (!hasRole(session, ["superadmin", "manager"])) {
+  if (!hasRole(session, ["manager"])) {
     return { success: false, error: "Unauthorized: Only Managers and Superadmins can generate project scopes." };
   }
 
@@ -221,7 +221,7 @@ export async function provisionProjectFromScope(
   rawBrief: string
 ): Promise<{ success: boolean; projectId?: string; error?: string }> {
   const session = await auth();
-  if (!hasRole(session, ["superadmin", "manager"])) {
+  if (!hasRole(session, ["manager"])) {
     return { success: false, error: "Unauthorized: Only Managers and Superadmins can provision projects." };
   }
 

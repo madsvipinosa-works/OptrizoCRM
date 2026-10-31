@@ -213,8 +213,8 @@ export function TaskDetailsDrawer({
 
     const isOverdue =
         task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "Done";
-    const canManage = ["superadmin", "manager", "developer"].includes(currentUserRole || "");
-    const isManagerOrAdmin = ["superadmin", "manager"].includes(currentUserRole || "");
+    const canManage = ["manager", "developer"].includes(currentUserRole || "");
+    const isManagerOrAdmin = ["manager"].includes(currentUserRole || "");
 
     // Format deadline
     const getDeadlineDisplay = () => {

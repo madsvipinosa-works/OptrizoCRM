@@ -27,9 +27,9 @@ export default async function DashboardPage() {
     const tomorrowEnd = endOfDay(addDays(now, 1));
 
     // Role checks
-    const isSales = hasRole(session, ["superadmin", "sales"]);
-    const isDelivery = hasRole(session, ["superadmin", "manager", "developer"]);
-    const canSeeAllLeads = hasRole(session, ["superadmin"]);
+    const isSales = hasRole(session, ["sales"]);
+    const isDelivery = hasRole(session, ["manager", "developer"]);
+    const canSeeAllLeads = hasRole(session, ["manager"]);
 
     // ==========================================
     // 1. FETCH SALES & CRM DATA
@@ -82,7 +82,7 @@ export default async function DashboardPage() {
             with: { project: true, assignees: true },
         });
 
-        const myActiveTasks = activeTasks.filter(t => !t.project?.isArchived && (hasRole(session, ["superadmin", "manager"]) || t.assignees.some(a => a.userId === currentUserId)));
+        const myActiveTasks = activeTasks.filter(t => !t.project?.isArchived && (hasRole(session, ["manager"]) || t.assignees.some(a => a.userId === currentUserId)));
 
         blockedTasks = myActiveTasks.filter(t => t.status === "Blocked");
         overdueTasks = myActiveTasks.filter(t => t.dueDate && t.dueDate < todayStart && t.status !== "Blocked");

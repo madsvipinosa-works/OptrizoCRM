@@ -37,7 +37,7 @@ async function requireAdmin() {
 
 async function requireEditor() {
     const session = await auth();
-    requireRole(session, ["superadmin", "content_editor"]);
+    requireRole(session, ["content_editor"]);
     return session; 
 }
 
@@ -216,7 +216,7 @@ export async function createPost(prevState: ActionState, formData: FormData) {
         const sanitizedSlug = sanitizeSlug(slug!);
         const sanitizedContent = content ? sanitizeHtml(content) : content;
 
-        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
+        const isPublished = hasRole(session, ["content_editor"]) && formData.get("published") === "true";
 
         await db.insert(posts).values({
             title,
@@ -276,7 +276,7 @@ export async function updatePost(prevState: ActionState, formData: FormData) {
 
         if (!id) return { success: false, message: "Missing Post ID" };
 
-        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
+        const isPublished = hasRole(session, ["content_editor"]) && formData.get("published") === "true";
 
         await db.update(posts)
             .set({
@@ -323,7 +323,7 @@ export async function createCaseStudy(prevState: ActionState, formData: FormData
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
         const sanitizedContent = content ? sanitizeHtml(content) : content;
-        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
+        const isPublished = hasRole(session, ["content_editor"]) && formData.get("published") === "true";
 
         await db.insert(caseStudies).values({
             title,
@@ -388,7 +388,7 @@ export async function updateCaseStudy(prevState: ActionState, formData: FormData
         if (!slug) slug = title;
         const sanitizedSlug = sanitizeSlug(slug!);
         const sanitizedContent = content ? sanitizeHtml(content) : content;
-        const isPublished = hasRole(session, ["superadmin"]) && formData.get("published") === "true";
+        const isPublished = hasRole(session, ["content_editor"]) && formData.get("published") === "true";
 
         if (!id) return { success: false, message: "Missing Case Study ID" };
 

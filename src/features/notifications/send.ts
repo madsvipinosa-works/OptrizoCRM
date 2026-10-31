@@ -31,7 +31,7 @@ export async function createSystemNotification(userId: string, message: string, 
 export async function notifyAllAdmins(message: string, type: string, link?: string) {
     try {
         const adminUsers = await db.query.users.findMany({
-            where: inArray(users.role, ["superadmin", "manager"])
+            where: inArray(users.role, ["manager"])
         });
 
         if (adminUsers.length === 0) return;
@@ -86,7 +86,7 @@ export async function notifyProjectClients(
         // 3. Fallback: if no explicit "client" role stakeholder, notify non-admin stakeholders (e.g. testing accounts)
         if (clientIds.size === 0 && stakeholders.length > 0) {
             for (const s of stakeholders) {
-                if (s.user && !["superadmin", "manager"].includes(s.user.role || "")) {
+                if (s.user && !["manager"].includes(s.user.role || "")) {
                     clientIds.add(s.userId);
                 }
             }

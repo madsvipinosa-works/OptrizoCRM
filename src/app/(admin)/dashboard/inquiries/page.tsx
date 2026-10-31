@@ -29,7 +29,7 @@ export default async function InquiriesPage({
     }>;
 }) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return <div className="p-8 text-center text-red-500">Unauthorized</div>;
     }
 
@@ -64,7 +64,7 @@ export default async function InquiriesPage({
     });
 
     const teamMembers = await db.query.users.findMany({
-        where: and(inArray(users.role, ["superadmin", "sales"]), eq(users.isActive, true)),
+        where: and(inArray(users.role, ["sales"]), eq(users.isActive, true)),
         columns: {
             id: true,
             name: true,

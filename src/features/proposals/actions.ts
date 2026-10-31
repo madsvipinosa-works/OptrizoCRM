@@ -52,7 +52,7 @@ export interface ProposalData {
 
 export async function createDraftProposalForLead(leadId: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized: Insufficient permissions to generate proposals" };
     }
 
@@ -117,7 +117,7 @@ export async function createDraftProposalForLead(leadId: string) {
 
 export async function createProposal(leadId: string, data: ProposalData) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized: Insufficient permissions to create proposals" };
     }
 
@@ -158,7 +158,7 @@ export async function createProposal(leadId: string, data: ProposalData) {
 
 export async function updateProposal(id: string, data: ProposalData, status?: "Draft" | "Sent" | "Approved" | "Rejected") {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized: Insufficient permissions to update proposals" };
     }
 
@@ -415,7 +415,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendProposalEmail(proposalId: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -448,7 +448,7 @@ export async function sendProposalEmail(proposalId: string) {
 
 export async function getProposalById(id: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized: Insufficient permissions to view proposals" };
     }
 
@@ -473,7 +473,7 @@ export async function getProposalById(id: string) {
 
 export async function deleteProposal(id: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -498,7 +498,7 @@ export async function deleteProposal(id: string) {
 
 export async function getOrCreateDraftProposal(leadId: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized: Insufficient permissions" };
     }
 

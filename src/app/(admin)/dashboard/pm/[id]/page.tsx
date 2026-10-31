@@ -14,12 +14,12 @@ import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveBut
 
 export default async function KanbanBoardPage(props: { params: Promise<{ id: string }> }) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
+    if (!hasRole(session, ["manager", "developer"])) {
         redirect("/");
     }
 
     const { id } = await props.params;
-    const isSuperAdmin = hasRole(session, ["superadmin"]);
+    const isSuperAdmin = hasRole(session, ["manager"]);
 
     // Trigger deadline checks on load
     const { checkAndNotifyOverdueTasks } = await import("@/features/pm/actions");
@@ -49,11 +49,11 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
         }
     });
 
-    if (!project) notFound();
+    if (!project || (session?.user?.role === "developer" && !project.tasks.some((t) => t.assignees.some((a) => a.userId === session.user.id)))) notFound();
 
     // Internal users available for task assignment.
     const internalUsers = await db.query.users.findMany({
-        where: (users, { inArray }) => inArray(users.role, ["superadmin", "manager", "developer", "content_editor"]),
+        where: (users, { inArray }) => inArray(users.role, ["manager", "developer"]),
     });
 
     return (
