@@ -76,8 +76,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     where: eq(users.email, email)
                 });
 
-                // Fail if user missing or user doesn't have a hashed password (e.g. Google-only account)
-                if (!user || !user.password) {
+                // Fail if user missing, soft-deleted, or doesn't have a hashed password (e.g. Google-only account)
+                if (!user || user.deletedAt || !user.password) {
                     return null;
                 }
                 
@@ -108,6 +108,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     where: eq(users.email, user.email),
                 });
 
+                if (existingUser?.deletedAt) {
+                    return false;
+                }
+
                 if (existingUser && !existingUser.isActive) {
                     throw new Error("Account deactivated. Please contact an administrator.");
                 }
@@ -128,12 +132,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.role = (user as any).role;
                 token.jobTitle = (user as any).jobTitle;
             }
-            // Fetch fresh user data from DB to reflect role changes in Supabase/DB immediately
-            // Throttle to avoid querying DB multiple times per page load in SSR (Layout + Page + components)
-            const now = Math.floor(Date.now() / 1000);
-            const lastChecked = (token.lastDbCheck as number) || 0;
 
-            if (token.email && (!token.role || now - lastChecked > 10)) {
+            if (token.id || token.email) {
                 try {
                     const [dbUser] = await db
                         .select({
@@ -142,18 +142,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                             role: users.role,
                             jobTitle: users.jobTitle,
                             isActive: users.isActive,
+                            deletedAt: users.deletedAt,
                         })
                         .from(users)
-                        .where(eq(users.email, token.email))
+                        .where(
+                            token.id
+                                ? eq(users.id, token.id as string)
+                                : eq(users.email, token.email as string)
+                        )
                         .limit(1);
 
-                    token.lastDbCheck = now;
-                    if (dbUser && dbUser.isActive) {
-                        token.id = dbUser.id;
-                        token.name = dbUser.name;
-                        token.role = dbUser.role;
-                        token.jobTitle = dbUser.jobTitle;
+                    if (!dbUser || !dbUser.isActive || dbUser.deletedAt) {
+                        token.invalidated = true;
+                        delete token.id;
+                        delete token.role;
+                        delete token.email;
+                        return null as any;
                     }
+
+                    token.invalidated = false;
+                    token.id = dbUser.id;
+                    token.name = dbUser.name;
+                    token.role = dbUser.role;
+                    token.jobTitle = dbUser.jobTitle;
                 } catch (e: any) {
                     console.warn("[Auth] DB lookup skipped in JWT callback (session preserved):", e?.cause?.message || e?.message || e);
                 }
@@ -161,6 +172,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return token;
         },
         async session({ session, token }) {
+            if (!token || token.invalidated || !token.id) {
+                return null as any;
+            }
             if (session.user && token?.id) {
                 session.user.id = token.id as string;
                 session.user.name = (token.name as string) ?? session.user.name;
