@@ -9,6 +9,8 @@ export default defineConfig({
     tsconfigPaths: true,
     alias: {
       "next/server": path.resolve(__dirname, "node_modules/next/server.js"),
+      // Next aliases `server-only` itself at build time; Vitest needs the harmless empty module.
+      "server-only": path.resolve(__dirname, "node_modules/next/dist/compiled/server-only/empty.js"),
       "@": path.resolve(__dirname, "./src"),
     },
   },
