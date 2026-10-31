@@ -12,30 +12,50 @@ import { Clock, Archive } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ScopeDeconstructorModal } from "@/features/pm/components/ScopeDeconstructorModal";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function PMEnginePage() {
-
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
+    if (!hasRole(session, ["manager", "developer"])) {
         redirect("/");
     }
 
-    const isSuperAdmin = hasRole(session, ["superadmin"]);
+    const isManager = hasRole(session, ["manager"]);
+    const isDeveloper = session?.user?.role === "developer";
+    const currentUserId = session?.user?.id;
 
-    const projects = await db.query.agencyProjects.findMany({
+    const allProjects = await db.query.agencyProjects.findMany({
         where: eq(agencyProjects.isArchived, false),
         with: {
             stakeholders: { with: { user: true } },
             milestones: true,
-            tasks: true
+            tasks: {
+                where: (tasks, { isNull }) => isNull(tasks.deletedAt),
+                with: { assignees: true },
+            },
         },
-        orderBy: (p, { desc }) => [desc(p.updatedAt)]
+        orderBy: (p, { desc }) => [desc(p.updatedAt)],
     });
 
+    // Developer sees assigned work only
+    const projects = isDeveloper
+        ? allProjects
+              .filter((project) =>
+                  project.tasks.some((task) =>
+                      task.assignees.some((assignee) => assignee.userId === currentUserId),
+                  ),
+              )
+              .map((project) => ({
+                  ...project,
+                  tasks: project.tasks.filter((task) =>
+                      task.assignees.some((assignee) => assignee.userId === currentUserId),
+                  ),
+              }))
+        : allProjects;
+
     // Stats
-    const totalActive = projects.filter(p => p.status !== "Completed").length;
-    const blockedTasks = projects.flatMap(p => p.tasks).filter(t => t.status === "Blocked").length;
+    const totalActive = projects.filter((p) => p.status !== "Completed").length;
+    const blockedTasks = projects.flatMap((p) => p.tasks).filter((t) => t.status === "Blocked").length;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -44,15 +64,17 @@ export default async function PMEnginePage() {
                     <h2 className="text-3xl font-black tracking-tight text-foreground">Agency PM Engine</h2>
                     <p className="text-muted-foreground text-sm">Manage ongoing client projects, milestones, and tasks.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                        <Link href="/dashboard/pm/archives" className="flex items-center gap-1.5">
-                            <Archive className="h-4 w-4" />
-                            View Archives
-                        </Link>
-                    </Button>
-                    <ScopeDeconstructorModal />
-                </div>
+                {isManager && (
+                    <div className="flex items-center gap-2">
+                        <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                            <Link href="/dashboard/pm/archives" className="flex items-center gap-1.5">
+                                <Archive className="h-4 w-4" />
+                                View Archives
+                            </Link>
+                        </Button>
+                        <ScopeDeconstructorModal />
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -74,20 +96,18 @@ export default async function PMEnginePage() {
                 </Card>
             </div>
 
-
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {projects.map(project => {
+                {projects.map((project) => {
                     const percent = project.progressPercentage ?? 0;
-                    const hasBlocked = project.tasks.some(t => t.status === "Blocked");
+                    const hasBlocked = project.tasks.some((t) => t.status === "Blocked");
 
                     return (
-                        <Card key={project.id} className={`glass-card hover:border-primary/50 transition-all flex flex-col ${hasBlocked ? 'border-destructive/60' : 'border-border'}`}>
+                        <Card key={project.id} className={`glass-card hover:border-primary/50 transition-all flex flex-col ${hasBlocked ? "border-destructive/60" : "border-border"}`}>
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start mb-2">
                                     <Badge variant={project.status === "Completed" ? "default" : "outline"} className={`
-                                        ${project.status === 'Completed' ? 'bg-primary text-black font-bold' : ''}
-                                        ${project.status === 'In Progress' ? 'border-primary text-primary font-bold' : 'border-border'}
+                                        ${project.status === "Completed" ? "bg-primary text-black font-bold" : ""}
+                                        ${project.status === "In Progress" ? "border-primary text-primary font-bold" : "border-border"}
                                     `}>
                                         {project.status}
                                     </Badge>
@@ -117,7 +137,7 @@ export default async function PMEnginePage() {
                                     {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
                                 </div>
                                 <div className="flex gap-1.5">
-                                    {isSuperAdmin && <ProjectArchiveButton projectId={project.id} isArchived={project.isArchived} />}
+                                    {isManager && <ProjectArchiveButton projectId={project.id} isArchived={project.isArchived} />}
                                     <Button size="sm" variant="ghost" className="h-8 hover:bg-muted text-foreground" asChild>
                                         <Link href={`/dashboard/pm/${project.id}`}>
                                             Manage Board
@@ -130,7 +150,7 @@ export default async function PMEnginePage() {
                 })}
                 {projects.length === 0 && (
                     <div className="col-span-full py-12 text-center text-muted-foreground border border-dashed border-border rounded-xl">
-                        No active projects found. Mark a lead as "Won" to provision a project.
+                        No active projects found. Mark a lead as &quot;Won&quot; to provision a project.
                     </div>
                 )}
             </div>

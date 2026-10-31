@@ -1,69 +1,132 @@
-import NextAuth from "next-auth"
-import authConfig from "@/auth.config"
+import NextAuth from "next-auth";
+import authConfig from "@/auth.config";
 
-const { auth } = NextAuth(authConfig)
+const { auth } = NextAuth(authConfig);
+
+function getLandingPage(role: string): string {
+  switch (role) {
+    case "sales":
+    case "manager":
+      return "/dashboard";
+    case "developer":
+      return "/dashboard/pm";
+    case "content_editor":
+      return "/dashboard/cms";
+    case "superadmin":
+      return "/dashboard/analytics";
+    case "client":
+    default:
+      return "/portal";
+  }
+}
+
+function isAllowedOnDashboardPath(pathname: string, role: string): boolean {
+  const cleanPath = pathname.replace(/\/+$/, "") || "/";
+
+  if (cleanPath === "/dashboard") {
+    return role === "sales" || role === "manager";
+  }
+
+  if (cleanPath === "/dashboard/leads" || cleanPath.startsWith("/dashboard/leads/")) {
+    return role === "sales" || role === "manager";
+  }
+
+  if (
+    cleanPath === "/dashboard/inquiries" ||
+    cleanPath.startsWith("/dashboard/inquiries/") ||
+    cleanPath === "/dashboard/contacts" ||
+    cleanPath.startsWith("/dashboard/contacts/")
+  ) {
+    return role === "sales";
+  }
+
+  if (cleanPath === "/dashboard/proposals" || cleanPath.startsWith("/dashboard/proposals/")) {
+    return role === "sales" || role === "manager";
+  }
+
+  if (cleanPath === "/dashboard/pm" || cleanPath.startsWith("/dashboard/pm/")) {
+    return role === "manager" || role === "developer";
+  }
+
+  if (
+    cleanPath === "/dashboard/cms" ||
+    cleanPath.startsWith("/dashboard/cms/") ||
+    cleanPath === "/dashboard/services" ||
+    cleanPath.startsWith("/dashboard/services/") ||
+    cleanPath === "/dashboard/portfolio" ||
+    cleanPath.startsWith("/dashboard/portfolio/") ||
+    cleanPath === "/dashboard/posts" ||
+    cleanPath.startsWith("/dashboard/posts/") ||
+    cleanPath === "/dashboard/testimonials" ||
+    cleanPath.startsWith("/dashboard/testimonials/") ||
+    cleanPath === "/dashboard/about" ||
+    cleanPath.startsWith("/dashboard/about/")
+  ) {
+    return role === "content_editor";
+  }
+
+  if (
+    cleanPath === "/dashboard/analytics" ||
+    cleanPath.startsWith("/dashboard/analytics/") ||
+    cleanPath === "/dashboard/team" ||
+    cleanPath.startsWith("/dashboard/team/") ||
+    cleanPath === "/dashboard/audit" ||
+    cleanPath.startsWith("/dashboard/audit/") ||
+    cleanPath === "/dashboard/settings" ||
+    cleanPath.startsWith("/dashboard/settings/")
+  ) {
+    return role === "superadmin";
+  }
+
+  return false;
+}
 
 export default auth((req) => {
-    const isLoggedIn = !!req.auth;
-    const { nextUrl } = req;
-    let role = (req.auth?.user as any)?.role || "client";
+  const isLoggedIn = !!req.auth;
+  const { nextUrl } = req;
+  let role = (req.auth?.user as { role?: string } | undefined)?.role || "client";
 
-    // Graceful fallback for existing JWT sessions after 6-tier migration
-    if (role === "admin") role = "superadmin";
-    if (role === "editor") role = "content_editor";
-    if (role === "user") role = "client";
+  // Graceful fallback for legacy role strings
+  if (role === "admin") role = "superadmin";
+  if (role === "editor") role = "content_editor";
+  if (role === "user") role = "client";
 
-    const isDashboardRoute = nextUrl.pathname.startsWith("/dashboard");
-    const isClientRoute = nextUrl.pathname.startsWith("/portal") || nextUrl.pathname.startsWith("/proposal");
-    const isProtectedRoute = isDashboardRoute || isClientRoute;
+  const isDashboardRoute = nextUrl.pathname.startsWith("/dashboard");
+  const isClientRoute =
+    nextUrl.pathname.startsWith("/portal") || nextUrl.pathname.startsWith("/proposal");
+  const isProtectedRoute = isDashboardRoute || isClientRoute;
 
-    // 1. Redirect unauthenticated users
-    if (isProtectedRoute && !isLoggedIn) {
-        const callbackUrl = encodeURIComponent(nextUrl.pathname + nextUrl.search);
-        return Response.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, nextUrl));
+  // 1. Redirect unauthenticated users
+  if (isProtectedRoute && !isLoggedIn) {
+    const callbackUrl = encodeURIComponent(nextUrl.pathname + nextUrl.search);
+    return Response.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, nextUrl));
+  }
+
+  // 2. Enforce permissions table and landing pages for authenticated users
+  if (isLoggedIn) {
+    const landingPage = getLandingPage(role);
+
+    // /portal and /proposal: client only, no staff fallback
+    if (isClientRoute) {
+      if (role !== "client") {
+        return Response.redirect(new URL(landingPage, nextUrl));
+      }
+      return;
     }
 
-    // 2. Strict RBAC Firewalls for authenticated users
-    if (isLoggedIn) {
-        // --- Dashboard Routes Firewall ---
-        if (isDashboardRoute) {
-            // Superadmin has God Mode, bypass checks.
-            if (role === "superadmin") return;
-
-            // Clients should NEVER be in the dashboard
-            if (role === "client") {
-                return Response.redirect(new URL("/portal", nextUrl));
-            }
-
-            // Route matching
-            const isCrmRoute = nextUrl.pathname.startsWith("/dashboard/analytics") || nextUrl.pathname.startsWith("/dashboard/leads") || nextUrl.pathname.startsWith("/dashboard/inquiries") || nextUrl.pathname.startsWith("/dashboard/contacts");
-            const isPmRoute = nextUrl.pathname.startsWith("/dashboard/pm");
-            const isCmsRoute = nextUrl.pathname.startsWith("/dashboard/cms");
-            const isSystemRoute = nextUrl.pathname.startsWith("/dashboard/settings") || nextUrl.pathname.startsWith("/dashboard/team") || nextUrl.pathname.startsWith("/dashboard/audit");
-
-            // Role constraints
-            if (role === "sales") {
-                if (!isCrmRoute) return Response.redirect(new URL("/dashboard/analytics", nextUrl));
-            } else if (role === "manager" || role === "developer") {
-                if (!isPmRoute) return Response.redirect(new URL("/dashboard/pm", nextUrl));
-            } else if (role === "content_editor") {
-                if (!isCmsRoute) return Response.redirect(new URL("/dashboard/cms", nextUrl));
-            } else {
-                // Unknown dashboard role? Kick to portal just in case.
-                return Response.redirect(new URL("/portal", nextUrl));
-            }
-        }
+    // /dashboard routes: enforce role permissions table
+    if (isDashboardRoute) {
+      if (!isAllowedOnDashboardPath(nextUrl.pathname, role)) {
+        return Response.redirect(new URL(landingPage, nextUrl));
+      }
+      return;
     }
+  }
 
-    // 3. Allow everything else (Public by default)
-    return;
+  return;
 });
 
 // Configure which paths middleware runs on - only protected application routes
 export const config = {
-    matcher: [
-        "/dashboard/:path*",
-        "/portal/:path*",
-        "/proposal/:path*",
-    ],
+  matcher: ["/dashboard/:path*", "/portal/:path*", "/proposal/:path*"],
 };

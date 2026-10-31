@@ -6,7 +6,7 @@ export default function ClientPortalLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <RoleGuard allowedRoles={["client", "superadmin", "sales", "manager", "developer", "content_editor"]}>
+        <RoleGuard allowedRoles={["client"]}>
             {children}
         </RoleGuard>
     );

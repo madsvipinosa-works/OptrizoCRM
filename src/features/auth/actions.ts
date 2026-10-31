@@ -90,6 +90,23 @@ function tooManyAttempts(retryAfterSeconds: number): AuthActionResult {
     };
 }
 
+function getLandingPageForRole(role?: string | null): string {
+    switch (role) {
+        case "sales":
+        case "manager":
+            return "/dashboard";
+        case "developer":
+            return "/dashboard/pm";
+        case "content_editor":
+            return "/dashboard/cms";
+        case "superadmin":
+            return "/dashboard/analytics";
+        case "client":
+        default:
+            return "/portal";
+    }
+}
+
 export async function googleSignIn(callbackUrl?: string) {
     const targetRedirect = callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
     await signIn("google", { redirectTo: targetRedirect });
@@ -117,13 +134,13 @@ export async function signInWithEmail(prevState: unknown, formData: FormData): P
             columns: { role: true },
         });
 
-        const isClient = user?.role === "client";
+        const defaultLanding = getLandingPageForRole(user?.role);
         const callbackUrl = (formData.get("callbackUrl") as string);
         const hasExplicitCallback = callbackUrl && callbackUrl.startsWith("/") && callbackUrl !== "/dashboard";
 
         const targetRedirect = hasExplicitCallback
             ? callbackUrl
-            : (isClient ? "/portal" : "/dashboard");
+            : defaultLanding;
 
         return { success: true, redirect: targetRedirect };
     } catch (error) {
@@ -153,8 +170,8 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const name = formData.get("name") as string;
-    const callbackUrl = (formData.get("callbackUrl") as string) || "/dashboard";
-    const targetRedirect = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+    const callbackUrl = (formData.get("callbackUrl") as string) || "/portal";
+    const targetRedirect = callbackUrl.startsWith("/") && callbackUrl !== "/dashboard" ? callbackUrl : "/portal";
 
     if (!email || !password) return { success: false, message: "Email and password are required" };
     if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
