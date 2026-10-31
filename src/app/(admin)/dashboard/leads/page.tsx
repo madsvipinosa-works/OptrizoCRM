@@ -46,7 +46,7 @@ export default async function LeadsPage({
     // Build the where clause from the aliased table that the relational query
     // passes in, so the correlated subquery references "leads" and not "lead".
     const whereClause = (lead: { id: typeof leads.id; status: typeof leads.status; businessName: typeof leads.businessName; industry: typeof leads.industry }) => {
-        const unassigned = sql`not exists (select 1 from ${leadAssignees} where ${leadAssignees.leadId} = ${lead.id})`;
+        const unassigned = sql`not exists (select 1 from "lead_assignee" la where la."leadId" = ${lead.id})`;
         const visibility =
             assignedLeadIds.length > 0
                 ? or(inArray(lead.id, assignedLeadIds), unassigned)
