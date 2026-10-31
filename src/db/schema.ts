@@ -524,6 +524,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     leadAssignments: many(leadAssignees),
     authoredActivityLogs: many(leadActivityLogs),
     projectStakeholds: many(projectStakeholders),
+    projectTeamMemberships: many(projectTeamMembers),
     taskAssignments: many(taskAssignees),
     crmTaskAssignments: many(crmTasks),
     notifications: many(notifications),
@@ -631,6 +632,21 @@ export const projectStakeholders = pgTable("project_stakeholder", {
     userId: text("userId")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
+}, (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }));
+
+export const projectTeamMembers = pgTable("project_team_member", {
+    projectId: text("projectId")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    roleInProject: text("role_in_project"),
+    isAssignable: boolean("is_assignable").default(true).notNull(),
+    addedBy: text("added_by")
+        .references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }));
 
 
@@ -755,12 +771,24 @@ export const clientFeedback = pgTable("client_feedback", {
 // PM Relations
 export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({
     stakeholders: many(projectStakeholders),
+    teamMembers: many(projectTeamMembers),
     lead: one(leads, {
         fields: [agencyProjects.leadId],
         references: [leads.id],
     }),
     milestones: many(milestones),
     tasks: many(tasks),
+}));
+
+export const projectTeamMembersRelations = relations(projectTeamMembers, ({ one }) => ({
+    project: one(agencyProjects, {
+        fields: [projectTeamMembers.projectId],
+        references: [agencyProjects.id],
+    }),
+    user: one(users, {
+        fields: [projectTeamMembers.userId],
+        references: [users.id],
+    }),
 }));
 
 export const projectStakeholdersRelations = relations(projectStakeholders, ({ one }) => ({
