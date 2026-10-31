@@ -3,7 +3,8 @@ import "dotenv/config";
 import { db } from "@/db";
 import { agencyProjects, tasks, milestones } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { getProjectProgress } from "@/actions/progress";
+// The server action needs a signed-in session; this script has none, so it calls the plain query.
+import { fetchProjectProgress as getProjectProgress } from "@/lib/project-progress";
 
 async function runTest() {
   console.log("🧪 Starting Feature 1 Weighted Progress Engine Test...\n");

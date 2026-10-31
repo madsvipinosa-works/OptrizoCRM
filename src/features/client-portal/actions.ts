@@ -1,19 +1,19 @@
 "use server";
 
-import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { agencyProjects, leads, projectStakeholders, type ProjectDocumentItem } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { agencyProjects, projectStakeholders, type ProjectDocumentItem } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { logAction } from "@/features/audit/log";
+import { authorizeProject, requireSession } from "@/lib/authz";
 
 export async function addClientLeadDocument(
     leadIdOrProjectId: string,
     fileUrl: string,
     projectIdParam?: string
 ) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const signedIn = await requireSession();
+    if (!signedIn.ok) {
         return { success: false, message: "Unauthorized: Please log in." };
     }
 
@@ -41,48 +41,25 @@ export async function addClientLeadDocument(
         });
     }
 
-    if (!project) {
-        return { success: false, message: "Project not found for this document." };
-    }
+    // A missing project and a project the caller may not use get the same answer, so IDs can't be probed.
+    const denied = { success: false, message: "Project not found or you do not have access to it." };
+    if (!project) return denied;
 
-    // 2. Multi-tier Authorization
-    const isStaff = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
+    // 2. Authorization: the PM, or the client who owns the project. Nobody else may attach documents.
+    const access = await authorizeProject(project.id, "write");
+    if (!access.ok) return denied;
+    const { session } = access;
+    const isClient = session.user.role === "client";
 
-    if (!isStaff) {
-        // Stakeholder check
-        const isStakeholder = await db.query.projectStakeholders.findFirst({
-            where: and(
-                eq(projectStakeholders.projectId, project.id),
-                eq(projectStakeholders.userId, session.user.id)
-            ),
-        });
-
-        // Lead ownership check
-        let isLeadClient = false;
-        if (project.leadId) {
-            const leadRecord = await db.query.leads.findFirst({
-                where: and(
-                    eq(leads.id, project.leadId),
-                    eq(leads.clientId, session.user.id)
-                ),
-            });
-            if (leadRecord) isLeadClient = true;
-        }
-
-        if (!isStakeholder && !isLeadClient) {
-            return { success: false, message: "Unauthorized: Not authorized for this project's documents." };
-        }
-
-        // Auto-link client as stakeholder if lead owner
-        if (!isStakeholder && isLeadClient) {
-            try {
-                await db.insert(projectStakeholders).values({
-                    projectId: project.id,
-                    userId: session.user.id,
-                }).onConflictDoNothing();
-            } catch (linkErr) {
-                console.warn("[ClientPortal] Stakeholder link skipped:", linkErr);
-            }
+    // Auto-link a client who owns the originating lead as a project stakeholder (a no-op if already linked)
+    if (isClient) {
+        try {
+            await db.insert(projectStakeholders).values({
+                projectId: project.id,
+                userId: session.user.id,
+            }).onConflictDoNothing();
+        } catch (linkErr) {
+            console.warn("[ClientPortal] Stakeholder link skipped:", linkErr);
         }
     }
 
@@ -111,7 +88,7 @@ export async function addClientLeadDocument(
         sizeBytes: 0, // Will be updated if possible, or left 0 for links
         uploadedById: session.user.id,
         uploadedByName: session.user.name || "Client",
-        uploadedByRole: isStaff ? "agency" : "client",
+        uploadedByRole: isClient ? "client" : "agency",
         createdAt: new Date().toISOString()
     };
 
@@ -130,7 +107,7 @@ export async function addClientLeadDocument(
         session.user.id
     );
 
-    if (!isStaff) {
+    if (isClient) {
         const { notifyAllAdmins } = await import("@/features/notifications/send");
         await notifyAllAdmins(
             `Client uploaded resource '${cleanFileName}' to ${project.title}`,
@@ -153,4 +130,3 @@ export async function addClientLeadDocument(
 
     return { success: true, message: "Document uploaded and attached successfully." };
 }
-

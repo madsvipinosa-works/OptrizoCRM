@@ -10,6 +10,7 @@ import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth, hasRole } from "@/auth";
+import { requireRoles } from "@/lib/authz";
 import { notifyAllAdmins } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { DEFAULT_CRM_PLAYBOOK, type PlaybookTaskTemplate } from "@/config/crm-playbook";
@@ -1026,6 +1027,10 @@ export async function convertLeadToProject(leadId: string): Promise<ActionState 
     }
 }
 export async function getProjectForLead(leadId: string): Promise<{ id: string; title: string; status: string } | null> {
+    // Only the PM and Sales see whether a lead has a project (spec §1). Everyone else gets nothing.
+    const access = await requireRoles(["manager", "sales"]);
+    if (!access.ok) return null;
+
     const proj = await db.query.agencyProjects.findFirst({
         where: eq(agencyProjects.leadId, leadId),
         columns: { id: true, title: true, status: true },

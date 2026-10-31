@@ -1,28 +1,16 @@
 "use server";
 
-import { db } from "@/db";
-import { sql } from "drizzle-orm";
-import { z } from "zod";
+import { authorizeProject } from "@/lib/authz";
+import { fetchProjectProgress, type ProjectProgress } from "@/lib/project-progress";
 
-const ProgressResponseSchema = z.object({
-  totalWeight: z.number(),
-  completedWeight: z.number(),
-  percentage: z.number(),
-});
-
-export type ProjectProgress = z.infer<typeof ProgressResponseSchema>;
+export type { ProjectProgress };
 
 export async function getProjectProgress(projectId: string): Promise<ProjectProgress> {
-  const result = await db.execute(
-    sql`SELECT get_project_progress(${projectId}) AS progress`
-  );
-
-  const rawData = result.rows[0]?.progress;
-  const parsed = ProgressResponseSchema.safeParse(rawData);
-
-  if (!parsed.success) {
-    return { totalWeight: 0, completedWeight: 0, percentage: 0 };
+  // A zero result would look like real progress, so a refused caller gets an error instead.
+  const access = await authorizeProject(projectId, "read");
+  if (!access.ok) {
+    throw new Error("Unauthorized");
   }
 
-  return parsed.data;
+  return fetchProjectProgress(projectId);
 }

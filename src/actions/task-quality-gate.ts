@@ -6,7 +6,7 @@ import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { generateObject, generateText } from "ai";
 import { getAIModel } from "@/lib/ai";
-import { auth } from "@/auth";
+import { authorizeTask, requireRoles } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 
 const SubmissionInputSchema = z.object({
@@ -232,16 +232,13 @@ export async function submitTaskForVerification(
 
   const { taskId, proofUrl, submissionNotes } = parsed.data;
 
-  // 2. Fetch Session & IDOR Prevention
-  let submittedBy = "anonymous_dev";
-  try {
-    const session = await auth();
-    submittedBy =
-      session?.user?.email || session?.user?.name || session?.user?.id || "anonymous_dev";
-  } catch {
-    // Standalone or CLI execution context fallback
-    submittedBy = "test_developer";
+  // 2. Session & IDOR Prevention: only the assigned developer (or a PM) may submit this task
+  const access = await authorizeTask(taskId);
+  if (!access.ok) {
+    return { success: false, error: "Unauthorized" };
   }
+  const { user } = access.session;
+  const submittedBy = user.email || user.name || user.id;
 
   // 3. Fetch Task Context
   const task = await db.query.tasks.findFirst({
@@ -458,6 +455,9 @@ export async function submitTaskForVerification(
  * Fetch the latest submission audit report for a task
  */
 export async function getLatestTaskSubmission(taskId: string) {
+  const access = await authorizeTask(taskId);
+  if (!access.ok) return null;
+
   const submission = await db.query.taskSubmissions.findFirst({
     where: eq(taskSubmissions.taskId, taskId),
     orderBy: [desc(taskSubmissions.createdAt)],
@@ -483,12 +483,24 @@ export async function polishDeliveryNotes(input: unknown): Promise<{
   polishedNotes?: string;
   error?: string;
 }> {
+  const roleAccess = await requireRoles(["developer", "manager"]);
+  if (!roleAccess.ok) {
+    return { success: false, error: "Unauthorized" };
+  }
+
   const parsed = PolishNotesSchema.safeParse(input);
   if (!parsed.success) {
     return {
       success: false,
       error: parsed.error.issues[0]?.message || "Invalid input",
     };
+  }
+
+  if (parsed.data.taskId) {
+    const taskAccess = await authorizeTask(parsed.data.taskId);
+    if (!taskAccess.ok) {
+      return { success: false, error: "Unauthorized" };
+    }
   }
 
   const { taskTitle, taskDescription, rawNotes, proofUrls } = parsed.data;
