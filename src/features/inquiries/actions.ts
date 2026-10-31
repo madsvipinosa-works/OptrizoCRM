@@ -6,12 +6,14 @@ import { and, eq } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { logAction } from "@/features/audit/log";
 
 const inquiryIdSchema = z.string().trim().min(1).max(128);
 const ownerIdSchema = z.string().trim().min(1).max(128).nullable();
 const nextActionSchema = z.string().trim().max(500);
 const INQUIRY_PATH = "/dashboard/inquiries";
 
+// Super Admin stays in this list until the monitor-only change (B3) takes it out.
 async function authorizeInquiryUpdate() {
     const session = await auth();
     if (!hasRole(session, ["superadmin", "sales"])) {
@@ -46,6 +48,15 @@ export async function updateInquiryAssignment(inquiryId: string, ownerId: string
         .returning({ id: inquiries.id });
     if (!updated) return { success: false, message: "Inquiry not found" };
 
+    await logAction(
+        "UPDATE",
+        "Inquiry",
+        parsedOwnerId.data
+            ? `Inquiry ${updated.id} assigned to user ${parsedOwnerId.data}`
+            : `Inquiry ${updated.id} unassigned`,
+        session.user.id
+    );
+
     revalidatePath(INQUIRY_PATH);
     return { success: true };
 }
@@ -65,6 +76,8 @@ export async function updateInquiryNextAction(inquiryId: string, nextAction: str
         .where(eq(inquiries.id, parsedInquiryId.data))
         .returning({ id: inquiries.id });
     if (!updated) return { success: false, message: "Inquiry not found" };
+
+    await logAction("UPDATE", "Inquiry", `Inquiry ${updated.id} next action updated`, session.user.id);
 
     revalidatePath(INQUIRY_PATH);
     return { success: true };
@@ -86,7 +99,9 @@ export async function markInquiryRead(inquiryId: string) {
             eq(inquiries.status, "Unread")
         ))
         .returning({ id: inquiries.id });
-    if (!updated) {
+    if (updated) {
+        await logAction("UPDATE", "Inquiry", `Inquiry ${updated.id} marked read`, session.user.id);
+    } else {
         const inquiry = await db.query.inquiries.findFirst({
             where: eq(inquiries.id, parsedInquiryId.data),
             columns: { id: true },
@@ -123,6 +138,13 @@ export async function markInquiryHandled(inquiryId: string, isHandled: boolean) 
         .where(eq(inquiries.id, parsedInquiryId.data))
         .returning({ id: inquiries.id });
     if (!updated) return { success: false, message: "Inquiry not found" };
+
+    await logAction(
+        "UPDATE",
+        "Inquiry",
+        `Inquiry ${updated.id} marked ${isHandled ? "handled" : "not handled"}`,
+        session.user.id
+    );
 
     revalidatePath(INQUIRY_PATH);
     return { success: true };
