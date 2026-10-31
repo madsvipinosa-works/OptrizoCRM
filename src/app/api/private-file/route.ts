@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     // Serve local private uploads (development fallback)
     if (isLocal) {
-        const filePath = path.join(process.cwd(), "public", "uploads", safeName);
+        const filePath = path.join(process.cwd(), "storage", "uploads", safeName);
 
         try {
             const buffer = await fs.readFile(filePath);

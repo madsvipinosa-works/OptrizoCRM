@@ -1026,7 +1026,7 @@ export async function convertLeadToProject(leadId: string): Promise<ActionState 
         return { success: false, message: "Could not convert deal to project." };
     }
 }
-export async function getProjectForLead(leadId: string): Promise<{ id: string; title: string; status: string } | null> {
+export async function getProjectForLead(leadId: string): Promise<{ id: string | null; title: string; status: string } | null> {
     // Only the PM and Sales see whether a lead has a project (spec §1). Everyone else gets nothing.
     const access = await requireRoles(["manager", "sales"]);
     if (!access.ok) return null;
@@ -1035,7 +1035,9 @@ export async function getProjectForLead(leadId: string): Promise<{ id: string; t
         where: eq(agencyProjects.leadId, leadId),
         columns: { id: true, title: true, status: true },
     });
-    return proj || null;
+    if (!proj) return null;
+    if (access.session.user.role === "sales") return { id: null, title: proj.title, status: proj.status };
+    return proj;
 }
 
 export async function archiveLead(leadId: string): Promise<ActionState> {

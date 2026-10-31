@@ -112,7 +112,7 @@ export function LeadDetailsDrawer({
     const [isClaiming, setIsClaiming] = useState(false);
 
     // Linked project state for Closed Won handover
-    const [linkedProject, setLinkedProject] = useState<{ id: string; title: string; status: string } | null>(null);
+    const [linkedProject, setLinkedProject] = useState<{ id: string | null; title: string; status: string } | null>(null);
     const [isConvertingProject, setIsConvertingProject] = useState(false);
 
     // Local state for tasks and activity logs to enable instant reactivity
@@ -707,16 +707,22 @@ export function LeadDetailsDrawer({
                             </div>
 
                             {linkedProject ? (
-                                <Button
-                                    size="sm"
-                                    asChild
-                                    className="h-8 text-xs bg-emerald-500 text-black hover:bg-emerald-400 font-semibold gap-1.5 shrink-0"
-                                >
-                                    <Link href={`/dashboard/pm/${linkedProject.id}`}>
-                                        <span>Open PM Workspace</span>
-                                        <ExternalLink className="h-3 w-3" />
-                                    </Link>
-                                </Button>
+                                linkedProject.id ? (
+                                    <Button
+                                        size="sm"
+                                        asChild
+                                        className="h-8 text-xs bg-emerald-500 text-black hover:bg-emerald-400 font-semibold gap-1.5 shrink-0"
+                                    >
+                                        <Link href={`/dashboard/pm/${linkedProject.id}`}>
+                                            <span>Open PM Workspace</span>
+                                            <ExternalLink className="h-3 w-3" />
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <span className="text-xs font-semibold text-emerald-400 shrink-0">
+                                        Project created
+                                    </span>
+                                )
                             ) : (
                                 <Button
                                     size="sm"

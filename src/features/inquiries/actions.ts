@@ -13,10 +13,9 @@ const ownerIdSchema = z.string().trim().min(1).max(128).nullable();
 const nextActionSchema = z.string().trim().max(500);
 const INQUIRY_PATH = "/dashboard/inquiries";
 
-// Super Admin stays in this list until the monitor-only change (B3) takes it out.
 async function authorizeInquiryUpdate() {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return null;
     }
     return session;
@@ -37,7 +36,7 @@ export async function updateInquiryAssignment(inquiryId: string, ownerId: string
             where: eq(users.id, parsedOwnerId.data),
             columns: { id: true, role: true, isActive: true },
         });
-        if (!owner || !owner.isActive || !["superadmin", "sales"].includes(owner.role)) {
+        if (!owner || !owner.isActive || !["sales"].includes(owner.role)) {
             return { success: false, message: "Choose an active sales team member" };
         }
     }

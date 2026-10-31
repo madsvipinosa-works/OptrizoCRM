@@ -15,8 +15,7 @@ export type ActionState = {
     data?: any;
 };
 
-// Super Admin stays in this list until the monitor-only change (B3) takes it out.
-const CRM_TASK_ROLES = ["superadmin", "sales"];
+const CRM_TASK_ROLES = ["sales"];
 
 const taskIdSchema = z.string().trim().min(1).max(128);
 const taskTypeSchema = z.enum(["Call", "Email", "Meeting", "To-do"]);

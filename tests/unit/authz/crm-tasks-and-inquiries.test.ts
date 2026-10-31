@@ -26,8 +26,7 @@ import { expectNoWrites, type MockDb } from "../../helpers/mock-db";
 
 const mockDb = db as unknown as MockDb;
 
-// Super Admin is still allowed here until the monitor-only change (B3); that change updates this list.
-const ALLOWED: Role[] = ["superadmin", "sales"];
+const ALLOWED: Role[] = ["sales"];
 const blockedRoles = ROLES.filter((role) => !ALLOWED.includes(role));
 
 beforeEach(() => {
