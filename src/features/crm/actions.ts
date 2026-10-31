@@ -1268,3 +1268,64 @@ export async function bulkAssignLeads(
 
 
 
+export async function claimLead(
+    input: { leadId: string } | string
+): Promise<
+    | { ok: true; leadId: string }
+    | { ok: false; error: "FORBIDDEN" | "ALREADY_ASSIGNED" | "NOT_FOUND"; message: string }
+> {
+    const leadId = typeof input === "string" ? input : input?.leadId;
+    const session = await auth();
+    if (!hasRole(session, ["sales"]) || !session?.user?.id) {
+        return { ok: false, error: "FORBIDDEN", message: "Forbidden: caller is not Sales." };
+    }
+
+    if (!leadId) {
+        return { ok: false, error: "NOT_FOUND", message: "Lead not found." };
+    }
+
+    const existingLead = await db.query.leads.findFirst({
+        where: eq(leads.id, leadId),
+        with: { assignees: true },
+    });
+
+    if (!existingLead) {
+        return { ok: false, error: "NOT_FOUND", message: "Lead not found." };
+    }
+
+    if (existingLead.assignees && existingLead.assignees.length > 0) {
+        return {
+            ok: false,
+            error: "ALREADY_ASSIGNED",
+            message: "Lead already has a Sales owner.",
+        };
+    }
+
+    const actorName = session.user.name || session.user.email || "Sales";
+
+    await db.transaction(async (tx) => {
+        await tx.insert(leadAssignees).values({
+            leadId,
+            userId: session.user.id,
+        });
+
+        await tx.insert(leadActivityLogs).values({
+            leadId,
+            authorId: session.user.id,
+            activityType: "System",
+            content: `Lead claimed by ${actorName}.`,
+        });
+    });
+
+    await logAction(
+        "UPDATE",
+        "Lead",
+        `Lead ${leadId} claimed by ${session.user.id}`,
+        session.user.id
+    );
+
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
+
+    return { ok: true, leadId };
+}
