@@ -5,8 +5,8 @@ import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, 
 import { auth, hasRole } from "@/auth";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { notifyAllAdmins } from "@/features/notifications/actions";
-import { logAction } from "@/features/audit/actions";
+import { notifyAllAdmins } from "@/features/notifications/send";
+import { logAction } from "@/features/audit/log";
 import { logSystemError } from "@/features/audit/error-logger";
 
 export type ActionState = {
@@ -89,7 +89,7 @@ async function handleMilestoneBubbling(tx: any, taskId: string, newTaskStatus: s
     return null;
 }
 
-export async function syncProjectStatus(tx: any, projectId: string) {
+async function syncProjectStatus(tx: any, projectId: string) {
     const { isNull, and, eq } = await import("drizzle-orm");
     const { milestones, agencyProjects } = await import("@/db/schema");
     
@@ -216,7 +216,7 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
 
         await logAction("UPDATE", "Project", `Project ${projectId} status updated to ${status}`);
 
-        const { notifyProjectClients } = await import("@/features/notifications/actions");
+        const { notifyProjectClients } = await import("@/features/notifications/send");
         await notifyProjectClients(
             projectId,
             `Project Status Update: "${oldProject?.title || 'Your project'}" has moved to status '${status}'.`,
@@ -258,7 +258,7 @@ export async function updateProjectSettings(
         await logAction("UPDATE", "Project Resources", `Project ${projectId} resources updated`);
 
         if (stagingUrls && stagingUrls.length > 0) {
-            const { notifyProjectClients } = await import("@/features/notifications/actions");
+            const { notifyProjectClients } = await import("@/features/notifications/send");
             await notifyProjectClients(
                 projectId,
                 `Staging Environment Updated: New preview & staging links are available for your project.`,
@@ -294,7 +294,7 @@ export async function addProjectDocument(projectId: string, newDoc: ProjectDocum
         await logAction("CREATE", "Project Document", `Added document '${newDoc.title}' to Project ${projectId}`, session.user.id);
 
         if (newDoc.uploadedByRole === "agency") {
-            const { notifyProjectClients } = await import("@/features/notifications/actions");
+            const { notifyProjectClients } = await import("@/features/notifications/send");
             await notifyProjectClients(
                 projectId,
                 `New Resource Uploaded: The agency uploaded "${newDoc.title}" to your project resources.`,
@@ -302,7 +302,7 @@ export async function addProjectDocument(projectId: string, newDoc: ProjectDocum
                 "/portal"
             );
         } else {
-            const { notifyAllAdmins } = await import("@/features/notifications/actions");
+            const { notifyAllAdmins } = await import("@/features/notifications/send");
             await notifyAllAdmins(
                 `Client uploaded document "${newDoc.title}" to project resources`,
                 "document",
@@ -435,7 +435,7 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
             }
 
             if (clientNotice) {
-                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                const { notifyProjectClients } = await import("@/features/notifications/send");
                 await notifyProjectClients(milestone.projectId, clientNotice, "milestone", "/portal");
             }
         }
@@ -583,7 +583,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
                 clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
             }
             if (clientNotice) {
-                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                const { notifyProjectClients } = await import("@/features/notifications/send");
                 await notifyProjectClients(bubbledMilestone.projectId, clientNotice, "milestone", "/portal");
             }
         }
@@ -737,7 +737,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
                 clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
             }
             if (clientNotice) {
-                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                const { notifyProjectClients } = await import("@/features/notifications/send");
                 await notifyProjectClients(bubbledMilestone.projectId, clientNotice, "milestone", "/portal");
             }
         }
@@ -1194,7 +1194,7 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
             return { success: true, found: 0 };
         }
 
-        const { notifyAllAdmins, createSystemNotification } = await import("@/features/notifications/actions");
+        const { notifyAllAdmins, createSystemNotification } = await import("@/features/notifications/send");
         let notifiedCount = 0;
 
         for (const task of overdueTasks) {

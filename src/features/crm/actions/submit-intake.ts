@@ -4,7 +4,7 @@ import { intakeFormSchema } from "@/lib/schemas";
 import { db } from "@/db";
 import { leads, services } from "@/db/schema";
 import { auth } from "@/auth";
-import { createSystemNotification, notifyAllAdmins } from "@/features/notifications/actions";
+import { createSystemNotification, notifyAllAdmins } from "@/features/notifications/send";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 

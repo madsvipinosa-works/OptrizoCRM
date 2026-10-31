@@ -6,7 +6,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { getAIModel } from "@/lib/ai";
 import { auth, hasRole } from "@/auth";
-import { logAction } from "@/features/audit/actions";
+import { logAction } from "@/features/audit/log";
 import { logSystemError } from "@/features/audit/error-logger";
 import { revalidatePath } from "next/cache";
 

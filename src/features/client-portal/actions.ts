@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { agencyProjects, leads, projectStakeholders, type ProjectDocumentItem } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { logAction } from "@/features/audit/actions";
+import { logAction } from "@/features/audit/log";
 
 export async function addClientLeadDocument(
     leadIdOrProjectId: string,
@@ -131,14 +131,14 @@ export async function addClientLeadDocument(
     );
 
     if (!isStaff) {
-        const { notifyAllAdmins } = await import("@/features/notifications/actions");
+        const { notifyAllAdmins } = await import("@/features/notifications/send");
         await notifyAllAdmins(
             `Client uploaded resource '${cleanFileName}' to ${project.title}`,
             "document",
             `/dashboard/pm/${project.id}`
         );
     } else {
-        const { notifyProjectClients } = await import("@/features/notifications/actions");
+        const { notifyProjectClients } = await import("@/features/notifications/send");
         await notifyProjectClients(
             project.id,
             `New Resource Uploaded: The team uploaded "${cleanFileName}" to your project resources.`,
