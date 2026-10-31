@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { users, passwordResetTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { logAction } from "@/features/audit/actions"; // Optional audit
+import { logAction } from "@/features/audit/log"; // Optional audit
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "@/lib/notifications";
 import { headers } from "next/headers";

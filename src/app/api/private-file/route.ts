@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import fs from "fs/promises";
 import path from "path";
+import { authorizeProject, fileBelongsToProject, requireSession } from "@/lib/authz";
 
 // Authenticated file proxy for private Vercel Blob + local dev private uploads.
-// This prevents confidential artifacts from being accessible directly via stored URLs.
+// Every request must name a project the caller can read, and the file must belong to that project.
+
+const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
+
+function isVercelBlobUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
+        return url.protocol === "https:" && url.hostname.endsWith(BLOB_HOST_SUFFIX);
+    } catch {
+        return false;
+    }
+}
+
 export async function GET(request: NextRequest) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const signedIn = await requireSession();
+    if (!signedIn.ok) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -19,30 +31,27 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Missing file parameters" }, { status: 400 });
     }
 
-    if (projectId) {
-        const { hasRole } = await import("@/auth");
-        const isAgency = hasRole(session, ["superadmin", "manager", "content_editor", "sales"]);
-        
-        if (!isAgency) {
-            const { db } = await import("@/db");
-            const { projectStakeholders } = await import("@/db/schema");
-            const { and, eq } = await import("drizzle-orm");
-            
-            const stakeholder = await db.query.projectStakeholders.findFirst({
-                where: and(
-                    eq(projectStakeholders.projectId, projectId),
-                    eq(projectStakeholders.userId, session.user.id)
-                )
-            });
-            if (!stakeholder) {
-                return NextResponse.json({ error: "Forbidden: Not a project stakeholder" }, { status: 403 });
-            }
-        }
+    // No project, no access check: a file is only ever served in the context of a project.
+    if (!projectId) {
+        return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
+    }
+
+    const access = await authorizeProject(projectId, "read");
+    if (!access.ok) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const isLocal = Boolean(local) || Boolean(blobUrl && blobUrl.startsWith("/uploads/"));
+    const safeName = isLocal ? (local || blobUrl || "").replace(/^.*[\\/]/, "").replace(/[^a-zA-Z0-9._-]/g, "") : "";
+    const fileRef = isLocal ? `/uploads/${safeName}` : (blobUrl as string);
+
+    // Access to this project must not unlock files that belong to a different one.
+    if (!(await fileBelongsToProject(projectId, fileRef))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Serve local private uploads (development fallback)
-    if (local || (blobUrl && blobUrl.startsWith("/uploads/"))) {
-        const safeName = (local || blobUrl || "").replace(/^.*[\\/]/, '').replace(/[^a-zA-Z0-9._-]/g, "");
+    if (isLocal) {
         const filePath = path.join(process.cwd(), "public", "uploads", safeName);
 
         try {
@@ -60,38 +69,38 @@ export async function GET(request: NextRequest) {
     }
 
     // Serve private Vercel Blob content via authenticated fetch.
-    if (blobUrl) {
-        try {
-            const token = process.env.BLOB_READ_WRITE_TOKEN;
-            if (!token) {
-                return NextResponse.json({ error: "Blob token not configured" }, { status: 500 });
-            }
-
-            const response = await fetch(blobUrl, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                cache: "no-store",
-            });
-
-            if (!response.ok || !response.body) {
-                return NextResponse.json({ error: "Not found" }, { status: 404 });
-            }
-
-            const contentType = response.headers.get("content-type") || "application/octet-stream";
-
-            return new NextResponse(response.body, {
-                headers: {
-                    "Content-Type": contentType,
-                    "X-Content-Type-Options": "nosniff",
-                    "Cache-Control": "no-store",
-                },
-            });
-        } catch {
-            return NextResponse.json({ error: "Not found" }, { status: 404 });
-        }
+    // The storage token is only ever sent to Vercel Blob, never to a host the caller chose.
+    if (!isVercelBlobUrl(fileRef)) {
+        return NextResponse.json({ error: "Unsupported file location" }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-}
+    try {
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        if (!token) {
+            return NextResponse.json({ error: "Blob token not configured" }, { status: 500 });
+        }
 
+        const response = await fetch(fileRef, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            cache: "no-store",
+        });
+
+        if (!response.ok || !response.body) {
+            return NextResponse.json({ error: "Not found" }, { status: 404 });
+        }
+
+        const contentType = response.headers.get("content-type") || "application/octet-stream";
+
+        return new NextResponse(response.body, {
+            headers: {
+                "Content-Type": contentType,
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "no-store",
+            },
+        });
+    } catch {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+}

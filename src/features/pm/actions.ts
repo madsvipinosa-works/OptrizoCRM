@@ -5,9 +5,11 @@ import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, 
 import { auth, hasRole } from "@/auth";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { notifyAllAdmins } from "@/features/notifications/actions";
-import { logAction } from "@/features/audit/actions";
+import { notifyAllAdmins } from "@/features/notifications/send";
+import { logAction } from "@/features/audit/log";
 import { logSystemError } from "@/features/audit/error-logger";
+import { authorizeProject, authorizeTask, requireRoles } from "@/lib/authz";
+import { z } from "zod";
 
 export type ActionState = {
     message?: string;
@@ -89,7 +91,7 @@ async function handleMilestoneBubbling(tx: any, taskId: string, newTaskStatus: s
     return null;
 }
 
-export async function syncProjectStatus(tx: any, projectId: string) {
+async function syncProjectStatus(tx: any, projectId: string) {
     const { isNull, and, eq } = await import("drizzle-orm");
     const { milestones, agencyProjects } = await import("@/db/schema");
     
@@ -216,7 +218,7 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
 
         await logAction("UPDATE", "Project", `Project ${projectId} status updated to ${status}`);
 
-        const { notifyProjectClients } = await import("@/features/notifications/actions");
+        const { notifyProjectClients } = await import("@/features/notifications/send");
         await notifyProjectClients(
             projectId,
             `Project Status Update: "${oldProject?.title || 'Your project'}" has moved to status '${status}'.`,
@@ -258,7 +260,7 @@ export async function updateProjectSettings(
         await logAction("UPDATE", "Project Resources", `Project ${projectId} resources updated`);
 
         if (stagingUrls && stagingUrls.length > 0) {
-            const { notifyProjectClients } = await import("@/features/notifications/actions");
+            const { notifyProjectClients } = await import("@/features/notifications/send");
             await notifyProjectClients(
                 projectId,
                 `Staging Environment Updated: New preview & staging links are available for your project.`,
@@ -276,35 +278,62 @@ export async function updateProjectSettings(
     }
 }
 
+const ProjectDocumentInputSchema = z.object({
+    id: z.string().trim().min(1).max(64),
+    title: z.string().trim().min(1).max(200),
+    url: z.string().trim().min(1).max(2048).refine(
+        (url) => url.startsWith("https://") || url.startsWith("/uploads/") || url.startsWith("/api/private-file?"),
+        "Invalid file reference"
+    ),
+    type: z.enum(["pdf", "doc", "figma", "sheet", "link", "zip", "image"]),
+    sizeBytes: z.number().int().min(0).optional(),
+});
+
 export async function addProjectDocument(projectId: string, newDoc: ProjectDocumentItem): Promise<ActionState> {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const access = await authorizeProject(projectId, "write");
+    if (!access.ok) {
         return { success: false, message: "Unauthorized" };
     }
+    const { session } = access;
+
+    const parsedDoc = ProjectDocumentInputSchema.safeParse(newDoc);
+    if (!parsedDoc.success) {
+        return { success: false, message: "Invalid document details." };
+    }
+
+    // Who uploaded it comes from the session, never from the caller.
+    const uploadedByRole: "client" | "agency" = session.user.role === "client" ? "client" : "agency";
+    const doc: ProjectDocumentItem = {
+        ...parsedDoc.data,
+        uploadedById: session.user.id,
+        uploadedByName: session.user.name || (uploadedByRole === "client" ? "Client" : "Agency PM"),
+        uploadedByRole,
+        createdAt: new Date().toISOString(),
+    };
 
     try {
         const { sql } = await import("drizzle-orm");
         await db.update(agencyProjects)
             .set({
-                documents: sql`COALESCE(${agencyProjects.documents}, '[]'::jsonb) || ${JSON.stringify([newDoc])}::jsonb`,
+                documents: sql`COALESCE(${agencyProjects.documents}, '[]'::jsonb) || ${JSON.stringify([doc])}::jsonb`,
                 updatedAt: new Date()
             })
             .where(eq(agencyProjects.id, projectId));
 
-        await logAction("CREATE", "Project Document", `Added document '${newDoc.title}' to Project ${projectId}`, session.user.id);
+        await logAction("CREATE", "Project Document", `Added document '${doc.title}' to Project ${projectId}`, session.user.id);
 
-        if (newDoc.uploadedByRole === "agency") {
-            const { notifyProjectClients } = await import("@/features/notifications/actions");
+        if (doc.uploadedByRole === "agency") {
+            const { notifyProjectClients } = await import("@/features/notifications/send");
             await notifyProjectClients(
                 projectId,
-                `New Resource Uploaded: The agency uploaded "${newDoc.title}" to your project resources.`,
+                `New Resource Uploaded: The agency uploaded "${doc.title}" to your project resources.`,
                 "document",
                 "/portal"
             );
         } else {
-            const { notifyAllAdmins } = await import("@/features/notifications/actions");
+            const { notifyAllAdmins } = await import("@/features/notifications/send");
             await notifyAllAdmins(
-                `Client uploaded document "${newDoc.title}" to project resources`,
+                `Client uploaded document "${doc.title}" to project resources`,
                 "document",
                 `/dashboard/pm/${projectId}`
             );
@@ -322,10 +351,11 @@ export async function addProjectDocument(projectId: string, newDoc: ProjectDocum
 }
 
 export async function deleteProjectDocument(projectId: string, documentId: string): Promise<ActionState> {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const access = await authorizeProject(projectId, "write");
+    if (!access.ok) {
         return { success: false, message: "Unauthorized" };
     }
+    const { session } = access;
 
     try {
         const project = await db.query.agencyProjects.findFirst({
@@ -435,7 +465,7 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
             }
 
             if (clientNotice) {
-                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                const { notifyProjectClients } = await import("@/features/notifications/send");
                 await notifyProjectClients(milestone.projectId, clientNotice, "milestone", "/portal");
             }
         }
@@ -583,7 +613,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
                 clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
             }
             if (clientNotice) {
-                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                const { notifyProjectClients } = await import("@/features/notifications/send");
                 await notifyProjectClients(bubbledMilestone.projectId, clientNotice, "milestone", "/portal");
             }
         }
@@ -737,7 +767,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
                 clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
             }
             if (clientNotice) {
-                const { notifyProjectClients } = await import("@/features/notifications/actions");
+                const { notifyProjectClients } = await import("@/features/notifications/send");
                 await notifyProjectClients(bubbledMilestone.projectId, clientNotice, "milestone", "/portal");
             }
         }
@@ -764,6 +794,9 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
 }
 
 export async function getTaskAuditReport(taskId: string) {
+    const access = await authorizeTask(taskId);
+    if (!access.ok) return null;
+
     const { getLatestTaskSubmission } = await import("@/actions/task-quality-gate");
     return getLatestTaskSubmission(taskId);
 }
@@ -1194,7 +1227,7 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
             return { success: true, found: 0 };
         }
 
-        const { notifyAllAdmins, createSystemNotification } = await import("@/features/notifications/actions");
+        const { notifyAllAdmins, createSystemNotification } = await import("@/features/notifications/send");
         let notifiedCount = 0;
 
         for (const task of overdueTasks) {
@@ -1283,8 +1316,9 @@ export async function unarchiveProject(projectId: string): Promise<ActionState> 
 }
 
 export async function getClientUsers(): Promise<{ id: string; name: string | null; email: string; image: string | null }[]> {
-    const session = await auth();
-    if (!session?.user) return [];
+    // Client names and emails are only needed by the PM when assigning a client to a project.
+    const access = await requireRoles(["manager"]);
+    if (!access.ok) return [];
     return db.query.users.findMany({
         where: eq(users.role, "client"),
         columns: { id: true, name: true, email: true, image: true },

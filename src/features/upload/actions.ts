@@ -2,7 +2,7 @@
 
 import { put, del } from "@vercel/blob";
 import { auth, hasRole } from "@/auth";
-import { logAction } from "@/features/audit/actions";
+import { logAction } from "@/features/audit/log";
 import { logSystemError } from "@/features/audit/error-logger";
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB limit

@@ -5,37 +5,7 @@ import { auditLogs, systemErrorLogs, users } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { desc, eq, and, gte, lt, inArray, count, ilike, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-
-export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "OTHER";
-
-export async function logAction(
-    action: AuditAction,
-    entity: string,
-    details?: string,
-    forcedUserId?: string
-) {
-    try {
-        let userId = forcedUserId;
-
-        // If no user ID provided, attempt to get it from the current session
-        if (!userId) {
-            const session = await auth();
-            if (session?.user?.id) {
-                userId = session.user.id;
-            }
-        }
-
-        await db.insert(auditLogs).values({
-            userId: userId || null,
-            action,
-            entity,
-            details,
-        });
-    } catch {
-        // We catch and log errors securely without crashing the main user workflow
-        console.error("[System Audit Log Error]: Failed to record transaction");
-    }
-}
+import { logAction, type AuditAction } from "./log";
 
 export type AuditFilters = {
     action?: string;

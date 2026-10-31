@@ -34,7 +34,5 @@ This document defines the strict authorization boundaries implemented for Phase 
     - `APPROVED` => `Completed`
 
 ### Backdoor / Debug Endpoint Safety
-- The `api/make-me-admin` endpoint is disabled by default.
-- It can only be enabled if an explicit environment variable `ALLOW_MAKE_ME_ADMIN` is set to `true`.
-- In all other cases, the endpoint returns `403`.
+- The `api/make-me-admin`, `api/debug` and `api/test-db` endpoints have been deleted. There is no route that promotes a user or dumps task data.
 

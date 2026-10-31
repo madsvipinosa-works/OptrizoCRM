@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { inquiries } from "@/db/schema";
 import { headers } from "next/headers";
 import { checkRateLimit, formatRetryAfter, getClientIp } from "@/lib/rate-limit";
-import { notifyAllAdmins } from "@/features/notifications/actions";
+import { notifyAllAdmins } from "@/features/notifications/send";
 // Removed calculateLeadScore and sendLeadNotification since those apply to true Leads now.
 
 export type ContactFormValues = {

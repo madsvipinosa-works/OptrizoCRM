@@ -5,9 +5,9 @@ import { proposals, leads, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { notifyAllAdmins } from "@/features/notifications/actions";
+import { notifyAllAdmins } from "@/features/notifications/send";
 import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
-import { logAction } from "@/features/audit/actions";
+import { logAction } from "@/features/audit/log";
 import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
 
 export interface ContractSettings {
@@ -201,7 +201,7 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
              const { transitionLeadStage } = await import("@/features/crm/actions");
              await transitionLeadStage({ leadId: updated.leadId, newStatus: "Proposal Sent" });
 
-             const { notifyLeadClient } = await import("@/features/notifications/actions");
+             const { notifyLeadClient } = await import("@/features/notifications/send");
              await notifyLeadClient(
                  updated.leadId,
                  `Your Project Proposal (${updated.proposalCode || 'Agreement'}) has been published and is ready for your digital signature.`,
@@ -209,7 +209,7 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
                  `/proposal/${id}`
              );
         } else if (oldProposal.status === "Sent" && (data.total !== undefined || data.scope || data.deliverables)) {
-             const { notifyLeadClient } = await import("@/features/notifications/actions");
+             const { notifyLeadClient } = await import("@/features/notifications/send");
              await notifyLeadClient(
                  updated.leadId,
                  `Proposal Revisions: Updated terms and scope have been published for your project proposal.`,
