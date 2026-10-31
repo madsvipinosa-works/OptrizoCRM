@@ -265,7 +265,6 @@ export const leads = pgTable("lead", {
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
     clientId: text("clientId")
-        .notNull()
         .references(() => users.id, { onDelete: "set null" }), 
     serviceId: text("serviceId")
         .references(() => services.id, { onDelete: "set null" }), 
