@@ -12,3 +12,9 @@ Do only what the current prompt lists. Specifically:
 - Never edit .env, never push, never run migrations against a remote database.
 - If something seems needed but isn't listed, stop and ask. Write it under "Not done / questions" in the report instead of doing it.
 - If the spec and the code or mockups disagree, follow the spec and report the conflict.
+- Never connect to DATABASE_URL or run any DB command. Never run drizzle-kit push or migrate.
+- Never merge, rebase, amend, push, or checkout main. Stay on the session branch; I do merges.
+- Don't create scratch scripts in the repo. If you need one, use the OS temp folder and delete it.
+- Don't commit files that aren't in the plan. If a fix needs another file, ask first.
+- Use exact function and file names from the code in reports. Don't rename them from memory.
+- Don't add helpers or overloads for convenience. If an existing function fits, use it.
