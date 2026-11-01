@@ -1,9 +1,4 @@
 {
-  "middleware.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "scripts/ensure-project-team-table.js": {
     "@typescript-eslint/no-require-imports": {
       "count": 2
@@ -47,22 +42,12 @@
       "count": 1
     }
   },
-  "src/app/(admin)/dashboard/pm/page.tsx": {
-    "react/no-unescaped-entities": {
-      "count": 2
-    }
-  },
   "src/app/(admin)/dashboard/proposals/builder/[id]/page.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
     },
     "react-hooks/purity": {
       "count": 2
-    }
-  },
-  "src/app/(client)/portal/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
     }
   },
   "src/app/(client)/portal/services/page.tsx": {
@@ -72,7 +57,7 @@
   },
   "src/app/(client)/proposal/[id]/page.tsx": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 4
     },
     "prefer-const": {
       "count": 1
@@ -96,11 +81,6 @@
   "src/auth.config.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
-    }
-  },
-  "src/auth.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 8
     }
   },
   "src/components/admin/AdminSidebar.tsx": {

@@ -16,6 +16,7 @@ import {
     RateLimitError,
     resetRateLimit,
 } from "@/lib/rate-limit"
+import type { Session } from "next-auth"
 
 async function resolveClientIp(request: Request | undefined): Promise<string | null> {
     const fromRequest = getClientIp(request?.headers);
@@ -96,7 +97,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     email: user.email,
                     name: user.name,
                     role: user.role,
-                } as any;
+                };
             }
         })
     ],
@@ -119,8 +120,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 if (existingUser) {
                     // Update the user.id so the DrizzleAdapter links the account correctly
                     user.id = existingUser.id;
-                    (user as any).role = existingUser.role;
-                    (user as any).jobTitle = existingUser.jobTitle;
+                    user.role = existingUser.role;
+                    user.jobTitle = existingUser.jobTitle;
                 }
             }
             return true;
@@ -129,8 +130,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // User object is only available on initial sign-in
             if (user) {
                 token.id = user.id;
-                token.role = (user as any).role;
-                token.jobTitle = (user as any).jobTitle;
+                token.role = user.role;
+                token.jobTitle = user.jobTitle;
             }
 
             if (token.id || token.email) {
@@ -157,7 +158,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         delete token.id;
                         delete token.role;
                         delete token.email;
-                        return null as any;
+                        return null;
                     }
 
                     token.invalidated = false;
@@ -165,15 +166,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     token.name = dbUser.name;
                     token.role = dbUser.role;
                     token.jobTitle = dbUser.jobTitle;
-                } catch (e: any) {
-                    console.warn("[Auth] DB lookup skipped in JWT callback (session preserved):", e?.cause?.message || e?.message || e);
+                } catch (e: unknown) {
+                    const err = e as (Error & { cause?: { message?: string } }) | null;
+                    console.warn("[Auth] DB lookup skipped in JWT callback (session preserved):", err?.cause?.message || err?.message || String(e));
                 }
             }
             return token;
         },
         async session({ session, token }) {
             if (!token || token.invalidated || !token.id) {
-                return null as any;
+                return null as unknown as Session;
             }
             if (session.user && token?.id) {
                 session.user.id = token.id as string;
@@ -185,7 +187,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 if (role === "editor") role = "content_editor";
                 if (role === "user") role = "client";
 
-                session.user.role = role as any;
+                session.user.role = role as Session["user"]["role"];
                 session.user.jobTitle = (token.jobTitle as string) || null;
             }
             return session;
@@ -193,10 +195,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 })
 
-import type { Session } from "next-auth";
-
 export function hasRole(session: Session | null, allowedRoles: string[]): session is Session & { user: { role: string, id: string, email: string, name: string } } {
-    const role = (session?.user as any)?.role;
+    const role = session?.user?.role;
     return !!(role && allowedRoles.includes(role));
 }
 

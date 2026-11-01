@@ -20,3 +20,12 @@ declare module "@auth/core/adapters" {
         jobTitle?: string | null;
     }
 }
+
+declare module "@auth/core/jwt" {
+    interface JWT {
+        id?: string;
+        role?: "superadmin" | "sales" | "manager" | "developer" | "content_editor" | "client" | string;
+        jobTitle?: string | null;
+        invalidated?: boolean;
+    }
+}
