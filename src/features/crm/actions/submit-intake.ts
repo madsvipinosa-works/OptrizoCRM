@@ -1,10 +1,11 @@
 "use server";
 
-import { intakeFormSchema } from "@/lib/schemas";
+import { intakeFormSchema, publicInquirySchema } from "@/lib/schemas";
 import { db } from "@/db";
-import { leads, services } from "@/db/schema";
+import { leads, services, leadActivityLogs, auditLogs } from "@/db/schema";
 import { auth } from "@/auth";
-import { createSystemNotification, notifyAllAdmins } from "@/features/notifications/send";
+import { createSystemNotification, notifyAllAdmins, notifyAllSales } from "@/features/notifications/send";
+import { sendInquiryConfirmationEmail } from "@/lib/notifications";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 
@@ -16,6 +17,15 @@ export type IntakeFormValues = {
     timelineExpectation?: string;
     goals?: string;
     serviceId?: string;
+    // Public inquiry fields
+    otherServiceText?: string;
+    urgency?: string;
+    clientName?: string;
+    email?: string;
+    phone?: string;
+    roleInCompany?: string;
+    contactPreference?: "Phone call" | "Email" | "Video meeting";
+    details?: string;
 };
 
 export type IntakeState = {
@@ -23,9 +33,131 @@ export type IntakeState = {
     success: boolean;
     errors: Record<string, string[]>;
     values?: IntakeFormValues;
+    inquiryData?: {
+        businessName?: string;
+        clientName?: string;
+        serviceName?: string;
+        email?: string;
+    };
 };
 
 export async function submitIntakeForm(prevState: IntakeState, formData: FormData): Promise<IntakeState> {
+    const isPublicInquiry = formData.has("urgency") || formData.has("clientName") || formData.has("roleInCompany");
+
+    const session = await auth();
+
+    // 1. PUBLIC INQUIRY FLOW (from /services - no login required, no IP rate limiting)
+    if (isPublicInquiry) {
+        const rawPublicValues = {
+            serviceId: (formData.get("serviceId") as string) || undefined,
+            otherServiceText: (formData.get("otherServiceText") as string) || undefined,
+            urgency: (formData.get("urgency") as string) || "",
+            businessName: (formData.get("businessName") as string) || "",
+            clientName: (formData.get("clientName") as string) || "",
+            email: (formData.get("email") as string) || "",
+            phone: (formData.get("phone") as string) || undefined,
+            industry: (formData.get("industry") as string) || "",
+            roleInCompany: (formData.get("roleInCompany") as string) || "",
+            contactPreference: (formData.get("contactPreference") as "Phone call" | "Email" | "Video meeting") || undefined,
+            details: (formData.get("details") as string) || undefined,
+        };
+
+        const validatedInquiry = publicInquirySchema.safeParse(rawPublicValues);
+        if (!validatedInquiry.success) {
+            return {
+                message: "Please check your inputs.",
+                success: false,
+                errors: validatedInquiry.error.flatten().fieldErrors,
+                values: rawPublicValues,
+            };
+        }
+
+        const data = validatedInquiry.data;
+
+        try {
+            // Resolve service title
+            let serviceTitle = data.otherServiceText || "Other";
+            let validServiceId: string | null = null;
+            if (data.serviceId && data.serviceId !== "other") {
+                const foundService = await db.query.services.findFirst({
+                    where: (svc, { eq }) => eq(svc.id, data.serviceId!),
+                    columns: { id: true, title: true },
+                });
+                if (foundService) {
+                    serviceTitle = foundService.title;
+                    validServiceId = foundService.id;
+                }
+            }
+
+            // Create lead with stage 'New Lead' and lastContactedAt: null (sub-status: "No contact yet")
+            const [newLead] = await db.insert(leads).values({
+                clientId: session?.user?.id || null,
+                serviceId: validServiceId,
+                businessName: data.businessName,
+                contactName: data.clientName,
+                contactEmail: data.email,
+                contactPhone: data.phone || null,
+                industry: data.industry,
+                urgency: data.urgency,
+                roleInCompany: data.roleInCompany,
+                contactPreference: data.contactPreference,
+                otherServiceText: data.otherServiceText || null,
+                details: data.details || null,
+                status: "New Lead",
+                source: "Website Form",
+                lastContactedAt: null,
+            }).returning({ id: leads.id });
+
+            // Create System Activity interaction: "Inquiry received from the website"
+            await db.insert(leadActivityLogs).values({
+                leadId: newLead.id,
+                authorId: null,
+                activityType: "System",
+                content: "Inquiry received from the website",
+            });
+
+            // Notify every sales user
+            await notifyAllSales(`New inquiry from ${data.businessName} (${serviceTitle})`, "lead", "/dashboard/leads");
+
+            // Create audit row
+            await db.insert(auditLogs).values({
+                userId: session?.user?.id || null,
+                action: "CREATE",
+                entity: "lead",
+                details: `Public inquiry received for ${serviceTitle}: ${data.businessName}`,
+            });
+
+            // Send confirmation email
+            await sendInquiryConfirmationEmail({
+                clientName: data.clientName,
+                email: data.email,
+                businessName: data.businessName,
+                serviceName: serviceTitle,
+            });
+
+            return {
+                message: "Inquiry submitted successfully!",
+                success: true,
+                errors: {},
+                inquiryData: {
+                    businessName: data.businessName,
+                    clientName: data.clientName,
+                    serviceName: serviceTitle,
+                    email: data.email,
+                },
+            };
+        } catch (error) {
+            console.error("Failed to save public inquiry:", error);
+            return {
+                message: "Something went wrong while submitting your inquiry. Please try again later.",
+                success: false,
+                errors: {},
+                values: rawPublicValues,
+            };
+        }
+    }
+
+    // 2. PORTAL INTAKE FORM (from /portal/request-proposal - requires authenticated client session)
     const rawValues: IntakeFormValues = {
         businessName: (formData.get("businessName") as string) || "",
         industry: (formData.get("industry") as string) || "",
@@ -36,8 +168,6 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
         serviceId: (formData.get("serviceId") as string) || undefined,
     };
 
-    const session = await auth();
-    
     if (!session?.user?.id) {
         return {
             message: "You must be logged in to submit an intake form.",
@@ -76,18 +206,8 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
                 columns: { title: true },
             })
             : null;
-        const { calculateLeadScore } = await import("@/features/crm/utils/leadScoring");
-        const { score: leadScore, priority } = calculateLeadScore({
-            estimatedValue,
-            budget: validatedFields.data.budget,
-            timelineExpectation: validatedFields.data.timelineExpectation,
-            contactEmail: session.user.email,
-            contactPhone: null,
-            goals: validatedFields.data.goals,
-            serviceId: validatedFields.data.serviceId,
-        });
 
-        await db.insert(leads).values({
+        const [createdLead] = await db.insert(leads).values({
             clientId: session.user.id,
             businessName: validatedFields.data.businessName,
             contactName: session.user.name || undefined,
@@ -96,17 +216,30 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             targetAudience: validatedFields.data.targetAudience,
             budget: validatedFields.data.budget,
             estimatedValue,
-            leadScore,
-            priority,
             timelineExpectation: validatedFields.data.timelineExpectation,
             goals: validatedFields.data.goals,
             serviceId: validatedFields.data.serviceId,
             status: "New Lead",
-            source: "Intake Form",
-            lastContactedAt: new Date(),
+            source: "Client Portal Intake",
+            lastContactedAt: null,
+        }).returning({ id: leads.id });
+
+        await db.insert(leadActivityLogs).values({
+            leadId: createdLead.id,
+            authorId: null,
+            activityType: "System",
+            content: "Inquiry received from the website",
         });
 
+        await notifyAllSales(`New intake from ${session.user.name || session.user.email}`, "lead", "/dashboard/leads");
         await notifyAllAdmins(`New lead intake from ${session.user.name || session.user.email}`, "lead", "/dashboard/leads");
+
+        await db.insert(auditLogs).values({
+            userId: session.user.id,
+            action: "CREATE",
+            entity: "lead",
+            details: `Client portal intake submitted by ${session.user.email}`,
+        });
 
         const serviceLabel = selectedService?.title || "service";
         await createSystemNotification(
@@ -129,5 +262,17 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             errors: {},
             values: rawValues,
         };
+    }
+}
+
+
+export async function getPublishedServices(): Promise<{ id: string; title: string }[]> {
+    try {
+        const result = await db.query.services.findMany({
+            columns: { id: true, title: true },
+        });
+        return result;
+    } catch {
+        return [];
     }
 }

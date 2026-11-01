@@ -2,8 +2,6 @@
 
 import { useState, useActionState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { LoginModal } from "@/components/auth/LoginModal";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,8 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowRight, CheckCircle2, Loader2, Sparkles, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitIntakeForm, type IntakeState } from "@/features/crm/actions/submit-intake";
-import { BUDGET_OPTIONS } from "@/lib/constants";
+import { submitIntakeForm, getPublishedServices, type IntakeState } from "@/features/crm/actions/submit-intake";
 import { ServiceDetailModal, type ServiceDetailItem } from "@/components/public/ServiceDetailModal";
 
 interface ServiceCardItemProps {
@@ -57,10 +54,37 @@ const DEFAULT_SERVICE_IMAGES: Record<string, string> = {
   "Cloud & DevOps": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1000&auto=format&fit=crop",
 };
 
+const URGENCY_OPTIONS = [
+  "Within 1 month",
+  "1-2 months",
+  "3-6 months",
+  "ASAP",
+  "Flexible",
+];
+
+const INDUSTRY_OPTIONS = [
+  "Retail",
+  "E-commerce",
+  "Technology & SaaS",
+  "Healthcare",
+  "Finance & Banking",
+  "Real Estate",
+  "Education",
+  "Hospitality & Tourism",
+  "Logistics & Supply Chain",
+  "Other",
+];
+
+const CONTACT_PREFERENCES = [
+  "Phone call",
+  "Email",
+  "Video meeting",
+] as const;
+
 const initialState: IntakeState = {
-    message: "",
-    errors: {},
-    success: false,
+  message: "",
+  errors: {},
+  success: false,
 };
 
 function parseStringArray(val: unknown): string[] {
@@ -77,43 +101,40 @@ function parseStringArray(val: unknown): string[] {
   return [];
 }
 
-export function ServiceCardItem({ service, tags, isLoggedIn: initialIsLoggedIn }: ServiceCardItemProps) {
-  const router = useRouter();
-  const redirectTarget = `/portal/request-proposal?serviceId=${service.id}`;
+export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn ?? false);
-  
-  useEffect(() => {
-    if (initialIsLoggedIn !== undefined) {
-      setIsLoggedIn(initialIsLoggedIn);
-      return;
-    }
-    // Dynamic client-side session resolution (avoids blocking static page rendering on server)
-    import("next-auth/react").then(({ getSession }) => {
-      getSession().then((session) => {
-        if (session?.user) {
-          setIsLoggedIn(true);
-        }
-      });
-    }).catch(() => {});
-  }, [initialIsLoggedIn]);
+  const [selectedServiceId, setSelectedServiceId] = useState(service.id);
+  const [serviceOptions, setServiceOptions] = useState<{ id: string; title: string }[]>([]);
+  const [sessionUser, setSessionUser] = useState<{ name?: string | null; email?: string | null } | null>(null);
 
   const [state, formAction, isPending] = useActionState(submitIntakeForm, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Load published services and session client-side
   useEffect(() => {
-    if (state?.success) {
-      setIsSuccess(true);
-      const timer = setTimeout(() => {
-        setIsOpen(false);
-        setIsSuccess(false);
-        router.push("/portal/services");
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [state?.success, router]);
+    getPublishedServices()
+      .then((servicesList) => {
+        if (servicesList && servicesList.length > 0) {
+          setServiceOptions(servicesList);
+        } else {
+          setServiceOptions([{ id: service.id, title: service.title }]);
+        }
+      })
+      .catch(() => {
+        setServiceOptions([{ id: service.id, title: service.title }]);
+      });
+
+    import("next-auth/react")
+      .then(({ getSession }) => {
+        getSession().then((sess) => {
+          if (sess?.user) {
+            setSessionUser(sess.user);
+          }
+        });
+      })
+      .catch(() => {});
+  }, [service.id, service.title]);
 
   const detailItem: ServiceDetailItem = {
     id: service.id,
@@ -132,11 +153,8 @@ export function ServiceCardItem({ service, tags, isLoggedIn: initialIsLoggedIn }
 
   const handleAvailFromDetail = () => {
     setIsDetailOpen(false);
-    if (!isLoggedIn) {
-      router.push(redirectTarget);
-    } else {
-      setIsOpen(true);
-    }
+    setSelectedServiceId(service.id);
+    setIsOpen(true);
   };
 
   const ActionButton = () => (
@@ -183,7 +201,7 @@ export function ServiceCardItem({ service, tags, isLoggedIn: initialIsLoggedIn }
           {service.description}
         </p>
 
-        {/* High-fidelity Graphic Visualization */}
+        {/* Graphic Visualization */}
         <div
           onClick={() => setIsDetailOpen(true)}
           className="relative w-full h-40 rounded-xl mb-6 border border-border/80 overflow-hidden group-hover:border-primary/40 transition-all duration-500 bg-muted/40 shadow-xs cursor-pointer group/img"
@@ -223,169 +241,341 @@ export function ServiceCardItem({ service, tags, isLoggedIn: initialIsLoggedIn }
             View Inclusions & Details
           </Button>
 
-          {/* Avail This Service Direct CTA */}
-          {!isLoggedIn ? (
-            <LoginModal defaultRedirect={redirectTarget}>
-              <div className="w-full">
+          {/* Public Inquiry Form Modal (No login required - Mockups 008-1 to 011-1c) */}
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <div className="w-full cursor-pointer" onClick={() => setSelectedServiceId(service.id)}>
                 <ActionButton />
               </div>
-            </LoginModal>
-          ) : (
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-              <DialogTrigger asChild>
-                <div className="w-full cursor-pointer">
-                  <ActionButton />
-                </div>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] bg-card border-border text-card-foreground rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto override-scrollbar">
-                {isSuccess ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary mb-2">
-                      <CheckCircle2 className="h-8 w-8" />
-                    </div>
-                    <h3 className="text-xl font-bold text-card-foreground">Request Received</h3>
-                    <p className="text-muted-foreground text-sm">We&apos;ll be in touch shortly to begin architecting your solution.</p>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[660px] bg-card border-border text-card-foreground rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto override-scrollbar p-6 md:p-8">
+              {state.success ? (
+                /* Mockup 011-1c: Thank-you card / Inquiry received confirmation */
+                <div className="py-6 flex flex-col space-y-6">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold self-start">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Inquiry received
                   </div>
-                ) : (
-                  <>
-                    <DialogHeader>
-                      <DialogTitle className="text-xl font-bold text-card-foreground">Avail {service.title}</DialogTitle>
-                      <DialogDescription className="text-muted-foreground">
-                        Provide some brief details about your project to get started.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form key={state.success ? "success-reset" : "active-service-intake-form"} action={formAction} ref={formRef} className="space-y-6 pt-4">
-                      <input type="hidden" name="serviceId" value={service.id} />
-                      
-                      {state?.message && (
-                          <div className={cn("p-3 rounded-md text-sm", state.success ? "bg-primary/10 text-primary border border-primary/20" : "bg-destructive/10 text-destructive border border-destructive/20")}>
-                              {state.message}
-                          </div>
-                      )}
 
-                      <div className="space-y-2">
-                        <Label htmlFor="businessName" className="text-foreground">Business / Company Name</Label>
-                        <Input 
-                          id="businessName" 
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                      Thank you, {state.inquiryData?.businessName || state.inquiryData?.clientName || "there"}.
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      We received your request for{" "}
+                      <span className="font-semibold text-foreground">
+                        {state.inquiryData?.serviceName || service.title}
+                      </span>
+                      . We sent a confirmation copy to{" "}
+                      <span className="font-semibold text-foreground">
+                        {state.inquiryData?.email}
+                      </span>
+                      .
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/40 border border-border rounded-xl p-5 space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                      What happens next
+                    </h3>
+                    <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside leading-relaxed">
+                      <li>Our team reviews your project requirements.</li>
+                      <li>We reach out to schedule a short discovery meeting.</li>
+                      <li>Following the meeting, our engineering team prepares a tailored proposal.</li>
+                    </ol>
+                  </div>
+
+                  <DialogFooter className="pt-2">
+                    <Button
+                      type="button"
+                      onClick={() => setIsOpen(false)}
+                      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg px-6"
+                    >
+                      Back to Services
+                    </Button>
+                  </DialogFooter>
+                </div>
+              ) : (
+                /* Mockup 008-1 / 009-1a / 010-1b: Public Service Inquiry Form */
+                <>
+                  <DialogHeader className="space-y-2 pb-2 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <DialogTitle className="text-2xl font-bold text-card-foreground">
+                        Request a service
+                      </DialogTitle>
+                      {sessionUser?.email && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full border border-border">
+                          Signed in as <strong className="text-foreground">{sessionUser.email}</strong>
+                        </span>
+                      )}
+                    </div>
+                    <DialogDescription className="text-muted-foreground text-sm">
+                      Tell us about your project requirements. No login or credit card required.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <form
+                    key={state.success ? "success-reset" : "active-public-inquiry-form"}
+                    action={formAction}
+                    ref={formRef}
+                    className="space-y-4 pt-4"
+                  >
+                    {state?.message && !state.success && (
+                      <div className="p-3 rounded-lg text-sm bg-destructive/10 text-destructive border border-destructive/20">
+                        {state.message}
+                      </div>
+                    )}
+
+                    {/* Service & Urgency (Mockup 008-1 Row 1) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="serviceId" className="text-xs font-semibold text-foreground">
+                          Service
+                        </Label>
+                        <select
+                          id="serviceId"
+                          name="serviceId"
+                          value={selectedServiceId}
+                          onChange={(e) => setSelectedServiceId(e.target.value)}
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          {serviceOptions.map((svc) => (
+                            <option key={svc.id} value={svc.id} className="bg-card text-foreground">
+                              {svc.title}
+                            </option>
+                          ))}
+                          <option value="other" className="bg-card text-foreground">
+                            Other
+                          </option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="urgency" className="text-xs font-semibold text-foreground">
+                          Urgency
+                        </Label>
+                        <select
+                          id="urgency"
+                          name="urgency"
+                          defaultValue={state.values?.urgency || "Within 1 month"}
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          {URGENCY_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt} className="bg-card text-foreground">
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                        {state?.errors?.urgency && (
+                          <p className="text-xs text-destructive">{state.errors.urgency[0]}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Conditional Other Service text (Mockup 009-1a) */}
+                    {selectedServiceId === "other" && (
+                      <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <Label htmlFor="otherServiceText" className="text-xs font-semibold text-foreground">
+                          Type the service you need
+                        </Label>
+                        <Input
+                          id="otherServiceText"
+                          name="otherServiceText"
+                          required
+                          defaultValue={state.values?.otherServiceText}
+                          placeholder="e.g. Inventory management system"
+                          className="bg-background border-input text-foreground focus-visible:ring-primary"
+                        />
+                        {state?.errors?.otherServiceText && (
+                          <p className="text-xs text-destructive">{state.errors.otherServiceText[0]}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Business Name & Client Name (Mockup 008-1 Row 2) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="businessName" className="text-xs font-semibold text-foreground">
+                          Business name
+                        </Label>
+                        <Input
+                          id="businessName"
                           name="businessName"
-                          required 
+                          required
                           defaultValue={state.values?.businessName}
-                          className="bg-background border-input text-foreground focus-visible:ring-primary focus-visible:border-primary placeholder:text-muted-foreground" 
-                          placeholder="Acme Corp"
+                          placeholder="e.g. Reyes Trading"
+                          className="bg-background border-input text-foreground focus-visible:ring-primary"
                         />
                         {state?.errors?.businessName && (
-                            <p className="text-sm text-destructive">{state.errors.businessName[0]}</p>
+                          <p className="text-xs text-destructive">{state.errors.businessName[0]}</p>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                              <Label htmlFor="industry" className="text-foreground">Industry</Label>
-                              <Input 
-                                  id="industry" 
-                                  name="industry" 
-                                  placeholder="e.g. Real Estate, E-commerce" 
-                                  defaultValue={state.values?.industry}
-                                  className="bg-background border-input text-foreground focus-visible:ring-primary placeholder:text-muted-foreground" 
-                              />
-                              {state?.errors?.industry && (
-                                  <p className="text-sm text-destructive">{state.errors.industry[0]}</p>
-                              )}
-                          </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="targetAudience" className="text-foreground">Target Audience</Label>
-                              <Input 
-                                  id="targetAudience" 
-                                  name="targetAudience" 
-                                  placeholder="Who are your customers?" 
-                                  defaultValue={state.values?.targetAudience}
-                                  className="bg-background border-input text-foreground focus-visible:ring-primary placeholder:text-muted-foreground" 
-                              />
-                              {state?.errors?.targetAudience && (
-                                  <p className="text-sm text-destructive">{state.errors.targetAudience[0]}</p>
-                              )}
-                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                              <Label htmlFor="budget" className="text-foreground">Budget Range</Label>
-                              <select
-                                  id="budget"
-                                  name="budget"
-                                  defaultValue={state.values?.budget || ""}
-                                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                  <option value="" className="bg-card">Select a budget...</option>
-                                  {BUDGET_OPTIONS.map((option) => (
-                                      <option key={option} value={option} className="bg-card">
-                                          {option}
-                                      </option>
-                                  ))}
-                              </select>
-                              {state?.errors?.budget && (
-                                  <p className="text-sm text-destructive">{state.errors.budget[0]}</p>
-                              )}
-                          </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="timelineExpectation" className="text-foreground">Timeline Expectation</Label>
-                              <select
-                                  id="timelineExpectation"
-                                  name="timelineExpectation"
-                                  defaultValue={state.values?.timelineExpectation || ""}
-                                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                  <option value="" className="bg-card">Select a timeline...</option>
-                                  <option value="ASAP" className="bg-card">ASAP</option>
-                                  <option value="1-2 months" className="bg-card">1-2 months</option>
-                                  <option value="3-6 months" className="bg-card">3-6 months</option>
-                                  <option value="Flexible" className="bg-card">Flexible</option>
-                              </select>
-                              {state?.errors?.timelineExpectation && (
-                                  <p className="text-sm text-destructive">{state.errors.timelineExpectation[0]}</p>
-                              )}
-                          </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="goals" className="text-foreground">Project Goals & Description</Label>
-                        <Textarea 
-                          id="goals" 
-                          name="goals"
-                          required 
-                          rows={4}
-                          defaultValue={state.values?.goals}
-                          className="bg-background border-input text-foreground focus-visible:ring-primary focus-visible:border-primary placeholder:text-muted-foreground resize-none" 
-                          placeholder="What are you trying to achieve? What are the key deliverables?"
+                      <div className="space-y-1.5">
+                        <Label htmlFor="clientName" className="text-xs font-semibold text-foreground">
+                          Client name
+                        </Label>
+                        <Input
+                          id="clientName"
+                          name="clientName"
+                          required
+                          defaultValue={state.values?.clientName || sessionUser?.name || ""}
+                          placeholder="e.g. Juan Reyes"
+                          className="bg-background border-input text-foreground focus-visible:ring-primary"
                         />
-                        {state?.errors?.goals && (
-                            <p className="text-sm text-destructive">{state.errors.goals[0]}</p>
+                        {state?.errors?.clientName && (
+                          <p className="text-xs text-destructive">{state.errors.clientName[0]}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Email & Phone Number (Mockup 008-1 / 010-1b) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="email" className="text-xs font-semibold text-foreground">
+                          Email address
+                        </Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          required
+                          defaultValue={state.values?.email || sessionUser?.email || ""}
+                          placeholder="e.g. juan@reyestrading.example"
+                          className="bg-background border-input text-foreground focus-visible:ring-primary"
+                        />
+                        {state?.errors?.email && (
+                          <p className="text-xs text-destructive">{state.errors.email[0]}</p>
                         )}
                       </div>
 
-                      <DialogFooter className="pt-4 border-t border-border">
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          onClick={() => setIsOpen(false)}
-                          className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                      <div className="space-y-1.5">
+                        <Label htmlFor="phone" className="text-xs font-semibold text-foreground">
+                          Phone number <span className="font-normal text-muted-foreground">(optional)</span>
+                        </Label>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          defaultValue={state.values?.phone}
+                          placeholder="e.g. 0917 555 0142"
+                          className="bg-background border-input text-foreground focus-visible:ring-primary"
+                        />
+                        {state?.errors?.phone && (
+                          <p className="text-xs text-destructive">{state.errors.phone[0]}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Industry & Role in the company (Mockup 008-1 Row 3) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="industry" className="text-xs font-semibold text-foreground">
+                          Industry
+                        </Label>
+                        <select
+                          id="industry"
+                          name="industry"
+                          defaultValue={state.values?.industry || "Retail"}
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                          Cancel
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          disabled={isPending}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-md"
-                        >
-                          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Request"}
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </>
-                )}
-              </DialogContent>
-            </Dialog>
-          )}
+                          {INDUSTRY_OPTIONS.map((ind) => (
+                            <option key={ind} value={ind} className="bg-card text-foreground">
+                              {ind}
+                            </option>
+                          ))}
+                        </select>
+                        {state?.errors?.industry && (
+                          <p className="text-xs text-destructive">{state.errors.industry[0]}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="roleInCompany" className="text-xs font-semibold text-foreground">
+                          Role in the company
+                        </Label>
+                        <Input
+                          id="roleInCompany"
+                          name="roleInCompany"
+                          required
+                          defaultValue={state.values?.roleInCompany}
+                          placeholder="e.g. Owner, Operations Manager"
+                          className="bg-background border-input text-foreground focus-visible:ring-primary"
+                        />
+                        {state?.errors?.roleInCompany && (
+                          <p className="text-xs text-destructive">{state.errors.roleInCompany[0]}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Contact Preference (Mockup 008-1 Row 4) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="contactPreference" className="text-xs font-semibold text-foreground">
+                        How should we reach you?
+                      </Label>
+                      <select
+                        id="contactPreference"
+                        name="contactPreference"
+                        defaultValue={state.values?.contactPreference || "Email"}
+                        className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        {CONTACT_PREFERENCES.map((pref) => (
+                          <option key={pref} value={pref} className="bg-card text-foreground">
+                            {pref}
+                          </option>
+                        ))}
+                      </select>
+                      {state?.errors?.contactPreference && (
+                        <p className="text-xs text-destructive">{state.errors.contactPreference[0]}</p>
+                      )}
+                    </div>
+
+                    {/* Project Details (Mockup 008-1 Row 5) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="details" className="text-xs font-semibold text-foreground">
+                        Project details <span className="font-normal text-muted-foreground">(optional)</span>
+                      </Label>
+                      <Textarea
+                        id="details"
+                        name="details"
+                        rows={3}
+                        defaultValue={state.values?.details}
+                        placeholder="Prefer to talk it through? Choose a call or meeting above and skip this."
+                        className="bg-background border-input text-foreground focus-visible:ring-primary resize-none text-sm"
+                      />
+                      {state?.errors?.details && (
+                        <p className="text-xs text-destructive">{state.errors.details[0]}</p>
+                      )}
+                    </div>
+
+                    <DialogFooter className="pt-3 border-t border-border flex flex-col sm:flex-row gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setIsOpen(false)}
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isPending}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg shadow-md px-6"
+                      >
+                        {isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending inquiry...
+                          </>
+                        ) : (
+                          "Send inquiry"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

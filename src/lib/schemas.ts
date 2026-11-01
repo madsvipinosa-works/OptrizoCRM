@@ -14,13 +14,39 @@ export const intakeFormSchema = z.object({
     businessName: z.string().min(2, { message: "Business name is required." }),
     industry: z.string().min(2, { message: "Industry is required." }),
     targetAudience: z.string().min(2, { message: "Target audience is required." }),
-    budget: z.string().min(1, { message: "Budget is required." }),
+    budget: z.string().optional(),
     timelineExpectation: z.string().min(1, { message: "Timeline is required." }),
     goals: z.string().min(10, { message: "Please describe your project goals." }),
     serviceId: z.string().optional(),
 });
 
 export type IntakeFormValues = z.infer<typeof intakeFormSchema>;
+
+export const publicInquirySchema = z.object({
+    serviceId: z.string().optional().nullable(),
+    otherServiceText: z.string().optional().nullable(),
+    urgency: z.string().min(1, { message: "Please select urgency." }),
+    businessName: z.string().min(2, { message: "Business name must be at least 2 characters." }),
+    clientName: z.string().min(2, { message: "Client name must be at least 2 characters." }),
+    email: z.string().email({ message: "Please enter a valid email address." }),
+    phone: z.string().optional().nullable(),
+    industry: z.string().min(1, { message: "Please select or enter your industry." }),
+    roleInCompany: z.string().min(1, { message: "Role in the company is required." }),
+    contactPreference: z.enum(["Phone call", "Email", "Video meeting"], {
+        message: "Please select how we should reach you.",
+    }),
+    details: z.string().optional().nullable(),
+}).refine((data) => {
+    if ((!data.serviceId || data.serviceId === "other") && !data.otherServiceText?.trim()) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Please specify the service you need.",
+    path: ["otherServiceText"],
+});
+
+export type PublicInquiryValues = z.infer<typeof publicInquirySchema>;
 
 export const leadStatusEnum = z.enum([
     "New Lead",

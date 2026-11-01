@@ -287,3 +287,59 @@ export async function sendTaskBlockedEmail(clientEmails: string[], projectName: 
         return { success: false, error: err };
     }
 }
+
+
+// Email Template for Public Inquiry Confirmation (Mockup 011-1c)
+export async function sendInquiryConfirmationEmail(data: {
+    clientName: string;
+    email: string;
+    businessName: string;
+    serviceName: string;
+}) {
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            console.log(`[MOCK EMAIL] To: ${data.email} | Subject: Inquiry Received: ${data.serviceName}`);
+            return { success: true, mock: true };
+        }
+
+        const { data: resData, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: data.email,
+            subject: `Inquiry Received - ${data.serviceName} | Optrizo Digital Solutions`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #d3dce1; border-radius: 12px; background: #ffffff; color: #14202b;">
+                    <div style="font-size: 14px; font-weight: 600; color: #1c7742; background: #ddf2e6; padding: 4px 12px; border-radius: 999px; display: inline-block; margin-bottom: 16px;">
+                        Inquiry received
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #14202b;">
+                        Thank you, ${data.businessName || data.clientName}.
+                    </h2>
+                    <p style="margin: 0 0 20px; font-size: 16px; color: #4b5a67; line-height: 1.5;">
+                        We received your request for <strong>${data.serviceName}</strong>.
+                    </p>
+                    <div style="background: #f7f9fa; border: 1px solid #d3dce1; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                        <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600; color: #14202b;">What happens next</h3>
+                        <ol style="margin: 0; padding-left: 20px; font-size: 15px; color: #4b5a67; line-height: 1.6;">
+                            <li>Our team reviews your request.</li>
+                            <li>We contact you to set up a short meeting.</li>
+                            <li>After we meet, we send you a proposal.</li>
+                        </ol>
+                    </div>
+                    <p style="font-size: 13px; color: #7a8b98; margin: 0;">
+                        Optrizo Digital Solutions &bull; High-Performance Software Development
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending inquiry confirmation:", error);
+            return { success: false, error };
+        }
+
+        return { success: true, data: resData };
+    } catch (err) {
+        console.error("Inquiry Confirmation Email Failed:", err);
+        return { success: false, error: err };
+    }
+}

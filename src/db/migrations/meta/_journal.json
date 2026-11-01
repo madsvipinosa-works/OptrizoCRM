@@ -22,6 +22,13 @@
       "when": 1793507766296,
       "tag": "0003_drop_blocked_and_client_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793523528752,
+      "tag": "0004_add_public_inquiry_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -122,3 +122,28 @@ export async function notifyLeadClient(
         console.error("Failed to notify lead client:", error);
     }
 }
+
+
+/**
+ * Broadcasts a notification to all sales users
+ */
+export async function notifyAllSales(message: string, type: string, link?: string) {
+    try {
+        const salesUsers = await db.query.users.findMany({
+            where: eq(users.role, "sales")
+        });
+
+        if (salesUsers.length === 0) return;
+
+        const payloads = salesUsers.map(sales => ({
+            userId: sales.id,
+            message,
+            type,
+            link: link || null
+        }));
+
+        await db.insert(notifications).values(payloads);
+    } catch (error) {
+        console.error("Failed to notify sales:", error);
+    }
+}

@@ -289,6 +289,11 @@ export const leads = pgTable("lead", {
     lossNotes: text("loss_notes"),
     isArchived: boolean("isArchived").default(false).notNull(),
     closedWonAt: timestamp("closed_won_at", { withTimezone: true }),
+    urgency: text("urgency"),
+    roleInCompany: text("role_in_company"),
+    contactPreference: text("contact_preference"),
+    otherServiceText: text("other_service_text"),
+    details: text("details"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
