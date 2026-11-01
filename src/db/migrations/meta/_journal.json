@@ -10,17 +10,17 @@
       "breakpoints": true
     },
     {
-      "idx": 1,
+      "idx": 2,
       "version": "7",
       "when": 1793507316166,
-      "tag": "0001_drop_ai_quality_gate",
+      "tag": "0002_drop_ai_quality_gate",
       "breakpoints": true
     },
     {
-      "idx": 2,
+      "idx": 3,
       "version": "7",
       "when": 1793507766296,
-      "tag": "0002_drop_blocked_and_client_approval",
+      "tag": "0003_drop_blocked_and_client_approval",
       "breakpoints": true
     }
   ]

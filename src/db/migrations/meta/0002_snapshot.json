@@ -1,6 +1,6 @@
 {
-  "id": "bc663a08-cbfe-4808-93f9-bdc324e78df0",
-  "prevId": "38b06092-5678-4b1e-969e-85cffb2c6a58",
+  "id": "38b06092-5678-4b1e-969e-85cffb2c6a58",
+  "prevId": "24898213-3cf4-4e52-be80-07edd6a0545d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3376,6 +3376,7 @@
       "values": [
         "Pending",
         "In Progress",
+        "Client Approval",
         "Completed"
       ]
     },
@@ -3416,6 +3417,7 @@
       "values": [
         "Todo",
         "In Progress",
+        "Blocked",
         "Changes Requested",
         "In Review",
         "Done"
