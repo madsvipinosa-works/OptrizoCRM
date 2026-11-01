@@ -33,8 +33,6 @@ const rolesExcept = (...allowed: Role[]) => ROLES.filter((role) => !allowed.incl
 beforeEach(() => {
   mockDb.resetMocks();
   signInAs(auth, null);
-  vi.stubEnv("GEMINI_API_KEY", "");
-  vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
 });
 
 afterEach(() => {

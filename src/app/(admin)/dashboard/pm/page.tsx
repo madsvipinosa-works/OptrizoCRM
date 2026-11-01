@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
 import { Clock, Archive } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { ScopeDeconstructorModal } from "@/features/pm/components/ScopeDeconstructorModal";
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +50,6 @@ export default async function PMEnginePage() {
                             View Archives
                         </Link>
                     </Button>
-                    <ScopeDeconstructorModal />
                 </div>
             </div>
 
