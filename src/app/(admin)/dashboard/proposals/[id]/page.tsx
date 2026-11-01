@@ -33,11 +33,11 @@ export default async function StaffProposalViewPage({
         redirect("/login");
     }
 
-    if (!hasRole(session, ["superadmin", "manager", "sales"])) {
-        redirect("/dashboard/analytics");
+    if (!hasRole(session, ["manager", "sales"])) {
+        redirect("/dashboard");
     }
 
-    const isManager = hasRole(session, ["manager", "superadmin"]);
+    const isManager = hasRole(session, ["manager"]);
 
     const proposal = await db.query.proposals.findFirst({
         where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),

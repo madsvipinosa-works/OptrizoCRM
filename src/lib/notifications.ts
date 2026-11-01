@@ -361,7 +361,7 @@ export async function sendMeetingInviteEmail(data: {
         }).format(data.startsAt);
 
         const portalBaseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-        const signupUrl = `${portalBaseUrl}/signup?email=${encodeURIComponent(data.email)}`;
+        const loginUrl = `${portalBaseUrl}/login?email=${encodeURIComponent(data.email)}`;
         const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
 
         if (!process.env.RESEND_API_KEY) {
@@ -393,8 +393,8 @@ export async function sendMeetingInviteEmail(data: {
                         <a href="${appointmentsUrl}" style="background: #0e6b7e; color: #ffffff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin-right: 12px;">
                             View in Client Portal
                         </a>
-                        <a href="${signupUrl}" style="color: #0e6b7e; text-decoration: underline; font-size: 14px; display: inline-block; padding: 10px 0;">
-                            Create portal account &rarr;
+                        <a href="${loginUrl}" style="color: #0e6b7e; text-decoration: underline; font-size: 14px; display: inline-block; padding: 10px 0;">
+                            Create an account with this email &rarr;
                         </a>
                     </div>
                     <p style="font-size: 12px; color: #7a8b98; margin: 0;">

@@ -35,7 +35,7 @@ export default async function ProposalsPage() {
         redirect("/dashboard");
     }
 
-    const isManager = hasRole(session, ["superadmin", "manager"]);
+    const isManager = hasRole(session, ["manager"]);
 
     const allProposals = await db.query.proposals.findMany({
         with: {

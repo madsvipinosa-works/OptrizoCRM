@@ -70,6 +70,7 @@ interface Props {
         tax?: number;
     };
     isPreview?: boolean;
+    canEditInStudio?: boolean;
     settings?: {
         logoUrl?: string | null;
         logoDarkUrl?: string | null;
@@ -83,6 +84,7 @@ export function ProposalClientView({
     parsedDeliverables,
     parsedPricing,
     isPreview = false,
+    canEditInStudio = false,
     settings,
 }: Props) {
     const router = useRouter();
@@ -343,7 +345,7 @@ export function ProposalClientView({
                                 <CheckSquare className="h-4 w-4" />
                                 Accept & Sign
                             </Button>
-                        ) : (
+                        ) : canEditInStudio ? (
                             <Button
                                 size="sm"
                                 onClick={() => router.push(`/dashboard/proposals/builder/${proposal.id}`)}
@@ -351,7 +353,7 @@ export function ProposalClientView({
                             >
                                 Edit in Studio
                             </Button>
-                        )}
+                        ) : null}
                     </div>
                 </div>
             )}

@@ -700,7 +700,7 @@ export async function getUnifiedDashboardData() {
                     title: `Proposal Awaiting Client Acceptance`,
                     subtitle: `Lead: ${p.lead?.businessName || "Client"} — Sent on ${new Date(p.updatedAt).toLocaleDateString()}`,
                     urgency: "medium",
-                    link: `/dashboard/proposals/builder/${p.id}`,
+                    link: `/dashboard/proposals/${p.id}`,
                     badgeText: "Proposal Sent",
                     createdAt: new Date(p.updatedAt).toISOString(),
                 });

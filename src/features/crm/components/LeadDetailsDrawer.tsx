@@ -165,7 +165,8 @@ export function LeadDetailsDrawer({
     const [isDiscoveryFormModalOpen, setIsDiscoveryFormModalOpen] = useState(false);
     const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
     const { data: session } = useSession();
-    const canManageProposals = isAdmin || (session?.user as { role?: string })?.role === "manager";
+    const isManager = (session?.user as { role?: string })?.role === "manager";
+    const canManageProposals = isManager;
     const [trackerData, setTrackerData] = useState<{
         hasMeetingScheduled: boolean;
         hasMeetingDone: boolean;
@@ -197,13 +198,13 @@ export function LeadDetailsDrawer({
 
     const [isGeneratingSOW, setIsGeneratingSOW] = useState(false);
     const handleGenerateSOW = async () => {
-        if (!lead || isGeneratingSOW) return;
+        if (!lead || isGeneratingSOW || !isManager) return;
         setIsGeneratingSOW(true);
         try {
             const res = await createDraftProposalForLead(lead.id);
             if (res.success && res.proposalId) {
                 toast.success("Draft SOW proposal initialized!");
-                router.push(`/dashboard/proposals/builder/${res.proposalId}`);
+                router.push(isManager ? `/dashboard/proposals/builder/${res.proposalId}` : `/dashboard/proposals/${res.proposalId}`);
             } else {
                 toast.error(res.message || "Failed to initialize SOW proposal");
                 setIsGeneratingSOW(false);
