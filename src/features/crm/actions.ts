@@ -149,15 +149,8 @@ export async function createLead(data: {
                     repsWithCounts.sort((a, b) => a.count - b.count);
                     assignedRepId = repsWithCounts[0].repId;
                 } else {
-                    // Fallback to superadmin
-                    const superAdmins = await tx.query.users.findMany({
-                        where: eq(users.role, "superadmin"),
-                    });
-                    if (superAdmins.length > 0) {
-                        assignedRepId = null;
-                    } else {
-                        assignedRepId = null;
-                    }
+                    // No sales reps available: leave lead unassigned
+                    assignedRepId = null;
                 }
             } else if (assignedRepId === "unassigned") {
                 assignedRepId = null;
