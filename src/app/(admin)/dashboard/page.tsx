@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Clock, CheckCircle, ArrowRight, Activity, Plus, FileText, LayoutTemplate, Briefcase, Calendar } from "lucide-react";
+import { AlertCircle, Clock, CheckCircle, ArrowRight, Activity, Plus, LayoutTemplate, Briefcase, Calendar } from "lucide-react";
 import { format, isToday, isTomorrow, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -117,14 +117,9 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     {isSales && (
-                        <>
-                            <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-colors shadow-sm">
-                                <Plus className="w-4 h-4 mr-2" /> New Lead
-                            </Button>
-                            <Button variant="outline" className="border-border text-foreground hover:bg-muted transition-colors shadow-sm">
-                                <FileText className="w-4 h-4 mr-2" /> Draft Proposal
-                            </Button>
-                        </>
+                        <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-colors shadow-sm">
+                            <Plus className="w-4 h-4 mr-2" /> New Lead
+                        </Button>
                     )}
                     {isDelivery && (
                         <Button variant="outline" className="border-border text-foreground hover:bg-muted transition-colors shadow-sm">
