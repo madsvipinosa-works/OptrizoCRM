@@ -48,25 +48,25 @@ const navGroups: NavGroup[] = [
     {
         title: "Overview",
         items: [
-            { href: "/dashboard", label: "Dashboard", icon: Sparkles, allowedRoles: ["superadmin", "sales", "manager", "developer"] },
+            { href: "/dashboard", label: "Dashboard", icon: Sparkles, allowedRoles: ["sales", "manager"] },
         ],
     },
     {
         title: "Growth & CRM",
         items: [
-            { href: "/dashboard/analytics", label: "Analytics & Reports", icon: BarChart3, allowedRoles: ["superadmin", "sales", "manager"] },
-            { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["superadmin", "sales"] },
-            { href: "/dashboard/contacts", label: "Contacts", icon: Users, allowedRoles: ["superadmin", "sales"] },
-            { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["superadmin", "sales"] },
+            { href: "/dashboard/analytics", label: "Analytics & Reports", icon: BarChart3, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["sales"] },
+            { href: "/dashboard/contacts", label: "Contacts", icon: Users, allowedRoles: ["sales"] },
+            { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["sales", "manager"] },
             { href: "/dashboard/meetings", label: "Meetings", icon: Calendar, allowedRoles: ["sales", "manager"] },
-            { href: "/dashboard/proposals", label: "Proposals & SOWs", icon: FileText, allowedRoles: ["manager", "sales"] },
+            { href: "/dashboard/proposals", label: "Proposals & SOWs", icon: FileText, allowedRoles: ["sales", "manager"] },
         ],
     },
     {
         title: "Operations & Content",
         items: [
-            { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare, allowedRoles: ["superadmin", "manager", "developer"] },
-            { href: "/dashboard/cms", label: "Content Manager", icon: Monitor, allowedRoles: ["superadmin", "content_editor"] },
+            { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare, allowedRoles: ["manager", "developer"] },
+            { href: "/dashboard/cms", label: "Content Manager", icon: Monitor, allowedRoles: ["content_editor"] },
         ],
     },
     {

@@ -64,7 +64,7 @@ export function KanbanBoard({
 
     // Filters
     const [filterAssignee, setFilterAssignee] = useState<string>("all");
-    const [myTasksOnly, setMyTasksOnly] = useState<boolean>(!["superadmin", "manager"].includes(currentUserRole || ""));
+    const [myTasksOnly, setMyTasksOnly] = useState<boolean>(!["manager"].includes(currentUserRole || ""));
 
     // Delete Task State
     const [deletingTask, setDeletingTask] = useState<PmTask | null>(null);
@@ -171,8 +171,8 @@ export function KanbanBoard({
         const task = optimisticTasks.find((t) => t.id === taskId);
         if (!task) return;
 
-        if (targetStatus === "Done" && !["superadmin", "manager"].includes(currentUserRole || "")) {
-            toast.error("Only Managers and Super-Admins can approve tasks to Done.");
+        if (targetStatus === "Done" && !["manager"].includes(currentUserRole || "")) {
+            toast.error("Only Managers can approve tasks to Done.");
             return;
         }
 
@@ -438,7 +438,7 @@ export function KanbanBoard({
             <div className="flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl mt-4 text-center">
                 <h3 className="text-xl font-bold mb-2 text-foreground">No Milestones</h3>
                 <p className="text-muted-foreground mb-4">Create a milestone to start organizing your project tasks.</p>
-                {["superadmin", "manager"].includes(currentUserRole || "") && (
+                {["manager"].includes(currentUserRole || "") && (
                     <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
                         <DialogTrigger asChild>
                             <Button className="bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs">
@@ -492,7 +492,7 @@ export function KanbanBoard({
                     </button>
                 ))}
 
-                {["superadmin", "manager"].includes(currentUserRole || "") && (
+                {["manager"].includes(currentUserRole || "") && (
                     <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
                         <DialogTrigger asChild>
                             <button className="px-3 py-1.5 sm:py-2 rounded-lg text-xs font-medium border border-border hover:bg-muted text-muted-foreground hover:text-foreground whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
@@ -532,7 +532,7 @@ export function KanbanBoard({
                 <div className="flex items-center justify-between sm:justify-start gap-2.5 w-full sm:w-auto min-w-0">
                     <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2 truncate min-w-0">
                         <span className="truncate">{activeMilestone.title}</span>
-                        {["superadmin", "manager"].includes(currentUserRole || "") && (
+                        {["manager"].includes(currentUserRole || "") && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
@@ -580,7 +580,7 @@ export function KanbanBoard({
                         )}
                     </h3>
                     <div className="shrink-0">
-                        {["superadmin", "manager"].includes(currentUserRole || "") ? (
+                        {["manager"].includes(currentUserRole || "") ? (
                             <MilestoneStatusDropdown
                                 status={activeMilestone.status}
                                 onStatusChange={handleMilestoneStatusChange}
@@ -595,7 +595,7 @@ export function KanbanBoard({
 
                 <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 sm:pb-0 w-full sm:w-auto scrollbar-none shrink-0">
                     {/* Team Capacity Tracker Popover */}
-                    {["superadmin", "manager"].includes(currentUserRole || "") && (
+                    {["manager"].includes(currentUserRole || "") && (
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -693,7 +693,7 @@ export function KanbanBoard({
                     )}
 
                     {/* Filter Assignee */}
-                    {["superadmin", "manager"].includes(currentUserRole || "") && (
+                    {["manager"].includes(currentUserRole || "") && (
                         <div className="flex items-center gap-1.5">
                             <Select
                                 value={filterAssignee}
@@ -754,7 +754,7 @@ export function KanbanBoard({
                         </Button>
                     )}
 
-                    {["superadmin", "manager"].includes(currentUserRole || "") && (
+                    {["manager"].includes(currentUserRole || "") && (
                         <Dialog>
                             <DialogTrigger asChild>
                                 <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs text-xs shrink-0 ml-auto sm:ml-0">
@@ -925,7 +925,7 @@ export function KanbanBoard({
                 mode="edit"
                 isViewOnly={
                     !(
-                        ["superadmin", "manager"].includes(currentUserRole || "") ||
+                        ["manager"].includes(currentUserRole || "") ||
                         viewingProofsTask?.task?.assignees?.some((a) => a.user.id === currentUserId)
                     )
                 }
@@ -957,7 +957,7 @@ export function KanbanBoard({
                     }
                 }}
                 onRequestChanges={
-                    ["superadmin", "manager"].includes(currentUserRole || "") &&
+                    ["manager"].includes(currentUserRole || "") &&
                     viewingProofsTask?.task?.status === "In Review"
                         ? async () => {
                               const taskId = viewingProofsTask!.task.id;

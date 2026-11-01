@@ -12,6 +12,8 @@ export const metadata = {
     description: "Review, download, and digitally sign your project proposal.",
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProposalPage({
     params,
 }: {
@@ -46,52 +48,35 @@ export default async function ProposalPage({
         notFound();
     }
 
-    // Access Control: 
-    // Strictly block internal production/marketing roles from financial proposal data
-    const userRole = (session.user as any)?.role;
-    if (["editor", "developer", "content_editor"].includes(userRole)) {
+    // Strictly redirect staff to dashboard read-only proposal view per Session 1 rules
+    if (hasRole(session, ["manager", "sales"])) {
+        redirect(`/dashboard/proposals/${proposal.id}`);
+    }
+
+    // Access Control: /proposal is client only, no staff fallback
+    if (!hasRole(session, ["client"])) {
         return (
             <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
                 <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
                     <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
-                    <p className="text-foreground/80 text-sm">Forbidden: Insufficient permissions to view financial proposal agreements.</p>
+                    <p className="text-foreground/80 text-sm">You do not have permission to view this proposal.</p>
                 </div>
             </div>
         );
     }
 
-    const isStaff = hasRole(session, ["superadmin", "manager", "sales"]);
-
-    // Strictly redirect staff to dashboard read-only proposal view per Session 1 rules
-    if (isStaff && userRole !== "client") {
-        redirect(`/dashboard/proposals/${proposal.id}`);
-    }
     const isOwner =
         proposal.lead &&
         (session.user.id === proposal.lead.clientId ||
          session.user.email === proposal.lead.client?.email ||
          session.user.email === proposal.lead.contactEmail);
 
-    if (userRole === "client") {
-        if (!isOwner) {
-            return (
-                <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
-                    <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
-                        <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
-                        <p className="text-foreground/80 text-sm">Forbidden: You do not own this proposal.</p>
-                    </div>
-                </div>
-            );
-        }
-    } else if (!isStaff) {
+    if (!isOwner) {
         return (
             <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
                 <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
                     <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
-                    <p className="text-foreground/80 text-sm">You do not have permission to view this proposal.</p>
-                    <div className="bg-background/80 p-3 rounded-lg text-xs text-left font-mono mt-4 space-y-1 text-muted-foreground">
-                        <p><strong>Signed in as:</strong> {session.user.email}</p>
-                    </div>
+                    <p className="text-foreground/80 text-sm">Forbidden: You do not own this proposal.</p>
                 </div>
             </div>
         );

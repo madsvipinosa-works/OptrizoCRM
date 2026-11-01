@@ -13,7 +13,7 @@ export default async function EditPostPage({ params }: Props) {
     notFound();
     const { id } = await params;
     const session = await auth();
-    const isAdmin = hasRole(session, ["superadmin"]);
+    const isAdmin = hasRole(session, ["content_editor"]);
 
     const post = await db.query.posts.findFirst({
         where: eq(posts.id, id),

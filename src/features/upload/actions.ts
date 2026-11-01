@@ -23,7 +23,7 @@ const ALLOWED_MIME_TYPES = [
 
 export async function deleteImage(url: string) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "content_editor", "sales"])) {
+    if (!hasRole(session, ["manager", "content_editor", "sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -34,6 +34,11 @@ export async function deleteImage(url: string) {
             const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
             const u = new URL(url, baseUrl);
             const blobUrl = u.searchParams.get("blobUrl");
+            const local = u.searchParams.get("local");
+
+            if (local) {
+                return deleteImage(`/uploads/${local}`);
+            }
 
             if (blobUrl) {
                 if (blobUrl.startsWith("/uploads/")) {
@@ -56,7 +61,7 @@ export async function deleteImage(url: string) {
             const path = await import("path");
 
             const filename = path.basename(url);
-            const filePath = path.join(process.cwd(), "public", "uploads", filename);
+            const filePath = path.join(process.cwd(), "storage", "uploads", filename);
             try {
                 await fs.unlink(filePath);
                 await logAction("DELETE", "Upload", `Deleted local upload ${filename}`, session.user.id);
@@ -141,7 +146,7 @@ export async function uploadSecureAsset(formData: FormData) {
             const { Readable } = await import("stream");
 
             const uniqueName = `${crypto.randomUUID()}-${sanitizedFilename}`;
-            const uploadDir = path.join(process.cwd(), "public", "uploads");
+            const uploadDir = path.join(process.cwd(), "storage", "uploads");
 
             await fsp.mkdir(uploadDir, { recursive: true });
             
@@ -153,10 +158,8 @@ export async function uploadSecureAsset(formData: FormData) {
             await logAction("CREATE", "Upload", `Uploaded local file ${uniqueName}`, session.user.id);
 
             const projectId = formData.get("projectId") as string | null;
-            let fileUrl = `/uploads/${uniqueName}`;
-            if (projectId) {
-                fileUrl = `/api/private-file?blobUrl=${encodeURIComponent(fileUrl)}&projectId=${projectId}`;
-            }
+            const localRef = `/uploads/${uniqueName}`;
+            const fileUrl = `/api/private-file?blobUrl=${encodeURIComponent(localRef)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}`;
 
             return {
                 success: true,
@@ -188,10 +191,7 @@ export async function uploadSecureAsset(formData: FormData) {
         await logAction("CREATE", "Upload", `Uploaded secure asset ${file.name}`, session.user.id);
         
         const projectId = formData.get("projectId") as string | null;
-        let finalUrl = blob.url;
-        if (projectId) {
-            finalUrl = `/api/private-file?blobUrl=${encodeURIComponent(blob.url)}&projectId=${projectId}`;
-        }
+        const finalUrl = `/api/private-file?blobUrl=${encodeURIComponent(blob.url)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}`;
 
         return {
             success: true,
@@ -217,4 +217,3 @@ export async function uploadSecureAsset(formData: FormData) {
 export async function uploadImage(...args: Parameters<typeof uploadSecureAsset>) {
     return uploadSecureAsset(...args);
 }
-

@@ -136,17 +136,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
         csv += `Milestones Completed,${projectReport.totalMilestonesCompleted}/${projectReport.totalMilestones}\n`;
         csv += `Story Points Delivered,${projectReport.totalStoryPointsDelivered}/${projectReport.totalStoryPointsScoped}\n\n`;
 
-        csv += `Portfolio Projects Audit Trail\n`;
-        csv += `Project Title,Client,Company,Stage,Progress %,Start Date,Last Updated,Target Date,Duration (Days),Schedule Status,Milestones,Story Points,Earned Value,Contract Value\n`;
-        projectReport.projects.forEach(p => {
-            const cleanTitle = p.title.replace(/,/g, " ");
-            const cleanClient = p.clientName.replace(/,/g, " ");
-            const cleanCompany = p.companyName.replace(/,/g, " ");
-            const targetStr = p.targetDate ? p.targetDate.slice(0, 10) : "N/A";
-            csv += `"${cleanTitle}","${cleanClient}","${cleanCompany}",${p.status},${p.progress}%,${p.startDate.slice(0, 10)},${p.completedDate.slice(0, 10)},${targetStr},${p.durationDays},${p.scheduleStatus},${p.milestonesCompleted}/${p.totalMilestones},${p.deliveredStoryPoints}/${p.totalStoryPoints},$${p.earnedValue},$${p.contractValue}\n`;
-        });
-        csv += `\n`;
-
         // 2. Sales & Lead Conversion
         csv += `=== 2. SALES & LEAD CONVERSION REPORT ===\n`;
         csv += `Metric,Value\n`;
@@ -173,13 +162,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
         csv += `Total Completed Tasks,${velocityReport.totalCompletedTasks}\n`;
         csv += `Total Story Points (Weight),${velocityReport.totalWeight}\n`;
         csv += `Avg Task Turnaround Time (Days),${velocityReport.averageTurnaroundTimeDays.toFixed(1)}\n\n`;
-
-        csv += `User Velocity Breakdown\n`;
-        csv += `Team Member,Role,Tasks Completed,Story Points,Avg Turnaround (Days)\n`;
-        velocityReport.userVelocity.forEach((uv: UserVelocityItem) => {
-            const cleanName = uv.name.replace(/,/g, " ");
-            csv += `"${cleanName}",${uv.role},${uv.tasksCompleted},${uv.totalWeight},${uv.avgTurnaroundDays ?? "N/A"}\n`;
-        });
 
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = window.URL.createObjectURL(blob);
@@ -399,104 +381,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                         </p>
                                     </div>
                                 </div>
-
-                                {/* Portfolio Projects Audit Table */}
-                                <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">
-                                        Client Projects Delivery &amp; Audit Trail
-                                    </h3>
-                                    {projectReport?.projects && projectReport.projects.length > 0 ? (
-                                        <div className="rounded-lg border border-border overflow-hidden">
-                                            <Table>
-                                                <TableHeader className="bg-muted/40">
-                                                    <TableRow>
-                                                        <TableHead className="font-semibold">Project Title</TableHead>
-                                                        <TableHead className="font-semibold">Client / Company</TableHead>
-                                                        <TableHead className="font-semibold text-center">Progress</TableHead>
-                                                        <TableHead className="font-semibold text-center">Milestones</TableHead>
-                                                        <TableHead className="font-semibold text-center">Story Points</TableHead>
-                                                        <TableHead className="font-semibold text-center">Duration</TableHead>
-                                                        <TableHead className="font-semibold text-center">Schedule</TableHead>
-                                                        <TableHead className="font-semibold text-right">Earned / Contract</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {projectReport.projects.map((proj) => (
-                                                        <TableRow key={proj.id} className="hover:bg-muted/30">
-                                                            <TableCell className="font-medium text-foreground">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <Link
-                                                                        href={`/dashboard/pm/${proj.id}`}
-                                                                        className="hover:text-primary transition-colors inline-flex items-center gap-1 font-semibold"
-                                                                    >
-                                                                        {proj.title}
-                                                                        <ArrowUpRight className="w-3.5 h-3.5 opacity-60 print:hidden" />
-                                                                    </Link>
-                                                                    <span className="text-[11px] text-muted-foreground">
-                                                                        Stage: <span className="font-medium text-foreground/80">{proj.status}</span>
-                                                                    </span>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-muted-foreground">
-                                                                <div className="font-medium text-foreground">{proj.companyName}</div>
-                                                                <div className="text-xs text-muted-foreground">{proj.clientName}</div>
-                                                            </TableCell>
-                                                            <TableCell className="text-center min-w-[120px]">
-                                                                <div className="flex flex-col items-center gap-1">
-                                                                    <span className="text-xs font-mono font-semibold text-foreground">{proj.progress}%</span>
-                                                                    <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
-                                                                        <div
-                                                                            className="h-full bg-emerald-500 rounded-full transition-all"
-                                                                            style={{ width: `${Math.min(100, Math.max(0, proj.progress))}%` }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                <Badge variant="outline" className="text-xs font-mono">
-                                                                    {proj.milestonesCompleted}/{proj.totalMilestones}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-center font-mono text-xs">
-                                                                {proj.deliveredStoryPoints}/{proj.totalStoryPoints} Pts
-                                                            </TableCell>
-                                                            <TableCell className="text-center text-xs text-muted-foreground">
-                                                                {proj.durationDays} Days
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {proj.isOnTime ? (
-                                                                    <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs gap-1 whitespace-nowrap">
-                                                                        <CheckCircle2 className="w-3 h-3" /> {proj.scheduleStatus}
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge variant="destructive" className="text-xs gap-1 whitespace-nowrap">
-                                                                        <Clock className="w-3 h-3" /> {proj.scheduleStatus}
-                                                                    </Badge>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                <div className="font-semibold text-foreground">
-                                                                    ${proj.earnedValue.toLocaleString()}
-                                                                </div>
-                                                                <div className="text-[11px] text-muted-foreground">
-                                                                    of ${proj.contractValue.toLocaleString()}
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    ) : (
-                                        <div className="p-8 text-center border border-dashed border-border rounded-lg bg-muted/20">
-                                            <Briefcase className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
-                                            <p className="text-sm font-medium text-foreground">No client projects found in this timeframe</p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Try selecting the &quot;All Time&quot; or &quot;Annual&quot; preset above to view your full project portfolio.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
                             </div>
                         </TabsContent>
 
@@ -657,68 +541,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                         </div>
                                     </div>
                                 )}
-
-                                {/* Cohort Deals Audit Table */}
-                                <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">
-                                        Cohort Deals Audit Trail
-                                    </h3>
-                                    {leadReport?.cohortDeals && leadReport.cohortDeals.length > 0 ? (
-                                        <div className="rounded-lg border border-border overflow-hidden">
-                                            <Table>
-                                                <TableHeader className="bg-muted/40">
-                                                    <TableRow>
-                                                        <TableHead className="font-semibold">Company / Deal</TableHead>
-                                                        <TableHead className="font-semibold">Source</TableHead>
-                                                        <TableHead className="font-semibold text-center">Stage</TableHead>
-                                                        <TableHead className="font-semibold text-center">Created</TableHead>
-                                                        <TableHead className="font-semibold text-center">Sales Cycle</TableHead>
-                                                        <TableHead className="font-semibold text-right">Effective Value</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {leadReport.cohortDeals.map((deal) => (
-                                                        <TableRow key={deal.id} className="hover:bg-muted/30">
-                                                            <TableCell>
-                                                                <div className="font-medium text-foreground">{deal.businessName}</div>
-                                                                <div className="text-xs text-muted-foreground">{deal.contactName}</div>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs text-muted-foreground">{deal.source}</TableCell>
-                                                            <TableCell className="text-center">
-                                                                {deal.status === "Closed Won" ? (
-                                                                    <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs">
-                                                                        Closed Won
-                                                                    </Badge>
-                                                                ) : deal.status === "Closed Lost" ? (
-                                                                    <Badge variant="destructive" className="text-xs">
-                                                                        Closed Lost{deal.lossReason ? ` (${deal.lossReason})` : ""}
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge variant="outline" className="text-xs">
-                                                                        {deal.status}
-                                                                    </Badge>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-center text-xs text-muted-foreground">
-                                                                {deal.createdAt.slice(0, 10)}
-                                                            </TableCell>
-                                                            <TableCell className="text-center text-xs font-mono text-muted-foreground">
-                                                                {deal.cycleDays !== null ? `${deal.cycleDays}d` : "—"}
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-semibold text-foreground">
-                                                                ${deal.effectiveValue.toLocaleString()}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground p-4 text-center border border-dashed border-border rounded-lg">
-                                            No cohort deals found for this date range.
-                                        </p>
-                                    )}
-                                </div>
                             </div>
                         </TabsContent>
 
@@ -752,111 +574,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                             {velocityReport?.averageTurnaroundTimeDays?.toFixed(1) ?? "0.0"} <span className="text-xs font-normal text-muted-foreground">Days</span>
                                         </p>
                                     </div>
-                                </div>
-
-                                {/* Developer Throughput Breakdown Table */}
-                                <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">
-                                        Developer Throughput Breakdown
-                                    </h3>
-                                    {velocityReport?.userVelocity && velocityReport.userVelocity.length > 0 ? (
-                                        <div className="rounded-lg border border-border overflow-hidden">
-                                            <Table>
-                                                <TableHeader className="bg-muted/40">
-                                                    <TableRow>
-                                                        <TableHead className="font-semibold">Team Member</TableHead>
-                                                        <TableHead className="font-semibold text-center">Role</TableHead>
-                                                        <TableHead className="font-semibold text-center">Tasks Completed</TableHead>
-                                                        <TableHead className="font-semibold text-center">Story Points</TableHead>
-                                                        <TableHead className="font-semibold text-right">Avg Turnaround</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {velocityReport.userVelocity.map((uv: UserVelocityItem) => (
-                                                        <TableRow key={uv.name} className="hover:bg-muted/30">
-                                                            <TableCell className="font-medium text-foreground">{uv.name}</TableCell>
-                                                            <TableCell className="text-center">
-                                                                <Badge variant="outline" className="text-xs capitalize">
-                                                                    {uv.role}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-center font-mono text-xs font-semibold">
-                                                                {uv.tasksCompleted}
-                                                            </TableCell>
-                                                            <TableCell className="text-center font-mono text-xs text-purple-400 font-semibold">
-                                                                {uv.totalWeight} Pts
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                                                                {uv.avgTurnaroundDays !== null ? `${uv.avgTurnaroundDays} Days` : "—"}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground p-4 text-center border border-dashed border-border rounded-lg">
-                                            No completed tasks logged for this date range.
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Completed Tasks Audit Table */}
-                                <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">
-                                        Completed Tasks &amp; Deliverables Audit Trail
-                                    </h3>
-                                    {velocityReport?.completedTasks && velocityReport.completedTasks.length > 0 ? (
-                                        <div className="rounded-lg border border-border overflow-hidden">
-                                            <Table>
-                                                <TableHeader className="bg-muted/40">
-                                                    <TableRow>
-                                                        <TableHead className="font-semibold">Deliverable / Task</TableHead>
-                                                        <TableHead className="font-semibold">Project</TableHead>
-                                                        <TableHead className="font-semibold">Assignees</TableHead>
-                                                        <TableHead className="font-semibold text-center">Story Points</TableHead>
-                                                        <TableHead className="font-semibold text-center">Turnaround</TableHead>
-                                                        <TableHead className="font-semibold text-right">Completed On</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {velocityReport.completedTasks.map((t) => (
-                                                        <TableRow key={t.id} className="hover:bg-muted/30">
-                                                            <TableCell className="font-medium text-foreground max-w-[260px]">
-                                                                <div className="line-clamp-1">{t.title}</div>
-                                                                <span className="text-[10px] text-muted-foreground">{t.milestoneTitle}</span>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs">
-                                                                <Link
-                                                                    href={`/dashboard/pm/${t.projectId}`}
-                                                                    className="hover:text-primary transition-colors inline-flex items-center gap-1 font-medium text-foreground/90"
-                                                                >
-                                                                    {t.projectTitle}
-                                                                    <ArrowUpRight className="w-3 h-3 opacity-60 print:hidden" />
-                                                                </Link>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs text-muted-foreground">
-                                                                {t.assignees.join(", ")}
-                                                            </TableCell>
-                                                            <TableCell className="text-center font-mono text-xs font-semibold text-purple-400">
-                                                                {t.weight} Pts
-                                                            </TableCell>
-                                                            <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                                                                {t.turnaroundDays !== null ? `${t.turnaroundDays}d` : "—"}
-                                                            </TableCell>
-                                                            <TableCell className="text-right text-xs text-muted-foreground">
-                                                                {t.completedAt.slice(0, 10)}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground p-4 text-center border border-dashed border-border rounded-lg">
-                                            No completed deliverables found for this period.
-                                        </p>
-                                    )}
                                 </div>
                             </div>
                         </TabsContent>

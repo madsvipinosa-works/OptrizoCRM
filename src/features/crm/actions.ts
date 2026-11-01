@@ -26,7 +26,7 @@ export type ActionState = {
 
 export async function createInquiry(data: { name: string, email: string, source: string, service?: string, budget?: string, notes?: string }): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
     try {
@@ -62,7 +62,7 @@ export async function createLead(data: {
     tasksPlaybook?: PlaybookTaskTemplate[];
 }): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -140,15 +140,8 @@ export async function createLead(data: {
                     repsWithCounts.sort((a, b) => a.count - b.count);
                     assignedRepId = repsWithCounts[0].repId;
                 } else {
-                    // Fallback to superadmin
-                    const superAdmins = await tx.query.users.findMany({
-                        where: eq(users.role, "superadmin"),
-                    });
-                    if (superAdmins.length > 0) {
-                        assignedRepId = superAdmins[0].id;
-                    } else {
-                        assignedRepId = null;
-                    }
+                    // No sales reps available: leave lead unassigned
+                    assignedRepId = null;
                 }
             } else if (assignedRepId === "unassigned") {
                 assignedRepId = null;
@@ -160,7 +153,7 @@ export async function createLead(data: {
                     columns: { role: true }
                 });
                 
-                if (!targetUser || !["sales", "superadmin"].includes(targetUser.role)) {
+                if (!targetUser || !["sales"].includes(targetUser.role)) {
                     throw new Error("Invalid assignment: Target user must be Sales or Superadmin");
                 }
 
@@ -216,7 +209,7 @@ export async function createLead(data: {
 
 export async function convertInquiryToLead(inquiryId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -305,7 +298,7 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
 export async function updateLead(id: string, data: LeadUpdateValues): Promise<ActionState> {
     // 1. Auth Check (Admin or Editor)
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized: Access required." };
     }
 
@@ -342,7 +335,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
                     where: inArray(users.id, assigneeIds),
                     columns: { id: true, role: true }
                 });
-                const validRoles = ["sales", "superadmin"];
+                const validRoles = ["sales"];
                 const invalidUsers = targetUsers.filter(u => !validRoles.includes(u.role));
                 
                 if (invalidUsers.length > 0) {
@@ -371,7 +364,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
 
 export async function logLeadActivity(data: LogLeadActivityValues): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -424,7 +417,7 @@ export async function addLeadNote(leadId: string, content: string, activityType:
 
 export async function transitionLeadStage(data: TransitionLeadValues): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -507,7 +500,7 @@ export async function getUnifiedDashboardData() {
         return null;
     }
 
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["superadmin"])) {
         return null;
     }
 
@@ -765,7 +758,7 @@ export async function getUnifiedDashboardData() {
                 leadSourceData,
                 trendData,
             },
-            actionQueue,
+            actionQueue: [],
         };
 
     } catch (error) {
@@ -784,7 +777,7 @@ export async function getAnalyticsData() {
         return null; // Return null gracefully instead of crashing the page
     }
 
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["superadmin"])) {
         return null;
     }
 
@@ -922,7 +915,7 @@ export async function getAnalyticsData() {
 
 export async function markLeadAsWon(leadId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -961,7 +954,7 @@ export async function markLeadAsWon(leadId: string): Promise<ActionState> {
 
 export async function convertLeadToProject(leadId: string): Promise<ActionState & { projectId?: string }> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -997,7 +990,7 @@ export async function convertLeadToProject(leadId: string): Promise<ActionState 
         return { success: false, message: "Could not convert deal to project." };
     }
 }
-export async function getProjectForLead(leadId: string): Promise<{ id: string; title: string; status: string } | null> {
+export async function getProjectForLead(leadId: string): Promise<{ id: string | null; title: string; status: string } | null> {
     // Only the PM and Sales see whether a lead has a project (spec §1). Everyone else gets nothing.
     const access = await requireRoles(["manager", "sales"]);
     if (!access.ok) return null;
@@ -1006,12 +999,14 @@ export async function getProjectForLead(leadId: string): Promise<{ id: string; t
         where: eq(agencyProjects.leadId, leadId),
         columns: { id: true, title: true, status: true },
     });
-    return proj || null;
+    if (!proj) return null;
+    if (access.session.user.role === "sales") return { id: null, title: proj.title, status: proj.status };
+    return proj;
 }
 
 export async function archiveLead(leadId: string): Promise<ActionState> {
-    const authz = await requireRole(["sales"]);
-    if (!authz.ok) {
+    const session = await auth();
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized: Only sales can archive leads." };
     }
 
@@ -1134,7 +1129,7 @@ export async function getPipelineLeads() {
 
 export async function unarchiveLead(leadId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized." };
     }
 
@@ -1188,7 +1183,7 @@ export async function updateLeadStatusWithAudit(
     reasonNotes?: string
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -1274,44 +1269,74 @@ export async function advanceToDiscoveryIfNew(
     return true;
 }
 
-/**
- * Claim an unassigned lead by the currently authenticated Sales user.
- * Sets leadAssignees and writes a System interaction.
- * A claim does not change the lead's stage.
- */
-export async function claimLead(leadId: string): Promise<ActionState> {
+export async function bulkUpdateLeadStatus(
+    leadIds: string[],
+    newStatus: "New Lead" | "Discovery & Qualifying" | "Proposal Sent" | "In Negotiation" | "Closed Won" | "Closed Lost"
+): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["sales", "manager", "superadmin"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized" };
     }
-    if (!session?.user?.id) {
-        return { success: false, message: "Unauthenticated" };
+
+    if (!leadIds || leadIds.length === 0) {
+        return { success: false, message: "No leads selected" };
     }
 
     try {
-        const existing = await db.query.leadAssignees.findFirst({
-            where: and(eq(leadAssignees.leadId, leadId), eq(leadAssignees.userId, session.user.id)),
-        });
-
-        if (!existing) {
-            await db.insert(leadAssignees).values({
-                leadId,
-                userId: session.user.id,
-            });
+        const validLeadIds: string[] = [];
+        const errors: Record<string, string[]> = {};
+        
+        for (const id of leadIds) {
+            const validation = await validateLeadTransition(id, newStatus);
+            if (validation.valid) {
+                validLeadIds.push(id);
+            } else {
+                errors[id] = [validation.error || "Validation failed"];
+            }
+        }
+        
+        if (validLeadIds.length === 0) {
+            return { 
+                success: false, 
+                message: "No leads passed validation for this stage.", 
+                errors 
+            };
         }
 
-        await db.insert(leadActivityLogs).values({
-            leadId,
-            authorId: session.user.id,
-            activityType: "System",
-            content: `Lead claimed by ${session.user.name || session.user.email}`,
-        });
+        if (newStatus === "Closed Won") {
+            for (const id of validLeadIds) {
+                await markLeadAsWon(id);
+            }
+        } else {
+            await db.update(leads)
+                .set({ status: newStatus, closedWonAt: null, updatedAt: new Date() })
+                .where(inArray(leads.id, validLeadIds));
+
+            const logEntries = validLeadIds.map(id => ({
+                leadId: id,
+                authorId: session.user.id || null,
+                activityType: "System" as const,
+                content: `Bulk status update to "${newStatus}"`,
+            }));
+            await db.insert(leadActivityLogs).values(logEntries);
+
+            await logAction("UPDATE", "Lead", `Bulk status update for ${validLeadIds.length} leads to ${newStatus}`);
+        }
 
         revalidatePath("/dashboard/leads");
-        return { success: true, message: "Lead claimed successfully" };
-    } catch (err) {
-        console.error("Failed to claim lead:", err);
-        return { success: false, message: "Failed to claim lead" };
+        
+        if (Object.keys(errors).length > 0) {
+            return {
+                success: true,
+                message: `Updated ${validLeadIds.length} leads. ${Object.keys(errors).length} leads failed validation.`,
+                errors
+            };
+        }
+
+        return { success: true, message: `Updated status for ${validLeadIds.length} leads to ${newStatus}` };
+    } catch (error) {
+        console.error("Failed bulk update lead status:", error);
+        return { success: false, message: "Failed to perform bulk update" };
     }
 }
 
@@ -1320,7 +1345,7 @@ export async function bulkAssignLeads(
     assigneeUserIds: string[]
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales"])) {
         return { success: false, message: "Unauthorized: Admin access required" };
     }
 
@@ -1348,13 +1373,9 @@ export async function bulkAssignLeads(
     }
 }
 
-
-
-
-
 export async function getDiscoveryTrackerData(leadId: string) {
-    const authz = await requireRole(["sales", "manager"]);
-    if (!authz.ok) {
+    const session = await auth();
+    if (!hasRole(session, ["sales", "manager"])) {
         return null;
     }
 
@@ -1400,4 +1421,66 @@ export async function getDiscoveryTrackerData(leadId: string) {
         discoveryForm: form || null,
         clientType: lead?.clientType || form?.clientType || "local",
     };
+}
+
+export async function claimLead(
+    input: { leadId: string } | string
+): Promise<
+    | { ok: true; leadId: string }
+    | { ok: false; error: "FORBIDDEN" | "ALREADY_ASSIGNED" | "NOT_FOUND"; message: string }
+> {
+    const leadId = typeof input === "string" ? input : input?.leadId;
+    const session = await auth();
+    if (!hasRole(session, ["sales"]) || !session?.user?.id) {
+        return { ok: false, error: "FORBIDDEN", message: "Forbidden: caller is not Sales." };
+    }
+
+    if (!leadId) {
+        return { ok: false, error: "NOT_FOUND", message: "Lead not found." };
+    }
+
+    const existingLead = await db.query.leads.findFirst({
+        where: eq(leads.id, leadId),
+        with: { assignees: true },
+    });
+
+    if (!existingLead) {
+        return { ok: false, error: "NOT_FOUND", message: "Lead not found." };
+    }
+
+    if (existingLead.assignees && existingLead.assignees.length > 0) {
+        return {
+            ok: false,
+            error: "ALREADY_ASSIGNED",
+            message: "Lead already has a Sales owner.",
+        };
+    }
+
+    const actorName = session.user.name || session.user.email || "Sales";
+
+    await db.transaction(async (tx) => {
+        await tx.insert(leadAssignees).values({
+            leadId,
+            userId: session.user.id,
+        });
+
+        await tx.insert(leadActivityLogs).values({
+            leadId,
+            authorId: session.user.id,
+            activityType: "System",
+            content: `Lead claimed by ${actorName}.`,
+        });
+    });
+
+    await logAction(
+        "UPDATE",
+        "Lead",
+        `Lead ${leadId} claimed by ${session.user.id}`,
+        session.user.id
+    );
+
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
+
+    return { ok: true, leadId };
 }

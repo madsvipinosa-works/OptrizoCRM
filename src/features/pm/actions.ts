@@ -106,7 +106,7 @@ export async function updateProjectDetails(
     }
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized: Admins & Managers only." };
     }
 
@@ -184,7 +184,7 @@ export async function updateProjectDetails(
 
 export async function updateProjectStatus(projectId: string, status: "Kickoff" | "In Progress" | "In Review" | "Completed"): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -220,7 +220,7 @@ export async function updateProjectSettings(
     documents?: ProjectDocumentItem[] // Note: Deprecated for full array replacement. Use addProjectDocument/deleteProjectDocument.
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -387,7 +387,7 @@ export async function deleteProjectDocument(projectId: string, documentId: strin
 // --- Milestone Actions ---
 export async function updateMilestoneStatus(milestoneId: string, status: "Pending" | "In Progress" | "Completed"): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -448,7 +448,7 @@ export async function createTask(
     estimatedHours?: number
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -486,7 +486,7 @@ export async function createTask(
 
 export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
+    if (!hasRole(session, ["manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -520,7 +520,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             }
         }
 
-        if (status === "Done" && oldTask.requiresProof && !hasRole(session, ["superadmin", "manager"])) {
+        if (status === "Done" && oldTask.requiresProof && !hasRole(session, ["manager"])) {
             return { success: false, message: "Only Managers and Superadmins can approve tasks to Done." };
         }
 
@@ -585,7 +585,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
 export async function submitTaskProofAndMove(taskId: string, newStatus: "In Review" | "Done", proofLinks?: { label: string; url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
+    if (!hasRole(session, ["manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -618,7 +618,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             }
         }
 
-        if (newStatus === "Done" && oldTask.requiresProof && !hasRole(session, ["superadmin", "manager"])) {
+        if (newStatus === "Done" && oldTask.requiresProof && !hasRole(session, ["manager"])) {
             return { success: false, message: "Only Managers and Superadmins can approve tasks to Done." };
         }
 
@@ -806,7 +806,7 @@ export async function updateTaskDetails(
     }
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
+    if (!hasRole(session, ["manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -887,7 +887,7 @@ export async function updateTaskDetails(
 
 export async function deleteTask(taskId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -909,7 +909,7 @@ export async function deleteTask(taskId: string): Promise<ActionState> {
 // --- Milestone Management ---
 export async function createMilestone(projectId: string, title: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -939,7 +939,7 @@ export async function createMilestone(projectId: string, title: string): Promise
 
 export async function editMilestone(milestoneId: string, title: string, order?: number): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
     }
 
@@ -1013,7 +1013,7 @@ export async function editMilestone(milestoneId: string, title: string, order?: 
 export async function deleteMilestone(milestoneId: string): Promise<ActionState> {
     const session = await auth();
     // Restrict deletion to admin only
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized: Only Admins can delete milestones." };
     }
 
@@ -1031,10 +1031,11 @@ export async function deleteMilestone(milestoneId: string): Promise<ActionState>
     }
 }
 
+
 // --- Deadline Tracking ---
 export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; found: number }> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, found: 0 };
     }
 
@@ -1114,7 +1115,7 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
 
 export async function archiveProject(projectId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized: Admins only." };
     }
 
@@ -1136,7 +1137,7 @@ export async function archiveProject(projectId: string): Promise<ActionState> {
 
 export async function unarchiveProject(projectId: string): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["superadmin"])) {
+    if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized: Admins only." };
     }
 

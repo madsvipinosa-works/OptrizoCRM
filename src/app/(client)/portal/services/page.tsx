@@ -1,8 +1,8 @@
 import { db } from "@/db";
 import { auth, hasRole } from "@/auth";
-import { projectStakeholders, leads, agencyProjects } from "@/db/schema";
+import { projectStakeholders, leads } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Layers, ArrowUpRight, Clock, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -17,14 +17,12 @@ export default async function AvailedServicesPage() {
         redirect("/login?callbackUrl=/portal/services");
     }
 
-    if (!hasRole(session, ["client", "superadmin", "manager", "sales", "developer", "content_editor"])) {
+    if (!hasRole(session, ["client"])) {
         redirect("/login?callbackUrl=/portal/services");
     }
 
-    const isAdminOrStaff = hasRole(session, ["superadmin", "manager", "sales", "developer", "content_editor"]);
-
     // 1. Fetch user's leads (Service Inquiries & Proposals)
-    let clientLeads = await db.query.leads.findMany({
+    const clientLeads = await db.query.leads.findMany({
         where: eq(leads.clientId, session.user.id),
         with: {
             service: true,
@@ -43,28 +41,10 @@ export default async function AvailedServicesPage() {
         },
     });
 
-    let clientProjects = userStakeholderRecords
+    const clientProjects = userStakeholderRecords
         .map((record) => record.project)
         .filter((p): p is NonNullable<typeof p> => p !== null)
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    // Admin preview fallback if empty
-    if (clientProjects.length === 0 && clientLeads.length === 0 && isAdminOrStaff) {
-        clientProjects = await db.query.agencyProjects.findMany({
-            limit: 5,
-            orderBy: (agencyProjects, { desc }) => [desc(agencyProjects.createdAt)],
-        });
-        clientLeads = await db.query.leads.findMany({
-            limit: 5,
-            with: { 
-                service: true,
-                proposals: {
-                    orderBy: (proposals, { desc }) => [desc(proposals.createdAt)],
-                },
-            },
-            orderBy: (leads, { desc }) => [desc(leads.createdAt)],
-        });
-    }
 
     const getLeadBadgeColor = (status: string) => {
         switch (status) {

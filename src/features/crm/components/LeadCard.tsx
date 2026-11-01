@@ -217,7 +217,7 @@ export function LeadCard({
                                         <DropdownMenuLabel className="text-[10px] text-muted-foreground">Toggle Assigned Rep</DropdownMenuLabel>
                                         <DropdownMenuSeparator className="bg-border" />
                                         {assignableUsers
-                                            .filter((u) => u.role === "sales" || u.role === "superadmin")
+                                            .filter((u) => u.role === "sales")
                                             .map((usr) => {
                                                 const isAssigned = currentAssigneeIds.includes(usr.id);
                                                 return (

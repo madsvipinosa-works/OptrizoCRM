@@ -25,7 +25,7 @@ export default async function ProposalBuilderPage({
         redirect("/login");
     }
 
-    if (!hasRole(session, ["superadmin", "manager", "developer", "content_editor"])) {
+    if (!hasRole(session, ["manager"])) {
         redirect("/dashboard/proposals");
     }
 

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { leads, users, leadAssignees } from "@/db/schema";
-import { desc, like, eq, and, or, inArray, isNull } from "drizzle-orm";
+import { desc, like, eq, and, or, inArray, isNull, sql } from "drizzle-orm";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
 import { CreateLeadModal } from "@/features/crm/components/CreateLeadModal";
 import { auth, hasRole } from "@/auth";
@@ -17,19 +17,20 @@ export default async function LeadsPage({
     }>;
 }) {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
+    if (!hasRole(session, ["sales", "manager"])) {
         return <div className="p-8 text-center text-red-500">Unauthorized</div>;
     }
 
     const currentUserId = session.user.id;
-    const isSuperAdmin = session.user.role === "superadmin";
-    const canSeeAllLeads = isSuperAdmin;
+    const isManager = session.user.role === "manager";
+    const isSales = session.user.role === "sales";
+    const canSeeAllLeads = isManager;
 
     // Role-based CRM visibility:
-    // - Superadmin sees all non-archived leads.
-    // - Sales sees only leads explicitly assigned to them.
+    // - Manager sees all leads (read-only).
+    // - Sales sees leads assigned to them plus unassigned leads.
     let assignedLeadIds: string[] = [];
-    if (!isSuperAdmin && session.user.id) {
+    if (!canSeeAllLeads && session.user.id) {
         const assigned = await db.query.leadAssignees.findMany({
             where: eq(leadAssignees.userId, currentUserId),
             columns: { leadId: true },
@@ -42,18 +43,26 @@ export default async function LeadsPage({
     const status = params?.status || "";
     const focusedLeadId = params?.leadId || "";
 
-    // Build Where Clause
-    const whereClause = and(
-        isNull(leads.archivedAt),
-        !canSeeAllLeads ? inArray(leads.id, assignedLeadIds) : undefined,
-        status && status !== "all" ? eq(leads.status, status as any) : undefined,
-        query
-            ? or(
-                like(leads.businessName, `%${query}%`),
-                like(leads.industry, `%${query}%`)
-            )
-            : undefined
-    );
+    // Build the where clause from the aliased table that the relational query
+    // passes in, so the correlated subquery references "leads" and not "lead".
+    const whereClause = (lead: { id: typeof leads.id; status: typeof leads.status; businessName: typeof leads.businessName; industry: typeof leads.industry; archivedAt: typeof leads.archivedAt }) => {
+        const unassigned = sql`not exists (select 1 from "lead_assignee" la where la."leadId" = ${lead.id})`;
+        const visibility =
+            assignedLeadIds.length > 0
+                ? or(inArray(lead.id, assignedLeadIds), unassigned)
+                : unassigned;
+        return and(
+            isNull(lead.archivedAt),
+            !canSeeAllLeads ? visibility : undefined,
+            status && status !== "all" ? eq(lead.status, status as any) : undefined,
+            query
+                ? or(
+                    like(lead.businessName, `%${query}%`),
+                    like(lead.industry, `%${query}%`)
+                )
+                : undefined
+        );
+    };
 
     const leadsList = await db.query.leads.findMany({
         where: whereClause,
@@ -105,10 +114,10 @@ export default async function LeadsPage({
         }
     }
 
-    // Fetch potential assignees (Admins/Editors)
+    // Fetch potential assignees (Sales staff)
     const assignableUsers = await db.query.users.findMany({
         columns: { id: true, name: true, image: true, jobTitle: true, role: true },
-        where: inArray(users.role, ["superadmin", "sales"]),
+        where: inArray(users.role, ["sales"]),
     });
 
     // Serialize dates for Client Component
@@ -140,7 +149,7 @@ export default async function LeadsPage({
                         Manage inquiries and active deals.
                     </p>
                 </div>
-                {isSuperAdmin && (
+                {isSales && (
                     <CreateLeadModal assignableUsers={assignableUsers} />
                 )}
             </div>
@@ -151,7 +160,7 @@ export default async function LeadsPage({
                 currentUserId={currentUserId}
                 query={query}
                 status={status}
-                isAdmin={isSuperAdmin || focusedLeadCanBeClaimed}
+                isAdmin={isSales || focusedLeadCanBeClaimed}
                 initialLeadId={focusedLeadId}
             />
         </div>

@@ -52,10 +52,16 @@ describe("getProjectForLead", () => {
     expect(mockDb.query.agencyProjects.findFirst).not.toHaveBeenCalled();
   });
 
-  it.each(["manager", "sales"] as const)("returns the project to %s", async (role) => {
-    signInAs(auth, role);
+  it("returns the project with id to the manager", async () => {
+    signInAs(auth, "manager");
     mockDb.query.agencyProjects.findFirst.mockResolvedValue({ id: "p1", title: "Portal", status: "Kickoff" });
     expect(await getProjectForLead("lead-1")).toEqual({ id: "p1", title: "Portal", status: "Kickoff" });
+  });
+
+  it("does not return a project id to sales", async () => {
+    signInAs(auth, "sales");
+    mockDb.query.agencyProjects.findFirst.mockResolvedValue({ id: "p1", title: "Portal", status: "Kickoff" });
+    expect(await getProjectForLead("lead-1")).toEqual({ id: null, title: "Portal", status: "Kickoff" });
   });
 });
 

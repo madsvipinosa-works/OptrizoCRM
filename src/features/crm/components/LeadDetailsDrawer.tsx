@@ -69,7 +69,7 @@ import {
     Globe,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
-import { logLeadActivity, archiveLead, convertLeadToProject, getProjectForLead } from "@/features/crm/actions";
+import { logLeadActivity, archiveLead, convertLeadToProject, getProjectForLead, claimLead } from "@/features/crm/actions";
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { completeCrmTask, createCrmTask, deleteCrmTask } from "@/actions/crm-tasks";
 import { createDraftProposalForLead } from "@/features/proposals/actions";
@@ -120,9 +120,10 @@ export function LeadDetailsDrawer({
     const [isLogging, setIsLogging] = useState(false);
     const [assigneeSearch, setAssigneeSearch] = useState("");
     const [isArchiving, setIsArchiving] = useState(false);
+    const [isClaiming, setIsClaiming] = useState(false);
 
     // Linked project state for Closed Won handover
-    const [linkedProject, setLinkedProject] = useState<{ id: string; title: string; status: string } | null>(null);
+    const [linkedProject, setLinkedProject] = useState<{ id: string | null; title: string; status: string } | null>(null);
     const [isConvertingProject, setIsConvertingProject] = useState(false);
 
     // Local state for tasks and activity logs to enable instant reactivity
@@ -243,6 +244,25 @@ export function LeadDetailsDrawer({
     const isStale = !["Closed Won", "Closed Lost"].includes(lead.status) && daysSinceContact >= 5;
 
     const currentAssigneeIds = lead.assignees?.map((a) => a.id) || [];
+    const handleClaimLead = async () => {
+        if (!lead || isClaiming) return;
+        setIsClaiming(true);
+        try {
+            const res = await claimLead({ leadId: lead.id });
+            if (res.ok) {
+                toast.success("Lead claimed!");
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to claim lead");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to claim lead");
+        } finally {
+            setIsClaiming(false);
+        }
+    };
+
     const handleToggleAssignee = (userId: string) => {
         if (!onAssignStaff) return;
         const newAssignees = currentAssigneeIds.includes(userId)
@@ -519,6 +539,18 @@ export function LeadDetailsDrawer({
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {currentAssigneeIds.length === 0 && (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    disabled={isClaiming}
+                                    onClick={handleClaimLead}
+                                    className="h-8 text-xs font-semibold bg-primary text-black hover:bg-primary/90"
+                                >
+                                    {isClaiming ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                                    Claim Lead
+                                </Button>
+                            )}
                             {/* Assign Staff Dropdown */}
                             {isAdmin && (
                                 <DropdownMenu>
@@ -542,7 +574,7 @@ export function LeadDetailsDrawer({
                                             <div className="relative">
                                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                                                 <Input
-                                                    placeholder="Search staff (Sales & Admin)…"
+                                                    placeholder="Search staff (Sales)…"
                                                     value={assigneeSearch}
                                                     onChange={(e) => setAssigneeSearch(e.target.value)}
                                                     onKeyDown={(e) => e.stopPropagation()}
@@ -554,7 +586,7 @@ export function LeadDetailsDrawer({
                                         <div className="py-1 max-h-52 overflow-y-auto">
                                             {(() => {
                                                 const eligibleUsers = assignableUsers.filter(
-                                                    (u) => u.role === "sales" || u.role === "superadmin"
+                                                    (u) => u.role === "sales"
                                                 );
                                                 const filtered = eligibleUsers.filter((u) =>
                                                     (u.name || "").toLowerCase().includes(assigneeSearch.toLowerCase()) ||
@@ -570,7 +602,7 @@ export function LeadDetailsDrawer({
                                                 }
                                                 return filtered.map((usr) => {
                                                     const isAssigned = currentAssigneeIds.includes(usr.id);
-                                                    const roleLabel = usr.role === "superadmin" ? "Admin" : (usr.jobTitle || "Sales");
+                                                    const roleLabel = usr.jobTitle || "Sales";
                                                     return (
                                                         <DropdownMenuItem
                                                             key={usr.id}
@@ -717,16 +749,22 @@ export function LeadDetailsDrawer({
                             </div>
 
                             {linkedProject ? (
-                                <Button
-                                    size="sm"
-                                    asChild
-                                    className="h-8 text-xs bg-emerald-500 text-black hover:bg-emerald-400 font-semibold gap-1.5 shrink-0"
-                                >
-                                    <Link href={`/dashboard/pm/${linkedProject.id}`}>
-                                        <span>Open PM Workspace</span>
-                                        <ExternalLink className="h-3 w-3" />
-                                    </Link>
-                                </Button>
+                                linkedProject.id ? (
+                                    <Button
+                                        size="sm"
+                                        asChild
+                                        className="h-8 text-xs bg-emerald-500 text-black hover:bg-emerald-400 font-semibold gap-1.5 shrink-0"
+                                    >
+                                        <Link href={`/dashboard/pm/${linkedProject.id}`}>
+                                            <span>Open PM Workspace</span>
+                                            <ExternalLink className="h-3 w-3" />
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <span className="text-xs font-semibold text-emerald-400 shrink-0">
+                                        Project created
+                                    </span>
+                                )
                             ) : (
                                 <Button
                                     size="sm"
@@ -1109,10 +1147,10 @@ export function LeadDetailsDrawer({
                                             <SelectContent className="bg-card border-border text-foreground text-xs">
                                                 <SelectItem value="unassigned">Unassigned (Anyone)</SelectItem>
                                                 {assignableUsers
-                                                    .filter((u) => u.role === "sales" || u.role === "superadmin")
+                                                    .filter((u) => u.role === "sales")
                                                     .map((user) => (
                                                         <SelectItem key={user.id} value={user.id}>
-                                                            {user.name || "User"} {user.role === "superadmin" ? "(Admin)" : user.jobTitle ? `(${user.jobTitle})` : "(Sales)"}
+                                                            {user.name || "User"} {user.jobTitle ? `(${user.jobTitle})` : "(Sales)"}
                                                         </SelectItem>
                                                     ))}
                                             </SelectContent>

@@ -15,11 +15,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function PMArchivesPage() {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "manager", "developer"])) {
+    if (!hasRole(session, ["manager", "developer"])) {
         redirect("/");
     }
 
-    const isSuperAdmin = hasRole(session, ["superadmin"]);
+    const isSuperAdmin = hasRole(session, ["manager"]);
 
     const projects = await db.query.agencyProjects.findMany({
         where: eq(agencyProjects.isArchived, true),

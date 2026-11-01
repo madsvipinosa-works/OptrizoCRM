@@ -5,7 +5,7 @@ import { auth, hasRole } from "@/auth";
 export default async function NewPostPage() {
     notFound();
     const session = await auth();
-    const isAdmin = hasRole(session, ["superadmin"]);
+    const isAdmin = hasRole(session, ["content_editor"]);
 
     return (
         <div className="max-w-4xl mx-auto">

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Clock, CheckCircle, ArrowRight, Activity, Plus, FileText, LayoutTemplate, Briefcase, Calendar } from "lucide-react";
+import { AlertCircle, Clock, CheckCircle, ArrowRight, Activity, Plus, LayoutTemplate, Briefcase, Calendar } from "lucide-react";
 import { format, isToday, isTomorrow, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -27,9 +27,9 @@ export default async function DashboardPage() {
     const tomorrowEnd = endOfDay(addDays(now, 1));
 
     // Role checks
-    const isSales = hasRole(session, ["superadmin", "sales"]);
-    const isDelivery = hasRole(session, ["superadmin", "manager", "developer"]);
-    const canSeeAllLeads = hasRole(session, ["superadmin"]);
+    const isSales = hasRole(session, ["sales"]);
+    const isDelivery = hasRole(session, ["manager", "developer"]);
+    const canSeeAllLeads = hasRole(session, ["manager"]);
 
     // ==========================================
     // 1. FETCH SALES & CRM DATA
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
             with: { project: true, assignees: true },
         });
 
-        const myActiveTasks = activeTasks.filter(t => !t.project?.isArchived && (hasRole(session, ["superadmin", "manager"]) || t.assignees.some(a => a.userId === currentUserId)));
+        const myActiveTasks = activeTasks.filter(t => !t.project?.isArchived && (hasRole(session, ["manager"]) || t.assignees.some(a => a.userId === currentUserId)));
 
         overdueTasks = myActiveTasks.filter(t => t.dueDate && t.dueDate < todayStart);
         todayTasks = myActiveTasks.filter(t => t.dueDate && t.dueDate >= todayStart && t.dueDate <= tomorrowEnd);
@@ -117,14 +117,9 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     {isSales && (
-                        <>
-                            <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-colors shadow-sm">
-                                <Plus className="w-4 h-4 mr-2" /> New Lead
-                            </Button>
-                            <Button variant="outline" className="border-border text-foreground hover:bg-muted transition-colors shadow-sm">
-                                <FileText className="w-4 h-4 mr-2" /> Draft Proposal
-                            </Button>
-                        </>
+                        <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-colors shadow-sm">
+                            <Plus className="w-4 h-4 mr-2" /> New Lead
+                        </Button>
                     )}
                     {isDelivery && (
                         <Button variant="outline" className="border-border text-foreground hover:bg-muted transition-colors shadow-sm">

@@ -448,7 +448,7 @@ function TaskCardContent({
                 </div>
 
                 {/* Delete Button for Admins/Managers */}
-                {["superadmin", "manager"].includes(currentUserRole || "") && onDeleteTask && (
+                {["manager"].includes(currentUserRole || "") && onDeleteTask && (
                     <div className="flex items-center shrink-0 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                             onClick={(e) => {

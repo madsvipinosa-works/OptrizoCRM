@@ -14,7 +14,7 @@ export type ActionState = {
 
 async function requireEditor() {
     const session = await auth();
-    if (!hasRole(session, ["superadmin", "content_editor"])) {
+    if (!hasRole(session, ["content_editor"])) {
         throw new Error("Unauthorized: Editor access required");
     }
     return session;
@@ -22,7 +22,7 @@ async function requireEditor() {
 
 async function requireAdmin() {
     const session = await auth();
-    if (!hasRole(session, ["superadmin"])) {
+    if (!hasRole(session, ["content_editor"])) {
         throw new Error("Unauthorized: Admin access required");
     }
     return session;

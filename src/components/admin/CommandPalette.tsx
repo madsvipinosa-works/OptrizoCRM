@@ -68,29 +68,26 @@ export function CommandPalette({ open, setOpen, userRole = "client" }: CommandPa
                         </Command.Empty>
 
                         {/* CRM & Growth */}
-                        {hasRole(["superadmin", "sales"]) && (
+                        {hasRole(["sales", "manager"]) && (
                             <Command.Group heading="CRM & Pipeline">
-                                <Command.Item
-                                    onSelect={() => runCommand(() => router.push("/dashboard/analytics"))}
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
-                                >
-                                    <BarChart3 className="h-4 w-4 text-primary" />
-                                    <span>Analytics Dashboard</span>
-                                </Command.Item>
-                                <Command.Item
-                                    onSelect={() => runCommand(() => router.push("/dashboard/inquiries"))}
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
-                                >
-                                    <Mail className="h-4 w-4 text-sky-500" />
-                                    <span>Inquiries Hub</span>
-                                </Command.Item>
-                                <Command.Item
-                                    onSelect={() => runCommand(() => router.push("/dashboard/contacts"))}
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
-                                >
-                                    <Users className="h-4 w-4 text-emerald-500" />
-                                    <span>Client Contacts</span>
-                                </Command.Item>
+                                {hasRole(["sales"]) && (
+                                    <>
+                                        <Command.Item
+                                            onSelect={() => runCommand(() => router.push("/dashboard/inquiries"))}
+                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                                        >
+                                            <Mail className="h-4 w-4 text-sky-500" />
+                                            <span>Inquiries Hub</span>
+                                        </Command.Item>
+                                        <Command.Item
+                                            onSelect={() => runCommand(() => router.push("/dashboard/contacts"))}
+                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                                        >
+                                            <Users className="h-4 w-4 text-emerald-500" />
+                                            <span>Client Contacts</span>
+                                        </Command.Item>
+                                    </>
+                                )}
                                 <Command.Item
                                     onSelect={() => runCommand(() => router.push("/dashboard/leads"))}
                                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
@@ -109,9 +106,9 @@ export function CommandPalette({ open, setOpen, userRole = "client" }: CommandPa
                         )}
 
                         {/* Operations */}
-                        {(hasRole(["superadmin", "manager", "developer"]) || hasRole(["superadmin", "content_editor"])) && (
+                        {(hasRole(["manager", "developer"]) || hasRole(["content_editor"])) && (
                             <Command.Group heading="Operations & CMS">
-                                {hasRole(["superadmin", "manager", "developer"]) && (
+                                {hasRole(["manager", "developer"]) && (
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push("/dashboard/pm"))}
                                         className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
@@ -120,7 +117,7 @@ export function CommandPalette({ open, setOpen, userRole = "client" }: CommandPa
                                         <span>Active Delivery Board</span>
                                     </Command.Item>
                                 )}
-                                {hasRole(["superadmin", "content_editor"]) && (
+                                {hasRole(["content_editor"]) && (
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push("/dashboard/cms"))}
                                         className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
@@ -135,6 +132,13 @@ export function CommandPalette({ open, setOpen, userRole = "client" }: CommandPa
                         {/* System */}
                         {hasRole(["superadmin"]) && (
                             <Command.Group heading="System Administration">
+                                <Command.Item
+                                    onSelect={() => runCommand(() => router.push("/dashboard/analytics"))}
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                                >
+                                    <BarChart3 className="h-4 w-4 text-primary" />
+                                    <span>Analytics Dashboard</span>
+                                </Command.Item>
                                 <Command.Item
                                     onSelect={() => runCommand(() => router.push("/dashboard/team"))}
                                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"

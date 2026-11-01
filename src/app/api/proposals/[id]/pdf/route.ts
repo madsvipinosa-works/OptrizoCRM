@@ -66,7 +66,7 @@ export async function GET(
         }
 
         // Access Control
-        const isStaff = hasRole(session, ["superadmin", "manager", "sales"]);
+        const isStaff = hasRole(session, ["manager", "sales"]);
         const isOwner =
             proposal.lead &&
             (session.user.id === proposal.lead.clientId ||
