@@ -259,6 +259,7 @@ export const lossReasonEnum = pgEnum("loss_reason", [
 ]);
 export const activityEnum = pgEnum("activity_type", ["System", "Note", "Email", "Call", "Meeting", "outside_discussion"]);
 export const qualificationStatusEnum = pgEnum("qualification_status", ["Lead", "MQL", "SQL"]);
+export const clientTypeEnum = pgEnum("client_type", ["local", "international"]);
 
 export const leads = pgTable("lead", {
     id: text("id")
@@ -295,6 +296,9 @@ export const leads = pgTable("lead", {
     contactPreference: text("contact_preference"),
     otherServiceText: text("other_service_text"),
     details: text("details"),
+    clientType: clientTypeEnum("client_type").default("local").notNull(),
+    proposalRequestedAt: timestamp("proposal_requested_at", { withTimezone: true }),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -392,6 +396,30 @@ export const meetings = pgTable("meeting", {
     index("idx_meeting_lead").on(t.leadId),
     index("idx_meeting_starts_at").on(t.startsAt),
     index("idx_meeting_status").on(t.status),
+]);
+
+
+// 13c. Discovery Forms
+export const discoveryForms = pgTable("discovery_form", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    leadId: text("leadId")
+        .notNull()
+        .references(() => leads.id, { onDelete: "cascade" }),
+    goals: text("goals").notNull(),
+    requiredFeatures: text("required_features").notNull(),
+    targetTimeline: text("target_timeline").notNull(),
+    budgetRange: text("budget_range").notNull(),
+    clientType: clientTypeEnum("client_type").default("local").notNull(),
+    notes: text("notes"),
+    submittedBy: text("submitted_by")
+        .references(() => users.id, { onDelete: "set null" }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index("idx_discovery_form_lead").on(t.leadId),
 ]);
 
 // 14. Proposals
@@ -545,6 +573,7 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
     assignees: many(leadAssignees),
     proposals: many(proposals),
     meetings: many(meetings),
+    discoveryForms: many(discoveryForms),
     crmTasks: many(crmTasks),
     client: one(users, {
         fields: [leads.clientId],
@@ -817,6 +846,18 @@ export const clientFeedback = pgTable("client_feedback", {
 }));
 
 // PM Relations
+
+
+export const discoveryFormsRelations = relations(discoveryForms, ({ one }) => ({
+    lead: one(leads, {
+        fields: [discoveryForms.leadId],
+        references: [leads.id],
+    }),
+    submitter: one(users, {
+        fields: [discoveryForms.submittedBy],
+        references: [users.id],
+    }),
+}));
 
 export const meetingsRelations = relations(meetings, ({ one }) => ({
     lead: one(leads, {

@@ -1,5 +1,9 @@
-import { ScheduleDiscoveryMeetingModal } from "@/features/meetings/components/ScheduleDiscoveryMeetingModal";
 "use client";
+
+import { DiscoveryTracker } from "@/features/crm/components/DiscoveryTracker";
+import { DiscoveryFormModal } from "@/features/crm/components/DiscoveryFormModal";
+import { getDiscoveryTrackerData } from "@/features/crm/actions";
+import { ScheduleDiscoveryMeetingModal } from "@/features/meetings/components/ScheduleDiscoveryMeetingModal";
 
 import { useState, useEffect } from "react";
 import {
@@ -152,6 +156,36 @@ export function LeadDetailsDrawer({
     };
 
     const [isScheduleMeetingModalOpen, setIsScheduleMeetingModalOpen] = useState(false);
+    const [isDiscoveryFormModalOpen, setIsDiscoveryFormModalOpen] = useState(false);
+    const [trackerData, setTrackerData] = useState<{
+        hasMeetingScheduled: boolean;
+        hasMeetingDone: boolean;
+        doneMeetingNotes?: string | null;
+        doneMeetingDate?: Date | string | null;
+        doneMeetingFormat?: string | null;
+        isFormSubmitted: boolean;
+        isProposalRequested: boolean;
+        proposalRequestedAt?: Date | string | null;
+        discoveryForm?: Record<string, unknown> | null;
+        clientType?: string;
+    } | null>(null);
+
+    const loadTracker = async () => {
+        if (!lead?.id) return;
+        try {
+            const data = await getDiscoveryTrackerData(lead.id);
+            setTrackerData(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    useEffect(() => {
+        if (lead?.id) {
+            loadTracker();
+        }
+    }, [lead?.id]);
+
     const [isGeneratingSOW, setIsGeneratingSOW] = useState(false);
     const handleGenerateSOW = async () => {
         if (!lead || isGeneratingSOW) return;
@@ -714,6 +748,21 @@ export function LeadDetailsDrawer({
 
                         {/* TAB 1: OVERVIEW */}
                         <TabsContent value="overview" className="flex-1 overflow-y-auto p-6 space-y-6 m-0">
+                            {/* Discovery 3-Step Tracker (Spec §4) */}
+                            <DiscoveryTracker
+                                leadId={lead.id}
+                                hasMeetingScheduled={trackerData?.hasMeetingScheduled ?? false}
+                                hasMeetingDone={trackerData?.hasMeetingDone ?? false}
+                                doneMeetingNotes={trackerData?.doneMeetingNotes}
+                                doneMeetingDate={trackerData?.doneMeetingDate}
+                                doneMeetingFormat={trackerData?.doneMeetingFormat}
+                                isFormSubmitted={trackerData?.isFormSubmitted ?? false}
+                                discoveryForm={trackerData?.discoveryForm}
+                                isProposalRequested={trackerData?.isProposalRequested ?? false}
+                                proposalRequestedAt={trackerData?.proposalRequestedAt}
+                                onOpenDiscoveryForm={() => setIsDiscoveryFormModalOpen(true)}
+                                onRefresh={loadTracker}
+                            />
                             {/* Financial & Deal Summary Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="p-3.5 rounded-xl bg-card border border-border space-y-1">
@@ -1321,6 +1370,18 @@ export function LeadDetailsDrawer({
             </SheetContent>
 
             {/* Schedule Discovery Meeting Modal */}
+            
+            {/* Discovery Form Modal */}
+            <DiscoveryFormModal
+                isOpen={isDiscoveryFormModalOpen}
+                onClose={() => setIsDiscoveryFormModalOpen(false)}
+                leadId={lead.id}
+                businessName={leadTitle}
+                initialData={trackerData?.discoveryForm}
+                isLocked={trackerData?.isProposalRequested}
+                onSuccess={loadTracker}
+            />
+
             <ScheduleDiscoveryMeetingModal
                 isOpen={isScheduleMeetingModalOpen}
                 onClose={() => setIsScheduleMeetingModalOpen(false)}

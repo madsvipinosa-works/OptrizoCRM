@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { leads, inquiries, users, leadActivityLogs, agencyProjects, leadAssignees, tasks, proposals, passwordResetTokens, crmTasks } from "@/db/schema";
+import { leads, inquiries, users, leadActivityLogs, agencyProjects, leadAssignees, tasks, proposals, passwordResetTokens, crmTasks, discoveryForms, meetings } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { eq, inArray, and, sql, not, isNull, desc } from "drizzle-orm";
 import { leadUpdateSchema, transitionLeadSchema, logLeadActivitySchema, type LeadUpdateValues, type TransitionLeadValues, type LogLeadActivityValues } from "@/lib/schemas";
@@ -1248,3 +1248,49 @@ export async function bulkAssignLeads(
 
 
 
+
+
+export async function getDiscoveryTrackerData(leadId: string) {
+    const lead = await db.query.leads.findFirst({
+        where: eq(leads.id, leadId),
+        columns: {
+            id: true,
+            proposalRequestedAt: true,
+            clientType: true,
+        },
+    });
+
+    const discoveryMeetings = await db.query.meetings.findMany({
+        where: and(eq(meetings.leadId, leadId), eq(meetings.type, "discovery")),
+        columns: {
+            id: true,
+            status: true,
+            startsAt: true,
+            format: true,
+            notes: true,
+        },
+    });
+
+    const form = await db.query.discoveryForms.findFirst({
+        where: eq(discoveryForms.leadId, leadId),
+    });
+
+    const hasMeetingScheduled = discoveryMeetings.length > 0;
+    const doneMeeting = discoveryMeetings.find((m) => m.status === "done");
+    const hasMeetingDone = !!doneMeeting;
+    const isFormSubmitted = !!form?.submittedAt;
+    const isProposalRequested = !!lead?.proposalRequestedAt;
+
+    return {
+        hasMeetingScheduled,
+        hasMeetingDone,
+        doneMeetingNotes: doneMeeting?.notes || null,
+        doneMeetingDate: doneMeeting?.startsAt || null,
+        doneMeetingFormat: doneMeeting?.format || null,
+        isFormSubmitted,
+        isProposalRequested,
+        proposalRequestedAt: lead?.proposalRequestedAt || null,
+        discoveryForm: form || null,
+        clientType: lead?.clientType || form?.clientType || "local",
+    };
+}

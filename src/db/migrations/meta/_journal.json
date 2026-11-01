@@ -50,6 +50,13 @@
       "when": 1793525875551,
       "tag": "0007_meetings_table",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793527599131,
+      "tag": "0008_discovery_forms",
+      "breakpoints": true
     }
   ]
 }
