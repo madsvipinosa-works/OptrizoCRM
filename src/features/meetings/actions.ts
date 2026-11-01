@@ -163,7 +163,7 @@ export async function respondToMeeting(data: {
         (meeting.lead?.clientId && meeting.lead.clientId === session.user.id) ||
         (meeting.lead?.contactEmail && meeting.lead.contactEmail.toLowerCase() === session.user.email.toLowerCase());
 
-    if (!isOwner && session.user.role !== "superadmin") {
+    if (!isOwner) {
         return { success: false, message: "You are not authorized to respond to this meeting" };
     }
 

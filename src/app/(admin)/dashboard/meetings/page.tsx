@@ -21,7 +21,7 @@ import { MeetingDetailDrawer } from "@/features/meetings/components/MeetingDetai
 export default function MeetingsPage() {
     const { data: session } = useSession();
     const role = (session?.user as { role?: string } | undefined)?.role || "sales";
-    const isSales = role === "sales" || role === "superadmin";
+    const isSales = role === "sales";
 
     const [meetingsList, setMeetingsList] = useState<MeetingItem[]>([]);
     const [selectedTab, setSelectedTab] = useState<"upcoming" | "done" | "cancelled">("upcoming");
