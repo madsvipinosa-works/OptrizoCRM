@@ -9,6 +9,7 @@ interface Props {
 }
 
 export default async function EditTestimonialPage({ params }: Props) {
+    notFound();
     const { id } = await params;
 
     const testimonial = await db.query.testimonials.findFirst({

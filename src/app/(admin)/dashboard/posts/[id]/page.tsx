@@ -10,6 +10,7 @@ interface Props {
 }
 
 export default async function EditPostPage({ params }: Props) {
+    notFound();
     const { id } = await params;
     const session = await auth();
     const isAdmin = hasRole(session, ["superadmin"]);

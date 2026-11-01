@@ -15,7 +15,6 @@ export async function Navbar() {
         { href: "/services", label: "Services" },
         { href: "/projects", label: "Projects" },
         { href: "/about", label: "About" },
-        { href: "/blog", label: "Blog" },
     ];
 
     return (

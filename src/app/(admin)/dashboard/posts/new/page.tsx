@@ -1,7 +1,9 @@
+import { notFound } from "next/navigation";
 import { PostForm } from "@/features/cms/components/PostForm";
 import { auth, hasRole } from "@/auth";
 
 export default async function NewPostPage() {
+    notFound();
     const session = await auth();
     const isAdmin = hasRole(session, ["superadmin"]);
 

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { testimonials } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
 export default async function TestimonialsPage() {
+    notFound();
     const allTestimonials = await db.query.testimonials.findMany({
         where: eq(testimonials.active, true),
         orderBy: [desc(testimonials.id)],

@@ -40,7 +40,6 @@ const footerLinks: FooterSection[] = [
         links: [
             { title: 'About Us', href: '/about' },
             { title: 'Our Work', href: '/projects' },
-            { title: 'Blog', href: '/blog' },
             { title: 'Contact', href: '/contact' },
         ],
     },
@@ -48,7 +47,6 @@ const footerLinks: FooterSection[] = [
         label: 'Resources',
         links: [
             { title: 'Case Studies', href: '/projects' },
-            { title: 'Testimonials', href: '/testimonials' },
             { title: 'Get a Quote', href: '/contact' },
             { title: 'Careers', href: '/careers' },
         ],
