@@ -1,6 +1,6 @@
 {
-  "id": "e19e2432-6295-4d6c-91ae-003d5b966e79",
-  "prevId": "5a611d05-83be-48c3-99a8-9fd463accc8a",
+  "id": "bc663a08-cbfe-4808-93f9-bdc324e78df0",
+  "prevId": "38b06092-5678-4b1e-969e-85cffb2c6a58",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -166,8 +166,21 @@
           "primaryKey": false,
           "notNull": true
         },
+        "progress_percentage": {
+          "name": "progress_percentage",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "description": {
           "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_brief": {
+          "name": "source_brief",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -204,6 +217,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "documents": {
+          "name": "documents",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "is_archived": {
           "name": "is_archived",
           "type": "boolean",
@@ -232,7 +251,38 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_project_lead": {
+          "name": "idx_project_lead",
+          "columns": [
+            {
+              "expression": "leadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_project_status": {
+          "name": "idx_project_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "agency_project_leadId_lead_id_fk": {
           "name": "agency_project_leadId_lead_id_fk",
@@ -319,6 +369,142 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.case_study": {
+      "name": "case_study",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "clientName": {
+          "name": "clientName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coverImage": {
+          "name": "coverImage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gallery_images": {
+          "name": "gallery_images",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "technologies": {
+          "name": "technologies",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "published": {
+          "name": "published",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "order": {
+          "name": "order",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_case_studies_slug": {
+          "name": "idx_case_studies_slug",
+          "columns": [
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_case_studies_published": {
+          "name": "idx_case_studies_published",
+          "columns": [
+            {
+              "expression": "published",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "case_study_slug_unique": {
+          "name": "case_study_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.client_feedback": {
       "name": "client_feedback",
       "schema": "",
@@ -350,6 +536,18 @@
         },
         "comment_text": {
           "name": "comment_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attachment_url": {
+          "name": "attachment_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attachment_name": {
+          "name": "attachment_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -416,6 +614,184 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.crm_task": {
+      "name": "crm_task",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "leadId": {
+          "name": "leadId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assignedTo": {
+          "name": "assignedTo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "task_type": {
+          "name": "task_type",
+          "type": "crm_task_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'To-do'"
+        },
+        "status": {
+          "name": "status",
+          "type": "crm_task_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Pending'"
+        },
+        "priority": {
+          "name": "priority",
+          "type": "crm_task_priority",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Medium'"
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_crm_task_lead": {
+          "name": "idx_crm_task_lead",
+          "columns": [
+            {
+              "expression": "leadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_crm_task_assignee_status": {
+          "name": "idx_crm_task_assignee_status",
+          "columns": [
+            {
+              "expression": "assignedTo",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_crm_task_due_status": {
+          "name": "idx_crm_task_due_status",
+          "columns": [
+            {
+              "expression": "due_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "crm_task_leadId_lead_id_fk": {
+          "name": "crm_task_leadId_lead_id_fk",
+          "tableFrom": "crm_task",
+          "tableTo": "lead",
+          "columnsFrom": [
+            "leadId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "crm_task_assignedTo_user_id_fk": {
+          "name": "crm_task_assignedTo_user_id_fk",
+          "tableFrom": "crm_task",
+          "tableTo": "user",
+          "columnsFrom": [
+            "assignedTo"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.inquiry": {
       "name": "inquiry",
       "schema": "",
@@ -465,6 +841,25 @@
           "notNull": false,
           "default": "'Website Form'"
         },
+        "ownerId": {
+          "name": "ownerId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nextAction": {
+          "name": "nextAction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "isHandled": {
+          "name": "isHandled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -474,7 +869,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "inquiry_ownerId_user_id_fk": {
+          "name": "inquiry_ownerId_user_id_fk",
+          "tableFrom": "inquiry",
+          "tableTo": "user",
+          "columnsFrom": [
+            "ownerId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -634,7 +1043,7 @@
           "name": "clientId",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "serviceId": {
           "name": "serviceId",
@@ -648,11 +1057,58 @@
           "primaryKey": false,
           "notNull": false
         },
+        "contact_name": {
+          "name": "contact_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_phone": {
+          "name": "contact_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_email": {
+          "name": "contact_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "budget": {
           "name": "budget",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "estimated_value": {
+          "name": "estimated_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "lead_score": {
+          "name": "lead_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "qualification_status": {
+          "name": "qualification_status",
+          "type": "qualification_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Lead'"
+        },
+        "priority": {
+          "name": "priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Warm'"
         },
         "goals": {
           "name": "goals",
@@ -684,7 +1140,7 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'Pending Approval'"
+          "default": "'New Lead'"
         },
         "source": {
           "name": "source",
@@ -692,6 +1148,44 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'Client Portal Intake'"
+        },
+        "last_contacted_at": {
+          "name": "last_contacted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_follow_up_date": {
+          "name": "next_follow_up_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "loss_reason": {
+          "name": "loss_reason",
+          "type": "loss_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "loss_notes": {
+          "name": "loss_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "isArchived": {
+          "name": "isArchived",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "closed_won_at": {
+          "name": "closed_won_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -708,7 +1202,59 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_lead_status_archived": {
+          "name": "idx_lead_status_archived",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "isArchived",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_lead_client": {
+          "name": "idx_lead_client",
+          "columns": [
+            {
+              "expression": "clientId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_lead_last_contacted": {
+          "name": "idx_lead_last_contacted",
+          "columns": [
+            {
+              "expression": "last_contacted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "lead_clientId_user_id_fk": {
           "name": "lead_clientId_user_id_fk",
@@ -720,7 +1266,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "lead_serviceId_service_id_fk": {
@@ -780,6 +1326,12 @@
           "notNull": true,
           "default": 0
         },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -801,7 +1353,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_milestone_project": {
+          "name": "idx_milestone_project",
+          "columns": [
+            {
+              "expression": "projectId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "milestone_projectId_agency_project_id_fk": {
           "name": "milestone_projectId_agency_project_id_fk",
@@ -1007,7 +1575,29 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_posts_published_created": {
+          "name": "idx_posts_published_created",
+          "columns": [
+            {
+              "expression": "published",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "post_authorId_user_id_fk": {
           "name": "post_authorId_user_id_fk",
@@ -1203,89 +1793,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.project": {
-      "name": "project",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "slug": {
-          "name": "slug",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "clientName": {
-          "name": "clientName",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "coverImage": {
-          "name": "coverImage",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "images": {
-          "name": "images",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'published'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "project_slug_unique": {
-          "name": "project_slug_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.proposal": {
       "name": "proposal",
       "schema": "",
@@ -1302,6 +1809,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "proposal_code": {
+          "name": "proposal_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "scope": {
           "name": "scope",
           "type": "text",
@@ -1310,7 +1823,7 @@
         },
         "deliverables": {
           "name": "deliverables",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -1328,7 +1841,47 @@
         },
         "pricingStructure": {
           "name": "pricingStructure",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subtotal": {
+          "name": "subtotal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "discount": {
+          "name": "discount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "tax": {
+          "name": "tax",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "total": {
+          "name": "total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "terms": {
+          "name": "terms",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
@@ -1342,6 +1895,54 @@
         },
         "fileUrl": {
           "name": "fileUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_by_name": {
+          "name": "accepted_by_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_by_email": {
+          "name": "accepted_by_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_by_title": {
+          "name": "accepted_by_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signature_data": {
+          "name": "signature_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_at": {
+          "name": "accepted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_ip": {
+          "name": "accepted_ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_user_agent": {
+          "name": "accepted_user_agent",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1365,9 +1966,46 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "contractSettings": {
+          "name": "contractSettings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_proposal_lead": {
+          "name": "idx_proposal_lead",
+          "columns": [
+            {
+              "expression": "leadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_proposal_code": {
+          "name": "idx_proposal_code",
+          "columns": [
+            {
+              "expression": "proposal_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "proposal_leadId_lead_id_fk": {
           "name": "proposal_leadId_lead_id_fk",
@@ -1464,6 +2102,32 @@
           "primaryKey": false,
           "notNull": true
         },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'#05160b'"
+        },
+        "link": {
+          "name": "link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'/contact'"
+        },
         "icon": {
           "name": "icon",
           "type": "text",
@@ -1476,6 +2140,52 @@
           "primaryKey": false,
           "notNull": false,
           "default": 0
+        },
+        "is_featured": {
+          "name": "is_featured",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inclusions": {
+          "name": "inclusions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "deliverables": {
+          "name": "deliverables",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "scope_overview": {
+          "name": "scope_overview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timeline_estimate": {
+          "name": "timeline_estimate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'2-4 Weeks'"
+        },
+        "target_audience": {
+          "name": "target_audience",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -1540,7 +2250,7 @@
           "type": "text",
           "primaryKey": true,
           "notNull": true,
-          "default": "'1'"
+          "default": "'singleton_root'"
         },
         "heroTitle": {
           "name": "heroTitle",
@@ -1568,6 +2278,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "logoDarkUrl": {
+          "name": "logoDarkUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "faviconUrl": {
           "name": "faviconUrl",
           "type": "text",
@@ -1582,9 +2298,10 @@
         },
         "notificationEmails": {
           "name": "notificationEmails",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "demoVideoUrl": {
           "name": "demoVideoUrl",
@@ -1592,19 +2309,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "monthly_marketing_spend": {
-          "name": "monthly_marketing_spend",
-          "type": "integer",
+        "faqs": {
+          "name": "faqs",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
-          "default": 1000
-        },
-        "admin_hours_saved_per_project": {
-          "name": "admin_hours_saved_per_project",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 2
+          "default": "'[]'::jsonb"
         },
         "about_hero_title": {
           "name": "about_hero_title",
@@ -1621,9 +2331,10 @@
         },
         "company_stats": {
           "name": "company_stats",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "about_tech_stack": {
           "name": "about_tech_stack",
@@ -1634,9 +2345,10 @@
         },
         "about_tech_stack_items": {
           "name": "about_tech_stack_items",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "about_cta_headline": {
           "name": "about_cta_headline",
@@ -1655,6 +2367,196 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "site_settings_singleton_check": {
+          "name": "site_settings_singleton_check",
+          "value": "\"site_settings\".\"id\" = 'singleton_root'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.system_error_log": {
+      "name": "system_error_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'UNKNOWN_ERROR'"
+        },
+        "severity": {
+          "name": "severity",
+          "type": "error_severity",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'MEDIUM'"
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stack_trace": {
+          "name": "stack_trace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "context": {
+          "name": "context",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_resolved": {
+          "name": "is_resolved",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "resolved_at": {
+          "name": "resolved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolved_by_id": {
+          "name": "resolved_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolution_notes": {
+          "name": "resolution_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_error_created": {
+          "name": "idx_error_created",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_error_severity": {
+          "name": "idx_error_severity",
+          "columns": [
+            {
+              "expression": "severity",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_error_resolved": {
+          "name": "idx_error_resolved",
+          "columns": [
+            {
+              "expression": "is_resolved",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_error_code": {
+          "name": "idx_error_code",
+          "columns": [
+            {
+              "expression": "error_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "system_error_log_userId_user_id_fk": {
+          "name": "system_error_log_userId_user_id_fk",
+          "tableFrom": "system_error_log",
+          "tableTo": "user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "system_error_log_resolved_by_id_user_id_fk": {
+          "name": "system_error_log_resolved_by_id_user_id_fk",
+          "tableFrom": "system_error_log",
+          "tableTo": "user",
+          "columnsFrom": [
+            "resolved_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1716,6 +2618,92 @@
           ]
         }
       },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.task_submission": {
+      "name": "task_submission",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "taskId": {
+          "name": "taskId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "submitted_by": {
+          "name": "submitted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "proof_url": {
+          "name": "proof_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "submission_notes": {
+          "name": "submission_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_task_submission_task_created": {
+          "name": "idx_task_submission_task_created",
+          "columns": [
+            {
+              "expression": "taskId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_submission_taskId_task_id_fk": {
+          "name": "task_submission_taskId_task_id_fk",
+          "tableFrom": "task_submission",
+          "tableTo": "task",
+          "columnsFrom": [
+            "taskId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -1852,11 +2840,25 @@
           "notNull": true,
           "default": "'Todo'"
         },
-        "proof_url": {
-          "name": "proof_url",
-          "type": "text",
+        "weight": {
+          "name": "weight",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "estimated_hours": {
+          "name": "estimated_hours",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
+        },
+        "proof_links": {
+          "name": "proof_links",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
         },
         "proof_notes": {
           "name": "proof_notes",
@@ -1869,7 +2871,7 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": false
+          "default": true
         },
         "is_blocked_by_client": {
           "name": "is_blocked_by_client",
@@ -1878,12 +2880,24 @@
           "notNull": true,
           "default": false
         },
+        "blocked_reason": {
+          "name": "blocked_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "overdue_notified": {
           "name": "overdue_notified",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1906,7 +2920,92 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_task_project_deleted": {
+          "name": "idx_task_project_deleted",
+          "columns": [
+            {
+              "expression": "projectId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "deleted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_milestone_deleted": {
+          "name": "idx_task_milestone_deleted",
+          "columns": [
+            {
+              "expression": "milestoneId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "deleted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_project_status": {
+          "name": "idx_task_project_status",
+          "columns": [
+            {
+              "expression": "projectId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_milestone_status": {
+          "name": "idx_task_milestone_status",
+          "columns": [
+            {
+              "expression": "milestoneId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "task_projectId_agency_project_id_fk": {
           "name": "task_projectId_agency_project_id_fk",
@@ -2063,7 +3162,7 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'user'"
+          "default": "'client'"
         },
         "job_title": {
           "name": "job_title",
@@ -2191,6 +3290,45 @@
         "OTHER"
       ]
     },
+    "public.crm_task_priority": {
+      "name": "crm_task_priority",
+      "schema": "public",
+      "values": [
+        "Low",
+        "Medium",
+        "High"
+      ]
+    },
+    "public.crm_task_status": {
+      "name": "crm_task_status",
+      "schema": "public",
+      "values": [
+        "Pending",
+        "In Progress",
+        "Completed",
+        "Canceled"
+      ]
+    },
+    "public.crm_task_type": {
+      "name": "crm_task_type",
+      "schema": "public",
+      "values": [
+        "Call",
+        "Email",
+        "Meeting",
+        "To-do"
+      ]
+    },
+    "public.error_severity": {
+      "name": "error_severity",
+      "schema": "public",
+      "values": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
     "public.feedback_status": {
       "name": "feedback_status",
       "schema": "public",
@@ -2212,11 +3350,24 @@
       "name": "lead_status",
       "schema": "public",
       "values": [
-        "Pending Approval",
-        "In Review",
+        "New Lead",
+        "Discovery & Qualifying",
         "Proposal Sent",
+        "In Negotiation",
         "Closed Won",
         "Closed Lost"
+      ]
+    },
+    "public.loss_reason": {
+      "name": "loss_reason",
+      "schema": "public",
+      "values": [
+        "budget_too_low",
+        "competitor_chosen",
+        "scope_mismatch",
+        "timing_ghosted",
+        "internal_cancellation",
+        "other"
       ]
     },
     "public.milestone_status": {
@@ -2225,7 +3376,6 @@
       "values": [
         "Pending",
         "In Progress",
-        "Client Approval",
         "Completed"
       ]
     },
@@ -2239,13 +3389,24 @@
         "Rejected"
       ]
     },
+    "public.qualification_status": {
+      "name": "qualification_status",
+      "schema": "public",
+      "values": [
+        "Lead",
+        "MQL",
+        "SQL"
+      ]
+    },
     "public.role": {
       "name": "role",
       "schema": "public",
       "values": [
-        "user",
-        "admin",
-        "editor",
+        "superadmin",
+        "sales",
+        "manager",
+        "developer",
+        "content_editor",
         "client"
       ]
     },
@@ -2255,7 +3416,7 @@
       "values": [
         "Todo",
         "In Progress",
-        "Blocked",
+        "Changes Requested",
         "In Review",
         "Done"
       ]

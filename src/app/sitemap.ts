@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { posts, caseStudies, services } from "@/db/schema";
+import { caseStudies, services } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { MetadataRoute } from "next";
 
@@ -12,7 +12,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         "/about",
         "/services",
         "/projects",
-        "/blog",
         "/contact",
     ].map((route) => ({
         url: `${baseUrl}${route}`,
@@ -21,18 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: route === "" ? 1 : 0.8,
     }));
 
-    // 2. Dynamic Blog Posts
-    const allPosts = await db.select({ slug: posts.slug, updatedAt: posts.updatedAt })
-        .from(posts)
-        .where(eq(posts.published, true));
-    const postRoutes = allPosts.map((post) => ({
-        url: `${baseUrl}/blog/${post.slug}`,
-        lastModified: post.updatedAt,
-        changeFrequency: "weekly" as const,
-        priority: 0.7,
-    }));
-
-    // 3. Dynamic Case Studies (Portfolio Projects)
+    // 2. Dynamic Case Studies (Portfolio Projects)
     const allProjects = await db.select({ slug: caseStudies.slug, createdAt: caseStudies.createdAt })
         .from(caseStudies)
         .where(eq(caseStudies.published, true));
@@ -43,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
     }));
 
-    // 4. Dynamic Services
+    // 3. Dynamic Services
     const allServices = await db.select({ slug: services.slug, id: services.id })
         .from(services);
     const serviceRoutes = allServices.map((service) => ({
@@ -53,6 +41,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.8,
     }));
 
-    return [...routes, ...postRoutes, ...projectRoutes, ...serviceRoutes];
+    return [...routes, ...projectRoutes, ...serviceRoutes];
 }
 

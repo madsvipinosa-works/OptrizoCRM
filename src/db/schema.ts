@@ -265,7 +265,6 @@ export const leads = pgTable("lead", {
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
     clientId: text("clientId")
-        .notNull()
         .references(() => users.id, { onDelete: "set null" }), 
     serviceId: text("serviceId")
         .references(() => services.id, { onDelete: "set null" }), 
@@ -524,6 +523,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     leadAssignments: many(leadAssignees),
     authoredActivityLogs: many(leadActivityLogs),
     projectStakeholds: many(projectStakeholders),
+    projectTeamMemberships: many(projectTeamMembers),
     taskAssignments: many(taskAssignees),
     crmTaskAssignments: many(crmTasks),
     notifications: many(notifications),
@@ -584,9 +584,8 @@ export const systemErrorLogsRelations = relations(systemErrorLogs, ({ one }) => 
 
 // 13. Operational Project Management (PM Engine)
 export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff", "In Progress", "In Review", "Completed"]);
-export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Client Approval", "Completed"]);
-export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "Changes Requested", "In Review", "Done"]);
-export const qualityGateStatusEnum = pgEnum("quality_gate_status", ["Pending", "Passed", "Failed"]);
+export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Completed"]);
+export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Changes Requested", "In Review", "Done"]);
 
 export type ProjectDocumentItem = {
     id: string;
@@ -631,6 +630,21 @@ export const projectStakeholders = pgTable("project_stakeholder", {
     userId: text("userId")
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
+}, (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }));
+
+export const projectTeamMembers = pgTable("project_team_member", {
+    projectId: text("projectId")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    userId: text("userId")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    roleInProject: text("role_in_project"),
+    isAssignable: boolean("is_assignable").default(true).notNull(),
+    addedBy: text("added_by")
+        .references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }));
 
 
@@ -711,16 +725,6 @@ export const taskSubmissions = pgTable("task_submission", {
     submittedBy: text("submitted_by"),
     proofUrl: text("proof_url").notNull(),
     submissionNotes: text("submission_notes").notNull(),
-    aiConfidenceScore: integer("ai_confidence_score").notNull(),
-    gateStatus: qualityGateStatusEnum("gate_status").notNull(),
-    aiSummary: text("ai_summary").notNull(),
-    criteriaBreakdown: jsonb("criteria_breakdown").$type<
-        Array<{
-            criterion: string;
-            status: "PASS" | "FAIL" | "PARTIAL";
-            notes: string;
-        }>
-    >().default([]).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 }, (t) => ({
     idxTaskSubmissionTaskCreated: index("idx_task_submission_task_created").on(t.taskId, t.createdAt),
@@ -755,12 +759,24 @@ export const clientFeedback = pgTable("client_feedback", {
 // PM Relations
 export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({
     stakeholders: many(projectStakeholders),
+    teamMembers: many(projectTeamMembers),
     lead: one(leads, {
         fields: [agencyProjects.leadId],
         references: [leads.id],
     }),
     milestones: many(milestones),
     tasks: many(tasks),
+}));
+
+export const projectTeamMembersRelations = relations(projectTeamMembers, ({ one }) => ({
+    project: one(agencyProjects, {
+        fields: [projectTeamMembers.projectId],
+        references: [agencyProjects.id],
+    }),
+    user: one(users, {
+        fields: [projectTeamMembers.userId],
+        references: [users.id],
+    }),
 }));
 
 export const projectStakeholdersRelations = relations(projectStakeholders, ({ one }) => ({

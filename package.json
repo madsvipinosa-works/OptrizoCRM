@@ -17,14 +17,13 @@
     "test:progress": "npx tsx tests/test-progress.ts",
     "test:dependencies": "npx tsx tests/test-task-dependencies.ts",
     "test:error-logging": "npx tsx tests/test-error-logging.ts",
-    "test:capstone": "npx tsx test-crm-routing.ts && npx tsx tests/test-progress.ts && npx tsx tests/test-scope-engine.ts && npx tsx tests/test-task-dependencies.ts && npx tsx tests/test-error-logging.ts",
+    "test:capstone": "npx tsx test-crm-routing.ts && npx tsx tests/test-progress.ts && npx tsx tests/test-task-dependencies.ts && npx tsx tests/test-error-logging.ts",
     "clean:cache": "node scripts/clean-cache.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx}": "eslint --no-warn-ignored --pass-on-unpruned-suppressions"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.64",
     "@auth/drizzle-adapter": "^1.11.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

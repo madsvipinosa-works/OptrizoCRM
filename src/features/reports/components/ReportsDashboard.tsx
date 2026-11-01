@@ -161,8 +161,7 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
         csv += `Metric,Value\n`;
         csv += `Total Completed Tasks,${velocityReport.totalCompletedTasks}\n`;
         csv += `Total Story Points (Weight),${velocityReport.totalWeight}\n`;
-        csv += `Avg Task Turnaround Time (Days),${velocityReport.averageTurnaroundTimeDays.toFixed(1)}\n`;
-        csv += `Avg AI Quality Score,${velocityReport.averageAiQualityScore !== null ? `${velocityReport.averageAiQualityScore}/100` : "N/A"}\n\n`;
+        csv += `Avg Task Turnaround Time (Days),${velocityReport.averageTurnaroundTimeDays.toFixed(1)}\n\n`;
 
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = window.URL.createObjectURL(blob);
@@ -307,11 +306,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                 <span>{velocityReport?.totalCompletedTasks ?? 0} tasks delivered</span>
-                                {velocityReport?.averageAiQualityScore !== null && velocityReport?.averageAiQualityScore !== undefined && (
-                                    <Badge variant="outline" className="text-[10px] py-0 border-purple-500/30 text-purple-400">
-                                        AI QA {velocityReport.averageAiQualityScore}/100
-                                    </Badge>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -560,12 +554,12 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                             Team Engineering Throughput &amp; Velocity
                                         </h2>
                                         <p className="text-xs text-muted-foreground">
-                                            Task turnaround time, story point delivery, and AI quality score distribution across the engineering team.
+                                            Task turnaround time and story point delivery across the engineering team.
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="p-4 bg-muted/40 border border-border/50 rounded-lg">
                                         <p className="text-xs font-medium text-muted-foreground uppercase">Tasks Delivered</p>
                                         <p className="text-2xl font-bold text-foreground mt-1">{velocityReport?.totalCompletedTasks ?? 0}</p>
@@ -578,16 +572,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                         <p className="text-xs font-medium text-muted-foreground uppercase">Avg Turnaround Time</p>
                                         <p className="text-2xl font-bold text-foreground mt-1">
                                             {velocityReport?.averageTurnaroundTimeDays?.toFixed(1) ?? "0.0"} <span className="text-xs font-normal text-muted-foreground">Days</span>
-                                        </p>
-                                    </div>
-                                    <div className="p-4 bg-muted/40 border border-border/50 rounded-lg">
-                                        <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                            <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Avg AI Quality Score
-                                        </p>
-                                        <p className="text-2xl font-bold text-foreground mt-1">
-                                            {velocityReport?.averageAiQualityScore !== null && velocityReport?.averageAiQualityScore !== undefined
-                                                ? `${velocityReport.averageAiQualityScore}/100`
-                                                : "N/A"}
                                         </p>
                                     </div>
                                 </div>

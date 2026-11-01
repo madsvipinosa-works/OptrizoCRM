@@ -5,14 +5,13 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, Check } from "lucide-react";
 
 interface MilestoneStatusDropdownProps {
-  status: "Pending" | "In Progress" | "Client Approval" | "Completed";
-  onStatusChange: (status: "Pending" | "In Progress" | "Client Approval" | "Completed") => void;
+  status: "Pending" | "In Progress" | "Completed";
+  onStatusChange: (status: "Pending" | "In Progress" | "Completed") => void;
 }
 
 const STATUSES = [
   { value: "Pending", label: "Pending" },
   { value: "In Progress", label: "In Progress" },
-  { value: "Client Approval", label: "Client Approval" },
   { value: "Completed", label: "Completed" },
 ] as const;
 
@@ -39,7 +38,6 @@ export function MilestoneStatusDropdown({ status, onStatusChange }: MilestoneSta
         className={cn(
           "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-md shadow-sm transition-all focus:outline-none h-8",
           status === "Completed" ? "border-emerald-500/50 text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20" :
-          status === "Client Approval" ? "border-amber-500/50 text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 animate-pulse" :
           status === "In Progress" ? "border-primary/50 text-primary bg-primary/10 hover:bg-primary/20" :
           "border-border text-foreground bg-muted/60 hover:bg-muted"
         )}

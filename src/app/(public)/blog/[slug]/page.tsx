@@ -27,6 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BlogPostPage({ params }: Props) {
+    if (true as boolean) notFound();
     let post = null;
     let systemError: Error | null = null;
 

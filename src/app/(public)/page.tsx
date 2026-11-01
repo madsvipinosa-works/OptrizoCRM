@@ -6,10 +6,8 @@ import { ArrowRight } from "lucide-react";
 import { getSiteSettings } from "@/features/cms/actions";
 import { HeroSection } from "@/components/public/HeroSection";
 import { ServicesGrid } from "@/components/blocks/ServicesGrid";
-import GalleryHoverCarousel from "@/components/blocks/gallery-hover-carousel";
-import { TestimonialsSection } from "@/components/blocks/testimonials-with-marquee";
 import { db } from "@/db";
-import { posts, caseStudies, testimonials } from "@/db/schema";
+import { caseStudies } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 
 import { Gallery4, type Gallery4Item } from "@/components/ui/gallery4";
@@ -47,19 +45,6 @@ function optimizeImageUrl(url: string | null | undefined, width = 80, height = 8
 export default async function Home() {
     const settings = await getSiteSettings();
 
-    // Fetch latest blog posts for the carousel
-    const publishedPosts = await db.query.posts.findMany({
-        where: eq(posts.published, true),
-        orderBy: [desc(posts.createdAt)],
-        limit: 4,
-    });
-
-    // Fetch active testimonials for the marquee
-    const allTestimonials = await db.query.testimonials.findMany({
-        where: eq(testimonials.active, true),
-        orderBy: [desc(testimonials.id)],
-    });
-
     // Fetch active case studies for portfolio showcase
     const activeProjects = await db.query.caseStudies.findMany({
         where: eq(caseStudies.published, true),
@@ -75,24 +60,6 @@ export default async function Home() {
         href: `/projects/${project.slug}`,
         image: optimizeImageUrl(project.coverImage, 640, 420, 65) || "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=65&w=640&auto=format&fit=crop",
         technologies: Array.isArray(project.technologies) ? project.technologies : [],
-    }));
-
-    const testimonialItems = allTestimonials.map((t) => ({
-        author: {
-            name: t.name,
-            handle: t.role ? `${t.role}${t.company ? ` @ ${t.company}` : ''}` : (t.company ?? ''),
-            avatar: optimizeImageUrl(t.image, 80, 80, 65),
-        },
-        text: t.content,
-        rating: t.rating ?? 5,
-    }));
-
-    const carouselItems = publishedPosts.map((post) => ({
-        id: post.id.toString(),
-        title: post.title,
-        summary: post.excerpt || post.title,
-        url: `/blog/${post.slug}`,
-        image: optimizeImageUrl(post.coverImage, 640, 420, 65) || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=65&w=640&auto=format&fit=crop",
     }));
 
     // Helper: auto-convert YouTube/Facebook watch URLs to embed URLs
@@ -199,61 +166,7 @@ export default async function Home() {
                 </div>
             </PinnedPanel>
 
-            {/* Panel 5: Testimonials Section */}
-            <PinnedPanel id="testimonials">
-                <div className="relative z-10 w-full max-w-[1400px] mx-auto py-12 md:py-16">
-                    <TestimonialsSection
-                        badge="OPTRIZO // CLIENT VOICES"
-                        title="Trusted by Market Leaders"
-                        description="Discover how ambitious teams scale revenue, elevate brand presence, and deploy high-performance platforms with Optrizo."
-                        testimonials={testimonialItems}
-                    />
-                </div>
-            </PinnedPanel>
-
-            {/* Panel 6: Blog Teaser Section */}
-            <PinnedPanel id="blog">
-                <div className="relative z-10 w-full max-w-[1400px] mx-auto py-12 md:py-16">
-                    <section className="container px-4 mx-auto py-12 md:py-16">
-                        <div className="mb-12 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
-                            <div className="flex flex-col gap-3 max-w-2xl">
-                                <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-emerald-800 dark:text-primary text-xs font-mono tracking-widest uppercase w-fit mb-1 shadow-xs font-semibold">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                                    </span>
-                                    <span>OPTRIZO // ENGINEERING INSIGHTS</span>
-                                </div>
-                                <TypewriterHeader
-                                    text="From The Blog"
-                                    as="h2"
-                                    className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight uppercase text-foreground leading-[0.95]"
-                                />
-                                <TypewriterParagraph
-                                    text="Deep dives into high-performance web engineering, scalable architecture, and modern digital platforms."
-                                    as="p"
-                                    className="text-muted-foreground text-sm md:text-base leading-relaxed mt-2 max-w-xl"
-                                />
-                            </div>
-                            <div className="shrink-0 flex items-center gap-3">
-                                <Button
-                                    variant="outline"
-                                    asChild
-                                    className="rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-black hover:border-primary transition-all duration-300 font-mono text-xs uppercase tracking-wider px-4 py-2.5 shadow-xs"
-                                >
-                                    <Link href="/blog" className="flex items-center gap-2">
-                                        <span>View All Articles</span>
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Link>
-                                </Button>
-                            </div>
-                        </div>
-                        <GalleryHoverCarousel items={carouselItems} />
-                    </section>
-                </div>
-            </PinnedPanel>
-
-            {/* Panel 7 (Terminal): CTA Section (Open Space Showcase) */}
+            {/* Panel 5 (Terminal): CTA Section (Open Space Showcase) */}
             <PinnedPanel id="cta" isLast={true} className="min-h-[85vh] flex items-center justify-center">
                 <div className="relative z-10 w-full">
                     <CTAScrollScale />

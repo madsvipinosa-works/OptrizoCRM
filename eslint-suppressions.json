@@ -29,11 +29,6 @@
       "count": 1
     }
   },
-  "src/actions/project-scoper.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/app/(admin)/dashboard/analytics/AnalyticsReportsContainer.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -46,7 +41,7 @@
   },
   "src/app/(admin)/dashboard/page.tsx": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 10
+      "count": 8
     },
     "react/no-unescaped-entities": {
       "count": 1
@@ -300,7 +295,7 @@
   },
   "src/features/pm/actions.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 11
+      "count": 10
     }
   },
   "src/features/pm/components/ProjectResourcesSidebar.tsx": {
@@ -318,7 +313,7 @@
   },
   "src/features/pm/components/TaskDetailsDrawer.tsx": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 1
     },
     "react-hooks/set-state-in-effect": {
       "count": 1

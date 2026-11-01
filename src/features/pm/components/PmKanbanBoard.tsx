@@ -37,12 +37,10 @@ export interface PmTask {
     milestoneId: string;
     title: string;
     description: string | null;
-    status: "Todo" | "In Progress" | "Blocked" | "Changes Requested" | "In Review" | "Done";
+    status: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done";
     requiresProof?: boolean;
     proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
-    blockedReason?: string | null;
-    isBlockedByClient?: boolean;
     assignees: { user: { id: string; name: string | null; image?: string | null; jobTitle?: string | null; role?: string | null } }[];
     dueDate: Date | null;
     dependsOnTaskId: string | null;
@@ -64,23 +62,22 @@ interface PmKanbanBoardProps {
     teamMembers: TeamMember[];
     currentUserId?: string;
     currentUserRole?: string;
-    onStatusChangeRequest: (taskId: string, targetStatus: "Todo" | "In Progress" | "Blocked" | "Changes Requested" | "In Review" | "Done") => void;
+    onStatusChangeRequest: (taskId: string, targetStatus: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done") => void;
     onDeleteTask: (task: PmTask) => void;
-    onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
 }
 
-// 5 Columns with high-contrast, cohesive theme palette
+// 4 Columns with high-contrast, cohesive theme palette
 // "Changes Requested" tasks live inside the "In Progress" column with an orange label & exclamation
 const COLUMNS: {
-    id: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done";
+    id: "Todo" | "In Progress" | "In Review" | "Done";
     title: string;
     dotColor: string;
     badgeColor: string;
 }[] = [
     { id: "Todo", title: "To Do", dotColor: "bg-muted-foreground", badgeColor: "bg-muted text-foreground border-border" },
     { id: "In Progress", title: "In Progress", dotColor: "bg-blue-500", badgeColor: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30" },
-    { id: "Blocked", title: "Blocked", dotColor: "bg-rose-500", badgeColor: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30" },
     { id: "In Review", title: "In Review", dotColor: "bg-amber-500", badgeColor: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30" },
     { id: "Done", title: "Done", dotColor: "bg-emerald-500", badgeColor: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30" },
 ];
@@ -96,7 +93,7 @@ export function PmKanbanBoard({
     onClickTask,
 }: PmKanbanBoardProps) {
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-    const [selectedMobileColumn, setSelectedMobileColumn] = useState<"Todo" | "In Progress" | "Blocked" | "In Review" | "Done">("Todo");
+    const [selectedMobileColumn, setSelectedMobileColumn] = useState<"Todo" | "In Progress" | "In Review" | "Done">("Todo");
     const boardScrollRef = React.useRef<HTMLDivElement>(null);
 
     // Optimistic UI updates
@@ -131,7 +128,7 @@ export function PmKanbanBoard({
         useSensor(KeyboardSensor)
     );
 
-    const scrollToColumn = (colId: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done") => {
+    const scrollToColumn = (colId: "Todo" | "In Progress" | "In Review" | "Done") => {
         setSelectedMobileColumn(colId);
         const colEl = document.getElementById(`pm-column-${colId}`);
         if (colEl && boardScrollRef.current) {
@@ -237,7 +234,7 @@ export function PmKanbanBoard({
                 onScroll={handleBoardScroll}
                 className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden pb-2 scrollbar-none snap-x snap-mandatory md:snap-none"
             >
-                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-5 gap-3.5 items-stretch w-full min-w-0 md:min-w-[950px] lg:min-w-full h-full">
+                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch w-full min-w-0 md:min-w-[950px] lg:min-w-full h-full">
                     {COLUMNS.map((col) => {
                         // "In Progress" column houses both "In Progress" and "Changes Requested" tasks
                         const columnTasks = optimisticTasks.filter((t) => {
@@ -287,12 +284,12 @@ function PmKanbanColumn({
     onViewProofs,
     onClickTask,
 }: {
-    column: { id: "Todo" | "In Progress" | "Blocked" | "In Review" | "Done"; title: string; dotColor: string; badgeColor: string };
+    column: { id: "Todo" | "In Progress" | "In Review" | "Done"; title: string; dotColor: string; badgeColor: string };
     tasks: PmTask[];
     allTasks: PmTask[];
     currentUserRole?: string;
     onDeleteTask: (task: PmTask) => void;
-    onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
@@ -360,7 +357,7 @@ function SortableTaskCard({
     allTasks: PmTask[];
     currentUserRole?: string;
     onDeleteTask: (task: PmTask) => void;
-    onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -390,7 +387,7 @@ function SortableTaskCard({
                 currentUserRole={currentUserRole}
                 dragHandleProps={{ ...attributes, ...listeners }}
                 onDeleteTask={() => onDeleteTask(task)}
-                onViewProofs={(tab) => onViewProofs?.(task, tab)}
+                onViewProofs={() => onViewProofs?.(task)}
                 onClickTask={() => onClickTask?.(task)}
             />
         </div>
@@ -411,7 +408,7 @@ function TaskCardContent({
     currentUserRole?: string;
     dragHandleProps?: Record<string, unknown>;
     onDeleteTask?: () => void;
-    onViewProofs?: (initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: () => void;
     onClickTask?: () => void;
 }) {
     const prerequisiteTask = task.dependsOnTaskId ? allTasks.find((t) => t.id === task.dependsOnTaskId) : null;
@@ -516,10 +513,10 @@ function TaskCardContent({
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            if (onViewProofs) onViewProofs("audit");
+                            if (onViewProofs) onViewProofs();
                         }}
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-orange-500/15 text-orange-600 dark:text-orange-300 border border-orange-500/40 hover:bg-orange-500/25 transition-colors cursor-pointer"
-                        title="View AI quality audit review & feedback"
+                        title="View deliverables & review feedback"
                     >
                         <AlertTriangle className="w-3 h-3 text-orange-500 shrink-0" />
                         <span>Changes Requested</span>
@@ -544,7 +541,7 @@ function TaskCardContent({
                         onClick={(e) => {
                             e.stopPropagation();
                             if (onViewProofs) {
-                                onViewProofs(task.status === "In Review" ? "audit" : "proofs");
+                                onViewProofs();
                             }
                         }}
                         className={cn(
@@ -553,12 +550,12 @@ function TaskCardContent({
                                 ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/25"
                                 : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/25"
                         )}
-                        title="View quality audit & proofs"
+                        title="View deliverables & proofs"
                     >
                         <ShieldCheck className="w-3 h-3 shrink-0" />
                         <span>
                             {task.status === "In Review"
-                                ? "AI Audit: Passed"
+                                ? "In Review"
                                 : task.proofLinks && task.proofLinks.length > 0
                                 ? `Proofs (${task.proofLinks.length})`
                                 : "Proof"}
@@ -566,16 +563,6 @@ function TaskCardContent({
                     </button>
                 )}
             </div>
-
-            {/* Blocked Reason */}
-            {task.status === "Blocked" && task.blockedReason && (
-                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs leading-tight ml-5">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500 mt-0.5" />
-                    <span className="line-clamp-2" title={task.blockedReason}>
-                        <span className="font-semibold text-rose-500">Blocked:</span> {task.blockedReason}
-                    </span>
-                </div>
-            )}
 
             {/* Footer: Due Date & Assignees */}
             <div className="flex items-center justify-between pt-2 border-t border-border mt-1 pl-5">

@@ -8,7 +8,7 @@ import { ShieldAlert, ArrowUpRight, AlertOctagon, FileText, Clock, CheckCircle }
 
 interface ActionItem {
     id: string;
-    type: "blocked_task" | "pending_proposal" | "stale_lead";
+    type: "task_revision" | "pending_proposal" | "stale_lead";
     title: string;
     subtitle: string;
     urgency: "high" | "medium" | "low";
@@ -55,7 +55,7 @@ export function ActionQueue({ items }: ActionQueueProps) {
                         </div>
                         <p className="text-sm font-semibold text-foreground">All Operations Clear</p>
                         <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                            No blocked tasks, pending client approvals, or stale leads requiring immediate action.
+                            No revision requests, pending proposals, or stale leads requiring immediate action.
                         </p>
                     </div>
                 ) : (

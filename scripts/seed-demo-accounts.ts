@@ -484,7 +484,7 @@ export async function seedDemoAccounts() {
     });
     console.log("   🔗 Linked Client Elena Rostova (client@optrizo.com) to Project in project_stakeholder");
 
-    // 5.3 Milestones (Sprint 1: Completed, Sprint 2: Client Approval, Sprint 3: In Progress)
+    // 5.3 Milestones (Sprint 1: Completed, Sprint 2: In Progress, Sprint 3: Pending)
     const [m1] = await db.insert(milestones).values({
         projectId: project.id,
         title: "Sprint 1: Architecture, 3NF Data Schema & UI/UX Design System",
@@ -497,7 +497,7 @@ export async function seedDemoAccounts() {
     const [m2] = await db.insert(milestones).values({
         projectId: project.id,
         title: "Sprint 2: Core Engineering, Scheduling Engine & Client Portal",
-        status: "Client Approval", // Interactive approval trigger in Client Portal!
+        status: "In Progress",
         order: 2,
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     }).returning();
@@ -505,7 +505,7 @@ export async function seedDemoAccounts() {
     const [m3] = await db.insert(milestones).values({
         projectId: project.id,
         title: "Sprint 3: Quality Gates, Security Hardening & Production Cloud Handover",
-        status: "In Progress",
+        status: "Pending",
         order: 3,
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
     }).returning();
@@ -637,33 +637,16 @@ export async function seedDemoAccounts() {
         submittedBy: admin.id,
         proofUrl: "https://github.com/optrizo/nexora-health/pull/8",
         submissionNotes: "Implemented authenticated deliverable proxy, threaded revision replies, and proposal signature capture. Full unit and integration tests passing.",
-        aiConfidenceScore: 96,
-        gateStatus: "Passed",
-        aiSummary: "Automated Quality Gate passed with 96% confidence. Deliverable is an authoritative GitHub pull request with 14 passing automated tests, clear git diff matching acceptance criteria, and zero merge conflicts.",
-        criteriaBreakdown: [
-            { criterion: "Deliverable Artifact Credibility & Relevance", status: "PASS", notes: "Authoritative code repository pull request verified on optrizo/nexora-health." },
-            { criterion: "Proof URL Reachability & Access", status: "PASS", notes: "Valid PR link accessible and formatted correctly." },
-            { criterion: "Acceptance Criteria Alignment", status: "PASS", notes: "Code diffs implement Client Portal review modals and digital signature capture." },
-            { criterion: "Test Suite Execution Integrity", status: "PASS", notes: "24/24 unit and integration test assertions passed without regression." }
-        ]
     });
 
-    // Submission 2: Task 3 (Scheduling Engine PR #5) - 94% Confidence Passed
+    // Submission 2: Task 3 (Scheduling Engine PR #5)
     await db.insert(taskSubmissions).values({
         taskId: t3.id,
         submittedBy: admin.id,
         proofUrl: "https://github.com/optrizo/nexora-health/pull/5",
         submissionNotes: "Implemented appointment reservation engine with transactional PostgreSQL row locks to prevent simultaneous double-booking of doctor slots.",
-        aiConfidenceScore: 94,
-        gateStatus: "Passed",
-        aiSummary: "Automated Quality Gate passed with 94% confidence. Pull request contains verified transactional query logic and load tests simulating 100 concurrent booking requests.",
-        criteriaBreakdown: [
-            { criterion: "Deliverable Artifact Credibility & Relevance", status: "PASS", notes: "GitHub PR containing schema migrations and appointment controller logic verified." },
-            { criterion: "Proof URL Reachability & Access", status: "PASS", notes: "Authoritative repository link verified." },
-            { criterion: "Concurrency Benchmark Validation", status: "PASS", notes: "Stress test scripts verified 0 duplicate slot reservations under load." }
-        ]
     });
-    console.log("   ✅ Created 2 DoD Quality Gate Submissions (96% & 94% Passed)");
+    console.log("   ✅ Created 2 Task Submissions");
 
     // 5.7 Threaded Client Feedback Conversation on Milestone 2
     const [parentFeedback] = await db.insert(clientFeedback).values({

@@ -70,7 +70,6 @@ export type UserVelocityItem = {
     tasksCompleted: number;
     totalWeight: number;
     avgTurnaroundDays: number | null;
-    avgQualityScore: number | null;
 };
 
 export type CompletedTaskAuditItem = {
@@ -81,7 +80,6 @@ export type CompletedTaskAuditItem = {
     projectTitle: string;
     assignees: string[];
     weight: number;
-    aiQualityScore: number | null;
     createdAt: string;
     completedAt: string;
     turnaroundDays: number | null;
@@ -91,7 +89,6 @@ export type TeamVelocityReportResult = {
     totalCompletedTasks: number;
     totalWeight: number;
     averageTurnaroundTimeDays: number;
-    averageAiQualityScore: number | null;
     userVelocity: UserVelocityItem[];
     completedTasks: CompletedTaskAuditItem[];
 };
@@ -346,9 +343,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
             assignees: {
                 with: { user: true }
             },
-            submissions: {
-                orderBy: (s, { desc: orderDesc }) => [orderDesc(s.createdAt)],
-            },
         }
     });
 
@@ -362,8 +356,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
     let totalTurnaroundTimeMs = 0;
     let validTurnaroundCount = 0;
     let totalWeight = 0;
-    let totalQualityScore = 0;
-    let qualityScoreCount = 0;
 
     const userVelocityMap: Record<string, {
         name: string;
@@ -372,8 +364,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
         totalWeight: number;
         turnaroundSumMs: number;
         turnaroundCount: number;
-        qualitySum: number;
-        qualityCount: number;
     }> = {};
 
     const completedTasksAudit: CompletedTaskAuditItem[] = [];
@@ -390,16 +380,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
 
         const weight = task.weight || 1;
         totalWeight += weight;
-
-        const latestSubmission = task.submissions?.[0];
-        const taskQualityScore = typeof latestSubmission?.aiConfidenceScore === "number"
-            ? latestSubmission.aiConfidenceScore
-            : null;
-
-        if (taskQualityScore !== null) {
-            totalQualityScore += taskQualityScore;
-            qualityScoreCount++;
-        }
 
         const assigneeNames: string[] = [];
 
@@ -418,8 +398,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
                         totalWeight: 0,
                         turnaroundSumMs: 0,
                         turnaroundCount: 0,
-                        qualitySum: 0,
-                        qualityCount: 0,
                     };
                 }
                 userVelocityMap[userId].tasksCompleted++;
@@ -427,10 +405,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
                 if (hasValidTurnaround) {
                     userVelocityMap[userId].turnaroundSumMs += rawTimeToCompleteMs;
                     userVelocityMap[userId].turnaroundCount++;
-                }
-                if (taskQualityScore !== null) {
-                    userVelocityMap[userId].qualitySum += taskQualityScore;
-                    userVelocityMap[userId].qualityCount++;
                 }
             });
         } else {
@@ -444,8 +418,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
                     totalWeight: 0,
                     turnaroundSumMs: 0,
                     turnaroundCount: 0,
-                    qualitySum: 0,
-                    qualityCount: 0,
                 };
             }
             userVelocityMap[unassignedKey].tasksCompleted++;
@@ -453,10 +425,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
             if (hasValidTurnaround) {
                 userVelocityMap[unassignedKey].turnaroundSumMs += rawTimeToCompleteMs;
                 userVelocityMap[unassignedKey].turnaroundCount++;
-            }
-            if (taskQualityScore !== null) {
-                userVelocityMap[unassignedKey].qualitySum += taskQualityScore;
-                userVelocityMap[unassignedKey].qualityCount++;
             }
         }
 
@@ -468,7 +436,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
             projectTitle: task.project?.title || "Agency Project",
             assignees: assigneeNames,
             weight,
-            aiQualityScore: taskQualityScore,
             createdAt: new Date(task.createdAt).toISOString(),
             completedAt: effectiveCompletedDate.toISOString(),
             turnaroundDays: hasValidTurnaround
@@ -480,9 +447,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
     const averageTurnaroundTimeDays = validTurnaroundCount > 0
         ? (totalTurnaroundTimeMs / validTurnaroundCount) / (1000 * 3600 * 24)
         : 0;
-    const averageAiQualityScore = qualityScoreCount > 0
-        ? Math.round(totalQualityScore / qualityScoreCount)
-        : null;
 
     const userVelocity: UserVelocityItem[] = Object.values(userVelocityMap)
         .map(u => ({
@@ -492,9 +456,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
             totalWeight: u.totalWeight,
             avgTurnaroundDays: u.turnaroundCount > 0
                 ? Number(((u.turnaroundSumMs / u.turnaroundCount) / (1000 * 3600 * 24)).toFixed(1))
-                : null,
-            avgQualityScore: u.qualityCount > 0
-                ? Math.round(u.qualitySum / u.qualityCount)
                 : null,
         }))
         .sort((a, b) => {
@@ -509,7 +470,6 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
         totalCompletedTasks,
         totalWeight,
         averageTurnaroundTimeDays,
-        averageAiQualityScore,
         userVelocity: [],
         completedTasks: [],
     };

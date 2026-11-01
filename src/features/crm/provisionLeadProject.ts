@@ -49,7 +49,7 @@ export async function provisionLeadProject(leadId: string) {
         }
 
         const internalRoles = ["superadmin", "sales", "manager", "developer", "content_editor"];
-        if (!internalRoles.includes(lead.client.role)) {
+        if (lead.clientId && !internalRoles.includes(lead.client.role)) {
             await tx.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
         }
 
@@ -76,10 +76,12 @@ export async function provisionLeadProject(leadId: string) {
             status: "Kickoff",
         }).returning({ id: agencyProjects.id, title: agencyProjects.title });
 
-        await tx.insert(projectStakeholders).values({
-            projectId: project.id,
-            userId: lead.clientId,
-        });
+        if (lead.clientId) {
+            await tx.insert(projectStakeholders).values({
+                projectId: project.id,
+                userId: lead.clientId,
+            });
+        }
 
         let proposalScopeCreated = false;
         if (proposalDeliverables.length > 0) {

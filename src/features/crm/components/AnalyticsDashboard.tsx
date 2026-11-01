@@ -32,7 +32,7 @@ interface AnalyticsDashboardProps {
         };
         actionQueue: Array<{
             id: string;
-            type: "blocked_task" | "pending_proposal" | "stale_lead";
+            type: "task_revision" | "pending_proposal" | "stale_lead";
             title: string;
             subtitle: string;
             urgency: "high" | "medium" | "low";

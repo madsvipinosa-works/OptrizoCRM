@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { posts } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
@@ -8,6 +9,7 @@ export const dynamic = "force-static";
 export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
 export default async function BlogIndexPage() {
+    notFound();
     const publishedPosts = await db.query.posts.findMany({
         where: eq(posts.published, true),
         orderBy: [desc(posts.createdAt)],

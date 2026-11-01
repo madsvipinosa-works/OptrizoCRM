@@ -63,8 +63,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PmTask } from "./PmKanbanBoard";
 import { AssigneeCombobox, type TeamMemberItem } from "./AssigneeCombobox";
-import { AIAuditCard } from "@/components/tasks/ai-audit-card";
-import { getTaskAuditReport } from "@/features/pm/actions";
 
 interface TaskDetailsDrawerProps {
     task: PmTask | null;
@@ -90,7 +88,6 @@ interface TaskDetailsDrawerProps {
     ) => Promise<boolean>;
     onDeleteTask?: (task: PmTask) => void;
     onRequestVerificationReview?: (task: PmTask) => void;
-    onRequestBlock?: (task: PmTask) => void;
     onSelectTask?: (task: PmTask) => void;
 }
 
@@ -109,12 +106,6 @@ const STATUS_CONFIG: Record<
         badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
         dotClass: "bg-blue-500",
         ringClass: "ring-blue-500/25",
-    },
-    Blocked: {
-        label: "Blocked",
-        badgeClass: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30",
-        dotClass: "bg-rose-500",
-        ringClass: "ring-rose-500/25",
     },
     "Changes Requested": {
         label: "Changes Requested",
@@ -149,7 +140,6 @@ export function TaskDetailsDrawer({
     onUpdateTaskDetails,
     onDeleteTask,
     onRequestVerificationReview,
-    onRequestBlock,
     onSelectTask,
 }: TaskDetailsDrawerProps) {
     const [activeTab, setActiveTab] = useState<"overview" | "deliverables" | "activity">("overview");
@@ -169,10 +159,6 @@ export function TaskDetailsDrawer({
     const [isSaving, setIsSaving] = useState(false);
     const [copiedTaskId, setCopiedTaskId] = useState(false);
 
-    // AI Audit Report state
-    const [auditReport, setAuditReport] = useState<any>(null);
-    const [isLoadingAudit, setIsLoadingAudit] = useState(false);
-
     // Synchronize local form inputs when task changes
     useEffect(() => {
         if (task) {
@@ -186,18 +172,6 @@ export function TaskDetailsDrawer({
             setSelectedAssigneeIds(task.assignees?.map((a) => a.user.id) || []);
             setIsEditingTitle(false);
             setIsEditingDesc(false);
-
-            // Fetch AI audit report if task has submission history or is In Review/Done
-            if (task.id) {
-                setIsLoadingAudit(true);
-                getTaskAuditReport(task.id)
-                    .then((report) => setAuditReport(report))
-                    .catch((err) => {
-                        console.error("Failed to load task audit report:", err);
-                        setAuditReport(null);
-                    })
-                    .finally(() => setIsLoadingAudit(false));
-            }
         }
     }, [task?.id, task]);
 
@@ -565,20 +539,6 @@ export function TaskDetailsDrawer({
                                     <span>Approve as Done</span>
                                 </Button>
                             )}
-
-                            {/* Flag Blocked Button */}
-                            {task.status !== "Blocked" && onRequestBlock && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs font-medium gap-1 text-muted-foreground hover:text-rose-500 border-border hover:border-rose-500/30 active:scale-[0.98] transition-all"
-                                    onClick={() => onRequestBlock(task)}
-                                    title="Mark task as blocked"
-                                >
-                                    <AlertOctagon className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline">Block</span>
-                                </Button>
-                            )}
                         </div>
                     </div>
                 </SheetHeader>
@@ -596,15 +556,6 @@ export function TaskDetailsDrawer({
                             </TabsTrigger>
                             <TabsTrigger value="deliverables" className="text-xs font-semibold flex items-center gap-1.5">
                                 <span>Deliverables</span>
-                                {auditReport && (
-                                    <span
-                                        className={cn(
-                                            "w-2 h-2 rounded-full",
-                                            auditReport.gateStatus === "Passed" ? "bg-emerald-500" : "bg-amber-500"
-                                        )}
-                                        title={auditReport.gateStatus === "Passed" ? "DoD Passed" : "DoD Under Review"}
-                                    />
-                                )}
                             </TabsTrigger>
                             <TabsTrigger value="activity" className="text-xs font-semibold">
                                 Details & Audit
@@ -614,34 +565,6 @@ export function TaskDetailsDrawer({
 
                     {/* TAB 1: OVERVIEW */}
                     <TabsContent value="overview" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-6 focus:outline-none">
-                        {/* Blocker Callout Banner (if Blocked) */}
-                        {task.status === "Blocked" && (
-                            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 space-y-2 shadow-xs">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold text-sm">
-                                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                                        <span>Task is Blocked</span>
-                                        {task.isBlockedByClient && (
-                                            <Badge variant="outline" className="bg-rose-500/20 text-rose-500 border-rose-500/40 text-[10px] uppercase font-bold">
-                                                Client Blocker
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 text-xs bg-background border-rose-500/30 text-rose-600 dark:text-rose-300 hover:bg-rose-500/20"
-                                        onClick={() => onStatusChangeRequest(task.id, "In Progress")}
-                                    >
-                                        Unblock
-                                    </Button>
-                                </div>
-                                <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed font-mono whitespace-pre-wrap">
-                                    {task.blockedReason || "No specific reason logged. Awaiting dependency or client sign-off."}
-                                </p>
-                            </div>
-                        )}
-
                         {/* Task Dependencies & Sequencing Section (Graph Topology) */}
                         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
                             <div className="flex items-center justify-between pb-3 border-b border-border/60">
@@ -1083,61 +1006,27 @@ export function TaskDetailsDrawer({
 
                     {/* TAB 2: DELIVERABLES & AI QUALITY GATE */}
                     <TabsContent value="deliverables" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-6 focus:outline-none">
-                        {/* Quality Gate Status */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                                    <span>Definition of Done (DoD) & AI Audit</span>
-                                </Label>
-                                {onRequestVerificationReview && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 shadow-xs"
-                                        onClick={() => onRequestVerificationReview(task)}
-                                    >
-                                        <ShieldCheck className="w-3.5 h-3.5" />
-                                        <span>Update Deliverables</span>
-                                    </Button>
-                                )}
+                        {/* Deliverables Header */}
+                        <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                            <div>
+                                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                                    <span>Task Deliverables & Verification</span>
+                                </h4>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Deliverables, attachments, and proof links submitted for review.
+                                </p>
                             </div>
-
-                            {isLoadingAudit ? (
-                                <div className="flex items-center justify-center p-8 border border-border rounded-xl bg-muted/20">
-                                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                                    <span className="ml-2 text-xs text-muted-foreground">Loading quality gate report...</span>
-                                </div>
-                            ) : auditReport ? (
-                                <AIAuditCard
-                                    score={auditReport.aiConfidenceScore}
-                                    status={auditReport.gateStatus === "Passed" ? "Passed" : "Failed"}
-                                    summary={auditReport.aiSummary}
-                                    criteria={auditReport.criteriaBreakdown || []}
-                                    submittedBy={auditReport.submittedBy}
-                                    proofUrl={auditReport.proofUrl}
-                                    createdAt={auditReport.createdAt}
-                                />
-                            ) : (
-                                <div className="rounded-xl border border-dashed border-border/80 p-6 text-center space-y-2 bg-muted/10">
-                                    <ShieldCheck className="w-8 h-8 text-muted-foreground mx-auto" />
-                                    <h4 className="text-sm font-semibold text-foreground">No Automated DoD Report Yet</h4>
-                                    <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                                        When deliverables or proof links are submitted for review, the automated Quality Gate will evaluate acceptance criteria and display the verification breakdown here.
-                                    </p>
-                                    {onRequestVerificationReview && (
-                                        <div className="pt-2">
-                                            <Button
-                                                size="sm"
-                                                className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs gap-1.5 shadow-sm"
-                                                onClick={() => onRequestVerificationReview(task)}
-                                            >
-                                                <ShieldCheck className="w-3.5 h-3.5" />
-                                                <span>Submit Deliverables for Verification</span>
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
+                            {onRequestVerificationReview && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 shadow-xs"
+                                    onClick={() => onRequestVerificationReview(task)}
+                                >
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    <span>Update Deliverables</span>
+                                </Button>
                             )}
                         </div>
 

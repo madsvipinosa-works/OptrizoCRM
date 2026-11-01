@@ -18,9 +18,7 @@ import {
     Paperclip,
     Sparkles
 } from "lucide-react";
-import { FeedbackActionModal } from "@/features/client-portal/components/FeedbackActionModal";
 import { ClientDocumentUpload } from "@/features/client-portal/components/ClientDocumentUpload";
-import { HistoricalFeedbackCollapsible } from "@/features/client-portal/components/HistoricalFeedbackCollapsible";
 import { CircularProgress } from "@/components/ui/circular-progress";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -369,7 +367,6 @@ export function ClientPortalDashboardView({
 
                                 <div className="space-y-4">
                                     {project.milestones.map((milestone) => {
-                                        const isApprovalRequired = milestone.status === "Client Approval";
                                         const isCompleted = milestone.status === "Completed";
                                         const isInProgress = milestone.status === "In Progress";
                                         const milestoneTasks = project.tasks.filter(t => t.milestoneId === milestone.id);
@@ -382,7 +379,6 @@ export function ClientPortalDashboardView({
                                                 className={`p-5 rounded-2xl border transition-all shadow-sm ${
                                                     isCompleted ? "bg-muted/40 border-primary/30 text-foreground" :
                                                     isInProgress ? "bg-primary/5 border-primary/40 text-foreground" :
-                                                    isApprovalRequired ? "bg-amber-500/10 border-amber-500/40 text-foreground ring-1 ring-amber-500/30" :
                                                     "bg-card border-border text-muted-foreground"
                                                 }`}
                                             >
@@ -391,7 +387,6 @@ export function ClientPortalDashboardView({
                                                         <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm font-mono ${
                                                             isCompleted ? "bg-primary text-black" :
                                                             isInProgress ? "bg-primary text-black" :
-                                                            isApprovalRequired ? "bg-amber-500 text-black animate-pulse" :
                                                             "bg-muted text-muted-foreground"
                                                         }`}>
                                                             {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : milestone.order}
@@ -403,7 +398,6 @@ export function ClientPortalDashboardView({
                                                                 <Badge variant="outline" className={`text-[10px] font-bold font-mono ${
                                                                     isCompleted ? "border-primary/40 text-primary bg-primary/10" :
                                                                     isInProgress ? "border-primary/40 text-primary bg-primary/10" :
-                                                                    isApprovalRequired ? "border-amber-500/40 text-amber-500 animate-pulse bg-amber-500/10" :
                                                                     "border-border text-muted-foreground"
                                                                 }`}>
                                                                     {getClientFacingMilestoneStatus(milestone.status)}
@@ -414,24 +408,7 @@ export function ClientPortalDashboardView({
                                                             </p>
                                                         </div>
                                                     </div>
-
-                                                    {/* Approval Modal Action Button */}
-                                                    {isApprovalRequired && (
-                                                        <div className="shrink-0 flex items-center gap-2">
-                                                            <FeedbackActionModal 
-                                                                milestoneId={milestone.id} 
-                                                                milestoneTitle={milestone.title} 
-                                                                tasks={milestoneTasks}
-                                                                projectId={project.id}
-                                                            />
-                                                        </div>
-                                                    )}
                                                 </div>
-
-                                                {/* Historical Feedback Section in Collapsible */}
-                                                {milestone.feedback && milestone.feedback.length > 0 && (
-                                                    <HistoricalFeedbackCollapsible feedback={milestone.feedback} />
-                                                )}
                                             </motion.div>
                                         );
                                     })}

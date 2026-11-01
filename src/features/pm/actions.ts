@@ -31,7 +31,6 @@ async function handleMilestoneBubbling(tx: any, taskId: string, newTaskStatus: s
     const currentTasksState = allTasks.map((t: any) => t.id === taskId ? { ...t, status: newTaskStatus } : t);
 
     const allDone = currentTasksState.length > 0 && currentTasksState.every((t: any) => t.status === "Done");
-    const allReviewOrDone = currentTasksState.length > 0 && currentTasksState.every((t: any) => t.status === "In Review" || t.status === "Done");
     const anyActive = currentTasksState.some((t: any) => ["In Progress", "In Review", "Changes Requested"].includes(t.status));
 
     const currentMilestone = await tx.query.milestones.findFirst({
@@ -44,11 +43,7 @@ async function handleMilestoneBubbling(tx: any, taskId: string, newTaskStatus: s
 
     if (allDone) {
         newMilestoneStatus = "Completed";
-    } else if (allReviewOrDone) {
-        newMilestoneStatus = "Client Approval";
     } else if (anyActive && currentMilestone.status === "Pending") {
-        newMilestoneStatus = "In Progress";
-    } else if (anyActive && currentMilestone.status === "Client Approval") {
         newMilestoneStatus = "In Progress";
     }
 
@@ -60,22 +55,6 @@ async function handleMilestoneBubbling(tx: any, taskId: string, newTaskStatus: s
         await tx.update(milestones)
             .set(payload)
             .where(eq(milestones.id, oldTask.milestoneId));
-
-        if (newMilestoneStatus === "Client Approval") {
-            await tx.update(tasks)
-                .set({ isBlockedByClient: true, status: "Blocked", updatedAt: new Date() })
-                .where(and(
-                    eq(tasks.milestoneId, oldTask.milestoneId),
-                    eq(tasks.status, "In Progress")
-                ));
-        } else if (currentMilestone.status === "Client Approval") {
-            await tx.update(tasks)
-                .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
-                .where(and(
-                    eq(tasks.milestoneId, oldTask.milestoneId),
-                    eq(tasks.isBlockedByClient, true)
-                ));
-        }
 
         await syncProjectStatus(tx, oldTask.projectId);
         
@@ -406,7 +385,7 @@ export async function deleteProjectDocument(projectId: string, documentId: strin
 
 
 // --- Milestone Actions ---
-export async function updateMilestoneStatus(milestoneId: string, status: "Pending" | "In Progress" | "Client Approval" | "Completed"): Promise<ActionState> {
+export async function updateMilestoneStatus(milestoneId: string, status: "Pending" | "In Progress" | "Completed"): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["manager"])) {
         return { success: false, message: "Unauthorized" };
@@ -418,47 +397,26 @@ export async function updateMilestoneStatus(milestoneId: string, status: "Pendin
                 .set({ status, updatedAt: new Date() })
                 .where(eq(milestones.id, milestoneId));
 
-            // DEPENDENCY LOGIC:
-        // If a milestone enters "Client Approval", automatically block all of its active tasks.
-        if (status === "Client Approval") {
-            await tx.update(tasks)
-                .set({ isBlockedByClient: true, status: "Blocked", updatedAt: new Date() })
-                .where(and(
-                    eq(tasks.milestoneId, milestoneId),
-                    eq(tasks.status, "In Progress") // Only block active tasks
-                ));
-        } else {
-            // If moving out of Client Approval, unblock tasks that were blocked by client
-            await tx.update(tasks)
-                .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
-                .where(and(
-                    eq(tasks.milestoneId, milestoneId),
-                    eq(tasks.isBlockedByClient, true)
-                ));
-        }
+            const milestone = await tx.query.milestones.findFirst({
+                where: eq(milestones.id, milestoneId),
+                with: { project: true }
+            });
 
-        const milestone = await tx.query.milestones.findFirst({
+            if (milestone) {
+                await syncProjectStatus(tx, milestone.projectId);
+            }
+        });
+
+        const milestone = await db.query.milestones.findFirst({
             where: eq(milestones.id, milestoneId),
             with: { project: true }
         });
 
-        if (milestone) {
-            await syncProjectStatus(tx, milestone.projectId);
-        }
-    });
-
-    const milestone = await db.query.milestones.findFirst({
-        where: eq(milestones.id, milestoneId),
-        with: { project: true }
-    });
-
-    await logAction("UPDATE", "Milestone", `Milestone ${milestoneId} moved to ${status}`);
+        await logAction("UPDATE", "Milestone", `Milestone ${milestoneId} moved to ${status}`);
 
         if (milestone) {
             let clientNotice = "";
-            if (status === "Client Approval") {
-                clientNotice = `Review Required: Milestone "${milestone.title}" is ready for your review and digital sign-off.`;
-            } else if (status === "Completed") {
+            if (status === "Completed") {
                 clientNotice = `Milestone Completed: "${milestone.title}" has been completed!`;
             } else if (status === "In Progress") {
                 clientNotice = `Milestone In Progress: Work has started on "${milestone.title}".`;
@@ -499,20 +457,12 @@ export async function createTask(
     try {
         const cleanAssigneeIds = Array.from(new Set((assigneeIds || []).filter(Boolean)));
 
-        // Check dependency logic on creation
-        const parentMilestone = await db.query.milestones.findFirst({
-            where: eq(milestones.id, milestoneId)
-        });
-
-        const isParentBlocked = parentMilestone?.status === "Client Approval";
-
         const [newTask] = await db.insert(tasks).values({
             projectId,
             milestoneId,
             title,
             description,
-            status: isParentBlocked ? "Blocked" : "Todo",
-            isBlockedByClient: isParentBlocked,
+            status: "Todo",
             weight: weight || 1,
             estimatedHours: estimatedHours || null
         }).returning();
@@ -534,7 +484,7 @@ export async function createTask(
     }
 }
 
-export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Blocked" | "Changes Requested" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
+export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
@@ -578,10 +528,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             return { success: false, message: "Proof Links or Notes are required for review." };
         }
 
-        const wasBlocked = oldTask.isBlockedByClient;
-        const isNowBlocked = status === "Blocked";
-
-        const updateData: Record<string, unknown> = { status, isBlockedByClient: isNowBlocked, updatedAt: new Date() };
+        const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
         if (status === "In Review" || status === "Done") {
             if (proofLinks !== undefined) updateData.proofLinks = proofLinks || [];
             if (proofNotes !== undefined) updateData.proofNotes = proofNotes;
@@ -605,9 +552,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
         if (bubbledMilestone) {
             let clientNotice = "";
-            if (bubbledMilestone.newStatus === "Client Approval") {
-                clientNotice = `Review Required: Milestone "${bubbledMilestone.title}" is ready for your review and digital sign-off.`;
-            } else if (bubbledMilestone.newStatus === "Completed") {
+            if (bubbledMilestone.newStatus === "Completed") {
                 clientNotice = `Milestone Completed: "${bubbledMilestone.title}" has been completed!`;
             } else if (bubbledMilestone.newStatus === "In Progress") {
                 clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
@@ -615,16 +560,6 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             if (clientNotice) {
                 const { notifyProjectClients } = await import("@/features/notifications/send");
                 await notifyProjectClients(bubbledMilestone.projectId, clientNotice, "milestone", "/portal");
-            }
-        }
-
-        if (!wasBlocked && isNowBlocked) {
-            const stakeholders = oldTask.milestone?.project?.stakeholders || [];
-            const emails = stakeholders.map(s => s.user?.email).filter(Boolean) as string[];
-            
-            if (emails.length > 0) {
-                const { sendTaskBlockedEmail } = await import("@/lib/notifications");
-                await sendTaskBlockedEmail(emails, oldTask.milestone?.project?.title || "Your Project", oldTask.title);
             }
         }
 
@@ -702,35 +637,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             }
         }
 
-        if (newStatus === "In Review") {
-            const firstUrl = proofLinks && proofLinks[0]?.url ? proofLinks[0].url : "";
-            const { submitTaskForVerification } = await import("@/actions/task-quality-gate");
-            const gateRes = await submitTaskForVerification({
-                taskId,
-                proofUrl: firstUrl,
-                submissionNotes: proofNotes || "",
-            });
-
-            if (!gateRes.success) {
-                const errMsg = typeof gateRes.error === "string"
-                    ? gateRes.error
-                    : "Proof validation failed: Valid URL and minimum 25 characters of deliverable notes required.";
-                return { success: false, message: errMsg };
-            }
-
-            await logAction(
-                "UPDATE",
-                "Task",
-                `Task ${taskId} evaluated by Quality Gate (Score: ${gateRes.score}%, Status: ${gateRes.passed ? "In Review" : "Changes Requested"})`
-            );
-
-            return {
-                success: true,
-                message: gateRes.passed
-                    ? `Quality Gate Passed (${gateRes.score}%)! Task queued for PM sign-off.`
-                    : `Quality Gate unverified (${gateRes.score}%). Changes requested.`,
-            };
-        }
+        // Quality gate evaluation removed per spec - PM review is the only review
 
         const updatedProofLinks = proofLinks !== undefined ? proofLinks : oldTask.proofLinks;
         const updatedProofNotes = proofNotes !== undefined ? proofNotes : oldTask.proofNotes;
@@ -746,7 +653,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             };
             if (newStatus === "Done") {
                 updatePayload.completedAt = new Date();
-            } else if (oldTask.status === "Done" && newStatus !== "Done") {
+            } else if (oldTask.status === "Done") {
                 updatePayload.completedAt = null;
             }
 
@@ -759,9 +666,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
 
         if (bubbledMilestone) {
             let clientNotice = "";
-            if (bubbledMilestone.newStatus === "Client Approval") {
-                clientNotice = `Review Required: Milestone "${bubbledMilestone.title}" is ready for your review and digital sign-off.`;
-            } else if (bubbledMilestone.newStatus === "Completed") {
+            if (bubbledMilestone.newStatus === "Completed") {
                 clientNotice = `Milestone Completed: "${bubbledMilestone.title}" has been completed!`;
             } else if (bubbledMilestone.newStatus === "In Progress") {
                 clientNotice = `Milestone In Progress: Work has started on "${bubbledMilestone.title}".`;
@@ -793,72 +698,99 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
     }
 }
 
-export async function getTaskAuditReport(taskId: string) {
-    const access = await authorizeTask(taskId);
-    if (!access.ok) return null;
-
-    const { getLatestTaskSubmission } = await import("@/actions/task-quality-gate");
-    return getLatestTaskSubmission(taskId);
-}
-
-export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReason: string): Promise<ActionState> {
+/**
+ * submitTask (step 25 in docs/api-contract.md)
+ * Who can call: developer (assigned task only)
+ * Input: { taskId: string, files: string[], links: string[], note?: string }
+ * Output: { ok: true, status: 'in_review' }
+ * Errors:
+ * - NEED_FILE_OR_LINK: no file and no link.
+ * - FORBIDDEN: caller is not the assigned developer.
+ * - INVALID_STATUS: task is not in_progress or changes_requested.
+ * Side effects: task -> in_review; PM notification; audit log row.
+ */
+export async function submitTask(input: {
+    taskId: string;
+    files: string[];
+    links: string[];
+    note?: string;
+}): Promise<{ ok: true; status: "in_review" } | { ok: false; error: string }> {
     const session = await auth();
-    if (!hasRole(session, ["manager", "developer"])) {
-        return { success: false, message: "Unauthorized" };
+    if (!session?.user?.id || session.user.role !== "developer") {
+        return { ok: false, error: "FORBIDDEN" };
     }
 
-    if (!blockedReason.trim()) {
-        return { success: false, message: "Blocked reason is required." };
+    const hasFiles = Array.isArray(input.files) && input.files.some((f) => f && f.trim().length > 0);
+    const hasLinks = Array.isArray(input.links) && input.links.some((l) => l && l.trim().length > 0);
+    if (!hasFiles && !hasLinks) {
+        return { ok: false, error: "NEED_FILE_OR_LINK" };
     }
 
-    try {
-        if (session.user.role === "developer") {
-            const editorId = session.user.id;
-            if (!editorId) return { success: false, message: "Unauthorized" };
-            const assignment = await db.query.taskAssignees.findFirst({
-                where: and(eq(taskAssignees.taskId, taskId), eq(taskAssignees.userId, editorId)),
-            });
-            if (!assignment) {
-                return { success: false, message: "Unauthorized: Task not assigned to you" };
-            }
-        }
+    const assignment = await db.query.taskAssignees.findFirst({
+        where: and(eq(taskAssignees.taskId, input.taskId), eq(taskAssignees.userId, session.user.id)),
+    });
+    if (!assignment) {
+        return { ok: false, error: "FORBIDDEN" };
+    }
 
-        const oldTask = await db.query.tasks.findFirst({
-            where: eq(tasks.id, taskId),
-            with: { milestone: { with: { project: true } } }
-        });
+    const task = await db.query.tasks.findFirst({
+        where: eq(tasks.id, input.taskId),
+        with: {
+            milestone: {
+                with: {
+                    project: true,
+                },
+            },
+        },
+    });
 
-        if (!oldTask) return { success: false, message: "Task not found" };
+    if (!task) {
+        return { ok: false, error: "TASK_NOT_FOUND" };
+    }
 
-        await db.update(tasks)
-            .set({ 
-                status: "Blocked", 
-                isBlockedByClient: true,
-                blockedReason: blockedReason.trim(),
-                updatedAt: new Date() 
+    const normStatus = task.status.toLowerCase().replace(/\s+/g, "_");
+    if (normStatus !== "in_progress" && normStatus !== "changes_requested") {
+        return { ok: false, error: "INVALID_STATUS" };
+    }
+
+    const combinedProofLinks: { label: string; url: string }[] = [
+        ...(input.links || []).filter((l) => l && l.trim().length > 0).map((url) => ({ label: "Link", url: url.trim() })),
+        ...(input.files || []).filter((f) => f && f.trim().length > 0).map((fileUrl) => ({ label: "File", url: fileUrl.trim() })),
+    ];
+
+    await db.transaction(async (tx) => {
+        await tx.update(tasks)
+            .set({
+                status: "In Review",
+                proofLinks: combinedProofLinks,
+                proofNotes: input.note?.trim() || null,
+                updatedAt: new Date(),
             })
-            .where(eq(tasks.id, taskId));
+            .where(eq(tasks.id, input.taskId));
 
-        // Notify internal team members ONLY (Admins/PMs)
-        const allInternalUsers = await db.query.users.findMany({
-            where: (users, { inArray }) => inArray(users.role, ["manager", "developer"]),
-            columns: { email: true }
-        });
-        const emails = allInternalUsers.map(u => u.email).filter(Boolean) as string[];
-        
-        if (emails.length > 0) {
-            const { sendTaskBlockedEmail } = await import("@/lib/notifications");
-            await sendTaskBlockedEmail(emails, oldTask.milestone?.project?.title || "Your Project", oldTask.title);
-        }
+        await handleMilestoneBubbling(tx, input.taskId, "In Review", task);
+    });
 
-        await logAction("UPDATE", "Task", `Task ${taskId} blocked with reason: ${blockedReason.trim()}`);
+    const { notifyAllAdmins } = await import("@/features/notifications/send");
+    await notifyAllAdmins(
+        `Task "${task.title}" has been submitted for review by ${session.user.name || "assigned developer"}.`,
+        "task",
+        `/dashboard/pm/${task.projectId}`
+    );
 
-        revalidatePath("/dashboard/pm/[id]");
-        return { success: true, message: "Task blocked with reason." };
-    } catch (error) {
-        console.error("Failed to block task:", error);
-        return { success: false, message: "Database Error" };
+    await logAction(
+        "UPDATE",
+        "Task",
+        `Developer ${session.user.name || session.user.id} submitted task "${task.title}" (${input.taskId}) for review`
+    );
+
+    if (task.projectId) {
+        revalidatePath(`/dashboard/pm/${task.projectId}`);
     }
+    revalidatePath("/dashboard/pm/[id]", "page");
+    revalidatePath("/portal");
+
+    return { ok: true, status: "in_review" };
 }
 
 export async function updateTaskDetails(
@@ -1099,95 +1031,6 @@ export async function deleteMilestone(milestoneId: string): Promise<ActionState>
     }
 }
 
-// --- Client Feedback Actions ---
-export async function submitMilestoneFeedback(milestoneId: string, status: "APPROVED" | "REVISION_REQUESTED", commentText?: string, attachmentUrl?: string | null, attachmentName?: string | null): Promise<ActionState> {
-    const session = await auth();
-    if (!session?.user?.id || !["client"].includes(session.user.role || "")) {
-        return { success: false, message: "Unauthorized" };
-    }
-
-    if (status === "REVISION_REQUESTED" && (!commentText || !commentText.trim())) {
-        return { success: false, message: "Comment is required for revision requests." };
-    }
-
-    try {
-        const { clientFeedback } = await import("@/db/schema");
-        const { desc, or } = await import("drizzle-orm");
-
-        const milestone = await db.query.milestones.findFirst({ where: eq(milestones.id, milestoneId) });
-        if (!milestone) return { success: false, message: "Milestone not found" };
-
-        // Ownership: only stakeholders for the milestone's project can submit feedback (or superadmin).
-        const isSuperAdmin = false;
-        const stakeholder = await db.query.projectStakeholders.findFirst({
-            where: and(
-                eq(projectStakeholders.projectId, milestone.projectId),
-                eq(projectStakeholders.userId, session.user.id)
-            )
-        });
-        if (!stakeholder && !isSuperAdmin) return { success: false, message: "Unauthorized: Feedback ownership mismatch" };
-
-        // Find the latest feedback for version chaining (threading)
-        const latestFeedback = await db.query.clientFeedback.findFirst({
-            where: eq(clientFeedback.milestoneId, milestoneId),
-            orderBy: [desc(clientFeedback.createdAt)]
-        });
-
-        await db.transaction(async (tx) => {
-            await tx.insert(clientFeedback).values({
-                milestoneId,
-                clientId: session.user.id!,
-                status,
-                commentText: commentText?.trim() || null,
-                attachmentUrl: attachmentUrl || null,
-                attachmentName: attachmentName || null,
-                parentFeedbackId: latestFeedback?.id || null, // Create threaded version link
-            });
-
-            if (status === "APPROVED") {
-                await tx.update(tasks)
-                    .set({ isBlockedByClient: false, status: "Done", updatedAt: new Date() })
-                    .where(
-                        and(
-                            eq(tasks.milestoneId, milestoneId),
-                            or(
-                                eq(tasks.isBlockedByClient, true),
-                                eq(tasks.status, "In Review")
-                            )
-                        )
-                    );
-            } else {
-                // UNBLOCK ASSIGNED TASKS THAT ARE BLOCKED BY CLIENT (Revision requested)
-                await tx.update(tasks)
-                    .set({ isBlockedByClient: false, status: "Todo", updatedAt: new Date() })
-                    .where(and(eq(tasks.milestoneId, milestoneId), eq(tasks.isBlockedByClient, true)));
-            }
-
-            // Client feedback should deterministically drive milestone status.
-            const newMilestoneStatus = status === "REVISION_REQUESTED" ? "In Progress" : "Completed";
-            await tx.update(milestones)
-                .set({ status: newMilestoneStatus, updatedAt: new Date() })
-                .where(eq(milestones.id, milestoneId));
-                
-            await syncProjectStatus(tx, milestone.projectId);
-        });
-
-        if (status === "REVISION_REQUESTED") {
-            await notifyAllAdmins(`${session.user.name || "Client"} requested a revision for: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
-        } else if (status === "APPROVED") {
-            await notifyAllAdmins(`${session.user.name || "Client"} approved milestone: ${milestone.title}`, "feedback", `/dashboard/pm/${milestone.projectId}`);
-        }
-
-        await logAction("UPDATE", "Milestone Feedback", `Feedback ${status} submitted for Milestone ${milestoneId}`);
-
-        revalidatePath("/portal");
-        revalidatePath("/dashboard/pm/[id]");
-        return { success: true, message: "Feedback submitted successfully." };
-    } catch (error) {
-        console.error("Failed to submit feedback:", error);
-        return { success: false, message: "Database Error" };
-    }
-}
 
 // --- Deadline Tracking ---
 export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; found: number }> {

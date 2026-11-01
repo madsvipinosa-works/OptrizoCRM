@@ -15,8 +15,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { getProjectForLead } from "@/features/crm/actions";
 import { getProjectProgress } from "@/actions/progress";
-import { getLatestTaskSubmission, polishDeliveryNotes, submitTaskForVerification } from "@/actions/task-quality-gate";
-import { getClientUsers, getTaskAuditReport } from "@/features/pm/actions";
+import { getClientUsers, submitTask } from "@/features/pm/actions";
 import { ROLES, signInAs, type Role } from "../../helpers/mock-auth";
 import { expectNoWrites, type MockDb } from "../../helpers/mock-db";
 
@@ -34,8 +33,6 @@ const rolesExcept = (...allowed: Role[]) => ROLES.filter((role) => !allowed.incl
 beforeEach(() => {
   mockDb.resetMocks();
   signInAs(auth, null);
-  vi.stubEnv("GEMINI_API_KEY", "");
-  vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
 });
 
 afterEach(() => {
@@ -114,132 +111,60 @@ describe("getProjectProgress", () => {
   });
 });
 
-describe("submitTaskForVerification", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, ok: true }));
+describe("submitTask", () => {
+  const validInput = {
+    taskId: "task-1",
+    files: [],
+    links: ["https://github.com/optrizo/app/pull/42"],
+    note: "Completed and tested login form",
+  };
+
+  it("rejects an anonymous caller", async () => {
+    expect(await submitTask(validInput)).toEqual({ ok: false, error: "FORBIDDEN" });
   });
 
-  it("rejects an anonymous caller before reading the task or fetching the proof URL", async () => {
-    expect(await submitTaskForVerification(validSubmission)).toEqual({ success: false, error: "Unauthorized" });
-    expect(mockDb.query.tasks.findFirst).not.toHaveBeenCalled();
-    expect(fetch).not.toHaveBeenCalled();
-    expectNoWrites(mockDb);
-  });
-
-  it.each(rolesExcept("manager", "developer"))("rejects %s", async (role) => {
+  it.each(rolesExcept("developer"))("rejects non-developer role %s", async (role) => {
     signInAs(auth, role);
-    expect(await submitTaskForVerification(validSubmission)).toEqual({ success: false, error: "Unauthorized" });
-    expect(fetch).not.toHaveBeenCalled();
-    expectNoWrites(mockDb);
+    expect(await submitTask(validInput)).toEqual({ ok: false, error: "FORBIDDEN" });
+  });
+
+  it("rejects when no files and no links are provided", async () => {
+    signInAs(auth, "developer", "dev-1");
+    expect(await submitTask({ taskId: "task-1", files: [], links: [] })).toEqual({
+      ok: false,
+      error: "NEED_FILE_OR_LINK",
+    });
   });
 
   it("rejects a developer who is not assigned to the task", async () => {
     signInAs(auth, "developer", "dev-2");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue(undefined);
-    expect(await submitTaskForVerification(validSubmission)).toEqual({ success: false, error: "Unauthorized" });
-    expect(fetch).not.toHaveBeenCalled();
-    expectNoWrites(mockDb);
+    expect(await submitTask(validInput)).toEqual({ ok: false, error: "FORBIDDEN" });
   });
 
-  it("lets the assigned developer submit", async () => {
+  it("rejects when task is in an invalid status", async () => {
     signInAs(auth, "developer", "dev-1");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
     mockDb.query.tasks.findFirst.mockResolvedValue({
       id: "task-1",
-      projectId: "p1",
-      title: "Build the login form",
-      description: "Login form with validation",
-      milestone: { title: "Development" },
+      status: "Done",
+      milestone: { project: { id: "p1" } },
     });
-    mockDb.setWriteRows([{ id: "s1" }]);
-
-    const result = await submitTaskForVerification(validSubmission);
-    expect(result.success).toBe(true);
-    expect(mockDb.transaction).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("getLatestTaskSubmission", () => {
-  it("returns nothing to an anonymous caller and never queries", async () => {
-    expect(await getLatestTaskSubmission("task-1")).toBeNull();
-    expect(mockDb.query.taskSubmissions.findFirst).not.toHaveBeenCalled();
+    expect(await submitTask(validInput)).toEqual({ ok: false, error: "INVALID_STATUS" });
   });
 
-  it.each(rolesExcept("manager", "developer"))("returns nothing to %s", async (role) => {
-    signInAs(auth, role);
-    expect(await getLatestTaskSubmission("task-1")).toBeNull();
-    expect(mockDb.query.taskSubmissions.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("returns nothing to a developer who is not assigned", async () => {
-    signInAs(auth, "developer", "dev-2");
-    mockDb.query.taskAssignees.findFirst.mockResolvedValue(undefined);
-    expect(await getLatestTaskSubmission("task-1")).toBeNull();
-    expect(mockDb.query.taskSubmissions.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("returns the submission to the manager and to the assigned developer", async () => {
-    mockDb.query.taskSubmissions.findFirst.mockResolvedValue({ id: "s1", taskId: "task-1" });
-
-    signInAs(auth, "manager");
-    expect(await getLatestTaskSubmission("task-1")).toEqual({ id: "s1", taskId: "task-1" });
-
+  it("lets the assigned developer submit from In Progress", async () => {
     signInAs(auth, "developer", "dev-1");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
-    expect(await getLatestTaskSubmission("task-1")).toEqual({ id: "s1", taskId: "task-1" });
-  });
-});
+    mockDb.query.tasks.findFirst.mockResolvedValue({
+      id: "task-1",
+      status: "In Progress",
+      milestone: { project: { id: "p1" } },
+    });
 
-describe("getTaskAuditReport", () => {
-  it("returns nothing to an anonymous caller", async () => {
-    expect(await getTaskAuditReport("task-1")).toBeNull();
-    expect(mockDb.query.taskSubmissions.findFirst).not.toHaveBeenCalled();
-  });
-
-  it.each(rolesExcept("manager", "developer"))("returns nothing to %s", async (role) => {
-    signInAs(auth, role);
-    expect(await getTaskAuditReport("task-1")).toBeNull();
-    expect(mockDb.query.taskSubmissions.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("returns nothing to a developer who is not assigned", async () => {
-    signInAs(auth, "developer", "dev-2");
-    mockDb.query.taskAssignees.findFirst.mockResolvedValue(undefined);
-    expect(await getTaskAuditReport("task-1")).toBeNull();
-    expect(mockDb.query.taskSubmissions.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("returns the report to the manager", async () => {
-    signInAs(auth, "manager");
-    mockDb.query.taskSubmissions.findFirst.mockResolvedValue({ id: "s1" });
-    expect(await getTaskAuditReport("task-1")).toEqual({ id: "s1" });
-  });
-});
-
-describe("polishDeliveryNotes", () => {
-  const input = { taskTitle: "Build the login form", rawNotes: "added validation and error states" };
-
-  it("rejects an anonymous caller", async () => {
-    expect(await polishDeliveryNotes(input)).toEqual({ success: false, error: "Unauthorized" });
-  });
-
-  it.each(rolesExcept("manager", "developer"))("rejects %s", async (role) => {
-    signInAs(auth, role);
-    expect(await polishDeliveryNotes(input)).toEqual({ success: false, error: "Unauthorized" });
-  });
-
-  it("rejects a developer polishing notes for a task that is not theirs", async () => {
-    signInAs(auth, "developer", "dev-2");
-    mockDb.query.taskAssignees.findFirst.mockResolvedValue(undefined);
-    expect(await polishDeliveryNotes({ ...input, taskId: "task-1" })).toEqual({ success: false, error: "Unauthorized" });
-  });
-
-  it("lets a developer and the manager polish notes", async () => {
-    signInAs(auth, "developer", "dev-1");
-    expect((await polishDeliveryNotes(input)).success).toBe(true);
-
-    signInAs(auth, "manager");
-    expect((await polishDeliveryNotes(input)).success).toBe(true);
+    const result = await submitTask(validInput);
+    expect(result).toEqual({ ok: true, status: "in_review" });
+    expect(mockDb.transaction).toHaveBeenCalledTimes(1);
   });
 });
 

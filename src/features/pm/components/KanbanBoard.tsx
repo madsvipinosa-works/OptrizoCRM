@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, submitTaskBlockedReasonAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
+import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -20,7 +20,6 @@ import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
 import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
-import { TaskBlockedReasonModal } from "./TaskBlockedReasonModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
 
@@ -28,7 +27,7 @@ interface KanbanMilestone {
     id: string;
     order: number;
     title: string;
-    status: "Pending" | "In Progress" | "Client Approval" | "Completed";
+    status: "Pending" | "In Progress" | "Completed";
     feedback?: { id: string; status: "APPROVED" | "REVISION_REQUESTED"; commentText: string | null; createdAt: Date }[];
 }
 
@@ -123,12 +122,7 @@ export function KanbanBoard({
     } | null>(null);
 
     // Task Proof Viewing state
-    const [viewingProofsTask, setViewingProofsTask] = useState<{ task: PmTask; initialTab?: "proofs" | "audit" } | null>(null);
-
-    // Task Blocked Intercept state
-    const [blockingTask, setBlockingTask] = useState<{
-        task: PmTask;
-    } | null>(null);
+    const [viewingProofsTask, setViewingProofsTask] = useState<{ task: PmTask } | null>(null);
 
     // Task Details Viewing state
     const [viewingTaskDetails, setViewingTaskDetails] = useState<PmTask | null>(null);
@@ -177,13 +171,8 @@ export function KanbanBoard({
         const task = optimisticTasks.find((t) => t.id === taskId);
         if (!task) return;
 
-        if (activeMilestone?.status === "Client Approval" && targetStatus !== "Blocked") {
-            toast.error("Cannot unblock task while Milestone is awaiting Client Approval.");
-            return;
-        }
-
         if (targetStatus === "Done" && !["manager"].includes(currentUserRole || "")) {
-            toast.error("Only Managers and Super-Admins can approve tasks to Done.");
+            toast.error("Only Managers can approve tasks to Done.");
             return;
         }
 
@@ -193,12 +182,6 @@ export function KanbanBoard({
                 task,
                 targetStatus: targetStatus as "In Review" | "Done",
             });
-            return;
-        }
-
-        // Intercept if moving to "Blocked"
-        if (targetStatus === "Blocked") {
-            setBlockingTask({ task });
             return;
         }
 
@@ -241,49 +224,11 @@ export function KanbanBoard({
             toast.error(res.message || "Failed to submit task proof");
             setOptimisticTasks(optimisticTasks); // Revert
         } else {
-            const msg = res.message || "Task proof submitted & status updated!";
-            if (msg.includes("Changes requested") || msg.includes("Changes Requested") || msg.includes("unverified")) {
-                toast.warning(msg);
-                setOptimisticTasks((prev) =>
-                    prev.map((t) =>
-                        t.id === task.id ? { ...t, status: "Changes Requested" as const } : t
-                    )
-                );
-            } else {
-                toast.success(msg);
-            }
+            toast.success(res.message || "Task proof submitted & status updated!");
             router.refresh();
         }
 
         setProofingTask(null);
-    };
-
-    const handleConfirmTaskBlocked = async (blockedReason: string) => {
-        if (!blockingTask) return;
-
-        const { task } = blockingTask;
-
-        // Optimistic UI Update
-        const updated = optimisticTasks.map((t) =>
-            t.id === task.id
-                ? {
-                    ...t,
-                    status: "Blocked" as const,
-                    blockedReason: blockedReason,
-                }
-                : t
-        );
-        setOptimisticTasks(updated);
-
-        const res = await submitTaskBlockedReasonAndMove(task.id, blockedReason);
-        if (!res.success) {
-            toast.error(res.message || "Failed to block task");
-            setOptimisticTasks(optimisticTasks); // Revert
-        } else {
-            toast.success("Task flagged as Blocked with reason!");
-        }
-
-        setBlockingTask(null);
     };
 
     const handleConfirmDeleteTask = async () => {
@@ -484,30 +429,7 @@ export function KanbanBoard({
                     : m
             );
             setOptimisticMilestones(updated);
-
-            if (newStatus === "Client Approval") {
-                toast.warning("Milestone requires Client Approval. All active tasks inside are now Blocked.", {
-                    duration: 5000,
-                });
-                setOptimisticTasks(
-                    optimisticTasks.map((t) =>
-                        t.milestoneId === activeMilestoneId && t.status === "In Progress"
-                            ? { ...t, status: "Blocked" }
-                            : t
-                    )
-                );
-            } else if (activeMilestone.status === "Client Approval") {
-                toast.success("Client Approved. Tasks unblocked.");
-                setOptimisticTasks(
-                    optimisticTasks.map((t) =>
-                        t.milestoneId === activeMilestoneId && t.status === "Blocked"
-                            ? { ...t, status: "Todo" }
-                            : t
-                    )
-                );
-            } else {
-                toast.success(`Milestone status updated to ${newStatus}`);
-            }
+            toast.success(`Milestone status updated to ${newStatus}`);
         }
     };
 
@@ -976,7 +898,7 @@ export function KanbanBoard({
                     currentUserRole={currentUserRole}
                     onStatusChangeRequest={handleStatusChangeRequest}
                     onDeleteTask={(task) => setDeletingTask(task)}
-                    onViewProofs={(task, initialTab) => setViewingProofsTask({ task, initialTab })}
+                    onViewProofs={(task) => setViewingProofsTask({ task })}
                     onClickTask={(task) => setViewingTaskDetails(task)}
                 />
             </div>
@@ -1001,7 +923,6 @@ export function KanbanBoard({
                 task={viewingProofsTask?.task || null}
                 targetStatus={(viewingProofsTask?.task?.status as "In Review" | "Done") || "In Review"}
                 mode="edit"
-                initialTab={viewingProofsTask?.initialTab || "proofs"}
                 isViewOnly={
                     !(
                         ["manager"].includes(currentUserRole || "") ||
@@ -1057,16 +978,6 @@ export function KanbanBoard({
                 }
             />
 
-            {/* Task Blocked Reason Intercept Modal */}
-            <TaskBlockedReasonModal
-                open={!!blockingTask}
-                onOpenChange={(open) => {
-                    if (!open) setBlockingTask(null);
-                }}
-                task={blockingTask?.task || null}
-                onConfirm={handleConfirmTaskBlocked}
-            />
-
             {/* Task Soft-Delete Confirmation Modal */}
             <TaskDeleteConfirmModal
                 open={!!deletingTask}
@@ -1096,7 +1007,6 @@ export function KanbanBoard({
                         targetStatus: "In Review",
                     });
                 }}
-                onRequestBlock={(t) => setBlockingTask({ task: t })}
                 onSelectTask={(t) => setViewingTaskDetails(t)}
             />
 
