@@ -274,7 +274,7 @@ export const leads = pgTable("lead", {
     contactEmail: text("contact_email"),
     budget: text("budget"),
     estimatedValue: integer("estimated_value").default(0).notNull(),
-    leadScore: integer("lead_score").default(50).notNull(),
+
     qualificationStatus: qualificationStatusEnum("qualification_status").default("Lead").notNull(),
     priority: text("priority").default("Warm").notNull(),
     goals: text("goals"),

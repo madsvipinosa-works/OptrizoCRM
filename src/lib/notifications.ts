@@ -14,7 +14,7 @@ export async function sendLeadNotification(leadData: {
     message: string;
     service?: string;
     budget?: string;
-    score?: number;
+
 }) {
     try {
         // 1. Fetch Notification Recipients from Site Settings
@@ -57,7 +57,7 @@ export async function sendLeadNotification(leadData: {
                     <p><strong>Email:</strong> <a href="mailto:${leadData.email}">${leadData.email}</a></p>
                     <p><strong>Service:</strong> ${leadData.service || "N/A"}</p>
                     <p><strong>Budget:</strong> ${leadData.budget || "N/A"}</p>
-                    <p><strong>Score:</strong> ${leadData.score ?? 0} / 100</p>
+
                     
                     <hr style="border: 0; border-top: 1px solid #eaeaea; margin: 20px 0;" />
                     

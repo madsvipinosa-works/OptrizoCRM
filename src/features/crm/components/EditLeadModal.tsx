@@ -51,8 +51,7 @@ export function EditLeadModal({
     const [industry, setIndustry] = useState("");
     const [timelineExpectation, setTimelineExpectation] = useState("");
     const [priority, setPriority] = useState<"Hot" | "Warm" | "Cold">("Warm");
-    const [leadScore, setLeadScore] = useState<string>("50");
-    const [goals, setGoals] = useState("");
+        const [goals, setGoals] = useState("");
     const [selectedSource, setSelectedSource] = useState<string>("Website Form");
     const [customSource, setCustomSource] = useState<string>("");
 
@@ -68,8 +67,7 @@ export function EditLeadModal({
             setIndustry(lead.industry || "");
             setTimelineExpectation(lead.timelineExpectation || "");
             setPriority((lead.priority as any) || "Warm");
-            setLeadScore(String(lead.leadScore ?? 50));
-            setGoals(lead.goals || "");
+                        setGoals(lead.goals || "");
 
             const leadSrc = lead.source?.trim() || "Website Form";
             const isStandard = STANDARD_LEAD_SOURCES.some(
@@ -95,9 +93,7 @@ export function EditLeadModal({
         setIsLoading(true);
 
         const parsedValue = parseInt(estimatedValue, 10) || 0;
-        const parsedScore = Math.min(100, Math.max(0, parseInt(leadScore, 10) || 50));
-
-        const finalSource = selectedSource === "Other"
+                const finalSource = selectedSource === "Other"
             ? (customSource.trim().slice(0, 40) || "Other")
             : selectedSource;
 
@@ -113,9 +109,7 @@ export function EditLeadModal({
                 source: finalSource,
                 timelineExpectation: timelineExpectation.trim() || undefined,
                 priority,
-                leadScore: parsedScore,
-                score: parsedScore,
-                goals: goals.trim() || undefined,
+                                                goals: goals.trim() || undefined,
             });
 
             if (res.success) {
@@ -132,8 +126,7 @@ export function EditLeadModal({
                     source: finalSource,
                     timelineExpectation: timelineExpectation.trim() || null,
                     priority,
-                    leadScore: parsedScore,
-                    goals: goals.trim() || null,
+                                        goals: goals.trim() || null,
                 });
                 onClose();
             } else {
@@ -322,36 +315,19 @@ export function EditLeadModal({
                         )}
                     </div>
 
-                    {/* Priority & Lead Score */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-foreground">Priority Rating</Label>
-                            <Select value={priority} onValueChange={(val: any) => setPriority(val)}>
-                                <SelectTrigger className="h-8 text-xs bg-muted/30 border-border text-foreground">
-                                    <SelectValue placeholder="Priority" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-card border-border text-foreground text-xs">
-                                    <SelectItem value="Hot">🔥 Hot</SelectItem>
-                                    <SelectItem value="Warm">⚡ Warm</SelectItem>
-                                    <SelectItem value="Cold">❄️ Cold</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label htmlFor="edit-leadScore" className="text-xs font-medium text-foreground">
-                                Lead Score (0 - 100)
-                            </Label>
-                            <Input
-                                id="edit-leadScore"
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={leadScore}
-                                onChange={(e) => setLeadScore(e.target.value)}
-                                className="h-8 text-xs bg-muted/30 border-border text-foreground font-mono"
-                            />
-                        </div>
+                    {/* Priority Rating */}
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-foreground">Priority Rating</Label>
+                        <Select value={priority} onValueChange={(val: any) => setPriority(val)}>
+                            <SelectTrigger className="h-8 text-xs bg-muted/30 border-border text-foreground">
+                                <SelectValue placeholder="Priority" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border-border text-foreground text-xs">
+                                <SelectItem value="Hot">🔥 Hot</SelectItem>
+                                <SelectItem value="Warm">⚡ Warm</SelectItem>
+                                <SelectItem value="Cold">❄️ Cold</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {/* Goals / Requirements */}

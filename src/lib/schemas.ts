@@ -120,8 +120,8 @@ export const leadUpdateSchema = z.object({
     contactEmail: z.string().optional(),
     budget: z.string().optional(),
     estimatedValue: z.number().optional(),
-    leadScore: z.number().optional(),
-    score: z.number().optional(),
+
+
     priority: z.enum(["Hot", "Warm", "Cold"]).optional(),
     qualificationStatus: z.enum(["Lead", "MQL", "SQL"]).optional(),
     goals: z.string().optional(),

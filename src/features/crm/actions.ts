@@ -5,7 +5,7 @@ import { leads, inquiries, users, leadActivityLogs, agencyProjects, leadAssignee
 import { revalidatePath } from "next/cache";
 import { eq, inArray, and, sql, not, isNull, desc } from "drizzle-orm";
 import { leadUpdateSchema, transitionLeadSchema, logLeadActivitySchema, type LeadUpdateValues, type TransitionLeadValues, type LogLeadActivityValues } from "@/lib/schemas";
-import { calculateLeadScore } from "@/features/crm/utils/leadScoring";
+
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { sendClientOnboardingEmail } from "@/lib/notifications";
@@ -88,16 +88,8 @@ export async function createLead(data: {
 
             // 2. Parse estimated value and calculate lead score
             const estimatedValue = data.estimatedValue || (data.budget ? parseBudgetToEstimatedValue(data.budget) : 0);
-            const { score: leadScore, priority } = calculateLeadScore({
-                estimatedValue,
-                budget: data.budget,
-                timelineExpectation: data.timelineExpectation,
-                contactEmail: data.contactEmail,
-                contactPhone: data.contactPhone,
-                goals: data.goals,
-                serviceId: data.serviceId,
-            });
-            const qualificationStatus = leadScore >= 80 ? "SQL" : (leadScore >= 50 ? "MQL" : "Lead");
+                        const qualificationStatus = "Lead";
+            const priority = "Warm";
 
             // 3. Create lead
             const [newLead] = await tx.insert(leads).values({
@@ -109,7 +101,6 @@ export async function createLead(data: {
                 serviceId: data.serviceId || null,
                 budget: data.budget,
                 estimatedValue,
-                leadScore,
                 qualificationStatus,
                 priority,
                 timelineExpectation: data.timelineExpectation,
@@ -207,7 +198,7 @@ export async function createLead(data: {
                 leadId: newLead.id,
                 authorId: session.user.id || null,
                 activityType: "System",
-                content: `Lead created with initial score of ${leadScore} (${priority}). Assigned to ${assignedRepId ? "rep" : "unassigned"}.`,
+                content: `Lead created with priority ${priority}. Assigned to ${assignedRepId ? "rep" : "unassigned"}.`,
             });
             
             return newLead;
@@ -268,12 +259,7 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
             });
         }
 
-        const { score: leadScore, priority } = calculateLeadScore({
-            contactEmail: inquiry.email,
-            contactPhone: null,
-            goals: inquiry.message,
-            estimatedValue: 0,
-        });
+        const priority = "Warm";
 
         // Create the lead
         const [newLead] = await db.insert(leads).values({
@@ -283,7 +269,6 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
             contactEmail: inquiry.email,
             goals: inquiry.message,
             source: inquiry.source || "Website Form",
-            leadScore,
             priority,
             status: "New Lead",
             lastContactedAt: new Date(),
@@ -337,17 +322,13 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
     // 3. Update Database
     try {
         // Extract non-column fields to prevent SQL errors
-        const { assigneeIds, score, notes, files, activityType, ...otherFields } = validated.data;
-        const finalLeadScore = validated.data.leadScore ?? score;
-
-        const updateData: Record<string, any> = {
+        const { assigneeIds, notes, files, activityType, ...otherFields } = validated.data;
+                const updateData: Record<string, any> = {
             ...otherFields,
             updatedAt: new Date(),
         };
 
-        if (finalLeadScore !== undefined) {
-            updateData.leadScore = finalLeadScore;
-        }
+        
 
         await db.update(leads)
             .set(updateData)

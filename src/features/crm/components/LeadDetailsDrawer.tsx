@@ -186,8 +186,7 @@ export function LeadDetailsDrawer({
     const contactEmail = lead.contactEmail || lead.client?.email;
     const contactPhone = lead.contactPhone;
     const contactName = lead.contactName || lead.client?.name;
-    const score = lead.leadScore ?? 50;
-    const priority = lead.priority ?? (score >= 75 ? "Hot" : score < 45 ? "Cold" : "Warm");
+        const priority = lead.priority || "Warm";
 
     const lastContactTime = lead.lastContactedAt
         ? new Date(lead.lastContactedAt)
@@ -464,9 +463,7 @@ export function LeadDetailsDrawer({
                                 <Badge variant="outline" className={`gap-1 font-semibold text-xs px-2.5 py-0.5 ${getPriorityBadgeClass(priority)}`}>
                                     {getPriorityIcon(priority)} {priority} Priority
                                 </Badge>
-                                <Badge variant="outline" className="text-xs bg-muted/50 border-border text-muted-foreground font-mono">
-                                    Score: <strong className="text-foreground ml-1">{score}/100</strong>
-                                </Badge>
+                                
                             </div>
                             <SheetTitle className="text-xl font-bold text-foreground tracking-tight">
                                 {leadTitle}

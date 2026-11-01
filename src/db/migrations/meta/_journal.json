@@ -29,6 +29,13 @@
       "when": 1793523528752,
       "tag": "0004_add_public_inquiry_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793523908155,
+      "tag": "0005_drop_lead_score",
+      "breakpoints": true
     }
   ]
 }

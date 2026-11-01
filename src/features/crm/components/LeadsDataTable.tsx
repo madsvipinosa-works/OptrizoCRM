@@ -63,8 +63,7 @@ export type LeadItem = {
     contactEmail?: string | null;
     budget: string | null;
     estimatedValue?: number;
-    leadScore?: number;
-    priority?: string;
+        priority?: string;
     goals: string | null;
     industry?: string | null;
     targetAudience?: string | null;
@@ -193,26 +192,25 @@ export function LeadsDataTable({
     };
 
     const getPriorityBadge = (lead: LeadItem) => {
-        const score = lead.leadScore ?? 50;
-        const priority = lead.priority ?? (score >= 75 ? "Hot" : score < 45 ? "Cold" : "Warm");
+                const priority = lead.priority || "Warm";
 
         if (priority === "Hot") {
             return (
                 <Badge variant="outline" className="text-[10px] gap-1 font-semibold bg-rose-500/10 text-rose-400 border-rose-500/20">
-                    <Flame className="h-3 w-3 text-rose-400" /> Hot ({score})
+                    <Flame className="h-3 w-3 text-rose-400" /> Hot
                 </Badge>
             );
         }
         if (priority === "Cold") {
             return (
                 <Badge variant="outline" className="text-[10px] gap-1 font-semibold bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
-                    <Snowflake className="h-3 w-3 text-cyan-400" /> Cold ({score})
+                    <Snowflake className="h-3 w-3 text-cyan-400" /> Cold
                 </Badge>
             );
         }
         return (
             <Badge variant="outline" className="text-[10px] gap-1 font-semibold bg-amber-500/10 text-amber-400 border-amber-500/20">
-                <Zap className="h-3 w-3 text-amber-400" /> Warm ({score})
+                <Zap className="h-3 w-3 text-amber-400" /> Warm
             </Badge>
         );
     };
@@ -359,7 +357,7 @@ export function LeadsDataTable({
                                     Value ($) <ArrowUpDown className="h-3 w-3" />
                                 </Button>
                             </TableHead>
-                            <TableHead>Priority / Score</TableHead>
+                            <TableHead>Priority</TableHead>
                             <TableHead>Assignees</TableHead>
                             <TableHead className="text-right">
                                 <Button

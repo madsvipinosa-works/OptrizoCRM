@@ -69,8 +69,7 @@ export function LeadCard({
     const [isConverting, setIsConverting] = useState(false);
 
     const leadTitle = lead.businessName || lead.contactName || lead.client?.name || "Unnamed Opportunity";
-    const score = lead.leadScore ?? 50;
-    const priority = lead.priority ?? (score >= 75 ? "Hot" : score < 45 ? "Cold" : "Warm");
+        const priority = lead.priority || "Warm";
 
     const lastContactTime = lead.lastContactedAt
         ? new Date(lead.lastContactedAt)
@@ -183,12 +182,7 @@ export function LeadCard({
                         >
                             {getPriorityIcon(priority)} {priority}
                         </Badge>
-                        <span
-                            title={`Lead Score: ${score}`}
-                            className="text-[10px] font-mono text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded border border-border cursor-help"
-                        >
-                            {score}
-                        </span>
+                        
                     </div>
 
                     {/* Quick Action 3-Dot Dropdown */}

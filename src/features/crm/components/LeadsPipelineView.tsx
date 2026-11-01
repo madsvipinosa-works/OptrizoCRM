@@ -253,8 +253,7 @@ export function LeadsPipelineView({
 
         // Priority filter
         if (selectedPriorityFilter !== "all") {
-            const score = lead.leadScore ?? 50;
-            const priority = lead.priority ?? (score >= 75 ? "Hot" : score < 45 ? "Cold" : "Warm");
+                        const priority = lead.priority || "Warm";
             if (priority !== selectedPriorityFilter) return false;
         }
 
