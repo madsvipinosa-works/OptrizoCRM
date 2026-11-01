@@ -52,6 +52,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
+import { getLeadSubStatus, getDaysInStage, formatDaysInStage } from "@/features/crm/utils/stageUtils";
 
 export type LeadItem = {
     id: string;
@@ -70,6 +71,7 @@ export type LeadItem = {
     timelineExpectation?: string | null;
     status: string;
     source: string | null;
+    stageChangedAt?: Date | string | null;
     lastContactedAt?: Date | string | null;
     nextFollowUpDate?: Date | string | null;
     lossReason?: string | null;
@@ -88,8 +90,7 @@ interface LeadsDataTableProps {
     assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null; role?: string | null }[];
     isAdmin?: boolean;
     onStatusChangeRequest: (leadId: string, leadTitle: string, fromStatus: string, toStatus: string) => void;
-    onBulkStatusChange?: (leadIds: string[], toStatus: string) => void;
-    onBulkAssign?: (leadIds: string[], assigneeUserId: string) => void;
+        onBulkAssign?: (leadIds: string[], assigneeUserId: string) => void;
     onSelectLead?: (lead: LeadItem) => void;
     onEditLead?: (lead: LeadItem) => void;
     onArchiveLead?: (leadId: string) => void;
@@ -110,8 +111,7 @@ export function LeadsDataTable({
     assignableUsers,
     isAdmin,
     onStatusChangeRequest,
-    onBulkStatusChange,
-    onBulkAssign,
+        onBulkAssign,
     onSelectLead,
     onEditLead,
     onArchiveLead,
@@ -228,32 +228,6 @@ export function LeadsDataTable({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {onBulkStatusChange && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button size="sm" variant="outline" className="text-xs h-8 bg-card border-border text-foreground hover:bg-muted">
-                                        Bulk Move Stage <ChevronDown className="h-3 w-3 ml-1" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-card border-border text-foreground">
-                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Update Stage for Selected</DropdownMenuLabel>
-                                    <DropdownMenuSeparator className="bg-border" />
-                                    {STAGES.map((stg) => (
-                                        <DropdownMenuItem
-                                            key={stg}
-                                            onClick={() => {
-                                                onBulkStatusChange(selectedLeadIds, stg);
-                                                setSelectedLeadIds([]);
-                                            }}
-                                            className="text-xs focus:bg-muted cursor-pointer"
-                                        >
-                                            {stg}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
-
                         {onBulkAssign && isAdmin && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -438,38 +412,20 @@ export function LeadsDataTable({
                                             </div>
                                         </TableCell>
                                         <TableCell onClick={(e) => e.stopPropagation()}>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="p-0 h-auto hover:bg-transparent"
-                                                    >
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className={`cursor-pointer hover:opacity-80 transition-opacity font-semibold ${getStatusBadgeColor(lead.status)}`}
-                                                        >
-                                                            {lead.status}
-                                                            <ChevronDown className="h-3 w-3 ml-1 opacity-70" />
-                                                        </Badge>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="start" className="bg-card border-border text-foreground">
-                                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Move Deal Stage</DropdownMenuLabel>
-                                                    <DropdownMenuSeparator className="bg-border" />
-                                                    {STAGES.map((stg) => (
-                                                        <DropdownMenuItem
-                                                            key={stg}
-                                                            disabled={stg === lead.status}
-                                                            onClick={() => onStatusChangeRequest(lead.id, leadTitle, lead.status, stg)}
-                                                            className="text-xs focus:bg-muted cursor-pointer flex items-center justify-between"
-                                                        >
-                                                            <span>{stg}</span>
-                                                            {stg === lead.status && <CheckCircle2 className="h-3 w-3 text-primary" />}
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                            <div className="flex flex-col gap-1 items-start">
+                                                <Badge
+                                                    variant="secondary"
+                                                    className={`font-semibold ${getStatusBadgeColor(lead.status)}`}
+                                                >
+                                                    {lead.status}
+                                                </Badge>
+                                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                                    <span className="font-medium text-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
+                                                        {getLeadSubStatus(lead)}
+                                                    </span>
+                                                    <span>{formatDaysInStage(getDaysInStage(lead))}</span>
+                                                </div>
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-0.5">

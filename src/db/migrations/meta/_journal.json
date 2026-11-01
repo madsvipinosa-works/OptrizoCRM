@@ -36,6 +36,13 @@
       "when": 1793523908155,
       "tag": "0005_drop_lead_score",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793524359663,
+      "tag": "0006_stage_rules_and_outside_discussion",
+      "breakpoints": true
     }
   ]
 }

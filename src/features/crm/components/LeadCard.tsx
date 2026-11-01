@@ -44,6 +44,7 @@ import type { LeadItem } from "./LeadsDataTable";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getLeadSubStatus, getDaysInStage, formatDaysInStage } from "@/features/crm/utils/stageUtils";
 
 interface LeadCardProps {
     lead: LeadItem;

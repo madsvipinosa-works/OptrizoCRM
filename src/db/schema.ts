@@ -257,7 +257,7 @@ export const lossReasonEnum = pgEnum("loss_reason", [
     "internal_cancellation",
     "other"
 ]);
-export const activityEnum = pgEnum("activity_type", ["System", "Note", "Email", "Call", "Meeting"]);
+export const activityEnum = pgEnum("activity_type", ["System", "Note", "Email", "Call", "Meeting", "outside_discussion"]);
 export const qualificationStatusEnum = pgEnum("qualification_status", ["Lead", "MQL", "SQL"]);
 
 export const leads = pgTable("lead", {
@@ -282,6 +282,7 @@ export const leads = pgTable("lead", {
     targetAudience: text("target_audience"),
     timelineExpectation: text("timeline_expectation"),
     status: leadEnum("status").default("New Lead").notNull(),
+    stageChangedAt: timestamp("stage_changed_at", { withTimezone: true }),
     source: text("source").default("Client Portal Intake"),
     lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
     nextFollowUpDate: timestamp("next_follow_up_date", { withTimezone: true }),

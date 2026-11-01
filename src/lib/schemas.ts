@@ -113,7 +113,7 @@ export const STANDARD_LEAD_SOURCES = [
 export type StandardLeadSource = (typeof STANDARD_LEAD_SOURCES)[number];
 
 export const leadUpdateSchema = z.object({
-    status: leadStatusEnum.optional(),
+
     businessName: z.string().optional(),
     contactName: z.string().optional(),
     contactPhone: z.string().optional(),

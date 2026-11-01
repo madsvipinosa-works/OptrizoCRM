@@ -67,6 +67,7 @@ import { toast } from "sonner";
 import type { LeadItem } from "./LeadsDataTable";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getLeadSubStatus, getDaysInStage, formatDaysInStage } from "@/features/crm/utils/stageUtils";
 
 interface LeadDetailsDrawerProps {
     lead: LeadItem | null;
@@ -568,43 +569,29 @@ export function LeadDetailsDrawer({
                                 <span>Edit Deal</span>
                             </Button>
 
-                            {/* Interactive Stage Select Dropdown */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className={`h-8 text-xs font-semibold gap-1.5 border ${getStatusColor(lead.status)} hover:opacity-80`}
-                                    >
-                                        {lead.status}
-                                        <ChevronDown className="h-3 w-3 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-card border-border text-foreground w-48">
-                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Move Deal Stage</DropdownMenuLabel>
-                                    <DropdownMenuSeparator className="bg-border" />
-                                    {STAGES.map((stg) => (
-                                        <DropdownMenuItem
-                                            key={stg}
-                                            disabled={stg === lead.status}
-                                            onClick={() => onStatusChangeRequest?.(lead.id, leadTitle, lead.status, stg)}
-                                            className="text-xs focus:bg-muted cursor-pointer flex items-center justify-between"
-                                        >
-                                            <span>{stg}</span>
-                                            {stg === lead.status && <CheckCircle2 className="h-3 w-3 text-primary" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                    <DropdownMenuSeparator className="bg-border" />
-                                    <DropdownMenuItem
-                                        onClick={handleArchiveLead}
-                                        disabled={isArchiving}
-                                        className="text-xs text-rose-500 hover:text-rose-400 focus:bg-rose-500/10 focus:text-rose-400 cursor-pointer flex items-center gap-1.5"
-                                    >
-                                        <Archive className="h-3.5 w-3.5" />
-                                        <span>Archive Deal</span>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            {/* Lead Stage & Sub-Status Display */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge variant="outline" className={`h-8 text-xs font-semibold gap-1.5 border ${getStatusColor(lead.status)}`}>
+                                    {lead.status}
+                                </Badge>
+                                <Badge variant="outline" className="h-8 text-xs font-medium border-border bg-muted/40 text-muted-foreground">
+                                    {getLeadSubStatus(lead)}
+                                </Badge>
+                                <span className="text-[11px] font-mono text-muted-foreground px-1">
+                                    {formatDaysInStage(getDaysInStage(lead))}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleArchiveLead}
+                                    disabled={isArchiving}
+                                    className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-rose-400 border-border"
+                                    title="Archive Deal"
+                                >
+                                    <Archive className="h-3 w-3" />
+                                    <span>Archive</span>
+                                </Button>
+                            </div>
                         </div>
                     </div>
 

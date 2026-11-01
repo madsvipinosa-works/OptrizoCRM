@@ -1,23 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import {
-    DndContext,
-    DragOverlay,
-    PointerSensor,
-    KeyboardSensor,
-    useSensor,
-    useSensors,
-    DragStartEvent,
-    DragEndEvent,
-    useDroppable,
-} from "@dnd-kit/core";
-import {
-    SortableContext,
-    useSortable,
-    verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { LeadCard } from "./LeadCard";
 import type { LeadItem } from "./LeadsDataTable";
@@ -27,7 +9,7 @@ interface LeadsKanbanBoardProps {
     leads: LeadItem[];
     assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null; role?: string | null }[];
     isAdmin?: boolean;
-    onStatusChangeRequest: (leadId: string, leadTitle: string, fromStatus: string, toStatus: string) => void;
+    onStatusChangeRequest?: (leadId: string, leadTitle: string, fromStatus: string, toStatus: string) => void;
     onSelectLead?: (lead: LeadItem) => void;
     onEditLead?: (lead: LeadItem) => void;
     onArchiveLead?: (leadId: string) => void;
@@ -46,93 +28,33 @@ export function LeadsKanbanBoard({
     leads,
     assignableUsers,
     isAdmin,
-    onStatusChangeRequest,
     onSelectLead,
     onEditLead,
     onArchiveLead,
 }: LeadsKanbanBoardProps) {
-    const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
-
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 5, // 5px drag tolerance prevents accidental clicks
-            },
-        }),
-        useSensor(KeyboardSensor)
-    );
-
-    const activeLead = leads.find((l) => l.id === activeLeadId);
-
-    const handleDragStart = (event: DragStartEvent) => {
-        setActiveLeadId(event.active.id as string);
-    };
-
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        setActiveLeadId(null);
-
-        if (!over) return;
-
-        const draggedLeadId = active.id as string;
-        const draggedLead = leads.find((l) => l.id === draggedLeadId);
-        if (!draggedLead) return;
-
-        // Determine destination column status
-        const overId = over.id as string;
-        let targetStatus: string | null = null;
-
-        if (STAGES.includes(overId as any)) {
-            targetStatus = overId;
-        } else {
-            const targetLead = leads.find((l) => l.id === overId);
-            if (targetLead) targetStatus = targetLead.status;
-        }
-
-        if (targetStatus && targetStatus !== draggedLead.status) {
-            const leadTitle = draggedLead.businessName || draggedLead.contactName || draggedLead.client?.name || "Opportunity";
-            onStatusChangeRequest(draggedLead.id, leadTitle, draggedLead.status, targetStatus);
-        }
-    };
-
     return (
-        <DndContext
-            id="crm-kanban-dnd-context"
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-        >
-            <div className="w-full overflow-x-auto pb-4 scrollbar-thin">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start min-w-[1400px] 2xl:min-w-full">
-                    {STAGES.map((stage) => {
-                        const columnLeads = leads.filter((l) => l.status === stage);
-                        const totalColumnValue = columnLeads.reduce((acc, l) => acc + getLeadEffectiveValue(l), 0);
+        <div className="w-full overflow-x-auto pb-4 scrollbar-thin">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start min-w-[1400px] 2xl:min-w-full">
+                {STAGES.map((stage) => {
+                    const columnLeads = leads.filter((l) => l.status === stage);
+                    const totalColumnValue = columnLeads.reduce((acc, l) => acc + getLeadEffectiveValue(l), 0);
 
-                        return (
-                            <KanbanColumn
-                                key={stage}
-                                stage={stage}
-                                leads={columnLeads}
-                                totalValue={totalColumnValue}
-                                assignableUsers={assignableUsers}
-                                isAdmin={isAdmin}
-                                onSelectLead={onSelectLead}
-                                onEditLead={onEditLead}
-                                onArchiveLead={onArchiveLead}
-                            />
-                        );
-                    })}
-                </div>
+                    return (
+                        <KanbanColumn
+                            key={stage}
+                            stage={stage}
+                            leads={columnLeads}
+                            totalValue={totalColumnValue}
+                            assignableUsers={assignableUsers}
+                            isAdmin={isAdmin}
+                            onSelectLead={onSelectLead}
+                            onEditLead={onEditLead}
+                            onArchiveLead={onArchiveLead}
+                        />
+                    );
+                })}
             </div>
-
-            <DragOverlay>
-                {activeLead ? (
-                    <div className="opacity-95 rotate-1 scale-105 transition-transform w-72 pointer-events-none">
-                        <LeadCard lead={activeLead} />
-                    </div>
-                ) : null}
-            </DragOverlay>
-        </DndContext>
+        </div>
     );
 }
 
@@ -155,17 +77,8 @@ function KanbanColumn({
     onEditLead?: (lead: LeadItem) => void;
     onArchiveLead?: (leadId: string) => void;
 }) {
-    const { setNodeRef, isOver } = useDroppable({
-        id: stage,
-    });
-
     return (
-        <div
-            ref={setNodeRef}
-            className={`flex flex-col rounded-xl border border-border bg-card/60 backdrop-blur-xs p-3 min-h-[550px] transition-colors w-full min-w-0 ${
-                isOver ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30" : ""
-            }`}
-        >
+        <div className="flex flex-col rounded-xl border border-border bg-card/60 backdrop-blur-xs p-3 min-h-[550px] transition-colors w-full min-w-0">
             {/* Column Header */}
             <div className="flex flex-col gap-1 pb-3 mb-3 border-b border-border">
                 <div className="flex items-center justify-between">
@@ -183,79 +96,27 @@ function KanbanColumn({
                 )}
             </div>
 
-            {/* Draggable Items Context */}
-            <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-2.5 flex-1">
-                    {leads.length === 0 ? (
-                        <div className="flex-1 flex items-center justify-center border border-dashed border-border/60 rounded-lg p-6 text-center text-xs text-muted-foreground/60 select-none">
-                            Drop deals here
-                        </div>
-                    ) : (
-                        leads.map((lead) => (
-                            <DraggableKanbanCard
-                                key={lead.id}
+            {/* Column Items */}
+            <div className="flex flex-col gap-2.5 flex-1">
+                {leads.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center border border-dashed border-border/60 rounded-lg p-6 text-center text-xs text-muted-foreground/60 select-none">
+                        No deals in this stage
+                    </div>
+                ) : (
+                    leads.map((lead) => (
+                        <div key={lead.id} className="w-full min-w-0">
+                            <LeadCard
                                 lead={lead}
                                 assignableUsers={assignableUsers}
                                 isAdmin={isAdmin}
-                                onSelectLead={onSelectLead}
-                                onEditLead={onEditLead}
-                                onArchiveLead={onArchiveLead}
+                                onSelect={onSelectLead}
+                                onEdit={onEditLead}
+                                onArchive={onArchiveLead}
                             />
-                        ))
-                    )}
-                </div>
-            </SortableContext>
-        </div>
-    );
-}
-
-function DraggableKanbanCard({
-    lead,
-    assignableUsers,
-    isAdmin,
-    onSelectLead,
-    onEditLead,
-    onArchiveLead,
-}: {
-    lead: LeadItem;
-    assignableUsers: any[];
-    isAdmin?: boolean;
-    onSelectLead?: (lead: LeadItem) => void;
-    onEditLead?: (lead: LeadItem) => void;
-    onArchiveLead?: (leadId: string) => void;
-}) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: lead.id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            {...attributes}
-            {...listeners}
-            className={`cursor-grab active:cursor-grabbing transition-all w-full min-w-0 ${
-                isDragging ? "opacity-30 scale-95" : ""
-            }`}
-        >
-            <LeadCard
-                lead={lead}
-                assignableUsers={assignableUsers}
-                isAdmin={isAdmin}
-                onSelect={onSelectLead}
-                onEdit={onEditLead}
-                onArchive={onArchiveLead}
-            />
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
     );
 }

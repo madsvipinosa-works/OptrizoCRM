@@ -34,6 +34,11 @@ export async function requireSession(): Promise<AuthzResult> {
     return { ok: true, session: session as AuthedSession };
 }
 
+export async function requireRole(role: string | string[]): Promise<AuthzResult> {
+    const roleList = Array.isArray(role) ? role : [role];
+    return requireRoles(roleList);
+}
+
 export async function requireRoles(roles: string[]): Promise<AuthzResult> {
     const result = await requireSession();
     if (!result.ok) return result;

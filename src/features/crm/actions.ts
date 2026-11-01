@@ -323,7 +323,7 @@ export async function updateLead(id: string, data: LeadUpdateValues): Promise<Ac
     try {
         // Extract non-column fields to prevent SQL errors
         const { assigneeIds, notes, files, activityType, ...otherFields } = validated.data;
-                const updateData: Record<string, any> = {
+                const updateData: Record<string, unknown> = {
             ...otherFields,
             updatedAt: new Date(),
         };
@@ -394,7 +394,10 @@ export async function logLeadActivity(data: LogLeadActivityValues): Promise<Acti
                 activityType,
             });
 
-            // 2. Update lead's lastContactedAt and nextFollowUpDate
+            // 2. Auto-advance New Lead to Discovery & Qualifying
+            await advanceToDiscoveryIfNew(tx, leadId, `First logged ${activityType.toLowerCase()}`);
+
+            // 3. Update lead's lastContactedAt and nextFollowUpDate
             await tx.update(leads)
                 .set({
                     lastContactedAt: now,
@@ -456,7 +459,7 @@ export async function transitionLeadStage(data: TransitionLeadValues): Promise<A
         const now = new Date();
 
         await db.transaction(async (tx) => {
-            const updatePayload: any = {
+            const updatePayload: Record<string, unknown> = {
                 status: newStatus,
                 closedWonAt: oldStatus === "Closed Won" ? null : undefined,
                 updatedAt: now,
@@ -1130,74 +1133,83 @@ export async function updateLeadStatusWithAudit(
     }
 }
 
-export async function bulkUpdateLeadStatus(
-    leadIds: string[],
-    newStatus: "New Lead" | "Discovery & Qualifying" | "Proposal Sent" | "In Negotiation" | "Closed Won" | "Closed Lost"
-): Promise<ActionState> {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
-        return { success: false, message: "Unauthorized" };
+/**
+ * Shared workflow transition: moves a lead from 'New Lead' to 'Discovery & Qualifying'
+ * on the first logged interaction (Call, Meeting, Email, Note) or booked meeting.
+ * Writes a System activity interaction and updates stageChangedAt.
+ */
+export async function advanceToDiscoveryIfNew(
+    dbOrTx: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0],
+    leadId: string,
+    reason: string
+): Promise<boolean> {
+    const lead = await dbOrTx.query.leads.findFirst({
+        where: eq(leads.id, leadId),
+        columns: { id: true, status: true },
+    });
+
+    if (!lead || lead.status !== "New Lead") {
+        return false;
     }
 
-    if (!leadIds || leadIds.length === 0) {
-        return { success: false, message: "No leads selected" };
+    const now = new Date();
+    await dbOrTx.update(leads)
+        .set({
+            status: "Discovery & Qualifying",
+            stageChangedAt: now,
+            lastContactedAt: now,
+            updatedAt: now,
+        })
+        .where(eq(leads.id, leadId));
+
+    await dbOrTx.insert(leadActivityLogs).values({
+        leadId,
+        authorId: null,
+        activityType: "System",
+        content: `Stage moved to Discovery & Qualifying (${reason})`,
+    });
+
+    return true;
+}
+
+/**
+ * Claim an unassigned lead by the currently authenticated Sales user.
+ * Sets leadAssignees and writes a System interaction.
+ * A claim does not change the lead's stage.
+ */
+export async function claimLead(leadId: string): Promise<ActionState> {
+    const session = await auth();
+    if (!hasRole(session, ["sales", "manager", "superadmin"])) {
+        return { success: false, message: "Unauthorized" };
+    }
+    if (!session?.user?.id) {
+        return { success: false, message: "Unauthenticated" };
     }
 
     try {
-        const validLeadIds: string[] = [];
-        const errors: Record<string, string[]> = {};
-        
-        for (const id of leadIds) {
-            const validation = await validateLeadTransition(id, newStatus);
-            if (validation.valid) {
-                validLeadIds.push(id);
-            } else {
-                errors[id] = [validation.error || "Validation failed"];
-            }
-        }
-        
-        if (validLeadIds.length === 0) {
-            return { 
-                success: false, 
-                message: "No leads passed validation for this stage.", 
-                errors 
-            };
+        const existing = await db.query.leadAssignees.findFirst({
+            where: and(eq(leadAssignees.leadId, leadId), eq(leadAssignees.userId, session.user.id)),
+        });
+
+        if (!existing) {
+            await db.insert(leadAssignees).values({
+                leadId,
+                userId: session.user.id,
+            });
         }
 
-        if (newStatus === "Closed Won") {
-            for (const id of validLeadIds) {
-                await markLeadAsWon(id);
-            }
-        } else {
-            await db.update(leads)
-                .set({ status: newStatus, closedWonAt: null, updatedAt: new Date() })
-                .where(inArray(leads.id, validLeadIds));
-
-            const logEntries = validLeadIds.map(id => ({
-                leadId: id,
-                authorId: session.user.id || null,
-                activityType: "System" as const,
-                content: `Bulk status update to "${newStatus}"`,
-            }));
-            await db.insert(leadActivityLogs).values(logEntries);
-
-            await logAction("UPDATE", "Lead", `Bulk status update for ${validLeadIds.length} leads to ${newStatus}`);
-        }
+        await db.insert(leadActivityLogs).values({
+            leadId,
+            authorId: session.user.id,
+            activityType: "System",
+            content: `Lead claimed by ${session.user.name || session.user.email}`,
+        });
 
         revalidatePath("/dashboard/leads");
-        
-        if (Object.keys(errors).length > 0) {
-            return {
-                success: true,
-                message: `Updated ${validLeadIds.length} leads. ${Object.keys(errors).length} leads failed validation.`,
-                errors
-            };
-        }
-
-        return { success: true, message: `Updated status for ${validLeadIds.length} leads to ${newStatus}` };
-    } catch (error) {
-        console.error("Failed bulk update lead status:", error);
-        return { success: false, message: "Failed to perform bulk update" };
+        return { success: true, message: "Lead claimed successfully" };
+    } catch (err) {
+        console.error("Failed to claim lead:", err);
+        return { success: false, message: "Failed to claim lead" };
     }
 }
 

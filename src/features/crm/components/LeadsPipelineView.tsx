@@ -9,8 +9,7 @@ import { LeadDetailsDrawer } from "./LeadDetailsDrawer";
 import { EditLeadModal } from "./EditLeadModal";
 import {
     transitionLeadStage,
-    bulkUpdateLeadStatus,
-    bulkAssignLeads,
+        bulkAssignLeads,
     archiveLead,
     unarchiveLead,
 } from "@/features/crm/actions";
@@ -442,37 +441,7 @@ export function LeadsPipelineView({
 
         setIsSubmittingMutation(true);
 
-        if (leadIds && leadIds.length > 0) {
-            startTransition(() => {
-                leadIds.forEach((id) => setOptimisticLeads({ leadId: id, newStatus: toStatus }));
-            });
-            try {
-                const res = await bulkUpdateLeadStatus(leadIds, toStatus as any);
-                if (res.success) {
-                    if (res.errors && Object.keys(res.errors).length > 0) {
-                        toast.warning(res.message);
-                    } else {
-                        toast.success(res.message);
-                    }
-                    setLeadsList((prev) =>
-                        prev.map((l) => (leadIds.includes(l.id) ? { ...l, status: toStatus } : l))
-                    );
-                } else {
-                    toast.error(res.message || "Failed to bulk update deals");
-                }
-            } catch (err) {
-                console.error(err);
-                toast.error("An unexpected error occurred during bulk update");
-            } finally {
-                setIsSubmittingMutation(false);
-                setPendingValidation({
-                    isOpen: false,
-                    leadTitle: "",
-                    fromStatus: "",
-                    toStatus: "",
-                });
-            }
-        } else if (leadId) {
+        if (leadId) {
             startTransition(() => {
                 setOptimisticLeads({ leadId, newStatus: toStatus });
             });
@@ -555,16 +524,7 @@ export function LeadsPipelineView({
         }
     };
 
-    const handleBulkStatusChangeRequest = (leadIds: string[], toStatus: string) => {
-        setPendingValidation({
-            isOpen: true,
-            leadIds,
-            leadTitle: `${leadIds.length} Selected Deals`,
-            fromStatus: "Mixed",
-            toStatus,
-        });
-    };
-
+    
     const handleBulkAssign = (leadIds: string[], assigneeUserId: string) => {
         startTransition(async () => {
             const res = await bulkAssignLeads(leadIds, [assigneeUserId]);
@@ -918,8 +878,7 @@ export function LeadsPipelineView({
                     assignableUsers={assignableUsers}
                     isAdmin={isAdmin}
                     onStatusChangeRequest={handleStatusChangeRequest}
-                    onBulkStatusChange={handleBulkStatusChangeRequest}
-                    onBulkAssign={handleBulkAssign}
+                                        onBulkAssign={handleBulkAssign}
                     onSelectLead={(lead) => setSelectedLeadForDrawer(lead)}
                     onEditLead={(lead) => setEditingLead(lead)}
                     onArchiveLead={handleArchiveLead}
