@@ -702,35 +702,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             }
         }
 
-        if (newStatus === "In Review") {
-            const firstUrl = proofLinks && proofLinks[0]?.url ? proofLinks[0].url : "";
-            const { submitTaskForVerification } = await import("@/actions/task-quality-gate");
-            const gateRes = await submitTaskForVerification({
-                taskId,
-                proofUrl: firstUrl,
-                submissionNotes: proofNotes || "",
-            });
-
-            if (!gateRes.success) {
-                const errMsg = typeof gateRes.error === "string"
-                    ? gateRes.error
-                    : "Proof validation failed: Valid URL and minimum 25 characters of deliverable notes required.";
-                return { success: false, message: errMsg };
-            }
-
-            await logAction(
-                "UPDATE",
-                "Task",
-                `Task ${taskId} evaluated by Quality Gate (Score: ${gateRes.score}%, Status: ${gateRes.passed ? "In Review" : "Changes Requested"})`
-            );
-
-            return {
-                success: true,
-                message: gateRes.passed
-                    ? `Quality Gate Passed (${gateRes.score}%)! Task queued for PM sign-off.`
-                    : `Quality Gate unverified (${gateRes.score}%). Changes requested.`,
-            };
-        }
+        // Quality gate evaluation removed per spec - PM review is the only review
 
         const updatedProofLinks = proofLinks !== undefined ? proofLinks : oldTask.proofLinks;
         const updatedProofNotes = proofNotes !== undefined ? proofNotes : oldTask.proofNotes;
@@ -746,7 +718,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             };
             if (newStatus === "Done") {
                 updatePayload.completedAt = new Date();
-            } else if (oldTask.status === "Done" && newStatus !== "Done") {
+            } else if (oldTask.status === "Done") {
                 updatePayload.completedAt = null;
             }
 
@@ -793,12 +765,99 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
     }
 }
 
-export async function getTaskAuditReport(taskId: string) {
-    const access = await authorizeTask(taskId);
-    if (!access.ok) return null;
+/**
+ * submitTask (step 25 in docs/api-contract.md)
+ * Who can call: developer (assigned task only)
+ * Input: { taskId: string, files: string[], links: string[], note?: string }
+ * Output: { ok: true, status: 'in_review' }
+ * Errors:
+ * - NEED_FILE_OR_LINK: no file and no link.
+ * - FORBIDDEN: caller is not the assigned developer.
+ * - INVALID_STATUS: task is not in_progress or changes_requested.
+ * Side effects: task -> in_review; PM notification; audit log row.
+ */
+export async function submitTask(input: {
+    taskId: string;
+    files: string[];
+    links: string[];
+    note?: string;
+}): Promise<{ ok: true; status: "in_review" } | { ok: false; error: string }> {
+    const session = await auth();
+    if (!session?.user?.id || session.user.role !== "developer") {
+        return { ok: false, error: "FORBIDDEN" };
+    }
 
-    const { getLatestTaskSubmission } = await import("@/actions/task-quality-gate");
-    return getLatestTaskSubmission(taskId);
+    const hasFiles = Array.isArray(input.files) && input.files.some((f) => f && f.trim().length > 0);
+    const hasLinks = Array.isArray(input.links) && input.links.some((l) => l && l.trim().length > 0);
+    if (!hasFiles && !hasLinks) {
+        return { ok: false, error: "NEED_FILE_OR_LINK" };
+    }
+
+    const assignment = await db.query.taskAssignees.findFirst({
+        where: and(eq(taskAssignees.taskId, input.taskId), eq(taskAssignees.userId, session.user.id)),
+    });
+    if (!assignment) {
+        return { ok: false, error: "FORBIDDEN" };
+    }
+
+    const task = await db.query.tasks.findFirst({
+        where: eq(tasks.id, input.taskId),
+        with: {
+            milestone: {
+                with: {
+                    project: true,
+                },
+            },
+        },
+    });
+
+    if (!task) {
+        return { ok: false, error: "TASK_NOT_FOUND" };
+    }
+
+    const normStatus = task.status.toLowerCase().replace(/\s+/g, "_");
+    if (normStatus !== "in_progress" && normStatus !== "changes_requested") {
+        return { ok: false, error: "INVALID_STATUS" };
+    }
+
+    const combinedProofLinks: { label: string; url: string }[] = [
+        ...(input.links || []).filter((l) => l && l.trim().length > 0).map((url) => ({ label: "Link", url: url.trim() })),
+        ...(input.files || []).filter((f) => f && f.trim().length > 0).map((fileUrl) => ({ label: "File", url: fileUrl.trim() })),
+    ];
+
+    await db.transaction(async (tx) => {
+        await tx.update(tasks)
+            .set({
+                status: "In Review",
+                proofLinks: combinedProofLinks,
+                proofNotes: input.note?.trim() || null,
+                updatedAt: new Date(),
+            })
+            .where(eq(tasks.id, input.taskId));
+
+        await handleMilestoneBubbling(tx, input.taskId, "In Review", task);
+    });
+
+    const { notifyAllAdmins } = await import("@/features/notifications/send");
+    await notifyAllAdmins(
+        `Task "${task.title}" has been submitted for review by ${session.user.name || "assigned developer"}.`,
+        "task",
+        `/dashboard/pm/${task.projectId}`
+    );
+
+    await logAction(
+        "UPDATE",
+        "Task",
+        `Developer ${session.user.name || session.user.id} submitted task "${task.title}" (${input.taskId}) for review`
+    );
+
+    if (task.projectId) {
+        revalidatePath(`/dashboard/pm/${task.projectId}`);
+    }
+    revalidatePath("/dashboard/pm/[id]", "page");
+    revalidatePath("/portal");
+
+    return { ok: true, status: "in_review" };
 }
 
 export async function submitTaskBlockedReasonAndMove(taskId: string, blockedReason: string): Promise<ActionState> {

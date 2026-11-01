@@ -66,7 +66,7 @@ interface PmKanbanBoardProps {
     currentUserRole?: string;
     onStatusChangeRequest: (taskId: string, targetStatus: "Todo" | "In Progress" | "Blocked" | "Changes Requested" | "In Review" | "Done") => void;
     onDeleteTask: (task: PmTask) => void;
-    onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
 }
 
@@ -292,7 +292,7 @@ function PmKanbanColumn({
     allTasks: PmTask[];
     currentUserRole?: string;
     onDeleteTask: (task: PmTask) => void;
-    onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
@@ -360,7 +360,7 @@ function SortableTaskCard({
     allTasks: PmTask[];
     currentUserRole?: string;
     onDeleteTask: (task: PmTask) => void;
-    onViewProofs?: (task: PmTask, initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -390,7 +390,7 @@ function SortableTaskCard({
                 currentUserRole={currentUserRole}
                 dragHandleProps={{ ...attributes, ...listeners }}
                 onDeleteTask={() => onDeleteTask(task)}
-                onViewProofs={(tab) => onViewProofs?.(task, tab)}
+                onViewProofs={() => onViewProofs?.(task)}
                 onClickTask={() => onClickTask?.(task)}
             />
         </div>
@@ -411,7 +411,7 @@ function TaskCardContent({
     currentUserRole?: string;
     dragHandleProps?: Record<string, unknown>;
     onDeleteTask?: () => void;
-    onViewProofs?: (initialTab?: "proofs" | "audit") => void;
+    onViewProofs?: () => void;
     onClickTask?: () => void;
 }) {
     const prerequisiteTask = task.dependsOnTaskId ? allTasks.find((t) => t.id === task.dependsOnTaskId) : null;
@@ -516,10 +516,10 @@ function TaskCardContent({
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            if (onViewProofs) onViewProofs("audit");
+                            if (onViewProofs) onViewProofs();
                         }}
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-orange-500/15 text-orange-600 dark:text-orange-300 border border-orange-500/40 hover:bg-orange-500/25 transition-colors cursor-pointer"
-                        title="View AI quality audit review & feedback"
+                        title="View deliverables & review feedback"
                     >
                         <AlertTriangle className="w-3 h-3 text-orange-500 shrink-0" />
                         <span>Changes Requested</span>
@@ -544,7 +544,7 @@ function TaskCardContent({
                         onClick={(e) => {
                             e.stopPropagation();
                             if (onViewProofs) {
-                                onViewProofs(task.status === "In Review" ? "audit" : "proofs");
+                                onViewProofs();
                             }
                         }}
                         className={cn(
@@ -553,12 +553,12 @@ function TaskCardContent({
                                 ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/25"
                                 : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/25"
                         )}
-                        title="View quality audit & proofs"
+                        title="View deliverables & proofs"
                     >
                         <ShieldCheck className="w-3 h-3 shrink-0" />
                         <span>
                             {task.status === "In Review"
-                                ? "AI Audit: Passed"
+                                ? "In Review"
                                 : task.proofLinks && task.proofLinks.length > 0
                                 ? `Proofs (${task.proofLinks.length})`
                                 : "Proof"}

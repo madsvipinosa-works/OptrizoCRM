@@ -123,7 +123,7 @@ export function KanbanBoard({
     } | null>(null);
 
     // Task Proof Viewing state
-    const [viewingProofsTask, setViewingProofsTask] = useState<{ task: PmTask; initialTab?: "proofs" | "audit" } | null>(null);
+    const [viewingProofsTask, setViewingProofsTask] = useState<{ task: PmTask } | null>(null);
 
     // Task Blocked Intercept state
     const [blockingTask, setBlockingTask] = useState<{
@@ -241,17 +241,7 @@ export function KanbanBoard({
             toast.error(res.message || "Failed to submit task proof");
             setOptimisticTasks(optimisticTasks); // Revert
         } else {
-            const msg = res.message || "Task proof submitted & status updated!";
-            if (msg.includes("Changes requested") || msg.includes("Changes Requested") || msg.includes("unverified")) {
-                toast.warning(msg);
-                setOptimisticTasks((prev) =>
-                    prev.map((t) =>
-                        t.id === task.id ? { ...t, status: "Changes Requested" as const } : t
-                    )
-                );
-            } else {
-                toast.success(msg);
-            }
+            toast.success(res.message || "Task proof submitted & status updated!");
             router.refresh();
         }
 
@@ -976,7 +966,7 @@ export function KanbanBoard({
                     currentUserRole={currentUserRole}
                     onStatusChangeRequest={handleStatusChangeRequest}
                     onDeleteTask={(task) => setDeletingTask(task)}
-                    onViewProofs={(task, initialTab) => setViewingProofsTask({ task, initialTab })}
+                    onViewProofs={(task) => setViewingProofsTask({ task })}
                     onClickTask={(task) => setViewingTaskDetails(task)}
                 />
             </div>
@@ -1001,7 +991,6 @@ export function KanbanBoard({
                 task={viewingProofsTask?.task || null}
                 targetStatus={(viewingProofsTask?.task?.status as "In Review" | "Done") || "In Review"}
                 mode="edit"
-                initialTab={viewingProofsTask?.initialTab || "proofs"}
                 isViewOnly={
                     !(
                         ["superadmin", "manager"].includes(currentUserRole || "") ||
