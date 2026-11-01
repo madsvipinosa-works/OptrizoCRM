@@ -298,11 +298,13 @@ export const leads = pgTable("lead", {
     details: text("details"),
     clientType: clientTypeEnum("client_type").default("local").notNull(),
     proposalRequestedAt: timestamp("proposal_requested_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
     index("idx_lead_status_archived").on(t.status, t.isArchived),
+    index("idx_lead_archived_at").on(t.archivedAt),
     index("idx_lead_client").on(t.clientId),
     index("idx_lead_last_contacted").on(t.lastContactedAt),
 ]);

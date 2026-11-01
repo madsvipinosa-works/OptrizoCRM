@@ -10,7 +10,7 @@ import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth, hasRole } from "@/auth";
-import { requireRoles } from "@/lib/authz";
+import { requireRoles, requireRole } from "@/lib/authz";
 import { notifyAllAdmins } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { DEFAULT_CRM_PLAYBOOK, type PlaybookTaskTemplate } from "@/config/crm-playbook";
@@ -523,9 +523,9 @@ export async function getUnifiedDashboardData() {
                     ELSE ROUND((COUNT(${leads.id}) FILTER (WHERE ${leads.status} = 'Closed Won')::numeric / COUNT(${leads.id})::numeric) * 100, 2)
                     END
                 `,
-            }).from(leads).where(eq(leads.isArchived, false)),
+            }).from(leads).where(isNull(leads.archivedAt)),
             db.query.leads.findMany({
-                where: eq(leads.isArchived, false),
+                where: isNull(leads.archivedAt),
                 with: {
                     proposals: {
                         where: isNull(proposals.deletedAt),
@@ -700,7 +700,7 @@ export async function getUnifiedDashboardData() {
 
         // Pending Proposals (Medium / Yellow)
         allProposals.forEach(p => {
-            if (p.status === "Sent" && !p.deletedAt && !p.lead?.isArchived) {
+            if (p.status === "Sent" && !p.deletedAt && !p.lead?.archivedAt) {
                 actionQueue.push({
                     id: `prop-${p.id}`,
                     type: "pending_proposal",
@@ -790,7 +790,7 @@ export async function getAnalyticsData() {
 
     try {
         const allLeads = await db.query.leads.findMany({
-            where: eq(leads.isArchived, false),
+            where: isNull(leads.archivedAt),
             with: {
                 proposals: {
                     where: isNull(proposals.deletedAt),
@@ -1010,14 +1010,26 @@ export async function getProjectForLead(leadId: string): Promise<{ id: string; t
 }
 
 export async function archiveLead(leadId: string): Promise<ActionState> {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
-        return { success: false, message: "Unauthorized: Admins only." };
+    const authz = await requireRole(["sales"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only sales can archive leads." };
     }
 
     try {
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId),
+        });
+
+        if (!lead) {
+            return { success: false, message: "Lead not found" };
+        }
+
+        if (lead.status !== "Closed Won" && lead.status !== "Closed Lost") {
+            return { success: false, message: "Only closed leads (Closed Won or Closed Lost) can be archived." };
+        }
+
         await db.update(leads)
-            .set({ isArchived: true, updatedAt: new Date() })
+            .set({ archivedAt: new Date(), updatedAt: new Date() })
             .where(eq(leads.id, leadId));
 
         await logAction("UPDATE", "Lead", `Lead ${leadId} archived.`);
@@ -1028,6 +1040,96 @@ export async function archiveLead(leadId: string): Promise<ActionState> {
         console.error("Failed to archive lead:", error);
         return { success: false, message: "Database Error" };
     }
+}
+
+export async function reopenLead(leadId: string, reopenReason: string): Promise<ActionState> {
+    const authz = await requireRole(["sales"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only sales can reopen leads." };
+    }
+
+    if (!reopenReason || reopenReason.trim().length === 0) {
+        return { success: false, message: "A reason is required to reopen a lost lead." };
+    }
+
+    const { session } = authz;
+    const lead = await db.query.leads.findFirst({
+        where: eq(leads.id, leadId),
+    });
+
+    if (!lead) {
+        return { success: false, message: "Lead not found" };
+    }
+
+    if (lead.status !== "Closed Lost") {
+        return { success: false, message: "Only Closed Lost leads can be reopened." };
+    }
+
+    try {
+        const now = new Date();
+        // Update stage to Discovery & Qualifying, set stageChangedAt, but KEEP lossReason and lossNotes
+        await db.update(leads).set({
+            status: "Discovery & Qualifying",
+            stageChangedAt: now,
+            updatedAt: now,
+        }).where(eq(leads.id, leadId));
+
+        // Insert System interaction
+        await db.insert(leadActivityLogs).values({
+            leadId,
+            authorId: session.user.id,
+            activityType: "System",
+            content: `Lead reopened: ${reopenReason.trim()}`,
+        });
+
+        // Write audit row
+        await logAction("UPDATE", "Lead", `Lead ${leadId} reopened from Closed Lost: ${reopenReason.trim()}`);
+
+        revalidatePath("/dashboard/leads");
+        return { success: true, message: "Lead reopened and moved to Discovery & Qualifying." };
+    } catch (error) {
+        console.error("Failed to reopen lead:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function getLeads() {
+    const authz = await requireRole(["sales", "manager"]);
+    if (!authz.ok) return [];
+
+    return db.query.leads.findMany({
+        where: isNull(leads.archivedAt),
+        with: {
+            client: true,
+            assignees: { with: { user: true } },
+            proposals: {
+                where: isNull(proposals.deletedAt),
+                orderBy: [desc(proposals.updatedAt)],
+            },
+        },
+        orderBy: [desc(leads.createdAt)],
+    });
+}
+
+export async function getPipelineLeads() {
+    const authz = await requireRole(["sales", "manager"]);
+    if (!authz.ok) return [];
+
+    return db.query.leads.findMany({
+        where: and(
+            isNull(leads.archivedAt),
+            not(inArray(leads.status, ["Closed Won", "Closed Lost"]))
+        ),
+        with: {
+            client: true,
+            assignees: { with: { user: true } },
+            proposals: {
+                where: isNull(proposals.deletedAt),
+                orderBy: [desc(proposals.updatedAt)],
+            },
+        },
+        orderBy: [desc(leads.createdAt)],
+    });
 }
 
 export async function unarchiveLead(leadId: string): Promise<ActionState> {
@@ -1251,6 +1353,11 @@ export async function bulkAssignLeads(
 
 
 export async function getDiscoveryTrackerData(leadId: string) {
+    const authz = await requireRole(["sales", "manager"]);
+    if (!authz.ok) {
+        return null;
+    }
+
     const lead = await db.query.leads.findFirst({
         where: eq(leads.id, leadId),
         columns: {

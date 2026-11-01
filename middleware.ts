@@ -36,7 +36,9 @@ export default auth((req) => {
             }
 
             // Route matching
-            const isCrmRoute = nextUrl.pathname.startsWith("/dashboard/analytics") || nextUrl.pathname.startsWith("/dashboard/leads") || nextUrl.pathname.startsWith("/dashboard/inquiries") || nextUrl.pathname.startsWith("/dashboard/contacts") || nextUrl.pathname.startsWith("/dashboard/proposals");
+            const isProposalBuilderRoute = nextUrl.pathname.startsWith("/dashboard/proposals/builder");
+            const isProposalsRoute = nextUrl.pathname.startsWith("/dashboard/proposals");
+            const isCrmRoute = nextUrl.pathname.startsWith("/dashboard/analytics") || nextUrl.pathname.startsWith("/dashboard/leads") || nextUrl.pathname.startsWith("/dashboard/inquiries") || nextUrl.pathname.startsWith("/dashboard/contacts") || isProposalsRoute;
             const isMeetingsRoute = nextUrl.pathname.startsWith("/dashboard/meetings");
             const isPmRoute = nextUrl.pathname.startsWith("/dashboard/pm");
             const isCmsRoute = nextUrl.pathname.startsWith("/dashboard/cms");
@@ -44,9 +46,10 @@ export default auth((req) => {
 
             // Role constraints
             if (role === "sales") {
+                if (isProposalBuilderRoute) return Response.redirect(new URL("/dashboard/proposals", nextUrl));
                 if (!isCrmRoute && !isMeetingsRoute) return Response.redirect(new URL("/dashboard/analytics", nextUrl));
             } else if (role === "manager") {
-                if (!isPmRoute && !isMeetingsRoute) return Response.redirect(new URL("/dashboard/pm", nextUrl));
+                if (!isPmRoute && !isMeetingsRoute && !isProposalsRoute) return Response.redirect(new URL("/dashboard/pm", nextUrl));
             } else if (role === "developer") {
                 if (!isPmRoute) return Response.redirect(new URL("/dashboard/pm", nextUrl));
             } else if (role === "content_editor") {

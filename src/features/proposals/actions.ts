@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { proposals, leads, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
+import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 import { notifyAllAdmins } from "@/features/notifications/send";
 import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
@@ -51,9 +52,9 @@ export interface ProposalData {
 }
 
 export async function createDraftProposalForLead(leadId: string) {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
-        return { success: false, message: "Unauthorized: Insufficient permissions to generate proposals" };
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can generate proposals" };
     }
 
     try {
@@ -116,9 +117,9 @@ export async function createDraftProposalForLead(leadId: string) {
 }
 
 export async function createProposal(leadId: string, data: ProposalData) {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
-        return { success: false, message: "Unauthorized: Insufficient permissions to create proposals" };
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can create proposals" };
     }
 
     const validated = SaveProposalSchema.safeParse(data);
@@ -157,9 +158,9 @@ export async function createProposal(leadId: string, data: ProposalData) {
 }
 
 export async function updateProposal(id: string, data: ProposalData, status?: "Draft" | "Sent" | "Approved" | "Rejected") {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
-        return { success: false, message: "Unauthorized: Insufficient permissions to update proposals" };
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can update proposals" };
     }
 
     const validated = SaveProposalSchema.safeParse(data);
@@ -247,6 +248,7 @@ export interface ProposalAcceptancePayload {
 
 export async function acceptProposalByClient(id: string, payload?: ProposalAcceptancePayload) {
     try {
+    
         const session = await auth();
         if (!session?.user?.id) {
             return { success: false, message: "Unauthorized: Please log in to accept proposal" };
@@ -414,9 +416,9 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendProposalEmail(proposalId: string) {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
-        return { success: false, message: "Unauthorized" };
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can send proposal emails" };
     }
 
     const p = await db.query.proposals.findFirst({
@@ -447,8 +449,8 @@ export async function sendProposalEmail(proposalId: string) {
 }
 
 export async function getProposalById(id: string) {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
+    const authz = await requireRole(["sales", "manager"]);
+    if (!authz.ok) {
         return { success: false, message: "Unauthorized: Insufficient permissions to view proposals" };
     }
 
@@ -472,9 +474,9 @@ export async function getProposalById(id: string) {
 }
 
 export async function deleteProposal(id: string) {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales"])) {
-        return { success: false, message: "Unauthorized" };
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can delete proposals" };
     }
 
     try {
@@ -497,9 +499,9 @@ export async function deleteProposal(id: string) {
 }
 
 export async function getOrCreateDraftProposal(leadId: string) {
-    const session = await auth();
-    if (!hasRole(session, ["superadmin", "sales", "manager"])) {
-        return { success: false, message: "Unauthorized: Insufficient permissions" };
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can access or create draft proposals" };
     }
 
     try {

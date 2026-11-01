@@ -25,8 +25,8 @@ export default async function ProposalBuilderPage({
         redirect("/login");
     }
 
-    if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
-        redirect("/dashboard");
+    if (!hasRole(session, ["superadmin", "manager", "developer", "content_editor"])) {
+        redirect("/dashboard/proposals");
     }
 
     // 1. Try finding proposal directly by proposal ID

@@ -66,33 +66,6 @@ export default function MeetingsPage() {
         return upcomingMeetings;
     }, [selectedTab, upcomingMeetings, doneMeetings, cancelledMeetings]);
 
-    // Compute week strip (Mon - Fri of current week)
-    const weekDays = useMemo(() => {
-        const today = new Date();
-        const currentDay = today.getDay(); // 0 is Sunday
-        const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
-        const monday = new Date(today);
-        monday.setDate(today.getDate() + mondayOffset);
-
-        const days = [];
-        for (let i = 0; i < 5; i++) {
-            const d = new Date(monday);
-            d.setDate(monday.getDate() + i);
-            const dateStr = d.toISOString().split("T")[0];
-            const count = meetingsList.filter((m) => {
-                const mDate = new Date(m.startsAt).toISOString().split("T")[0];
-                return mDate === dateStr && m.status !== "cancelled";
-            }).length;
-
-            days.push({
-                dayName: d.toLocaleDateString("en-US", { weekday: "short" }),
-                dateLabel: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-                count,
-            });
-        }
-        return days;
-    }, [meetingsList]);
-
     const getStatusBadge = (status: string) => {
         switch (status) {
             case "confirmed":
@@ -149,22 +122,6 @@ export default function MeetingsPage() {
                         Schedule appointment
                     </Button>
                 )}
-            </div>
-
-            {/* Weekday Summary Strip (Mockup 025-4a) */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {weekDays.map((wd, i) => (
-                    <div
-                        key={i}
-                        className="bg-card border border-border rounded-xl p-3 flex flex-col gap-0.5 shadow-2xs"
-                    >
-                        <span className="text-xs text-muted-foreground font-medium">{wd.dayName}</span>
-                        <span className="text-base font-bold text-foreground">{wd.dateLabel}</span>
-                        <span className={`text-xs mt-1 font-semibold ${wd.count > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                            {wd.count} {wd.count === 1 ? "meeting" : "meetings"}
-                        </span>
-                    </div>
-                ))}
             </div>
 
             {/* Filter Tabs */}

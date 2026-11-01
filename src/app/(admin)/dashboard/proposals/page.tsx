@@ -15,7 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { FileText, Plus, ExternalLink, Edit3, DollarSign, Calendar } from "lucide-react";
+import { FileText, Plus, Edit3, DollarSign, Calendar, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 export const metadata = {
@@ -34,6 +34,8 @@ export default async function ProposalsPage() {
     if (!hasRole(session, ["superadmin", "sales", "manager", "developer", "content_editor"])) {
         redirect("/dashboard");
     }
+
+    const isManager = hasRole(session, ["superadmin", "manager"]);
 
     const allProposals = await db.query.proposals.findMany({
         with: {
@@ -66,11 +68,13 @@ export default async function ProposalsPage() {
                         Create, customize, and track executive agency proposals and legal contracts.
                     </p>
                 </div>
-                <Link href="/dashboard/leads">
-                    <Button className="bg-primary text-black hover:bg-primary/90 font-semibold gap-1.5 shadow-lg shadow-primary/20">
-                        <Plus className="h-4 w-4" /> New Proposal from Lead
-                    </Button>
-                </Link>
+                {isManager && (
+                    <Link href="/dashboard/leads">
+                        <Button className="bg-primary text-black hover:bg-primary/90 font-semibold gap-1.5 shadow-lg shadow-primary/20">
+                            <Plus className="h-4 w-4" /> New Proposal from Lead
+                        </Button>
+                    </Link>
+                )}
             </div>
 
             {/* Summary KPI Cards */}
@@ -169,18 +173,19 @@ export default async function ProposalsPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-2">
+                                                {isManager && (
+                                                    <Link
+                                                        href={`/dashboard/proposals/builder/${proposal.id}`}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold border border-primary/20 transition-colors"
+                                                    >
+                                                        <Edit3 className="h-3 w-3" /> Studio
+                                                    </Link>
+                                                )}
                                                 <Link
-                                                    href={`/dashboard/proposals/builder/${proposal.id}`}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold border border-primary/20 transition-colors"
+                                                    href={`/dashboard/proposals/${proposal.id}`}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold border border-border transition-colors"
                                                 >
-                                                    <Edit3 className="h-3 w-3" /> Studio
-                                                </Link>
-                                                <Link
-                                                    href={`/proposal/${proposal.id}`}
-                                                    target="_blank"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground text-xs border border-border transition-colors"
-                                                >
-                                                    <ExternalLink className="h-3 w-3" /> Client View
+                                                    <Eye className="h-3 w-3" /> View
                                                 </Link>
                                             </div>
                                         </TableCell>

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
 import { proposals } from "@/db/schema";
@@ -61,6 +61,11 @@ export default async function ProposalPage({
     }
 
     const isStaff = hasRole(session, ["superadmin", "manager", "sales"]);
+
+    // Strictly redirect staff to dashboard read-only proposal view per Session 1 rules
+    if (isStaff && userRole !== "client") {
+        redirect(`/dashboard/proposals/${proposal.id}`);
+    }
     const isOwner =
         proposal.lead &&
         (session.user.id === proposal.lead.clientId ||

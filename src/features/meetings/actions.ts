@@ -60,6 +60,9 @@ export async function scheduleDiscoveryMeeting(data: {
     if (isNaN(meetingDate.getTime())) {
         return { success: false, message: "Invalid meeting date and time" };
     }
+    if (meetingDate < new Date()) {
+        return { success: false, message: "Cannot schedule a meeting in the past" };
+    }
 
     const lead = await db.query.leads.findFirst({
         where: eq(leads.id, data.leadId),
@@ -263,6 +266,9 @@ export async function rescheduleMeeting(data: {
     const newDate = new Date(data.startsAt);
     if (isNaN(newDate.getTime())) {
         return { success: false, message: "Invalid date" };
+    }
+    if (newDate < new Date()) {
+        return { success: false, message: "Cannot reschedule a meeting to a past time" };
     }
 
     const meeting = await db.query.meetings.findFirst({

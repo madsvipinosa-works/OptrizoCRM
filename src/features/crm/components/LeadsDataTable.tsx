@@ -475,14 +475,16 @@ export function LeadsDataTable({
                                         </TableCell>
                                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-center gap-1">
-                                                <Link
-                                                    href={`/dashboard/proposals/builder/${lead.proposals && lead.proposals.length > 0 ? lead.proposals[0].id : lead.id}`}
-                                                    prefetch={false}
-                                                    className="inline-flex p-1.5 rounded-md bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
-                                                    title="Open Proposal Studio"
-                                                >
-                                                    <FileText className="h-3.5 w-3.5" />
-                                                </Link>
+                                                {lead.proposals && lead.proposals.length > 0 && (
+                                                    <Link
+                                                        href={`/dashboard/proposals/${lead.proposals[0].id}`}
+                                                        prefetch={false}
+                                                        className="inline-flex p-1.5 rounded-md bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
+                                                        title="View Proposal"
+                                                    >
+                                                        <FileText className="h-3.5 w-3.5" />
+                                                    </Link>
+                                                )}
                                                 {(onEditLead || onArchiveLead) && (
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>

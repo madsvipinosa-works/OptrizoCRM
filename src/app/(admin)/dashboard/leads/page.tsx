@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { leads, users, leadAssignees } from "@/db/schema";
-import { desc, like, eq, and, or, inArray } from "drizzle-orm";
+import { desc, like, eq, and, or, inArray, isNull } from "drizzle-orm";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
 import { CreateLeadModal } from "@/features/crm/components/CreateLeadModal";
 import { auth, hasRole } from "@/auth";
@@ -44,6 +44,7 @@ export default async function LeadsPage({
 
     // Build Where Clause
     const whereClause = and(
+        isNull(leads.archivedAt),
         !canSeeAllLeads ? inArray(leads.id, assignedLeadIds) : undefined,
         status && status !== "all" ? eq(leads.status, status as any) : undefined,
         query

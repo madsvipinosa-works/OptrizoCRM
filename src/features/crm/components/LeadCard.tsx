@@ -394,14 +394,16 @@ export function LeadCard({
                         </Badge>
                     )}
 
-                    <Link
-                        href={`/dashboard/proposals/builder/${lead.proposals && lead.proposals.length > 0 ? lead.proposals[0].id : lead.id}`}
-                        prefetch={false}
-                        className="p-1 rounded bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors shrink-0"
-                        title="Open SOW / Proposal Studio"
-                    >
-                        <FileText className="h-3.5 w-3.5" />
-                    </Link>
+                    {lead.proposals && lead.proposals.length > 0 && (
+                        <Link
+                            href={`/dashboard/proposals/${lead.proposals[0].id}`}
+                            prefetch={false}
+                            className="p-1 rounded bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors shrink-0"
+                            title="View Proposal"
+                        >
+                            <FileText className="h-3.5 w-3.5" />
+                        </Link>
+                    )}
 
                     {lead.status === "Closed Won" && (
                         <button

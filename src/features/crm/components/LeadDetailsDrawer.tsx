@@ -2,6 +2,10 @@
 
 import { DiscoveryTracker } from "@/features/crm/components/DiscoveryTracker";
 import { DiscoveryFormModal } from "@/features/crm/components/DiscoveryFormModal";
+import type { DiscoveryFormData } from "@/features/crm/actions/discovery-form";
+import { ReopenLeadModal } from "@/features/crm/components/ReopenLeadModal";
+import { RotateCcw } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { getDiscoveryTrackerData } from "@/features/crm/actions";
 import { ScheduleDiscoveryMeetingModal } from "@/features/meetings/components/ScheduleDiscoveryMeetingModal";
 
@@ -54,6 +58,7 @@ import {
     Loader2,
     CheckCircle2,
     Search,
+    Eye,
     CheckSquare,
     Trash2,
     X,
@@ -157,6 +162,9 @@ export function LeadDetailsDrawer({
 
     const [isScheduleMeetingModalOpen, setIsScheduleMeetingModalOpen] = useState(false);
     const [isDiscoveryFormModalOpen, setIsDiscoveryFormModalOpen] = useState(false);
+    const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
+    const { data: session } = useSession();
+    const canManageProposals = isAdmin || (session?.user as { role?: string })?.role === "manager";
     const [trackerData, setTrackerData] = useState<{
         hasMeetingScheduled: boolean;
         hasMeetingDone: boolean;
@@ -166,7 +174,7 @@ export function LeadDetailsDrawer({
         isFormSubmitted: boolean;
         isProposalRequested: boolean;
         proposalRequestedAt?: Date | string | null;
-        discoveryForm?: Record<string, unknown> | null;
+        discoveryForm?: DiscoveryFormData | null;
         clientType?: string;
     } | null>(null);
 
@@ -616,17 +624,31 @@ export function LeadDetailsDrawer({
                                 <span className="text-[11px] font-mono text-muted-foreground px-1">
                                     {formatDaysInStage(getDaysInStage(lead))}
                                 </span>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleArchiveLead}
-                                    disabled={isArchiving}
-                                    className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-rose-400 border-border"
-                                    title="Archive Deal"
-                                >
-                                    <Archive className="h-3 w-3" />
-                                    <span>Archive</span>
-                                </Button>
+                                {["Closed Won", "Closed Lost"].includes(lead.status) && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleArchiveLead}
+                                        disabled={isArchiving}
+                                        className="h-8 text-xs font-semibold gap-1 text-muted-foreground hover:text-rose-400 border-border"
+                                        title="Archive Deal"
+                                    >
+                                        <Archive className="h-3 w-3" />
+                                        <span>Archive</span>
+                                    </Button>
+                                )}
+                                {lead.status === "Closed Lost" && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsReopenModalOpen(true)}
+                                        className="h-8 text-xs font-semibold gap-1 text-primary hover:bg-primary/10 border-primary/30"
+                                        title="Reopen Deal"
+                                    >
+                                        <RotateCcw className="h-3 w-3" />
+                                        <span>Reopen Deal</span>
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -818,14 +840,16 @@ export function LeadDetailsDrawer({
                                     <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                         Proposals & SOW Contracts
                                     </h4>
-                                    <button
-                                        type="button"
-                                        disabled={isGeneratingSOW}
-                                        onClick={handleGenerateSOW}
-                                        className="text-xs text-primary hover:underline flex items-center gap-1 font-medium disabled:opacity-50"
-                                    >
-                                        {isGeneratingSOW ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New SOW Proposal
-                                    </button>
+                                    {canManageProposals && (
+                                        <button
+                                            type="button"
+                                            disabled={isGeneratingSOW}
+                                            onClick={handleGenerateSOW}
+                                            className="text-xs text-primary hover:underline flex items-center gap-1 font-medium disabled:opacity-50"
+                                        >
+                                            {isGeneratingSOW ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New SOW Proposal
+                                        </button>
+                                    )}
                                 </div>
 
                                 {lead.proposals && lead.proposals.length > 0 ? (
@@ -850,21 +874,22 @@ export function LeadDetailsDrawer({
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <Link
-                                                        href={`/proposal/${prop.id}`}
-                                                        target="_blank"
+                                                        href={`/dashboard/proposals/${prop.id}`}
                                                         className="p-1.5 rounded-md bg-muted hover:bg-muted/80 text-foreground transition-colors"
-                                                        title="Client View"
+                                                        title="View Proposal"
                                                     >
-                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                        <Eye className="h-3.5 w-3.5" />
                                                     </Link>
-                                                    <Link
-                                                        href={`/dashboard/proposals/builder/${prop.id}`}
-                                                        prefetch={false}
-                                                        className="p-1.5 rounded-md bg-muted hover:bg-muted/80 text-foreground transition-colors"
-                                                        title="Edit in Studio"
-                                                    >
-                                                        <FileText className="h-3.5 w-3.5" />
-                                                    </Link>
+                                                    {canManageProposals && (
+                                                        <Link
+                                                            href={`/dashboard/proposals/builder/${prop.id}`}
+                                                            prefetch={false}
+                                                            className="p-1.5 rounded-md bg-muted hover:bg-muted/80 text-foreground transition-colors"
+                                                            title="Edit in Studio"
+                                                        >
+                                                            <FileText className="h-3.5 w-3.5" />
+                                                        </Link>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -872,23 +897,25 @@ export function LeadDetailsDrawer({
                                 ) : (
                                     <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-2">
                                         <p className="text-xs text-muted-foreground">No proposals generated yet for this deal.</p>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={isGeneratingSOW}
-                                            onClick={handleGenerateSOW}
-                                            className="h-7 text-xs border-border"
-                                        >
-                                            {isGeneratingSOW ? (
-                                                <>
-                                                    <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> Initializing SOW...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Plus className="h-3 w-3 mr-1.5" /> Generate First SOW Proposal
-                                                </>
-                                            )}
-                                        </Button>
+                                        {canManageProposals && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={isGeneratingSOW}
+                                                onClick={handleGenerateSOW}
+                                                className="h-7 text-xs border-border"
+                                            >
+                                                {isGeneratingSOW ? (
+                                                    <>
+                                                        <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> Initializing SOW...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Plus className="h-3 w-3 mr-1.5" /> Generate First SOW Proposal
+                                                    </>
+                                                )}
+                                            </Button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1380,6 +1407,17 @@ export function LeadDetailsDrawer({
                 initialData={trackerData?.discoveryForm}
                 isLocked={trackerData?.isProposalRequested}
                 onSuccess={loadTracker}
+            />
+
+            <ReopenLeadModal
+                isOpen={isReopenModalOpen}
+                onClose={() => setIsReopenModalOpen(false)}
+                leadId={lead.id}
+                businessName={leadTitle}
+                onSuccess={() => {
+                    loadTracker();
+                    router.refresh();
+                }}
             />
 
             <ScheduleDiscoveryMeetingModal
