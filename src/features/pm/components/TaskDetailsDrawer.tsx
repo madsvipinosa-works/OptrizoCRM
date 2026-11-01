@@ -88,7 +88,6 @@ interface TaskDetailsDrawerProps {
     ) => Promise<boolean>;
     onDeleteTask?: (task: PmTask) => void;
     onRequestVerificationReview?: (task: PmTask) => void;
-    onRequestBlock?: (task: PmTask) => void;
     onSelectTask?: (task: PmTask) => void;
 }
 
@@ -107,12 +106,6 @@ const STATUS_CONFIG: Record<
         badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
         dotClass: "bg-blue-500",
         ringClass: "ring-blue-500/25",
-    },
-    Blocked: {
-        label: "Blocked",
-        badgeClass: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30",
-        dotClass: "bg-rose-500",
-        ringClass: "ring-rose-500/25",
     },
     "Changes Requested": {
         label: "Changes Requested",
@@ -147,7 +140,6 @@ export function TaskDetailsDrawer({
     onUpdateTaskDetails,
     onDeleteTask,
     onRequestVerificationReview,
-    onRequestBlock,
     onSelectTask,
 }: TaskDetailsDrawerProps) {
     const [activeTab, setActiveTab] = useState<"overview" | "deliverables" | "activity">("overview");
@@ -547,20 +539,6 @@ export function TaskDetailsDrawer({
                                     <span>Approve as Done</span>
                                 </Button>
                             )}
-
-                            {/* Flag Blocked Button */}
-                            {task.status !== "Blocked" && onRequestBlock && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs font-medium gap-1 text-muted-foreground hover:text-rose-500 border-border hover:border-rose-500/30 active:scale-[0.98] transition-all"
-                                    onClick={() => onRequestBlock(task)}
-                                    title="Mark task as blocked"
-                                >
-                                    <AlertOctagon className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline">Block</span>
-                                </Button>
-                            )}
                         </div>
                     </div>
                 </SheetHeader>
@@ -587,34 +565,6 @@ export function TaskDetailsDrawer({
 
                     {/* TAB 1: OVERVIEW */}
                     <TabsContent value="overview" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-6 focus:outline-none">
-                        {/* Blocker Callout Banner (if Blocked) */}
-                        {task.status === "Blocked" && (
-                            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 space-y-2 shadow-xs">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold text-sm">
-                                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                                        <span>Task is Blocked</span>
-                                        {task.isBlockedByClient && (
-                                            <Badge variant="outline" className="bg-rose-500/20 text-rose-500 border-rose-500/40 text-[10px] uppercase font-bold">
-                                                Client Blocker
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 text-xs bg-background border-rose-500/30 text-rose-600 dark:text-rose-300 hover:bg-rose-500/20"
-                                        onClick={() => onStatusChangeRequest(task.id, "In Progress")}
-                                    >
-                                        Unblock
-                                    </Button>
-                                </div>
-                                <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed font-mono whitespace-pre-wrap">
-                                    {task.blockedReason || "No specific reason logged. Awaiting dependency or client sign-off."}
-                                </p>
-                            </div>
-                        )}
-
                         {/* Task Dependencies & Sequencing Section (Graph Topology) */}
                         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
                             <div className="flex items-center justify-between pb-3 border-b border-border/60">

@@ -623,13 +623,12 @@ export async function getUnifiedDashboardData() {
             ? ((doneTasksCount / totalTasksCount) * 100).toFixed(1)
             : "0.0";
 
-        // 2. Visualizations Data - Comprehensive 6-stage Task Distribution
+        // 2. Visualizations Data - Comprehensive Task Distribution
         const taskStatusCounts = {
             Todo: 0,
             "In Progress": 0,
             "In Review": 0,
             "Changes Requested": 0,
-            Blocked: 0,
             Done: 0,
         };
         validTasks.forEach(t => {
@@ -642,7 +641,6 @@ export async function getUnifiedDashboardData() {
             { name: "In Progress", value: taskStatusCounts["In Progress"], fill: "#f59e0b" },
             { name: "In Review", value: taskStatusCounts["In Review"], fill: "#3b82f6" },
             { name: "Changes Requested", value: taskStatusCounts["Changes Requested"], fill: "#ec4899" },
-            { name: "Blocked", value: taskStatusCounts.Blocked, fill: "#f43f5e" },
             { name: "Todo", value: taskStatusCounts.Todo, fill: "#71717a" },
             { name: "Done", value: taskStatusCounts.Done, fill: "#00D639" },
         ];
@@ -691,7 +689,7 @@ export async function getUnifiedDashboardData() {
         // 3. "Action Required" Triage Queue
         const actionQueue: Array<{
             id: string;
-            type: "blocked_task" | "pending_proposal" | "stale_lead";
+            type: "task_revision" | "pending_proposal" | "stale_lead";
             title: string;
             subtitle: string;
             urgency: "high" | "medium" | "low";
@@ -700,23 +698,12 @@ export async function getUnifiedDashboardData() {
             createdAt: string;
         }> = [];
 
-        // Blocked & Changes Requested Tasks (High / Red)
+        // Changes Requested Tasks (High / Red)
         validTasks.forEach(t => {
-            if (t.status === "Blocked" || t.isBlockedByClient) {
-                actionQueue.push({
-                    id: `task-${t.id}`,
-                    type: "blocked_task",
-                    title: `Blocked Task: "${t.title}"`,
-                    subtitle: `Project: ${t.project?.title || "Unknown"} ${t.blockedReason ? `— Reason: ${t.blockedReason}` : ""}`,
-                    urgency: "high",
-                    link: `/dashboard/pm/${t.projectId}`,
-                    badgeText: "Action Required",
-                    createdAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
-                });
-            } else if (t.status === "Changes Requested") {
+            if (t.status === "Changes Requested") {
                 actionQueue.push({
                     id: `task-rev-${t.id}`,
-                    type: "blocked_task",
+                    type: "task_revision",
                     title: `Revisions Requested: "${t.title}"`,
                     subtitle: `Project: ${t.project?.title || "Unknown"} — Changes requested on deliverable`,
                     urgency: "high",

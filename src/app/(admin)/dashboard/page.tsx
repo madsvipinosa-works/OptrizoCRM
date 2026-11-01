@@ -64,10 +64,8 @@ export default async function DashboardPage() {
     // 2. FETCH DELIVERY & PM DATA
     // ==========================================
     let openProjects: any[] = [];
-    let blockedTasks: any[] = [];
     let overdueTasks: any[] = [];
     let todayTasks: any[] = [];
-    let pendingApprovals: any[] = [];
 
     if (isDelivery) {
         openProjects = await db.query.agencyProjects.findMany({
@@ -84,14 +82,8 @@ export default async function DashboardPage() {
 
         const myActiveTasks = activeTasks.filter(t => !t.project?.isArchived && (hasRole(session, ["superadmin", "manager"]) || t.assignees.some(a => a.userId === currentUserId)));
 
-        blockedTasks = myActiveTasks.filter(t => t.status === "Blocked");
-        overdueTasks = myActiveTasks.filter(t => t.dueDate && t.dueDate < todayStart && t.status !== "Blocked");
+        overdueTasks = myActiveTasks.filter(t => t.dueDate && t.dueDate < todayStart);
         todayTasks = myActiveTasks.filter(t => t.dueDate && t.dueDate >= todayStart && t.dueDate <= tomorrowEnd);
-
-        pendingApprovals = (await db.query.milestones.findMany({
-            where: and(eq(milestones.status, "Client Approval"), isNull(milestones.deletedAt)),
-            with: { project: true }
-        })).filter(m => !m.project?.isArchived);
     }
 
     // ==========================================
@@ -182,22 +174,17 @@ export default async function DashboardPage() {
                                 <p className="text-sm font-medium text-muted-foreground">Open Projects</p>
                                 <div className="mt-2 flex items-baseline gap-2">
                                     <h3 className="text-3xl font-black">{openProjects.length}</h3>
-                                    {pendingApprovals.length > 0 && (
-                                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px]">
-                                            {pendingApprovals.length} pending
-                                        </Badge>
-                                    )}
                                 </div>
                             </CardContent>
                         </Card>
                         <Card className="glass-card border-border/60 shadow-sm relative overflow-hidden group">
                             <CardContent className="p-5">
-                                <p className="text-sm font-medium text-muted-foreground">Blocked Tasks</p>
+                                <p className="text-sm font-medium text-muted-foreground">Overdue Tasks</p>
                                 <div className="mt-2 flex items-baseline gap-2">
-                                    <h3 className={cn("text-3xl font-black", blockedTasks.length > 0 ? "text-destructive" : "text-foreground")}>
-                                        {blockedTasks.length}
+                                    <h3 className={cn("text-3xl font-black", overdueTasks.length > 0 ? "text-destructive" : "text-foreground")}>
+                                        {overdueTasks.length}
                                     </h3>
-                                    {blockedTasks.length > 0 && <span className="text-xs text-destructive/80 font-medium">Require attention</span>}
+                                    {overdueTasks.length > 0 && <span className="text-xs text-destructive/80 font-medium">Require attention</span>}
                                 </div>
                             </CardContent>
                         </Card>
@@ -259,13 +246,13 @@ export default async function DashboardPage() {
                     </div>
 
                     {/* REQUIRES ATTENTION (EXCEPTIONS) */}
-                    {(overdueLeads.length > 0 || blockedTasks.length > 0 || overdueTasks.length > 0) && (
+                    {(overdueLeads.length > 0 || overdueTasks.length > 0) && (
                         <div className="space-y-4">
                             <div className="flex items-center gap-2 border-b border-destructive/20 pb-2">
                                 <AlertCircle className="w-5 h-5 text-destructive" />
                                 <h3 className="text-lg font-bold text-destructive">Requires Attention</h3>
                                 <Badge variant="destructive" className="ml-auto bg-destructive/10 text-destructive hover:bg-destructive/20 border-0">
-                                    {overdueLeads.length + blockedTasks.length + overdueTasks.length} Issues
+                                    {overdueLeads.length + overdueTasks.length} Issues
                                 </Badge>
                             </div>
                             
@@ -282,18 +269,6 @@ export default async function DashboardPage() {
                                     </Link>
                                 ))}
 
-                                {isDelivery && blockedTasks.map(task => (
-                                    <Link key={task.id} href={`/dashboard/pm/${task.projectId}`} className="block group">
-                                        <div className="p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors flex items-center justify-between">
-                                            <div>
-                                                <p className="font-semibold text-sm text-foreground">{task.title}</p>
-                                                <p className="text-xs text-destructive font-medium mt-1">Blocked Task • {task.project?.title}</p>
-                                            </div>
-                                            <ArrowRight className="w-4 h-4 text-destructive/60 group-hover:text-destructive transition-colors" />
-                                        </div>
-                                    </Link>
-                                ))}
-                                
                                 {isDelivery && overdueTasks.map(task => (
                                     <Link key={task.id} href={`/dashboard/pm/${task.projectId}`} className="block group">
                                         <div className="p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors flex items-center justify-between">

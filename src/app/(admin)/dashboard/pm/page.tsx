@@ -34,7 +34,6 @@ export default async function PMEnginePage() {
 
     // Stats
     const totalActive = projects.filter(p => p.status !== "Completed").length;
-    const blockedTasks = projects.flatMap(p => p.tasks).filter(t => t.status === "Blocked").length;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -53,7 +52,7 @@ export default async function PMEnginePage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card className="glass-card border-border">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Active Projects</CardTitle>
@@ -62,12 +61,12 @@ export default async function PMEnginePage() {
                         <div className="text-3xl font-extrabold text-foreground">{totalActive}</div>
                     </CardContent>
                 </Card>
-                <Card className="glass-card border-destructive/30">
+                <Card className="glass-card border-border">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Blocked Tasks</CardTitle>
+                        <CardTitle className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Total Projects</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-extrabold text-destructive">{blockedTasks}</div>
+                        <div className="text-3xl font-extrabold text-foreground">{projects.length}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -77,10 +76,9 @@ export default async function PMEnginePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projects.map(project => {
                     const percent = project.progressPercentage ?? 0;
-                    const hasBlocked = project.tasks.some(t => t.status === "Blocked");
 
                     return (
-                        <Card key={project.id} className={`glass-card hover:border-primary/50 transition-all flex flex-col ${hasBlocked ? 'border-destructive/60' : 'border-border'}`}>
+                        <Card key={project.id} className="glass-card hover:border-primary/50 transition-all flex flex-col border-border">
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start mb-2">
                                     <Badge variant={project.status === "Completed" ? "default" : "outline"} className={`
@@ -89,7 +87,6 @@ export default async function PMEnginePage() {
                                     `}>
                                         {project.status}
                                     </Badge>
-                                    {hasBlocked && <Badge variant="destructive" className="h-5 px-1.5 text-[10px] font-mono">Blocked Tasks</Badge>}
                                 </div>
                                 <CardTitle className="text-lg font-bold text-foreground line-clamp-1" title={project.title}>{project.title}</CardTitle>
                                 <CardDescription className="flex items-center gap-1 text-xs text-muted-foreground">

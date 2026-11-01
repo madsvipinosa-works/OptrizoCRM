@@ -484,7 +484,7 @@ export async function seedDemoAccounts() {
     });
     console.log("   🔗 Linked Client Elena Rostova (client@optrizo.com) to Project in project_stakeholder");
 
-    // 5.3 Milestones (Sprint 1: Completed, Sprint 2: Client Approval, Sprint 3: In Progress)
+    // 5.3 Milestones (Sprint 1: Completed, Sprint 2: In Progress, Sprint 3: Pending)
     const [m1] = await db.insert(milestones).values({
         projectId: project.id,
         title: "Sprint 1: Architecture, 3NF Data Schema & UI/UX Design System",
@@ -497,7 +497,7 @@ export async function seedDemoAccounts() {
     const [m2] = await db.insert(milestones).values({
         projectId: project.id,
         title: "Sprint 2: Core Engineering, Scheduling Engine & Client Portal",
-        status: "Client Approval", // Interactive approval trigger in Client Portal!
+        status: "In Progress",
         order: 2,
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     }).returning();
@@ -505,7 +505,7 @@ export async function seedDemoAccounts() {
     const [m3] = await db.insert(milestones).values({
         projectId: project.id,
         title: "Sprint 3: Quality Gates, Security Hardening & Production Cloud Handover",
-        status: "In Progress",
+        status: "Pending",
         order: 3,
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
     }).returning();

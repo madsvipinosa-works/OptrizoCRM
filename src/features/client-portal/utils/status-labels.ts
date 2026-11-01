@@ -3,7 +3,7 @@ export function getClientFacingProjectStatus(status: string) {
 }
 
 export function getClientFacingMilestoneStatus(status: string) {
-    return status === "Client Approval" ? "Waiting on your review" : status;
+    return status;
 }
 
 export function getClientFacingFeedbackStatus(status: string) {

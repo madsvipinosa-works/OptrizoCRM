@@ -584,8 +584,8 @@ export const systemErrorLogsRelations = relations(systemErrorLogs, ({ one }) => 
 
 // 13. Operational Project Management (PM Engine)
 export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff", "In Progress", "In Review", "Completed"]);
-export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Client Approval", "Completed"]);
-export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "Changes Requested", "In Review", "Done"]);
+export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Completed"]);
+export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Changes Requested", "In Review", "Done"]);
 
 export type ProjectDocumentItem = {
     id: string;
