@@ -342,6 +342,58 @@ export const notifications = pgTable("notification", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+
+// 13b. Meetings
+export const meetingTypeEnum = pgEnum("meeting_type", [
+    "discovery",
+    "budget_pricing",
+    "project_review",
+    "uat"
+]);
+export const meetingFormatEnum = pgEnum("meeting_format", [
+    "video",
+    "phone",
+    "in_person",
+    "on_site"
+]);
+export const meetingStatusEnum = pgEnum("meeting_status", [
+    "awaiting_client",
+    "confirmed",
+    "reschedule_requested",
+    "done",
+    "cancelled"
+]);
+
+export const meetings = pgTable("meeting", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    leadId: text("leadId")
+        .references(() => leads.id, { onDelete: "cascade" }),
+    proposalId: text("proposalId")
+        .references(() => proposals.id, { onDelete: "set null" }),
+    projectId: text("projectId")
+        .references(() => agencyProjects.id, { onDelete: "set null" }),
+    type: meetingTypeEnum("type").default("discovery").notNull(),
+    format: meetingFormatEnum("format").default("video").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    attendees: jsonb("attendees").$type<string[]>().default([]).notNull(),
+    agenda: text("agenda"),
+    notes: text("notes"),
+    status: meetingStatusEnum("status").default("awaiting_client").notNull(),
+    reminderSent: boolean("reminder_sent").default(false).notNull(),
+    clientSuggestedAt: timestamp("client_suggested_at", { withTimezone: true }),
+    declineReason: text("decline_reason"),
+    createdBy: text("createdBy")
+        .references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index("idx_meeting_lead").on(t.leadId),
+    index("idx_meeting_starts_at").on(t.startsAt),
+    index("idx_meeting_status").on(t.status),
+]);
+
 // 14. Proposals
 export const proposalStatusEnum = pgEnum("proposal_status", ["Draft", "Sent", "Approved", "Rejected"]);
 
@@ -492,6 +544,7 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
     activityLogs: many(leadActivityLogs),
     assignees: many(leadAssignees),
     proposals: many(proposals),
+    meetings: many(meetings),
     crmTasks: many(crmTasks),
     client: one(users, {
         fields: [leads.clientId],
@@ -528,6 +581,7 @@ export const leadActivityLogsRelations = relations(leadActivityLogs, ({ one }) =
 export const usersRelations = relations(users, ({ many }) => ({
     leadAssignments: many(leadAssignees),
     authoredActivityLogs: many(leadActivityLogs),
+    meetingsCreated: many(meetings),
     projectStakeholds: many(projectStakeholders),
     projectTeamMemberships: many(projectTeamMembers),
     taskAssignments: many(taskAssignees),
@@ -763,6 +817,26 @@ export const clientFeedback = pgTable("client_feedback", {
 }));
 
 // PM Relations
+
+export const meetingsRelations = relations(meetings, ({ one }) => ({
+    lead: one(leads, {
+        fields: [meetings.leadId],
+        references: [leads.id],
+    }),
+    proposal: one(proposals, {
+        fields: [meetings.proposalId],
+        references: [proposals.id],
+    }),
+    project: one(agencyProjects, {
+        fields: [meetings.projectId],
+        references: [agencyProjects.id],
+    }),
+    creator: one(users, {
+        fields: [meetings.createdBy],
+        references: [users.id],
+    }),
+}));
+
 export const agencyProjectsRelations = relations(agencyProjects, ({ one, many }) => ({
     stakeholders: many(projectStakeholders),
     teamMembers: many(projectTeamMembers),

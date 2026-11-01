@@ -1,3 +1,4 @@
+import { ScheduleDiscoveryMeetingModal } from "@/features/meetings/components/ScheduleDiscoveryMeetingModal";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -150,6 +151,7 @@ export function LeadDetailsDrawer({
         }
     };
 
+    const [isScheduleMeetingModalOpen, setIsScheduleMeetingModalOpen] = useState(false);
     const [isGeneratingSOW, setIsGeneratingSOW] = useState(false);
     const handleGenerateSOW = async () => {
         if (!lead || isGeneratingSOW) return;
@@ -1317,6 +1319,15 @@ export function LeadDetailsDrawer({
                     </div>
                 </div>
             </SheetContent>
+
+            {/* Schedule Discovery Meeting Modal */}
+            <ScheduleDiscoveryMeetingModal
+                isOpen={isScheduleMeetingModalOpen}
+                onClose={() => setIsScheduleMeetingModalOpen(false)}
+                leadId={lead.id}
+                businessName={leadTitle}
+                clientName={contactName}
+            />
         </Sheet>
     );
 }

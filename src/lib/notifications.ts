@@ -343,3 +343,140 @@ export async function sendInquiryConfirmationEmail(data: {
         return { success: false, error: err };
     }
 }
+
+
+// Meeting Invite Email (Mockup 025-4a & Spec Section 4)
+export async function sendMeetingInviteEmail(data: {
+    clientName: string;
+    email: string;
+    meetingType: string;
+    format: string;
+    startsAt: Date;
+    agenda?: string | null;
+}) {
+    try {
+        const formattedDate = new Intl.DateTimeFormat("en-US", {
+            dateStyle: "full",
+            timeStyle: "short",
+        }).format(data.startsAt);
+
+        const portalBaseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        const signupUrl = `${portalBaseUrl}/signup?email=${encodeURIComponent(data.email)}`;
+        const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
+
+        if (!process.env.RESEND_API_KEY) {
+            console.log(`[MOCK EMAIL] To: ${data.email} | Subject: Meeting Invitation: ${data.meetingType} at ${formattedDate}`);
+            return { success: true, mock: true };
+        }
+
+        const { data: resData, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: data.email,
+            subject: `Invitation: ${data.meetingType} with Optrizo (${formattedDate})`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #d3dce1; border-radius: 12px; background: #ffffff; color: #14202b;">
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
+                        Meeting Invitation: ${data.meetingType}
+                    </h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67;">
+                        Hello ${data.clientName}, you have been invited to a ${data.meetingType.toLowerCase()} meeting with the Optrizo team.
+                    </p>
+                    <div style="background: #f7f9fa; border: 1px solid #d3dce1; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <p style="margin: 0 0 8px; font-size: 14px;"><strong>Date & Time:</strong> ${formattedDate}</p>
+                        <p style="margin: 0 0 8px; font-size: 14px;"><strong>Format:</strong> ${data.format}</p>
+                        ${data.agenda ? `<p style="margin: 0; font-size: 14px;"><strong>Agenda:</strong> ${data.agenda}</p>` : ""}
+                    </div>
+                    <p style="font-size: 14px; color: #4b5a67; margin-bottom: 20px;">
+                        To confirm this meeting, suggest another time, or view your appointments online, visit the Optrizo Client Portal:
+                    </p>
+                    <div style="margin-bottom: 24px;">
+                        <a href="${appointmentsUrl}" style="background: #0e6b7e; color: #ffffff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin-right: 12px;">
+                            View in Client Portal
+                        </a>
+                        <a href="${signupUrl}" style="color: #0e6b7e; text-decoration: underline; font-size: 14px; display: inline-block; padding: 10px 0;">
+                            Create portal account &rarr;
+                        </a>
+                    </div>
+                    <p style="font-size: 12px; color: #7a8b98; margin: 0;">
+                        Optrizo Digital Solutions &bull; High-Performance Software Development
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending meeting invite:", error);
+            return { success: false, error };
+        }
+
+        return { success: true, data: resData };
+    } catch (err) {
+        console.error("Meeting Invite Email Failed:", err);
+        return { success: false, error: err };
+    }
+}
+
+// Meeting Reminder Email (Mockup 076-4c & Spec Section 4)
+export async function sendMeetingReminderEmail(data: {
+    clientName: string;
+    email: string;
+    meetingType: string;
+    format: string;
+    startsAt: Date;
+}) {
+    try {
+        const formattedDate = new Intl.DateTimeFormat("en-US", {
+            dateStyle: "full",
+            timeStyle: "short",
+        }).format(data.startsAt);
+
+        const portalBaseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
+
+        if (!process.env.RESEND_API_KEY) {
+            console.log(`[MOCK EMAIL] Reminder To: ${data.email} | ${data.meetingType} at ${formattedDate}`);
+            return { success: true, mock: true };
+        }
+
+        const { data: resData, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: data.email,
+            subject: `Reminder: ${data.meetingType} with Optrizo Tomorrow (${formattedDate})`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #d3dce1; border-radius: 12px; background: #ffffff; color: #14202b;">
+                    <div style="font-size: 13px; font-weight: 600; color: #0e6b7e; background: #e0f0f3; padding: 4px 12px; border-radius: 999px; display: inline-block; margin-bottom: 16px;">
+                        Meeting Reminder
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
+                        Upcoming: ${data.meetingType}
+                    </h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67;">
+                        Hello ${data.clientName}, this is a reminder for your upcoming meeting with Optrizo.
+                    </p>
+                    <div style="background: #f7f9fa; border: 1px solid #d3dce1; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <p style="margin: 0 0 8px; font-size: 14px;"><strong>Date & Time:</strong> ${formattedDate}</p>
+                        <p style="margin: 0; font-size: 14px;"><strong>Format:</strong> ${data.format}</p>
+                    </div>
+                    <p style="font-size: 14px; margin-bottom: 20px;">
+                        <a href="${appointmentsUrl}" style="color: #0e6b7e; font-weight: 600; text-decoration: underline;">
+                            View appointment details in your portal &rarr;
+                        </a>
+                    </p>
+                    <p style="font-size: 12px; color: #7a8b98; margin: 0;">
+                        Optrizo Digital Solutions &bull; High-Performance Software Development
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending meeting reminder:", error);
+            return { success: false, error };
+        }
+
+        return { success: true, data: resData };
+    } catch (err) {
+        console.error("Meeting Reminder Email Failed:", err);
+        return { success: false, error: err };
+    }
+}

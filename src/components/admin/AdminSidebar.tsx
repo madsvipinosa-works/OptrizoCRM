@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     FileText,
+    Calendar,
     Briefcase,
     Settings,
     Star,
@@ -57,6 +58,7 @@ const navGroups: NavGroup[] = [
             { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["superadmin", "sales"] },
             { href: "/dashboard/contacts", label: "Contacts", icon: Users, allowedRoles: ["superadmin", "sales"] },
             { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["superadmin", "sales"] },
+            { href: "/dashboard/meetings", label: "Meetings", icon: Calendar, allowedRoles: ["sales", "manager"] },
             { href: "/dashboard/proposals", label: "Proposals & SOWs", icon: FileText, allowedRoles: ["superadmin", "sales"] },
         ],
     },
