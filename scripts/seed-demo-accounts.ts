@@ -637,33 +637,16 @@ export async function seedDemoAccounts() {
         submittedBy: admin.id,
         proofUrl: "https://github.com/optrizo/nexora-health/pull/8",
         submissionNotes: "Implemented authenticated deliverable proxy, threaded revision replies, and proposal signature capture. Full unit and integration tests passing.",
-        aiConfidenceScore: 96,
-        gateStatus: "Passed",
-        aiSummary: "Automated Quality Gate passed with 96% confidence. Deliverable is an authoritative GitHub pull request with 14 passing automated tests, clear git diff matching acceptance criteria, and zero merge conflicts.",
-        criteriaBreakdown: [
-            { criterion: "Deliverable Artifact Credibility & Relevance", status: "PASS", notes: "Authoritative code repository pull request verified on optrizo/nexora-health." },
-            { criterion: "Proof URL Reachability & Access", status: "PASS", notes: "Valid PR link accessible and formatted correctly." },
-            { criterion: "Acceptance Criteria Alignment", status: "PASS", notes: "Code diffs implement Client Portal review modals and digital signature capture." },
-            { criterion: "Test Suite Execution Integrity", status: "PASS", notes: "24/24 unit and integration test assertions passed without regression." }
-        ]
     });
 
-    // Submission 2: Task 3 (Scheduling Engine PR #5) - 94% Confidence Passed
+    // Submission 2: Task 3 (Scheduling Engine PR #5)
     await db.insert(taskSubmissions).values({
         taskId: t3.id,
         submittedBy: admin.id,
         proofUrl: "https://github.com/optrizo/nexora-health/pull/5",
         submissionNotes: "Implemented appointment reservation engine with transactional PostgreSQL row locks to prevent simultaneous double-booking of doctor slots.",
-        aiConfidenceScore: 94,
-        gateStatus: "Passed",
-        aiSummary: "Automated Quality Gate passed with 94% confidence. Pull request contains verified transactional query logic and load tests simulating 100 concurrent booking requests.",
-        criteriaBreakdown: [
-            { criterion: "Deliverable Artifact Credibility & Relevance", status: "PASS", notes: "GitHub PR containing schema migrations and appointment controller logic verified." },
-            { criterion: "Proof URL Reachability & Access", status: "PASS", notes: "Authoritative repository link verified." },
-            { criterion: "Concurrency Benchmark Validation", status: "PASS", notes: "Stress test scripts verified 0 duplicate slot reservations under load." }
-        ]
     });
-    console.log("   ✅ Created 2 DoD Quality Gate Submissions (96% & 94% Passed)");
+    console.log("   ✅ Created 2 Task Submissions");
 
     // 5.7 Threaded Client Feedback Conversation on Milestone 2
     const [parentFeedback] = await db.insert(clientFeedback).values({

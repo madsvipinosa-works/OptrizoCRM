@@ -172,14 +172,13 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
         csv += `Metric,Value\n`;
         csv += `Total Completed Tasks,${velocityReport.totalCompletedTasks}\n`;
         csv += `Total Story Points (Weight),${velocityReport.totalWeight}\n`;
-        csv += `Avg Task Turnaround Time (Days),${velocityReport.averageTurnaroundTimeDays.toFixed(1)}\n`;
-        csv += `Avg AI Quality Score,${velocityReport.averageAiQualityScore !== null ? `${velocityReport.averageAiQualityScore}/100` : "N/A"}\n\n`;
+        csv += `Avg Task Turnaround Time (Days),${velocityReport.averageTurnaroundTimeDays.toFixed(1)}\n\n`;
 
         csv += `User Velocity Breakdown\n`;
-        csv += `Team Member,Role,Tasks Completed,Story Points,Avg Turnaround (Days),Avg AI Quality Score\n`;
+        csv += `Team Member,Role,Tasks Completed,Story Points,Avg Turnaround (Days)\n`;
         velocityReport.userVelocity.forEach((uv: UserVelocityItem) => {
             const cleanName = uv.name.replace(/,/g, " ");
-            csv += `"${cleanName}",${uv.role},${uv.tasksCompleted},${uv.totalWeight},${uv.avgTurnaroundDays ?? "N/A"},${uv.avgQualityScore ?? "N/A"}\n`;
+            csv += `"${cleanName}",${uv.role},${uv.tasksCompleted},${uv.totalWeight},${uv.avgTurnaroundDays ?? "N/A"}\n`;
         });
 
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -325,11 +324,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                 <span>{velocityReport?.totalCompletedTasks ?? 0} tasks delivered</span>
-                                {velocityReport?.averageAiQualityScore !== null && velocityReport?.averageAiQualityScore !== undefined && (
-                                    <Badge variant="outline" className="text-[10px] py-0 border-purple-500/30 text-purple-400">
-                                        AI QA {velocityReport.averageAiQualityScore}/100
-                                    </Badge>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -738,12 +732,12 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                             Team Engineering Throughput &amp; Velocity
                                         </h2>
                                         <p className="text-xs text-muted-foreground">
-                                            Task turnaround time, story point delivery, and AI quality score distribution across the engineering team.
+                                            Task turnaround time and story point delivery across the engineering team.
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="p-4 bg-muted/40 border border-border/50 rounded-lg">
                                         <p className="text-xs font-medium text-muted-foreground uppercase">Tasks Delivered</p>
                                         <p className="text-2xl font-bold text-foreground mt-1">{velocityReport?.totalCompletedTasks ?? 0}</p>
@@ -758,22 +752,12 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                             {velocityReport?.averageTurnaroundTimeDays?.toFixed(1) ?? "0.0"} <span className="text-xs font-normal text-muted-foreground">Days</span>
                                         </p>
                                     </div>
-                                    <div className="p-4 bg-muted/40 border border-border/50 rounded-lg">
-                                        <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                            <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Avg AI Quality Score
-                                        </p>
-                                        <p className="text-2xl font-bold text-foreground mt-1">
-                                            {velocityReport?.averageAiQualityScore !== null && velocityReport?.averageAiQualityScore !== undefined
-                                                ? `${velocityReport.averageAiQualityScore}/100`
-                                                : "N/A"}
-                                        </p>
-                                    </div>
                                 </div>
 
                                 {/* Developer Throughput Breakdown Table */}
                                 <div className="space-y-3">
                                     <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">
-                                        Developer Throughput &amp; Quality Breakdown
+                                        Developer Throughput Breakdown
                                     </h3>
                                     {velocityReport?.userVelocity && velocityReport.userVelocity.length > 0 ? (
                                         <div className="rounded-lg border border-border overflow-hidden">
@@ -784,8 +768,7 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                                         <TableHead className="font-semibold text-center">Role</TableHead>
                                                         <TableHead className="font-semibold text-center">Tasks Completed</TableHead>
                                                         <TableHead className="font-semibold text-center">Story Points</TableHead>
-                                                        <TableHead className="font-semibold text-center">Avg Turnaround</TableHead>
-                                                        <TableHead className="font-semibold text-right">Avg AI Quality</TableHead>
+                                                        <TableHead className="font-semibold text-right">Avg Turnaround</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -803,17 +786,8 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                                             <TableCell className="text-center font-mono text-xs text-purple-400 font-semibold">
                                                                 {uv.totalWeight} Pts
                                                             </TableCell>
-                                                            <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                                                            <TableCell className="text-right font-mono text-xs text-muted-foreground">
                                                                 {uv.avgTurnaroundDays !== null ? `${uv.avgTurnaroundDays} Days` : "—"}
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {uv.avgQualityScore !== null ? (
-                                                                    <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-xs font-mono">
-                                                                        {uv.avgQualityScore}/100
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <span className="text-xs text-muted-foreground">—</span>
-                                                                )}
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
@@ -841,7 +815,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                                         <TableHead className="font-semibold">Project</TableHead>
                                                         <TableHead className="font-semibold">Assignees</TableHead>
                                                         <TableHead className="font-semibold text-center">Story Points</TableHead>
-                                                        <TableHead className="font-semibold text-center">AI QA Score</TableHead>
                                                         <TableHead className="font-semibold text-center">Turnaround</TableHead>
                                                         <TableHead className="font-semibold text-right">Completed On</TableHead>
                                                     </TableRow>
@@ -867,15 +840,6 @@ export function ReportsDashboard({ hideHeader }: { hideHeader?: boolean }) {
                                                             </TableCell>
                                                             <TableCell className="text-center font-mono text-xs font-semibold text-purple-400">
                                                                 {t.weight} Pts
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {t.aiQualityScore !== null ? (
-                                                                    <Badge variant="outline" className="text-xs font-mono border-purple-500/30 text-purple-400">
-                                                                        {t.aiQualityScore}/100
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <span className="text-xs text-muted-foreground">—</span>
-                                                                )}
                                                             </TableCell>
                                                             <TableCell className="text-center font-mono text-xs text-muted-foreground">
                                                                 {t.turnaroundDays !== null ? `${t.turnaroundDays}d` : "—"}

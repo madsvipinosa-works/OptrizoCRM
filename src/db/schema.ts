@@ -586,7 +586,6 @@ export const systemErrorLogsRelations = relations(systemErrorLogs, ({ one }) => 
 export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff", "In Progress", "In Review", "Completed"]);
 export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Client Approval", "Completed"]);
 export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Blocked", "Changes Requested", "In Review", "Done"]);
-export const qualityGateStatusEnum = pgEnum("quality_gate_status", ["Pending", "Passed", "Failed"]);
 
 export type ProjectDocumentItem = {
     id: string;
@@ -726,16 +725,6 @@ export const taskSubmissions = pgTable("task_submission", {
     submittedBy: text("submitted_by"),
     proofUrl: text("proof_url").notNull(),
     submissionNotes: text("submission_notes").notNull(),
-    aiConfidenceScore: integer("ai_confidence_score").notNull(),
-    gateStatus: qualityGateStatusEnum("gate_status").notNull(),
-    aiSummary: text("ai_summary").notNull(),
-    criteriaBreakdown: jsonb("criteria_breakdown").$type<
-        Array<{
-            criterion: string;
-            status: "PASS" | "FAIL" | "PARTIAL";
-            notes: string;
-        }>
-    >().default([]).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 }, (t) => ({
     idxTaskSubmissionTaskCreated: index("idx_task_submission_task_created").on(t.taskId, t.createdAt),
