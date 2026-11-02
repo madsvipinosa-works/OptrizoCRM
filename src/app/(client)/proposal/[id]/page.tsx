@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { proposals } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { proposals, proposalMessages } from "@/db/schema";
+import { and, eq, gt, inArray, ne, or } from "drizzle-orm";
 import { ProposalClientView } from "@/features/proposals/components/ProposalClientView";
 import { PricingLineItem } from "@/features/proposals/components/ProposalDocumentSheet";
 import { getSiteSettings } from "@/features/cms/actions";
+import { getWhatChanged } from "@/features/proposals/utils/whatChanged";
 
 export const metadata = {
     title: "Project Proposal | Optrizo",
@@ -134,6 +135,56 @@ export default async function ProposalPage({
 
     const settings = await getSiteSettings();
 
+    // Query previous version to compute what changed if version > 1
+    let previousProposal = null;
+    if (proposal.leadId && proposal.version > 1) {
+        previousProposal = await db.query.proposals.findFirst({
+            where: and(
+                eq(proposals.leadId, proposal.leadId),
+                eq(proposals.version, proposal.version - 1)
+            ),
+            with: {
+                milestones: true,
+                paymentScheduleItems: true,
+            },
+        });
+    }
+
+    const whatChanged = previousProposal
+        ? getWhatChanged(proposal, previousProposal)
+        : [];
+
+    // Check if this proposal is the current latest non-replaced version
+    const higherVersion = proposal.leadId
+        ? await db.query.proposals.findFirst({
+            where: and(
+                eq(proposals.leadId, proposal.leadId),
+                gt(proposals.version, proposal.version),
+                ne(proposals.status, "draft")
+            ),
+        })
+        : null;
+    const isCurrent = !higherVersion;
+
+    // Load proposal messages (only kinds change_request, message, reply; NOT outside_discussion)
+    const messages = await db.query.proposalMessages.findMany({
+        where: and(
+            eq(proposalMessages.proposalId, proposal.id),
+            inArray(proposalMessages.kind, ["change_request", "message", "reply"])
+        ),
+        with: {
+            author: {
+                columns: {
+                    id: true,
+                    name: true,
+                    role: true,
+                    email: true,
+                },
+            },
+        },
+        orderBy: (msg, { asc }) => [asc(msg.createdAt)],
+    });
+
     return (
         <div className="min-h-screen bg-muted/20 text-foreground selection:bg-primary/30 py-8 md:py-14 px-4 sm:px-6 lg:px-8 print:min-h-0 print:bg-white print:p-0 print:m-0 print:w-full">
             <div className="max-w-4xl mx-auto print:max-w-none print:w-full print:m-0 print:p-0">
@@ -142,6 +193,9 @@ export default async function ProposalPage({
                     parsedDeliverables={parsedDeliverables}
                     parsedPricing={parsedPricing}
                     isPreview={!isOwner}
+                    isCurrent={isCurrent}
+                    whatChanged={whatChanged}
+                    messages={messages}
                     settings={settings ? {
                         logoUrl: settings.logoUrl,
                         logoDarkUrl: settings.logoDarkUrl,

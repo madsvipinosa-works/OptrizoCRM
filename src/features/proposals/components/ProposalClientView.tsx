@@ -34,11 +34,14 @@ import {
     PricingLineItem,
 } from "@/features/proposals/components/ProposalDocumentSheet";
 import { AcceptProposalDialog } from "@/features/proposals/components/AcceptProposalDialog";
+import { RequestChangesDialog } from "@/features/proposals/components/RequestChangesDialog";
+import { ProposalThread, type ProposalMessageItem } from "@/features/proposals/components/ProposalThread";
 
 interface Props {
     proposal: {
         id: string;
         proposalCode?: string | null;
+        version?: number;
         status: "draft" | "sent" | "pricing_meeting_requested" | "changes_requested" | "signed" | "declined" | "replaced";
         priceMode?: "to_be_discussed" | "priced" | null;
         currency?: "PHP" | "USD" | null;
@@ -92,6 +95,9 @@ interface Props {
     };
     isPreview?: boolean;
     canEditInStudio?: boolean;
+    isCurrent?: boolean;
+    whatChanged?: string[];
+    messages?: ProposalMessageItem[];
     settings?: {
         logoUrl?: string | null;
         logoDarkUrl?: string | null;
@@ -106,6 +112,9 @@ export function ProposalClientView({
     parsedPricing,
     isPreview = false,
     canEditInStudio = false,
+    isCurrent = true,
+    whatChanged = [],
+    messages = [],
     settings,
 }: Props) {
     const router = useRouter();
@@ -114,6 +123,7 @@ export function ProposalClientView({
     const [rejectReason, setRejectReason] = useState("");
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+    const [isRequestChangesOpen, setIsRequestChangesOpen] = useState(false);
     const [isRequestingPricing, setIsRequestingPricing] = useState(false);
 
     const isApproved = proposal.status === "signed";
@@ -271,6 +281,26 @@ export function ProposalClientView({
                 </div>
             )}
 
+            {/* What Changed Banner for Revised Versions */}
+            {whatChanged && whatChanged.length > 0 && (
+                <div className="max-w-[850px] mx-auto bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print space-y-2">
+                    <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>Updates in this Revised Version (v{proposal.version || 2})</span>
+                    </div>
+                    <p className="text-muted-foreground">
+                        The Project Manager revised this proposal based on discussions. The following sections were updated:
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                        {whatChanged.map((section) => (
+                            <Badge key={section} variant="secondary" className="bg-amber-500/20 text-foreground border-amber-500/30 font-medium">
+                                {section}
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Main Shared Document Sheet */}
             <ProposalDocumentSheet
                 data={documentData}
@@ -278,6 +308,17 @@ export function ProposalClientView({
                 agencyLogoUrl={settings?.logoUrl || null}
                 agencyFaviconUrl={settings?.faviconUrl || null}
             />
+
+            {/* Discussion & Negotiation Thread */}
+            {!isPreview && (
+                <div className="max-w-[850px] mx-auto bg-card border border-border rounded-2xl shadow-sm p-4 sm:p-6 no-print">
+                    <ProposalThread
+                        proposalId={proposal.id}
+                        messages={messages || []}
+                        userRole="client"
+                    />
+                </div>
+            )}
 
             {/* Status Callout (Approved / Rejected) */}
             {isApproved && (
@@ -388,6 +429,18 @@ export function ProposalClientView({
                             </Dialog>
                         )}
 
+                        {/* Request Changes Trigger (Only for Client) */}
+                        {!isPreview && isCurrent !== false && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsRequestChangesOpen(true)}
+                                className="h-9 px-3 text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                            >
+                                Request Changes
+                            </Button>
+                        )}
+
                         {/* Accept & Sign or Request Pricing Meeting Button */}
                         {!isPreview ? (
                             proposal.priceMode === "to_be_discussed" ? (
@@ -446,6 +499,14 @@ export function ProposalClientView({
                 totalAmount={grandTotal}
                 defaultName={proposal.lead?.client?.name || ""}
                 contractSettings={proposal.contractSettings}
+            />
+
+            {/* Request Changes Dialog */}
+            <RequestChangesDialog
+                open={isRequestChangesOpen}
+                onOpenChange={setIsRequestChangesOpen}
+                proposalId={proposal.id}
+                onSuccess={() => router.refresh()}
             />
         </div>
     );
