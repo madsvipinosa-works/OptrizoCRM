@@ -29,10 +29,14 @@ export async function addProjectTeamMember(
 
     try {
         const targetUser = await db.query.users.findFirst({
-            where: and(eq(users.id, userId), isNull(users.deletedAt)),
+            where: and(
+                eq(users.id, userId),
+                isNull(users.deletedAt),
+                eq(users.isActive, true)
+            ),
         });
 
-        if (!targetUser || targetUser.role !== "developer") {
+        if (!targetUser || targetUser.role !== "developer" || !targetUser.isActive) {
             return { success: false, message: "Only active developers can be added to project teams" };
         }
 
@@ -167,3 +171,4 @@ export async function removeProjectTeamMember(
         };
     }
 }
+

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/db";
-import { milestones, tasks, payments, paymentScheduleItems, agencyProjects } from "@/db/schema";
+import { milestones, tasks, payments, paymentScheduleItems } from "@/db/schema";
 import { eq, and, asc, isNull, inArray } from "drizzle-orm";
 
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -89,18 +89,6 @@ export async function closeMilestoneAndAdvance(
             .where(eq(milestones.id, nextCandidate.id))
             .returning();
         nextMilestone = updatedNext;
-    } else {
-        // If no more pending milestones, check if all milestones for this project are Completed
-        const allRemaining = await tx
-            .select({ id: milestones.id, status: milestones.status })
-            .from(milestones)
-            .where(and(eq(milestones.projectId, currentMilestone.projectId), isNull(milestones.deletedAt)));
-        if (allRemaining.length > 0 && allRemaining.every((m) => m.status === "Completed")) {
-            await tx
-                .update(agencyProjects)
-                .set({ status: "Completed", updatedAt: new Date() })
-                .where(eq(agencyProjects.id, currentMilestone.projectId));
-        }
     }
 
     // 5. Advance payments: find not_yet_due payments for this project matching the milestone trigger
@@ -147,3 +135,4 @@ export async function closeMilestoneAndAdvance(
         duePaymentIds,
     };
 }
+

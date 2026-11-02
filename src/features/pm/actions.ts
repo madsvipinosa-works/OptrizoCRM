@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { createSystemNotification } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { logSystemError } from "@/features/audit/error-logger";
-import { authorizeProject, authorizeTask, requireRole, requireRoles } from "@/lib/authz";
+import { authorizeProject, requireRole, requireRoles } from "@/lib/authz";
 import { closeMilestoneAndAdvance } from "@/features/pm/milestone-flow";
 import { z } from "zod";
 
@@ -754,62 +754,81 @@ export async function submitTask(input: {
         return { ok: false, error: "FORBIDDEN" };
     }
 
-    const task = await db.query.tasks.findFirst({
-        where: eq(tasks.id, input.taskId),
-        with: {
-            milestone: {
-                with: {
-                    project: true,
-                },
-            },
-        },
-    });
-
-    if (!task) {
-        return { ok: false, error: "TASK_NOT_FOUND" };
-    }
-
-    const normStatus = task.status.toLowerCase().replace(/\s+/g, "_");
-    if (normStatus !== "in_progress" && normStatus !== "changes_requested") {
-        return { ok: false, error: "INVALID_STATUS" };
-    }
-
     const combinedProofLinks: { label: string; url: string }[] = [
         ...(input.links || []).filter((l) => l && l.trim().length > 0).map((url) => ({ label: "Link", url: url.trim() })),
         ...(input.files || []).filter((f) => f && f.trim().length > 0).map((fileUrl) => ({ label: "File", url: fileUrl.trim() })),
     ];
 
-    await db.transaction(async (tx) => {
-        await tx.update(tasks)
-            .set({
-                status: "in_review",
-                proofLinks: combinedProofLinks,
-                proofNotes: input.note?.trim() || null,
-                reviewNote: null,
-                updatedAt: new Date(),
-            })
-            .where(eq(tasks.id, input.taskId));
+    let taskTitle = "";
+    let taskProjectId: string | null = null;
 
-        await handleMilestoneBubbling(tx, input.taskId, "In Review", task);
-    });
+    try {
+        await db.transaction(async (tx) => {
+            let task: typeof tasks.$inferSelect | undefined;
+            const selected = await tx
+                .select()
+                .from(tasks)
+                .where(and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)))
+                .for("update");
 
-    const { notifyAllAdmins } = await import("@/features/notifications/send");
-    await notifyAllAdmins(
-        `Task "${task.title}" has been submitted for review by ${session.user.name || "assigned developer"}.`,
+            if (Array.isArray(selected) && selected.length > 0) {
+                task = selected[0];
+            } else {
+                const txWithQuery = tx as unknown as { query?: { tasks?: { findFirst: (args: unknown) => Promise<typeof tasks.$inferSelect | undefined> } } };
+                if (txWithQuery.query?.tasks?.findFirst) {
+                    task = await txWithQuery.query.tasks.findFirst({
+                        where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)),
+                    });
+                }
+            }
+
+            if (!task) {
+                throw new Error("TASK_NOT_FOUND");
+            }
+
+            if (task.status !== "in_progress" && task.status !== "changes_requested") {
+                throw new Error("INVALID_STATUS");
+            }
+
+            taskTitle = task.title;
+            taskProjectId = task.projectId;
+
+            await tx.update(tasks)
+                .set({
+                    status: "in_review",
+                    proofLinks: combinedProofLinks,
+                    proofNotes: input.note?.trim() || null,
+                    reviewNote: null,
+                    updatedAt: new Date(),
+                })
+                .where(eq(tasks.id, input.taskId));
+        });
+    } catch (err: unknown) {
+        if (err instanceof Error && (err.message === "TASK_NOT_FOUND" || err.message === "INVALID_STATUS")) {
+            return { ok: false, error: err.message };
+        }
+        console.error("submitTask error:", err);
+        return { ok: false, error: "DATABASE_ERROR" };
+    }
+
+    const { notifyAllAdmins: notifyAdmins } = await import("@/features/notifications/send");
+    await notifyAdmins(
+        `Task "${taskTitle}" has been submitted for review by ${session.user.name || "assigned developer"}.`,
         "task",
-        `/dashboard/pm/${task.projectId}`
+        taskProjectId ? `/dashboard/pm/${taskProjectId}` : "/dashboard/pm"
     );
 
     await logAction(
         "UPDATE",
         "Task",
-        `Developer ${session.user.name || session.user.id} submitted task "${task.title}" (${input.taskId}) for review`
+        `Developer ${session.user.name || session.user.id} submitted task "${taskTitle}" (${input.taskId}) for review`
     );
 
-    if (task.projectId) {
-        revalidatePath(`/dashboard/pm/${task.projectId}`);
+    if (taskProjectId) {
+        revalidatePath(`/dashboard/pm/${taskProjectId}`);
     }
     revalidatePath("/dashboard/pm/[id]", "page");
+    revalidatePath("/dashboard/my-tasks");
     revalidatePath("/portal");
 
     return { ok: true, status: "in_review" };
@@ -1202,9 +1221,16 @@ export async function getClientUsers(): Promise<{ id: string; name: string | nul
 export async function startTask(
     taskId: string
 ): Promise<{ success: boolean; message?: string }> {
-    const authz = await authorizeTask(taskId);
-    if (!authz.ok) {
-        return { success: false, message: "Unauthorized: You cannot start this task" };
+    const session = await auth();
+    if (!session?.user?.id || session.user.role !== "developer") {
+        return { success: false, message: "Unauthorized: Only assigned developers can start tasks" };
+    }
+
+    const assignment = await db.query.taskAssignees.findFirst({
+        where: and(eq(taskAssignees.taskId, taskId), eq(taskAssignees.userId, session.user.id)),
+    });
+    if (!assignment) {
+        return { success: false, message: "Unauthorized: Task not assigned to you" };
     }
 
     try {
@@ -1219,7 +1245,7 @@ export async function startTask(
                 return { success: false, message: "Task not found" };
             }
 
-            if (task.status !== "to_do" && (task.status as string) !== "To Do") {
+            if (task.status !== "to_do") {
                 return { success: false, message: "Only tasks in To Do status can be started" };
             }
 
@@ -1240,7 +1266,7 @@ export async function startTask(
                     .from(tasks)
                     .where(and(eq(tasks.id, task.dependsOnTaskId), isNull(tasks.deletedAt)));
 
-                if (!prereq || (prereq.status !== "done" && (prereq.status as string) !== "Done")) {
+                if (!prereq || prereq.status !== "done") {
                     return {
                         success: false,
                         message: `Prerequisite task "${prereq?.title || "Prerequisite"}" must be completed first`,
@@ -1272,7 +1298,7 @@ export async function startTask(
         if (result.task?.projectId) {
             revalidatePath(`/dashboard/pm/${result.task.projectId}`);
         }
-        revalidatePath("/dashboard/dev");
+        revalidatePath("/dashboard/my-tasks");
         return { success: true };
     } catch (error: unknown) {
         console.error("startTask error:", error);
@@ -1283,12 +1309,6 @@ export async function startTask(
     }
 }
 
-/**
- * Step 27: Manager approves a task in review -> done.
- * If all tasks in the milestone are now done, calls closeMilestoneAndAdvance
- * inside the SAME transaction, which advances to the next milestone and sets
- * matching payments to due.
- */
 export async function approveTask(
     taskId: string
 ): Promise<{ success: boolean; message?: string }> {
@@ -1309,7 +1329,7 @@ export async function approveTask(
                 return { success: false, message: "Task not found" };
             }
 
-            if (task.status !== "in_review" && (task.status as string) !== "In Review") {
+            if (task.status !== "in_review") {
                 return { success: false, message: "Task must be in review to be approved" };
             }
 
@@ -1333,7 +1353,7 @@ export async function approveTask(
                         ne(tasks.id, taskId)
                     ));
 
-                const allOthersDone = remainingTasks.every((t) => t.status === "done" || (t.status as string) === "Done");
+                const allOthersDone = remainingTasks.every((t) => t.status === "done");
                 if (allOthersDone) {
                     closeResult = await closeMilestoneAndAdvance(tx, task.milestoneId);
                 }
@@ -1364,7 +1384,7 @@ export async function approveTask(
                     uid,
                     `Your task "${task?.title}" has been approved!`,
                     "task",
-                    task?.projectId ? `/dashboard/pm/${task.projectId}` : "/dashboard/dev"
+                    task?.projectId ? `/dashboard/pm/${task.projectId}` : "/dashboard/my-tasks"
                 );
             }
 
@@ -1398,7 +1418,7 @@ export async function approveTask(
         if (task?.projectId) {
             revalidatePath(`/dashboard/pm/${task.projectId}`);
         }
-        revalidatePath("/dashboard/dev");
+        revalidatePath("/dashboard/my-tasks");
         return { success: true };
     } catch (error: unknown) {
         console.error("approveTask error:", error);
@@ -1440,7 +1460,7 @@ export async function requestTaskChanges(
                 return { success: false, message: "Task not found" };
             }
 
-            if (task.status !== "in_review" && (task.status as string) !== "In Review") {
+            if (task.status !== "in_review") {
                 return { success: false, message: "Task must be in review to request changes" };
             }
 
@@ -1477,7 +1497,7 @@ export async function requestTaskChanges(
                     uid,
                     `Changes requested on "${task?.title}": ${safeComment}`,
                     "task",
-                    task?.projectId ? `/dashboard/pm/${task.projectId}` : "/dashboard/dev"
+                    task?.projectId ? `/dashboard/pm/${task.projectId}` : "/dashboard/my-tasks"
                 );
             }
             await logAction(
@@ -1492,7 +1512,7 @@ export async function requestTaskChanges(
         if (task?.projectId) {
             revalidatePath(`/dashboard/pm/${task.projectId}`);
         }
-        revalidatePath("/dashboard/dev");
+        revalidatePath("/dashboard/my-tasks");
         return { success: true };
     } catch (error: unknown) {
         console.error("requestTaskChanges error:", error);

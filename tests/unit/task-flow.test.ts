@@ -73,7 +73,7 @@ afterEach(() => {
 describe("startTask", () => {
   it("rejects an anonymous caller", async () => {
     const res = await startTask("task-1");
-    expect(res).toEqual({ success: false, message: "Unauthorized: You cannot start this task" });
+    expect(res).toEqual({ success: false, message: "Unauthorized: Only assigned developers can start tasks" });
   });
 
   it("rejects when developer is not assigned to the task", async () => {
@@ -81,7 +81,7 @@ describe("startTask", () => {
     mockDb.query.taskAssignees.findFirst.mockResolvedValue(undefined);
 
     const res = await startTask("task-1");
-    expect(res).toEqual({ success: false, message: "Unauthorized: You cannot start this task" });
+    expect(res).toEqual({ success: false, message: "Unauthorized: Task not assigned to you" });
   });
 
   it("rejects when task is not in to_do status", async () => {
