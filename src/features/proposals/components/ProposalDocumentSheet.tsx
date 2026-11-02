@@ -24,6 +24,9 @@ export interface ProposalDocumentData {
     timeline?: string | null;
     pricingStructure?: PricingLineItem[] | null;
     subtotal?: number | null;
+    priceMode?: "to_be_discussed" | "priced" | string | null;
+    currency?: "PHP" | "USD" | string | null;
+    totalPrice?: number | null;
     discount?: number | null;
     tax?: number | null;
     total?: number | null;
@@ -90,11 +93,11 @@ export function ProposalDocumentSheet({
     const deliverablesList = Array.isArray(data.deliverables) ? data.deliverables : [];
     const pricingItems = Array.isArray(data.pricingStructure) ? data.pricingStructure : [];
 
-    const currencyFormatter = new Intl.NumberFormat("en-US", {
+    const effectiveCurrency = data.currency === "USD" ? "USD" : "PHP";
+    const currencyFormatter = new Intl.NumberFormat(effectiveCurrency === "PHP" ? "en-PH" : "en-US", {
         style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
+        currency: effectiveCurrency,
+        maximumFractionDigits: 0,
     });
 
     // Section counter — increments only for rendered sections
@@ -357,7 +360,31 @@ export function ProposalDocumentSheet({
                     {nextSection()}. Commercial Terms &amp; Investment Schedule
                 </h2>
 
-                <div className="border border-border rounded-lg overflow-x-auto print:overflow-visible w-full min-w-0 shadow-sm">
+                {data.priceMode === "to_be_discussed" ? (
+                    <div className="p-5 rounded-xl border border-border bg-muted/20 text-center space-y-1.5 my-3">
+                        <span className="text-xs uppercase font-mono tracking-wider text-muted-foreground block font-semibold">
+                            Commercial Investment
+                        </span>
+                        <div className="text-lg sm:text-xl font-bold font-serif text-foreground">
+                            Price to be discussed
+                        </div>
+                        <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                            Technical scope and deliverables are outlined above. Commercial pricing and payment milestone triggers will be agreed upon during project alignment.
+                        </p>
+                    </div>
+                ) : data.priceMode === "priced" ? (
+                    <div className="p-5 rounded-xl border border-border bg-primary/5 space-y-3 my-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span className="text-xs uppercase font-mono tracking-wider text-muted-foreground font-semibold">
+                                Total Contract Value
+                            </span>
+                            <span className="text-2xl font-bold font-mono text-primary">
+                                {currencyFormatter.format(data.totalPrice ?? data.total ?? 0)}
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="border border-border rounded-lg overflow-x-auto print:overflow-visible w-full min-w-0 shadow-sm">
                     <table className="w-full text-left text-sm table-fixed min-w-[500px] sm:min-w-0">
                         <colgroup>
                             <col className="w-[52%] sm:w-[56%]" />
@@ -429,6 +456,8 @@ export function ProposalDocumentSheet({
                     </table>
                 </div>
 
+                
+                )}
                 {/* Payment Method */}
                 {cs.paymentMethod && (
                     <div className="flex items-start gap-2 text-xs text-muted-foreground mt-2 p-2.5 rounded-lg border border-border/60 bg-muted/20 min-w-0 break-words">

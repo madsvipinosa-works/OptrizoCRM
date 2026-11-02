@@ -37,6 +37,9 @@ interface Props {
         id: string;
         proposalCode?: string | null;
         status: "draft" | "sent" | "pricing_meeting_requested" | "changes_requested" | "signed" | "declined" | "replaced";
+        priceMode?: "to_be_discussed" | "priced" | null;
+        currency?: "PHP" | "USD" | null;
+        totalPrice?: number | null;
         fileUrl?: string | null;
         scope?: string | null;
         timeline?: string | null;

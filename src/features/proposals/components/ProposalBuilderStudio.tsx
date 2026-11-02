@@ -66,6 +66,9 @@ interface ProposalBuilderStudioProps {
         technicalApproach?: string | null;
         pricingStructure?: any;
         subtotal?: number | null;
+        priceMode?: "to_be_discussed" | "priced" | null;
+        currency?: "PHP" | "USD" | null;
+        totalPrice?: number | null;
         discount?: number | null;
         tax?: number | null;
         total?: number | null;
@@ -246,6 +249,17 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const [deliverables, setDeliverables] = useState<string[]>(initialDeliverables);
     const [timeline, setTimeline] = useState(proposal.timeline || "4 - 6 Weeks");
     const [pricingItems, setPricingItems] = useState<PricingLineItem[]>(initialPricingItems);
+    const [priceMode, setPriceMode] = useState<"to_be_discussed" | "priced">(
+        proposal.priceMode || "to_be_discussed"
+    );
+    const [currency, setCurrency] = useState<"PHP" | "USD">(
+        proposal.currency || "PHP"
+    );
+    const [totalPrice, setTotalPrice] = useState<number | null>(
+        proposal.totalPrice !== undefined && proposal.totalPrice !== null
+            ? Number(proposal.totalPrice)
+            : null
+    );
     const [discount, setDiscount] = useState<number>(Number(proposal.discount) || 0);
     const [tax, setTax] = useState<number>(Number(proposal.tax) || 0);
     const [terms, setTerms] = useState(
@@ -344,6 +358,9 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             discount,
             tax,
             total: grandTotal,
+            priceMode,
+            currency,
+            totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
             terms,
             validUntil: validUntil ? new Date(validUntil) : null,
             contractSettings,
@@ -459,6 +476,9 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         discount,
         tax,
         total: grandTotal,
+        priceMode,
+        currency,
+        totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
         terms,
         validUntil,
         status: currentStatus,
@@ -738,184 +758,80 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                         />
                     </div>
 
-                    {/* Section: Pricing & Investment Schedule */}
+                    {/* Section: Price & Currency (Step 10b / 17a) */}
                     <div className="space-y-4 pt-4 border-t border-border/60">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm font-semibold text-foreground uppercase tracking-wider font-mono">
-                                <DollarSign className="h-4 w-4 text-primary" /> Investment Schedule
+                                <DollarSign className="h-4 w-4 text-primary" /> Price
                             </div>
-                            <Button variant="outline" size="sm" onClick={addPricingItem} className="h-7 text-xs">
-                                <Plus className="h-3 w-3 mr-1" /> Add Line Item
-                            </Button>
                         </div>
 
-                        <div className="space-y-3">
-                            {pricingItems.map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    className="p-3.5 rounded-lg bg-muted/40 border border-border/80 space-y-2.5 relative"
-                                >
-                                    <div className="flex items-start gap-2">
-                                        <div className="flex-1 space-y-1">
-                                            <Input
-                                                value={item.name}
-                                                maxLength={120}
-                                                onChange={(e) => updatePricingItem(idx, "name", e.target.value)}
-                                                placeholder="Service / Phase Name (e.g. Frontend Architecture)"
-                                                className="font-medium text-sm"
-                                            />
-                                            <Input
-                                                value={item.description || ""}
-                                                maxLength={300}
-                                                onChange={(e) => updatePricingItem(idx, "description", e.target.value)}
-                                                placeholder="Description or sub-scope (optional)"
-                                                className="text-xs text-muted-foreground"
-                                            />
-                                        </div>
-                                        {pricingItems.length > 1 && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => removePricingItem(idx)}
-                                                className="text-muted-foreground hover:text-destructive shrink-0 h-8 w-8"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        )}
-                                    </div>
+                        {/* Segmented Toggle: Include price vs Price to be discussed */}
+                        <div className="grid grid-cols-2 rounded-lg border border-border p-1 bg-muted/30">
+                            <button
+                                type="button"
+                                onClick={() => setPriceMode("priced")}
+                                className={`py-2 px-3 text-xs font-semibold rounded-md transition-all ${
+                                    priceMode === "priced"
+                                        ? "bg-primary text-black shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Include price
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPriceMode("to_be_discussed")}
+                                className={`py-2 px-3 text-xs font-semibold rounded-md transition-all ${
+                                    priceMode === "to_be_discussed"
+                                        ? "bg-primary text-black shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Price to be discussed
+                            </button>
+                        </div>
 
-                                    <div className="grid grid-cols-3 gap-3 pt-1">
-                                        <div>
-                                            <Label className="text-[10px] text-muted-foreground uppercase">Qty (1–9,999)</Label>
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                max="9999"
-                                                value={item.quantity === 0 ? "" : item.quantity}
-                                                placeholder="1"
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === "") {
-                                                        updatePricingItem(idx, "quantity", 0);
-                                                        return;
-                                                    }
-                                                    const raw = parseInt(val, 10);
-                                                    if (!isNaN(raw)) {
-                                                        updatePricingItem(idx, "quantity", Math.min(9999, Math.max(0, raw)));
-                                                    }
-                                                }}
-                                                onBlur={(e) => {
-                                                    const raw = parseInt(e.target.value, 10);
-                                                    updatePricingItem(idx, "quantity", isNaN(raw) || raw < 1 ? 1 : Math.min(9999, raw));
-                                                }}
-                                                className="h-8 text-xs font-mono"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label className="text-[10px] text-muted-foreground uppercase">Unit Rate ($)</Label>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                max="10000000"
-                                                value={item.unitPrice === 0 ? "" : item.unitPrice}
-                                                placeholder="0"
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === "") {
-                                                        updatePricingItem(idx, "unitPrice", 0);
-                                                        return;
-                                                    }
-                                                    const raw = parseFloat(val);
-                                                    if (!isNaN(raw)) {
-                                                        updatePricingItem(idx, "unitPrice", Math.min(10000000, Math.max(0, raw)));
-                                                    }
-                                                }}
-                                                onBlur={(e) => {
-                                                    const raw = parseFloat(e.target.value);
-                                                    updatePricingItem(idx, "unitPrice", isNaN(raw) || raw < 0 ? 0 : Math.min(10000000, raw));
-                                                }}
-                                                className="h-8 text-xs font-mono"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label className="text-[10px] text-muted-foreground uppercase">Item Total</Label>
-                                            <div className="h-8 flex items-center justify-end font-mono text-sm font-semibold px-2 bg-background/50 rounded border border-border">
-                                                ${(item.total ?? 0).toLocaleString()}
-                                            </div>
-                                        </div>
+                        {priceMode === "priced" ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl border border-border/80 bg-muted/20">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase font-mono">Currency</Label>
+                                    <select
+                                        value={currency}
+                                        onChange={(e) => setCurrency(e.target.value as "PHP" | "USD")}
+                                        className="h-9 w-full mt-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    >
+                                        <option value="PHP">PHP (₱)</option>
+                                        <option value="USD">USD ($)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase font-mono">Total Price</Label>
+                                    <div className="relative mt-1">
+                                        <span className="absolute left-3 top-2 text-sm text-muted-foreground font-mono">
+                                            {currency === "PHP" ? "₱" : "$"}
+                                        </span>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={totalPrice === null ? "" : totalPrice}
+                                            placeholder="e.g. 150000"
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                setTotalPrice(v === "" ? null : Math.max(0, Math.round(Number(v))));
+                                            }}
+                                            className="pl-8 font-mono text-sm"
+                                        />
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* Financial Aggregate Summary Controls */}
-                        <div className="p-4 rounded-lg bg-muted/60 border border-border space-y-3 font-mono text-xs">
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Subtotal:</span>
-                                <span className="font-semibold text-foreground">${subtotal.toLocaleString()}</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex items-center gap-2">
-                                    <Label htmlFor="discount" className="text-xs text-muted-foreground">Discount ($):</Label>
-                                    <Input
-                                        id="discount"
-                                        type="number"
-                                        min="0"
-                                        max={subtotal}
-                                        value={discount === 0 ? "" : discount}
-                                        placeholder="0"
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val === "") {
-                                                setDiscount(0);
-                                                return;
-                                            }
-                                            const raw = parseFloat(val);
-                                            if (!isNaN(raw)) {
-                                                setDiscount(Math.min(subtotal, Math.max(0, raw)));
-                                            }
-                                        }}
-                                        onBlur={(e) => {
-                                            const raw = parseFloat(e.target.value);
-                                            setDiscount(isNaN(raw) || raw < 0 ? 0 : Math.min(subtotal, raw));
-                                        }}
-                                        className="h-7 text-xs font-mono"
-                                    />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Label htmlFor="tax" className="text-xs text-muted-foreground">Tax ($):</Label>
-                                    <Input
-                                        id="tax"
-                                        type="number"
-                                        min="0"
-                                        max="10000000"
-                                        value={tax === 0 ? "" : tax}
-                                        placeholder="0"
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val === "") {
-                                                setTax(0);
-                                                return;
-                                            }
-                                            const raw = parseFloat(val);
-                                            if (!isNaN(raw)) {
-                                                setTax(Math.min(10000000, Math.max(0, raw)));
-                                            }
-                                        }}
-                                        onBlur={(e) => {
-                                            const raw = parseFloat(e.target.value);
-                                            setTax(isNaN(raw) || raw < 0 ? 0 : Math.min(10000000, raw));
-                                        }}
-                                        className="h-7 text-xs font-mono"
-                                    />
-                                </div>
+                        ) : (
+                            <div className="p-3.5 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
+                                <strong className="text-foreground font-medium block mb-0.5">Price to be discussed</strong>
+                                Local client default: SOW specifies technical scope &amp; deliverables first. Investment and payment schedule will be agreed upon during commercial discussion.
                             </div>
-                            <div className="flex justify-between items-center pt-2 border-t border-border/80 font-sans font-bold text-base">
-                                <span className="font-serif">Grand Total:</span>
-                                <span className="text-primary font-mono text-lg">${grandTotal.toLocaleString()}</span>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Section: Contract Settings (Collapsible) */}

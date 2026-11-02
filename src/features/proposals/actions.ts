@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { proposals, leads, users } from "@/db/schema";
+import { proposals, leads, users, discoveryForms } from "@/db/schema";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
@@ -49,6 +49,9 @@ export interface ProposalData {
     validUntil?: Date | string | null;
     fileUrl?: string | null;
     contractSettings?: ContractSettings;
+    priceMode?: "to_be_discussed" | "priced";
+    currency?: "PHP" | "USD";
+    totalPrice?: number | null;
 }
 
 export async function createDraftProposalForLead(leadId: string) {
@@ -132,6 +135,8 @@ export async function createProposal(leadId: string, data: ProposalData) {
         const [newProposal] = await db.insert(proposals).values({
             leadId,
             ...data,
+            priceMode: data.priceMode || "to_be_discussed",
+            currency: data.currency || "PHP",
             proposalCode,
             validUntil: data.validUntil ? new Date(data.validUntil) : null,
             status: "draft",
@@ -173,6 +178,15 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
         if (!oldProposal) return { success: false, message: "Proposal not found" };
 
         const updatePayload: any = { ...data, updatedAt: new Date() };
+        if (data.priceMode) updatePayload.priceMode = data.priceMode;
+        if (data.currency) updatePayload.currency = data.currency;
+        if (data.totalPrice !== undefined) updatePayload.totalPrice = data.totalPrice !== null ? Math.round(Number(data.totalPrice)) : null;
+        // Do not write legacy pricing columns
+        delete updatePayload.subtotal;
+        delete updatePayload.discount;
+        delete updatePayload.tax;
+        delete updatePayload.total;
+        delete updatePayload.pricingStructure;
         if (false as boolean) {
             updatePayload.status = status;
         }

@@ -437,6 +437,9 @@ export const proposalStatusEnum = pgEnum("proposal_status", [
     "replaced",
 ]);
 
+export const priceModeEnum = pgEnum("price_mode", ["to_be_discussed", "priced"]);
+export const currencyEnum = pgEnum("currency", ["PHP", "USD"]);
+
 export const proposals = pgTable("proposal", {
     id: text("id")
         .primaryKey()
@@ -458,6 +461,9 @@ export const proposals = pgTable("proposal", {
     validUntil: timestamp("valid_until"),
     version: integer("version").notNull().default(1),
     status: proposalStatusEnum("status").default("draft").notNull(),
+    priceMode: priceModeEnum("price_mode").default("to_be_discussed").notNull(),
+    currency: currencyEnum("currency").default("PHP").notNull(),
+    totalPrice: integer("total_price"),
     fileUrl: text("fileUrl"),
     rejectionReason: text("rejection_reason"),
     // Hybrid Digital Signature Metadata

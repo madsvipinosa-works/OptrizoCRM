@@ -82,4 +82,29 @@ BEGIN
     END IF;
 END $$;
 
+-- 3. Item 4: priceMode, currency, totalPrice
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'price_mode') THEN
+        CREATE TYPE "price_mode" AS ENUM ('to_be_discussed', 'priced');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'currency') THEN
+        CREATE TYPE "currency" AS ENUM ('PHP', 'USD');
+    END IF;
+END $$;
+
+ALTER TABLE "proposal" ADD COLUMN IF NOT EXISTS "price_mode" "price_mode" NOT NULL DEFAULT 'to_be_discussed';
+ALTER TABLE "proposal" ADD COLUMN IF NOT EXISTS "currency" "currency" NOT NULL DEFAULT 'PHP';
+ALTER TABLE "proposal" ADD COLUMN IF NOT EXISTS "total_price" integer;
+
+-- Guarded backfill: ONLY for status IN ('sent', 'signed', 'declined') where total IS NOT NULL AND total > 0
+UPDATE "proposal"
+SET "price_mode" = 'priced'::"price_mode",
+    "total_price" = "total"
+WHERE "status" IN ('sent'::"proposal_status", 'signed'::"proposal_status", 'declined'::"proposal_status")
+  AND "total" IS NOT NULL
+  AND "total" > 0
+  AND "total_price" IS NULL
+  AND "price_mode" = 'to_be_discussed'::"price_mode";
+
 COMMIT;

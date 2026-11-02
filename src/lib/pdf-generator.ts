@@ -68,6 +68,9 @@ export function generateSOWHtml(data: {
     discount: number;
     tax: number;
     total: number;
+    priceMode?: "to_be_discussed" | "priced" | string | null;
+    currency?: "PHP" | "USD" | string | null;
+    totalPrice?: number | null;
     terms?: string | null;
     status: string;
     acceptedByName?: string | null;
@@ -86,11 +89,11 @@ export function generateSOWHtml(data: {
     agencyFaviconUrl?: string | null;
     contractSettings?: any;
 }): string {
-    const currencyFormatter = new Intl.NumberFormat("en-US", {
+    const effectiveCurrency = data.currency === "USD" ? "USD" : "PHP";
+    const currencyFormatter = new Intl.NumberFormat(effectiveCurrency === "PHP" ? "en-PH" : "en-US", {
         style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
+        currency: effectiveCurrency,
+        maximumFractionDigits: 0,
     });
 
     const cs = data.contractSettings || {};
@@ -656,7 +659,22 @@ export function generateSOWHtml(data: {
 
         <!-- 5. Investment Schedule / Commercial Terms -->
         <div class="section">
-            <div class="section-title">${nextNum()}. Commercial Terms &amp; Investment Schedule</div>
+            <div class="section-title">${nextNum()}. Commercial Terms &amp; Investment</div>
+            ${data.priceMode === "to_be_discussed" ? `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 18px; text-align: center; margin-top: 8px;">
+                    <div style="font-size: 11pt; font-weight: 700; color: #0f172a;">Commercial Investment: To be discussed</div>
+                    <div style="font-size: 8pt; color: #64748b; margin-top: 4px;">Commercial terms, fees, and milestone payment triggers will be finalized during project alignment.</div>
+                </div>
+            ` : data.priceMode === "priced" ? `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 18px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 8pt; font-weight: 600; color: #64748b; text-transform: uppercase;">Total Contract Value</div>
+                        <div style="font-size: 14pt; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                            ${currencyFormatter.format(data.totalPrice ?? data.total)}
+                        </div>
+                    </div>
+                </div>
+            ` : `
             <table>
                 <colgroup>
                     <col style="width: 52%;" />
@@ -704,6 +722,7 @@ export function generateSOWHtml(data: {
                     </tr>
                 </tfoot>
             </table>
+            `}
             ${cs.paymentMethod ? `
                 <div style="font-size: 7.5pt; color: #64748b; margin-top: 6px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
                     <strong>Accepted Payment Method:</strong> ${escapeHtml(cs.paymentMethod)}
