@@ -107,4 +107,11 @@ WHERE "status" IN ('sent'::"proposal_status", 'signed'::"proposal_status", 'decl
   AND "total_price" IS NULL
   AND "price_mode" = 'to_be_discussed'::"price_mode";
 
+-- 4. Item 5: needs_goals on proposal
+ALTER TABLE "proposal" ADD COLUMN IF NOT EXISTS "needs_goals" text;
+
+UPDATE "proposal"
+SET "needs_goals" = "scope"
+WHERE "needs_goals" IS NULL AND "scope" IS NOT NULL;
+
 COMMIT;

@@ -134,6 +134,7 @@ export async function GET(
             priceMode: proposal.priceMode,
             currency: proposal.currency,
             totalPrice: proposal.totalPrice,
+            needsGoals: proposal.needsGoals,
             terms: proposal.terms,
             status: proposal.status,
             acceptedByName: proposal.acceptedByName,

@@ -30,6 +30,7 @@ export interface ProposalDocumentData {
     discount?: number | null;
     tax?: number | null;
     total?: number | null;
+    needsGoals?: string | null;
     terms?: string | null;
     validUntil?: string | Date | null;
     status?: string;
@@ -311,6 +312,18 @@ export function ProposalDocumentSheet({
                     {data.scope || "The detailed project objectives, scope parameters, and technical requirements are set forth in this schedule."}
                 </div>
             </section>
+
+            {/* Needs & Strategic Objectives */}
+            {data.needsGoals && (
+                <section className="space-y-3 print-avoid-break w-full min-w-0">
+                    <h2 className="text-base font-serif font-bold text-foreground border-b border-border/60 pb-1.5 uppercase tracking-wide">
+                        {nextSection()}. Needs &amp; Strategic Objectives
+                    </h2>
+                    <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line break-words min-w-0">
+                        {data.needsGoals}
+                    </div>
+                </section>
+            )}
 
             {/* 3. Technical Architecture */}
             {data.technicalApproach && (

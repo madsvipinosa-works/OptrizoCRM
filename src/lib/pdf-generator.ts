@@ -71,6 +71,7 @@ export function generateSOWHtml(data: {
     priceMode?: "to_be_discussed" | "priced" | string | null;
     currency?: "PHP" | "USD" | string | null;
     totalPrice?: number | null;
+    needsGoals?: string | null;
     terms?: string | null;
     status: string;
     acceptedByName?: string | null;
@@ -628,6 +629,13 @@ export function generateSOWHtml(data: {
             <div class="section-title">${nextNum()}. Project Objectives &amp; Scope of Work</div>
             <div class="section-content">${safeScope}</div>
         </div>
+
+        <!-- Needs & Strategic Objectives -->
+        ${data.needsGoals ? `
+        <div class="section">
+            <div class="section-title">${nextNum()}. Needs &amp; Strategic Objectives</div>
+            <div class="section-content" style="white-space: pre-line;">${escapeHtml(data.needsGoals)}</div>
+        </div>` : ""}
 
         <!-- 2. Technical Architecture -->
         ${safeTechnicalApproach ? `

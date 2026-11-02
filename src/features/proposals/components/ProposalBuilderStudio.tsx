@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateProposal, sendProposalEmail, ProposalData, ContractSettings } from "@/features/proposals/actions";
+import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals } from "@/features/proposals/actions";
 import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 import { printProposalPdf } from "@/features/proposals/utils/printProposalPdf";
 import {
@@ -69,6 +69,7 @@ interface ProposalBuilderStudioProps {
         priceMode?: "to_be_discussed" | "priced" | null;
         currency?: "PHP" | "USD" | null;
         totalPrice?: number | null;
+        needsGoals?: string | null;
         discount?: number | null;
         tax?: number | null;
         total?: number | null;
@@ -249,6 +250,26 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const [deliverables, setDeliverables] = useState<string[]>(initialDeliverables);
     const [timeline, setTimeline] = useState(proposal.timeline || "4 - 6 Weeks");
     const [pricingItems, setPricingItems] = useState<PricingLineItem[]>(initialPricingItems);
+    const [needsGoals, setNeedsGoals] = useState(proposal.needsGoals || proposal.scope || "");
+    const [isNeedsGoalsModalOpen, setIsNeedsGoalsModalOpen] = useState(false);
+    const [isResettingNeedsGoals, setIsResettingNeedsGoals] = useState(false);
+
+    const handleResetNeedsGoals = async () => {
+        setIsResettingNeedsGoals(true);
+        try {
+            const res = await resetProposalNeedsGoals(proposal.id);
+            if (res.success && res.needsGoals !== undefined) {
+                setNeedsGoals(res.needsGoals);
+                toast.success("Needs and goals reset to discovery form values.");
+            } else {
+                toast.error(res.message || "Failed to reset");
+            }
+        } catch {
+            toast.error("Failed to reset needs and goals");
+        } finally {
+            setIsResettingNeedsGoals(false);
+        }
+    };
     const [priceMode, setPriceMode] = useState<"to_be_discussed" | "priced">(
         proposal.priceMode || "to_be_discussed"
     );
@@ -361,6 +382,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             priceMode,
             currency,
             totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
+            needsGoals,
             terms,
             validUntil: validUntil ? new Date(validUntil) : null,
             contractSettings,
@@ -479,6 +501,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         priceMode,
         currency,
         totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
+        needsGoals,
         terms,
         validUntil,
         status: currentStatus,
@@ -671,6 +694,25 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                                     className="text-xs"
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Needs and Goals (Step 10a) */}
+                    <div className="space-y-3 pt-4 border-t border-border/60">
+                        <div className="p-4 rounded-xl border border-border bg-card/60 flex items-center justify-between gap-4">
+                            <div>
+                                <strong className="text-foreground text-sm font-semibold block">Needs and goals</strong>
+                                <span className="text-xs text-muted-foreground">Filled in from the discovery form · Editable per proposal</span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsNeedsGoalsModalOpen(true)}
+                                className="font-semibold text-xs"
+                            >
+                                Review &amp; Edit
+                            </Button>
                         </div>
                     </div>
 

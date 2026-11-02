@@ -40,6 +40,7 @@ interface Props {
         priceMode?: "to_be_discussed" | "priced" | null;
         currency?: "PHP" | "USD" | null;
         totalPrice?: number | null;
+        needsGoals?: string | null;
         fileUrl?: string | null;
         scope?: string | null;
         timeline?: string | null;
@@ -168,6 +169,7 @@ export function ProposalClientView({
         discount: proposal.discount || parsedPricing.discount || 0,
         tax: proposal.tax || parsedPricing.tax || 0,
         total: grandTotal,
+        needsGoals: proposal.needsGoals,
         terms: proposal.terms,
         validUntil: proposal.validUntil,
         status: proposal.status,

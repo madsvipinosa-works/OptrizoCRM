@@ -52,6 +52,7 @@ export interface ProposalData {
     priceMode?: "to_be_discussed" | "priced";
     currency?: "PHP" | "USD";
     totalPrice?: number | null;
+    needsGoals?: string | null;
 }
 
 export async function createDraftProposalForLead(leadId: string) {
@@ -181,6 +182,7 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
         if (data.priceMode) updatePayload.priceMode = data.priceMode;
         if (data.currency) updatePayload.currency = data.currency;
         if (data.totalPrice !== undefined) updatePayload.totalPrice = data.totalPrice !== null ? Math.round(Number(data.totalPrice)) : null;
+        if (data.needsGoals !== undefined) updatePayload.needsGoals = data.needsGoals;
         // Do not write legacy pricing columns
         delete updatePayload.subtotal;
         delete updatePayload.discount;
@@ -653,4 +655,48 @@ export async function getProposalRequestsQueue() {
             version: (p as unknown as { version?: number | null }).version ?? 1,
         })),
     }));
+}
+
+export async function resetProposalNeedsGoals(proposalId: string) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can reset proposal needs and goals" };
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, proposalId),
+            with: {
+                lead: {
+                    with: {
+                        discoveryForms: {
+                            orderBy: (df, { desc }) => [desc(df.submittedAt)],
+                            limit: 1,
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!proposal) return { success: false, message: "Proposal not found" };
+
+        const df = proposal.lead?.discoveryForms?.[0];
+        const resetText = df
+            ? [
+                df.requiredFeatures ? `Client Needs:\n${df.requiredFeatures}` : "",
+                df.goals ? `Goals:\n${df.goals}` : "",
+            ].filter(Boolean).join("\n\n")
+            : (proposal.lead?.goals || "");
+
+        await db.update(proposals)
+            .set({ needsGoals: resetText, updatedAt: new Date() })
+            .where(eq(proposals.id, proposalId));
+
+        await logAction("UPDATE", "Proposal", `Reset needsGoals to discovery form for Proposal ${proposal.proposalCode || proposalId}`);
+        revalidatePath(`/dashboard/proposals/builder/${proposalId}`);
+        return { success: true, needsGoals: resetText };
+    } catch (error) {
+        console.error("Failed to reset needs goals:", error);
+        return { success: false, message: "Database Error" };
+    }
 }

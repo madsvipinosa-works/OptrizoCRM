@@ -464,6 +464,7 @@ export const proposals = pgTable("proposal", {
     priceMode: priceModeEnum("price_mode").default("to_be_discussed").notNull(),
     currency: currencyEnum("currency").default("PHP").notNull(),
     totalPrice: integer("total_price"),
+    needsGoals: text("needs_goals"),
     fileUrl: text("fileUrl"),
     rejectionReason: text("rejection_reason"),
     // Hybrid Digital Signature Metadata
