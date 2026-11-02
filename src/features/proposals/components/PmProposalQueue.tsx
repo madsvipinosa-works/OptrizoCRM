@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { format } from "date-fns";
-import { claimOrAssignLeadPm } from "@/features/proposals/actions";
+import { claimOrAssignLeadPm, createDraftProposalForLead } from "@/features/proposals/actions";
+import { toast } from "sonner";
 import { FileText, ArrowRight, Loader2, UserCheck, Clock, CheckCircle2 } from "lucide-react";
 
 export interface ProposalQueueItem {
@@ -59,7 +60,12 @@ export function PmProposalQueue({
             if (draftProp) {
                 router.push(`/dashboard/proposals/builder/${draftProp.id}`);
             } else {
-                router.push(`/dashboard/proposals/builder/${lead.id}`);
+                const res = await createDraftProposalForLead(lead.id);
+                if (res.success && res.proposalId) {
+                    router.push(`/dashboard/proposals/builder/${res.proposalId}`);
+                } else {
+                    toast.error(res.message || "Failed to start proposal draft");
+                }
             }
         });
     };
