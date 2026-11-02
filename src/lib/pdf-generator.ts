@@ -71,7 +71,7 @@ export function generateSOWHtml(data: {
     priceMode?: "to_be_discussed" | "priced" | string | null;
     currency?: "PHP" | "USD" | string | null;
     totalPrice?: number | null;
-    needsGoals?: string | null;
+    needsGoals?: string | { needs?: string; goals?: string } | null;
     milestones?: Array<{
         key: string;
         title: string;
@@ -117,6 +117,9 @@ export function generateSOWHtml(data: {
     const safeScope = escapeHtml(data.scope || "Detailed scope parameters and technical deliverables.");
     const safeTechnicalApproach = data.technicalApproach ? escapeHtml(data.technicalApproach) : null;
     const safeTimeline = data.timeline ? escapeHtml(data.timeline) : null;
+    const safeNeedsGoals = typeof data.needsGoals === "object" && data.needsGoals !== null
+        ? escapeHtml([data.needsGoals.needs ? `Client Needs:\n${data.needsGoals.needs}` : '', data.needsGoals.goals ? `Goals:\n${data.needsGoals.goals}` : ''].filter(Boolean).join('\n\n'))
+        : escapeHtml(data.needsGoals || data.scope || '');
     const safeMilestones = data.milestones || [];
     const safeSchedule = data.paymentScheduleItems || [];
     const safeTerms = escapeHtml(data.terms || "Standard agency terms apply: 50% deposit required upon acceptance to initiate sprint planning, with the remaining balance due upon milestone handover. All custom deliverables and intellectual property will transfer to Client upon receipt of final contract settlement.");
@@ -646,10 +649,10 @@ export function generateSOWHtml(data: {
         </div>
 
         <!-- Needs & Strategic Objectives -->
-        ${data.needsGoals ? `
+        ${safeNeedsGoals ? `
         <div class="section">
             <div class="section-title">${nextNum()}. Needs &amp; Strategic Objectives</div>
-            <div class="section-content" style="white-space: pre-line;">${escapeHtml(data.needsGoals)}</div>
+            <div class="section-content" style="white-space: pre-line;">${safeNeedsGoals}</div>
         </div>` : ""}
 
         <!-- 2. Technical Architecture -->

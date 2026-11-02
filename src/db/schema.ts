@@ -440,6 +440,22 @@ export const proposalStatusEnum = pgEnum("proposal_status", [
 
 export const priceModeEnum = pgEnum("price_mode", ["to_be_discussed", "priced"]);
 export const currencyEnum = pgEnum("currency", ["PHP", "USD"]);
+export const milestoneNameEnum = pgEnum("milestone_name", [
+    "requirements",
+    "design",
+    "development",
+    "uat_testing",
+    "handover",
+]);
+export const paymentTriggerEnum = pgEnum("payment_trigger", [
+    "on_signing",
+    "requirements",
+    "design",
+    "development",
+    "uat_testing",
+    "handover",
+    "before_completion",
+]);
 
 export const proposals = pgTable("proposal", {
     id: text("id")
@@ -465,7 +481,8 @@ export const proposals = pgTable("proposal", {
     priceMode: priceModeEnum("price_mode").default("to_be_discussed").notNull(),
     currency: currencyEnum("currency").default("PHP").notNull(),
     totalPrice: integer("total_price"),
-    needsGoals: text("needs_goals"),
+    needsGoals: jsonb("needs_goals").$type<{ needs: string; goals: string }>(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
     fileUrl: text("fileUrl"),
     rejectionReason: text("rejection_reason"),
     // Hybrid Digital Signature Metadata
@@ -506,32 +523,33 @@ export const proposalMilestones = pgTable("proposal_milestone", {
     id: text("id")
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
-    proposalId: text("proposalId")
+    proposalId: text("proposal_id")
         .notNull()
         .references(() => proposals.id, { onDelete: "cascade" }),
-    key: text("key").notNull(),
-    title: text("title").notNull(),
-    startDate: date("startDate", { mode: "string" }),
-    endDate: date("endDate", { mode: "string" }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    name: milestoneNameEnum("name").notNull(),
+    startDate: timestamp("start_date", { withTimezone: true }),
+    endDate: timestamp("end_date", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
-    uniqueIndex("proposal_milestone_proposal_key_idx").on(t.proposalId, t.key)
+    uniqueIndex("proposal_milestone_proposal_name_idx").on(t.proposalId, t.name)
 ]);
 
 export const paymentScheduleItems = pgTable("payment_schedule_item", {
     id: text("id")
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
-    proposalId: text("proposalId")
+    proposalId: text("proposal_id")
         .notNull()
         .references(() => proposals.id, { onDelete: "cascade" }),
     label: text("label").notNull(),
     percent: integer("percent").notNull(),
-    trigger: text("trigger").notNull(),
+    trigger: paymentTriggerEnum("trigger").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
-    index("idx_payment_schedule_proposal").on(t.proposalId),
+    index("idx_payment_schedule_item_proposal_id").on(t.proposalId),
 ]);
 
 

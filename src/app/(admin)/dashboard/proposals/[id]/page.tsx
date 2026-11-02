@@ -33,7 +33,7 @@ export default async function StaffProposalViewPage({
         redirect("/login");
     }
 
-    if (!hasRole(session, ["manager", "sales"])) {
+    if (!hasRole(session, ["manager", "sales", "superadmin"])) {
         redirect("/dashboard");
     }
 
@@ -47,6 +47,7 @@ export default async function StaffProposalViewPage({
             lead: {
                 with: {
                     client: true,
+                    assignees: true,
                 },
             },
         },

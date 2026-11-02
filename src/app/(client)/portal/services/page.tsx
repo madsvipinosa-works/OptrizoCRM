@@ -179,8 +179,8 @@ export default async function AvailedServicesPage() {
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2">
-                        {clientLeads.map((lead: any) => {
-                            const activeProposal = lead.proposals?.find((p: any) => ["signed", "sent", "pricing_meeting_requested", "changes_requested"].includes(p.status));
+                        {clientLeads.map((lead) => {
+                            const activeProposal = lead.proposals?.find((p) => ["signed", "sent", "pricing_meeting_requested", "changes_requested"].includes(p.status));
                             return (
                                 <div
                                     key={lead.id}

@@ -52,6 +52,7 @@ export async function GET(
                 lead: {
                     with: {
                         client: true,
+                        assignees: true,
                     },
                 },
             },
@@ -78,10 +79,18 @@ export async function GET(
         // Tenant/Client Isolation Check (Prevent IDOR)
         if (userRole === "client") {
             if (!isOwner) {
-                return NextResponse.json({ error: "Forbidden: You do not own this proposal" }, { status: 403 });
+                return new NextResponse("Proposal not found", { status: 404 });
             }
-        } else if (!isStaff) {
-            return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
+            if (proposal.status === "draft" || proposal.status === "replaced") {
+                return new NextResponse("Proposal not found", { status: 404 });
+            }
+        } else if (userRole === "sales") {
+            const isSalesOwner = proposal.lead && (proposal.lead.assignees || []).some((a) => a.userId === session.user.id);
+            if (!isSalesOwner) {
+                return new NextResponse("Forbidden: Access denied", { status: 403 });
+            }
+        } else if (!isStaff && userRole !== "superadmin") {
+            return new NextResponse("Forbidden: Access denied", { status: 403 });
         }
 
         // Parse deliverables & pricing

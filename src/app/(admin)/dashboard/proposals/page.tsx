@@ -41,7 +41,7 @@ export default async function ProposalsPage() {
 
     const currentUserId = session.user.id;
 
-    if (!hasRole(session, ["sales", "manager"])) {
+    if (!hasRole(session, ["sales", "manager", "superadmin"])) {
         redirect("/dashboard");
     }
 

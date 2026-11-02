@@ -6,7 +6,8 @@ import {
     proposalMilestones,
     paymentScheduleItems,
     leads, users, discoveryForms } from "@/db/schema";
-import { eq, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, ne, inArray } from "drizzle-orm";
+import { moveLeadToProposalSent } from "@/features/crm/stage-rules";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
@@ -41,10 +42,10 @@ export interface ContractSettings {
 export interface ProposalData {
     proposalCode?: string;
     scope?: string;
-    deliverables?: any;
+    deliverables?: unknown;
     timeline?: string;
     technicalApproach?: string;
-    pricingStructure?: any;
+    pricingStructure?: unknown;
     subtotal?: number;
     discount?: number;
     tax?: number;
@@ -56,7 +57,7 @@ export interface ProposalData {
     priceMode?: "to_be_discussed" | "priced";
     currency?: "PHP" | "USD";
     totalPrice?: number | null;
-    needsGoals?: string | null;
+    needsGoals?: string | { needs: string; goals: string } | null;
 }
 
 export async function createDraftProposalForLead(leadId: string) {
@@ -137,15 +138,26 @@ export async function createProposal(leadId: string, data: ProposalData) {
 
     try {
         const proposalCode = data.proposalCode || `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const [newProposal] = await db.insert(proposals).values({
-            leadId,
+        const insertPayload: any = {
             ...data,
+            leadId,
             priceMode: data.priceMode || "to_be_discussed",
             currency: data.currency || "PHP",
             proposalCode,
             validUntil: data.validUntil ? new Date(data.validUntil) : null,
             status: "draft",
-        }).returning();
+        };
+        if (typeof data.needsGoals === "string") {
+            insertPayload.needsGoals = { needs: data.needsGoals, goals: "" };
+        } else if (data.needsGoals) {
+            insertPayload.needsGoals = data.needsGoals;
+        }
+        delete insertPayload.subtotal;
+        delete insertPayload.discount;
+        delete insertPayload.tax;
+        delete insertPayload.total;
+        delete insertPayload.pricingStructure;
+        const [newProposal] = await db.insert(proposals).values(insertPayload).returning();
 
         // Auto-sync contract value to Lead estimatedValue if total is provided
         if (data.total !== undefined && Number(data.total) > 0) {
@@ -182,11 +194,15 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
         const oldProposal = await db.query.proposals.findFirst({ where: eq(proposals.id, id) });
         if (!oldProposal) return { success: false, message: "Proposal not found" };
 
-        const updatePayload: any = { ...data, updatedAt: new Date() };
+        const updatePayload: Record<string, unknown> = { ...data, updatedAt: new Date() };
         if (data.priceMode) updatePayload.priceMode = data.priceMode;
         if (data.currency) updatePayload.currency = data.currency;
         if (data.totalPrice !== undefined) updatePayload.totalPrice = data.totalPrice !== null ? Math.round(Number(data.totalPrice)) : null;
-        if (data.needsGoals !== undefined) updatePayload.needsGoals = data.needsGoals;
+        if (data.needsGoals !== undefined) {
+            updatePayload.needsGoals = typeof data.needsGoals === 'string'
+                ? { needs: data.needsGoals, goals: '' }
+                : data.needsGoals;
+        }
         // Do not write legacy pricing columns
         delete updatePayload.subtotal;
         delete updatePayload.discount;
@@ -288,7 +304,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        const userRole = (session.user as any)?.role;
+        const userRole = (session.user as { role?: string })?.role;
         const isLeadOwner =
             proposal.lead &&
             (session.user.id === proposal.lead.clientId ||
@@ -390,7 +406,7 @@ export async function rejectProposalByClient(id: string, reason?: string) {
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        const userRole = (session.user as any)?.role;
+        const userRole = (session.user as { role?: string })?.role;
         const isLeadOwner =
             proposal.lead &&
             (session.user.id === proposal.lead.clientId ||
@@ -552,15 +568,10 @@ export async function getOrCreateDraftProposal(leadId: string) {
                 "Quality Assurance, Performance & Security Audit",
             ],
             timeline: "4 - 6 Weeks",
-            pricingStructure: [
-                { name: "Discovery, Strategy & UX Design", description: "Wireframes and user flows", quantity: 1, unitPrice: 2000, total: 2000 },
-                { name: "Engineering & Cloud Architecture", description: "Full-stack implementation", quantity: 1, unitPrice: 5000, total: 5000 },
-            ],
-            subtotal: 7000,
-            discount: 0,
-            tax: 0,
-            total: 7000,
-            terms: "Standard Agency Terms: 50% deposit required upon acceptance, 50% balance due upon project delivery.",
+            priceMode: "to_be_discussed",
+            currency: "PHP",
+            totalPrice: null,
+            terms: "Standard Agency Terms: Commercial terms and payment schedule to be finalized upon project alignment.",
             validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             status: "draft",
         }).returning();
@@ -570,6 +581,15 @@ export async function getOrCreateDraftProposal(leadId: string) {
         revalidatePath(`/dashboard/leads/${leadId}`);
         return { success: true, proposalId: newProposal.id };
     } catch (error) {
+        // Concurrency: catch unique-violation on (leadId, version) and return existing draft
+        if (error && typeof error === "object" && (("code" in error && error.code === "23505") || String(error).includes("idx_proposal_lead_version"))) {
+            const existingDraft = await db.query.proposals.findFirst({
+                where: and(eq(proposals.leadId, leadId), eq(proposals.status, "draft")),
+            });
+            if (existingDraft) {
+                return { success: true, proposalId: existingDraft.id };
+            }
+        }
         console.error("Failed to initialize draft proposal:", error);
         return { success: false, message: "Database Error" };
     }
@@ -685,20 +705,18 @@ export async function resetProposalNeedsGoals(proposalId: string) {
         if (!proposal) return { success: false, message: "Proposal not found" };
 
         const df = proposal.lead?.discoveryForms?.[0];
-        const resetText = df
-            ? [
-                df.requiredFeatures ? `Client Needs:\n${df.requiredFeatures}` : "",
-                df.goals ? `Goals:\n${df.goals}` : "",
-            ].filter(Boolean).join("\n\n")
-            : (proposal.lead?.goals || "");
+        const resetObj = {
+            needs: df?.requiredFeatures || "",
+            goals: df?.goals || proposal.lead?.goals || "",
+        };
 
         await db.update(proposals)
-            .set({ needsGoals: resetText, updatedAt: new Date() })
+            .set({ needsGoals: resetObj, updatedAt: new Date() })
             .where(eq(proposals.id, proposalId));
 
         await logAction("UPDATE", "Proposal", `Reset needsGoals to discovery form for Proposal ${proposal.proposalCode || proposalId}`);
         revalidatePath(`/dashboard/proposals/builder/${proposalId}`);
-        return { success: true, needsGoals: resetText };
+        return { success: true, needsGoals: resetObj };
     } catch (error) {
         console.error("Failed to reset needs goals:", error);
         return { success: false, message: "Database Error" };
@@ -706,20 +724,19 @@ export async function resetProposalNeedsGoals(proposalId: string) {
 }
 
 
-export const DEFAULT_PROPOSAL_MILESTONES = [
-    { key: "requirements", title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
-    { key: "design", title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
-    { key: "development", title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
-    { key: "uat_testing", title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
-    { key: "handover", title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
+const DEFAULT_PROPOSAL_MILESTONES = [
+    { name: "requirements" as const, key: "requirements", title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
+    { name: "design" as const, key: "design", title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
+    { name: "development" as const, key: "development", title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
+    { name: "uat_testing" as const, key: "uat_testing", title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
+    { name: "handover" as const, key: "handover", title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
 ] as const;
 
 export async function seedDefaultProposalMilestones(proposalId: string) {
     for (const m of DEFAULT_PROPOSAL_MILESTONES) {
         await db.insert(proposalMilestones).values({
             proposalId,
-            key: m.key,
-            title: m.title,
+            name: m.name,
             startDate: null,
             endDate: null,
         }).onConflictDoNothing();
@@ -731,24 +748,25 @@ export async function getProposalMilestones(proposalId: string) {
         where: eq(proposalMilestones.proposalId, proposalId),
     });
 
-    const map = new Map(rows.map((r) => [r.key, r]));
+    const map = new Map(rows.map((r) => [r.name, r]));
     return DEFAULT_PROPOSAL_MILESTONES.map((def) => {
-        const found = map.get(def.key);
+        const found = map.get(def.name);
         return {
             id: found?.id || "",
             proposalId,
+            name: def.name,
             key: def.key,
             title: def.title,
             description: def.description,
-            startDate: found?.startDate || null,
-            endDate: found?.endDate || null,
+            startDate: found?.startDate ? new Date(found.startDate).toISOString().split("T")[0] : null,
+            endDate: found?.endDate ? new Date(found.endDate).toISOString().split("T")[0] : null,
         };
     });
 }
 
 export async function updateProposalMilestones(
     proposalId: string,
-    milestonesData: Array<{ key: string; startDate?: string | null; endDate?: string | null }>
+    milestonesData: Array<{ name?: string; key?: string; startDate?: string | null; endDate?: string | null }>
 ) {
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
@@ -762,30 +780,34 @@ export async function updateProposalMilestones(
         if (!proposal) return { success: false, message: "Proposal not found" };
 
         for (const item of milestonesData) {
-            const def = DEFAULT_PROPOSAL_MILESTONES.find((d) => d.key === item.key);
+            const mName = (item.name || item.key) as (typeof DEFAULT_PROPOSAL_MILESTONES)[number]["name"];
+            const def = DEFAULT_PROPOSAL_MILESTONES.find((d) => d.name === mName || d.key === mName);
             if (!def) continue;
 
             const existing = await db.query.proposalMilestones.findFirst({
                 where: and(
                     eq(proposalMilestones.proposalId, proposalId),
-                    eq(proposalMilestones.key, item.key)
+                    eq(proposalMilestones.name, def.name)
                 ),
             });
+
+            const sDate = item.startDate ? new Date(item.startDate) : null;
+            const eDate = item.endDate ? new Date(item.endDate) : null;
 
             if (existing) {
                 await db.update(proposalMilestones)
                     .set({
-                        startDate: item.startDate || null,
-                        endDate: item.endDate || null,
+                        startDate: sDate,
+                        endDate: eDate,
+                        updatedAt: new Date(),
                     })
                     .where(eq(proposalMilestones.id, existing.id));
             } else {
                 await db.insert(proposalMilestones).values({
                     proposalId,
-                    key: item.key,
-                    title: def.title,
-                    startDate: item.startDate || null,
-                    endDate: item.endDate || null,
+                    name: def.name,
+                    startDate: sDate,
+                    endDate: eDate,
                 });
             }
         }
@@ -872,8 +894,7 @@ export async function createProposalRevision(leadId: string) {
             for (const m of latestProposal.milestones) {
                 await db.insert(proposalMilestones).values({
                     proposalId: revision.id,
-                    key: m.key,
-                    title: m.title,
+                    name: m.name,
                     startDate: m.startDate,
                     endDate: m.endDate,
                 });
@@ -908,7 +929,7 @@ export async function createProposalRevision(leadId: string) {
 }
 
 
-export const DEFAULT_PAYMENT_SCHEDULE_ITEMS = [
+const DEFAULT_PAYMENT_SCHEDULE_ITEMS = [
     { label: "On signing", percent: 30, trigger: "on_signing", sortOrder: 0 },
     { label: "After design approval", percent: 30, trigger: "design", sortOrder: 1 },
     { label: "On handover", percent: 40, trigger: "handover", sortOrder: 2 },
@@ -980,7 +1001,7 @@ export async function savePaymentSchedule(
                 proposalId,
                 label: item.label.trim(),
                 percent: Math.round(Number(item.percent)),
-                trigger: item.trigger || "on_signing",
+                trigger: (item.trigger || "on_signing") as any,
                 sortOrder: item.sortOrder !== undefined ? item.sortOrder : i,
             });
         }
@@ -995,5 +1016,163 @@ export async function savePaymentSchedule(
     } catch (error) {
         console.error("Failed to save payment schedule:", error);
         return { success: false, message: "Database Error" };
+    }
+}
+
+
+export async function sendProposal(proposalId: string) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can send proposals" };
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, proposalId),
+            with: {
+                milestones: true,
+                paymentScheduleItems: true,
+                lead: true,
+            },
+        });
+
+        if (!proposal) return { success: false, message: "Proposal not found" };
+        if (proposal.status !== "draft") {
+            return { success: false, message: `Only draft proposals can be sent. Current status is '${proposal.status}'.` };
+        }
+
+        // Validate 5 default milestones: all must exist and have start and end dates
+        const milestones = proposal.milestones || [];
+        const map = new Map(milestones.map((m: any) => [m.name || m.key, m]));
+        const requiredKeys = ["requirements", "design", "development", "uat_testing", "handover"];
+        for (const k of requiredKeys) {
+            const m = map.get(k);
+            if (!m || !m.startDate || !m.endDate) {
+                return {
+                    success: false,
+                    code: "MILESTONES_INVALID",
+                    message: "Cannot send proposal: all 5 default milestones must have valid start and end dates.",
+                };
+            }
+        }
+
+        // If priced, validate total and payment schedule totaling 100%
+        if (proposal.priceMode === "priced") {
+            const total = proposal.totalPrice ?? proposal.total ?? 0;
+            if (total <= 0) {
+                return { success: false, message: "Cannot send priced proposal without a valid total price." };
+            }
+            const schedule = proposal.paymentScheduleItems || [];
+            const sumPercent = schedule.reduce((sum, item) => sum + (Number(item.percent) || 0), 0);
+            if (sumPercent !== 100) {
+                return {
+                    success: false,
+                    code: "SCHEDULE_NOT_100",
+                    message: `Cannot send proposal: payment schedule must total exactly 100% (currently ${sumPercent}%).`,
+                };
+            }
+        }
+
+        let sentProposalCode = "";
+        let leadId = "";
+        let proposalVersion = 1;
+
+        await db.transaction(async (tx) => {
+            // 1. Lock proposal row FOR UPDATE
+            const [lockedProposal] = await tx
+                .select()
+                .from(proposals)
+                .where(eq(proposals.id, proposalId))
+                .for("update");
+
+            if (!lockedProposal) {
+                throw new Error("Proposal not found during lock");
+            }
+
+            if (lockedProposal.status !== "draft") {
+                throw new Error(`Proposal status changed to ${lockedProposal.status} before sending`);
+            }
+
+            // 2. Lock lead row FOR UPDATE
+            const [lockedLead] = await tx
+                .select()
+                .from(leads)
+                .where(eq(leads.id, lockedProposal.leadId))
+                .for("update");
+
+            if (!lockedLead) {
+                throw new Error("Lead not found during lock");
+            }
+
+            leadId = lockedLead.id;
+            sentProposalCode = lockedProposal.proposalCode || proposalId;
+            proposalVersion = lockedProposal.version ?? 1;
+
+            // 3. Stage transition logic
+            if (lockedLead.status === "Discovery & Qualifying") {
+                await moveLeadToProposalSent(tx, leadId);
+            } else if (lockedLead.status === "Proposal Sent" || lockedLead.status === "In Negotiation") {
+                // Already in or past Proposal Sent; send proposal without stage change or activity interaction
+            } else {
+                throw new Error(`Cannot send proposal for lead in stage "${lockedLead.status}"`);
+            }
+
+            const now = new Date();
+
+            // 4. Update proposal status = "sent"
+            await tx.update(proposals)
+                .set({
+                    status: "sent",
+                    sentAt: now,
+                    updatedAt: now,
+                })
+                .where(eq(proposals.id, proposalId));
+
+            // 5. Mark previous versions replaced ONLY where status IN ('sent','pricing_meeting_requested','changes_requested')
+            await tx.update(proposals)
+                .set({
+                    status: "replaced",
+                    updatedAt: now,
+                })
+                .where(
+                    and(
+                        eq(proposals.leadId, leadId),
+                        ne(proposals.id, proposalId),
+                        inArray(proposals.status, ["sent", "pricing_meeting_requested", "changes_requested"])
+                    )
+                );
+        });
+
+        // Post-commit side-effects
+        try {
+            const { notifyLeadClient } = await import("@/features/notifications/send");
+            await notifyLeadClient(
+                leadId,
+                `Your Project Proposal (${sentProposalCode}) has been published and is ready for your review.`,
+                "proposal",
+                `/proposal/${proposalId}`
+            );
+        } catch (notifyErr) {
+            console.warn("Client notification failed:", notifyErr);
+        }
+
+        try {
+            await sendProposalEmail(proposalId);
+        } catch (emailErr) {
+            console.warn("Email dispatch failed:", emailErr);
+        }
+
+        await logAction("UPDATE", "Proposal", `Proposal ${sentProposalCode} (v${proposalVersion}) sent to client`);
+
+        revalidatePath(`/dashboard/proposals`);
+        revalidatePath(`/dashboard/proposals/${proposalId}`);
+        revalidatePath(`/dashboard/proposals/builder/${proposalId}`);
+        revalidatePath(`/dashboard/leads/${leadId}`);
+        revalidatePath(`/proposal/${proposalId}`);
+
+        return { success: true, proposalId, version: proposalVersion, status: "sent" };
+    } catch (error: unknown) {
+        console.error("Failed to send proposal:", error);
+        return { success: false, message: error instanceof Error ? error.message : "Database Error" };
     }
 }

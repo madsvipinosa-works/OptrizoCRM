@@ -30,7 +30,7 @@ export interface ProposalDocumentData {
     discount?: number | null;
     tax?: number | null;
     total?: number | null;
-    needsGoals?: string | null;
+    needsGoals?: string | { needs?: string; goals?: string } | null;
     milestones?: Array<{
         key: string;
         title: string;
@@ -343,7 +343,9 @@ export function ProposalDocumentSheet({
                         {nextSection()}. Needs &amp; Strategic Objectives
                     </h2>
                     <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line break-words min-w-0">
-                        {data.needsGoals}
+                        {typeof data.needsGoals === "object" && data.needsGoals !== null
+                            ? [data.needsGoals.needs ? `Client Needs:\n${data.needsGoals.needs}` : "", data.needsGoals.goals ? `Goals:\n${data.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
+                            : data.needsGoals}
                     </div>
                 </section>
             )}

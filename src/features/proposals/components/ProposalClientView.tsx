@@ -40,12 +40,13 @@ interface Props {
         priceMode?: "to_be_discussed" | "priced" | null;
         currency?: "PHP" | "USD" | null;
         totalPrice?: number | null;
-        needsGoals?: string | null;
+        needsGoals?: string | { needs?: string; goals?: string } | null;
         milestones?: Array<{
-            key: string;
-            title: string;
-            startDate?: string | null;
-            endDate?: string | null;
+            name?: string;
+            key?: string;
+            title?: string;
+            startDate?: string | Date | null;
+            endDate?: string | Date | null;
         }> | null;
         paymentScheduleItems?: Array<{
             id?: string;
@@ -69,7 +70,7 @@ interface Props {
         acceptedAt?: Date | string | null;
         signatureData?: string | null;
         createdAt: Date | string;
-        contractSettings?: Record<string, any> | null;
+        contractSettings?: Record<string, unknown> | null;
         lead?: {
             businessName?: string | null;
             client?: {
@@ -138,7 +139,7 @@ export function ProposalClientView({
             a.remove();
             window.URL.revokeObjectURL(url);
             toast.success("Statement of Work PDF downloaded!");
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("PDF download error:", e);
             toast.error("Could not download PDF. Opening print preview...");
             window.print();
@@ -182,7 +183,20 @@ export function ProposalClientView({
         discount: proposal.discount || parsedPricing.discount || 0,
         tax: proposal.tax || parsedPricing.tax || 0,
         total: grandTotal,
-        needsGoals: proposal.needsGoals,
+        needsGoals: typeof proposal.needsGoals === "object" && proposal.needsGoals !== null
+            ? [proposal.needsGoals.needs ? `Client Needs:\n${proposal.needsGoals.needs}` : "", proposal.needsGoals.goals ? `Goals:\n${proposal.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
+            : (proposal.needsGoals as string | undefined),
+        milestones: (proposal.milestones || []).map((m) => ({
+            key: m.name || m.key || "milestone",
+            title: m.title || m.name || "Milestone",
+            startDate: m.startDate ? String(m.startDate).split("T")[0] : null,
+            endDate: m.endDate ? String(m.endDate).split("T")[0] : null,
+        })),
+        paymentScheduleItems: (proposal.paymentScheduleItems || []).map((p) => ({
+            label: p.label,
+            percent: p.percent,
+            trigger: p.trigger,
+        })),
         terms: proposal.terms,
         validUntil: proposal.validUntil,
         status: proposal.status,
@@ -191,7 +205,7 @@ export function ProposalClientView({
         acceptedAt: proposal.acceptedAt,
         signatureData: proposal.signatureData,
         createdAt: proposal.createdAt,
-        contractSettings: (proposal.contractSettings as any) || null,
+        contractSettings: (proposal.contractSettings as ProposalDocumentData["contractSettings"]) || null,
         agencyLogoUrl: settings?.logoUrl || null,
         agencyFaviconUrl: settings?.faviconUrl || null,
     };

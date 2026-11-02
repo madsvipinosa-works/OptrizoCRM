@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals, updateProposalMilestones, DEFAULT_PROPOSAL_MILESTONES, savePaymentSchedule, DEFAULT_PAYMENT_SCHEDULE_ITEMS } from "@/features/proposals/actions";
+import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals, updateProposalMilestones, savePaymentSchedule, sendProposal } from "@/features/proposals/actions";
 import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 import { printProposalPdf } from "@/features/proposals/utils/printProposalPdf";
 import {
@@ -55,21 +55,36 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+
+const DEFAULT_PROPOSAL_MILESTONES = [
+    { key: "requirements", title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
+    { key: "design", title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
+    { key: "development", title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
+    { key: "uat_testing", title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
+    { key: "handover", title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
+] as const;
+
+const DEFAULT_PAYMENT_SCHEDULE_ITEMS = [
+    { label: "On signing", percent: 30, trigger: "on_signing", sortOrder: 0 },
+    { label: "After design approval", percent: 30, trigger: "design", sortOrder: 1 },
+    { label: "On handover", percent: 40, trigger: "handover", sortOrder: 2 },
+] as const;
+
 interface ProposalBuilderStudioProps {
     proposal: {
         id: string;
         leadId: string;
         proposalCode?: string | null;
         scope?: string | null;
-        deliverables?: any;
+        deliverables?: unknown;
         timeline?: string | null;
         technicalApproach?: string | null;
-        pricingStructure?: any;
+        pricingStructure?: unknown;
         subtotal?: number | null;
         priceMode?: "to_be_discussed" | "priced" | null;
         currency?: "PHP" | "USD" | null;
         totalPrice?: number | null;
-        needsGoals?: string | null;
+        needsGoals?: string | { needs?: string; goals?: string } | null;
         milestones?: Array<{
             key: string;
             title: string;
@@ -208,18 +223,19 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             try {
                 raw = JSON.parse(raw);
             } catch {
-                return [raw];
+                return [String(raw)];
             }
         }
         if (Array.isArray(raw)) {
-            const list = raw.map((d: any) => {
+            const list: string[] = raw.map((d: unknown) => {
                 if (typeof d === "string") return d;
                 if (d && typeof d === "object") {
-                    return d.title ? (d.description ? `${d.title}: ${d.description}` : d.title) : (d.description || JSON.stringify(d));
+                    const item = d as { title?: string; description?: string };
+                    return item.title ? (item.description ? `${item.title}: ${item.description}` : item.title) : (item.description || JSON.stringify(d));
                 }
                 return String(d || "");
             }).filter((s) => typeof s === "string" && s.trim() !== "");
-            return list.length > 0 ? list : [""];
+            return list.length > 0 ? (list as string[]) : [""];
         }
         return [""];
     }, [proposal.deliverables]);
@@ -234,16 +250,17 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                 // ignore
             }
         }
-        if (typeof raw === "object" && raw !== null && "items" in raw && Array.isArray((raw as any).items)) {
-            raw = (raw as any).items;
+        if (typeof raw === "object" && raw !== null && "items" in raw && Array.isArray((raw as { items?: unknown[] }).items)) {
+            raw = (raw as { items: unknown[] }).items;
         }
         if (Array.isArray(raw)) {
-            const list = raw.map((i: any) => {
-                const name = i.name || i.title || i.description || "Service Item";
-                const description = i.description || "";
-                const quantity = Number(i.quantity) || 1;
-                const unitPrice = Number(i.unitPrice ?? i.amount ?? i.price) || 0;
-                const total = Number(i.total) || quantity * unitPrice;
+            const list = raw.map((i: unknown) => {
+                const item = (i && typeof i === "object" ? i : {}) as Record<string, unknown>;
+                const name = String(item.name || item.title || item.description || "Service Item");
+                const description = String(item.description || "");
+                const quantity = Number(item.quantity) || 1;
+                const unitPrice = Number(item.unitPrice ?? item.amount ?? item.price) || 0;
+                const total = Number(item.total) || quantity * unitPrice;
                 return { name, description, quantity, unitPrice, total };
             });
             return list.length > 0 ? list : [{ name: "", description: "", quantity: 1, unitPrice: 0, total: 0 }];
@@ -263,7 +280,10 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const [deliverables, setDeliverables] = useState<string[]>(initialDeliverables);
     const [timeline, setTimeline] = useState(proposal.timeline || "4 - 6 Weeks");
     const [pricingItems, setPricingItems] = useState<PricingLineItem[]>(initialPricingItems);
-    const [needsGoals, setNeedsGoals] = useState(proposal.needsGoals || proposal.scope || "");
+    const initialNeedsGoals = typeof proposal.needsGoals === "object" && proposal.needsGoals !== null
+        ? [proposal.needsGoals.needs ? `Client Needs:\n${proposal.needsGoals.needs}` : "", proposal.needsGoals.goals ? `Goals:\n${proposal.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
+        : (typeof proposal.needsGoals === "string" ? proposal.needsGoals : (proposal.scope || ""));
+    const [needsGoals, setNeedsGoals] = useState(initialNeedsGoals);
     const [isNeedsGoalsModalOpen, setIsNeedsGoalsModalOpen] = useState(false);
     const [isResettingNeedsGoals, setIsResettingNeedsGoals] = useState(false);
 
@@ -274,10 +294,10 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         startDate: string;
         endDate: string;
     }>>(() => {
-        const list = (proposal as any).milestones || [];
-        const map = new Map<string, any>(list.map((m: any) => [m.key, m]));
+        const list = (proposal as { milestones?: Array<{ name?: string; key?: string; startDate?: string | null | Date; endDate?: string | null | Date }> }).milestones || [];
+        const map = new Map(list.map((m) => [m.name || m.key, m]));
         return DEFAULT_PROPOSAL_MILESTONES.map((def) => {
-            const found: any = map.get(def.key);
+            const found = map.get(def.key);
             return {
                 key: def.key,
                 title: def.title,
@@ -298,9 +318,9 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         trigger: string;
         sortOrder?: number;
     }>>(() => {
-        const list = (proposal as any).paymentScheduleItems || [];
+        const list = (proposal as { paymentScheduleItems?: Array<{ id?: string; label: string; percent: number; trigger: string; sortOrder?: number }> }).paymentScheduleItems || [];
         if (list.length > 0) {
-            return list.map((item: any) => ({
+            return list.map((item) => ({
                 id: item.id,
                 label: item.label,
                 percent: Number(item.percent) || 0,
@@ -392,8 +412,12 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         setIsResettingNeedsGoals(true);
         try {
             const res = await resetProposalNeedsGoals(proposal.id);
-            if (res.success && res.needsGoals !== undefined) {
-                setNeedsGoals(res.needsGoals);
+            if (res.success && (res as any).needsGoals) {
+                const ng = (res as any).needsGoals;
+                const formatted = typeof ng === "object" && ng !== null
+                    ? [ng.needs ? `Client Needs:\n${ng.needs}` : "", ng.goals ? `Goals:\n${ng.goals}` : ""].filter(Boolean).join("\n\n")
+                    : String(ng || "");
+                setNeedsGoals(formatted);
                 toast.success("Needs and goals reset to discovery form values.");
             } else {
                 toast.error(res.message || "Failed to reset");
@@ -498,7 +522,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         else setIsSaving(true);
 
         const cleanDeliverables = deliverables
-            .map((d) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? ((d as any).title || (d as any).description || "") : String(d || "")).trim())
+            .map((d: unknown) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? (((d as { title?: string; description?: string }).title) || ((d as { title?: string; description?: string }).description) || "") : String(d || "")).trim())
             .filter(Boolean);
         const cleanPricing = pricingItems.filter((p) => (p?.name || "").trim() !== "");
 
@@ -596,7 +620,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             a.remove();
             window.URL.revokeObjectURL(url);
             toast.success("Statement of Work PDF downloaded!");
-        } catch (e: any) {
+        } catch (e) {
             console.error("PDF download error:", e);
             toast.error("Could not download PDF. Opening print preview...");
             window.print();
@@ -624,7 +648,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         scope,
         technicalApproach,
         deliverables: deliverables
-            .map((d) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? ((d as any).title || (d as any).description || "") : String(d || "")).trim())
+            .map((d: unknown) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? (((d as { title?: string; description?: string }).title) || ((d as { title?: string; description?: string }).description) || "") : String(d || "")).trim())
             .filter(Boolean),
         timeline,
         pricingStructure: pricingItems.filter((p) => (p?.name || "").trim() !== ""),
