@@ -3,7 +3,6 @@
 import { useState, useOptimistic, startTransition, useEffect, useMemo } from "react";
 import { LeadsDataTable, type LeadItem } from "./LeadsDataTable";
 import { LeadsKanbanBoard } from "./LeadsKanbanBoard";
-import { LeadStatusValidationModal } from "./LeadStatusValidationModal";
 import { CloseLostModal } from "./CloseLostModal";
 import { LeadDetailsDrawer } from "./LeadDetailsDrawer";
 import { EditLeadModal } from "./EditLeadModal";
@@ -91,21 +90,6 @@ export function LeadsPipelineView({
         const lead = leadsList.find((item) => item.id === initialLeadId);
         if (lead) setSelectedLeadForDrawer(lead);
     }, [initialLeadId, leadsList]);
-
-    // Intercept Validation Modal state (for generic transitions)
-    const [pendingValidation, setPendingValidation] = useState<{
-        isOpen: boolean;
-        leadId?: string;
-        leadIds?: string[];
-        leadTitle: string;
-        fromStatus: string;
-        toStatus: string;
-    }>({
-        isOpen: false,
-        leadTitle: "",
-        fromStatus: "",
-        toStatus: "",
-    });
 
     // Close Lost Modal state (for Closed Lost transitions)
     const [closeLostModalState, setCloseLostModalState] = useState<{
@@ -409,11 +393,11 @@ export function LeadsPipelineView({
         }
     };
 
-    // Intercept Callback: Triggered by Drag-and-Drop or Quick Status Dropdown
+    // Intercept Callback: Triggered for Closed Lost transition
     const handleStatusChangeRequest = (
         leadId: string,
         leadTitle: string,
-        fromStatus: string,
+        _fromStatus: string,
         toStatus: string
     ) => {
         if (toStatus === "Closed Lost") {
@@ -422,59 +406,6 @@ export function LeadsPipelineView({
                 leadId,
                 leadTitle,
             });
-        } else {
-            setPendingValidation({
-                isOpen: true,
-                leadId,
-                leadTitle,
-                fromStatus,
-                toStatus,
-            });
-        }
-    };
-
-    // Execution of generic stage transition
-    const handleConfirmStatusChange = async (reasonNotes?: string) => {
-        const { leadId, leadIds, toStatus } = pendingValidation;
-        if (!toStatus) return;
-        if (!leadId && (!leadIds || leadIds.length === 0)) return;
-
-        setIsSubmittingMutation(true);
-
-        if (leadId) {
-            startTransition(() => {
-                setOptimisticLeads({ leadId, newStatus: toStatus });
-            });
-
-            try {
-                const res = await transitionLeadStage({
-                    leadId,
-                    newStatus: toStatus as any,
-                    reasonNotes,
-                });
-                if (res.success) {
-                    toast.success(res.message || `Moved deal to ${toStatus}`);
-                    setLeadsList((prev) =>
-                        prev.map((l) => (l.id === leadId ? { ...l, status: toStatus } : l))
-                    );
-                    if (selectedLeadForDrawer?.id === leadId) {
-                        setSelectedLeadForDrawer((prev) => (prev ? { ...prev, status: toStatus } : null));
-                    }
-                } else {
-                    toast.error(res.message || "Failed to update deal status");
-                }
-            } catch (err) {
-                console.error(err);
-                toast.error("An unexpected error occurred");
-            } finally {
-                setIsSubmittingMutation(false);
-                setPendingValidation({
-                    isOpen: false,
-                    leadTitle: "",
-                    fromStatus: "",
-                    toStatus: "",
-                });
-            }
         }
     };
 
@@ -877,8 +808,7 @@ export function LeadsPipelineView({
                     leads={filteredLeads}
                     assignableUsers={assignableUsers}
                     isAdmin={isAdmin}
-                    onStatusChangeRequest={handleStatusChangeRequest}
-                                        onBulkAssign={handleBulkAssign}
+                    onBulkAssign={handleBulkAssign}
                     onSelectLead={(lead) => setSelectedLeadForDrawer(lead)}
                     onEditLead={(lead) => setEditingLead(lead)}
                     onArchiveLead={handleArchiveLead}
@@ -889,7 +819,6 @@ export function LeadsPipelineView({
                     leads={filteredLeads}
                     assignableUsers={assignableUsers}
                     isAdmin={isAdmin}
-                    onStatusChangeRequest={handleStatusChangeRequest}
                     onSelectLead={(lead) => setSelectedLeadForDrawer(lead)}
                     onEditLead={(lead) => setEditingLead(lead)}
                     onArchiveLead={handleArchiveLead}
@@ -923,26 +852,6 @@ export function LeadsPipelineView({
                 onClose={() => setCloseLostModalState({ isOpen: false, leadTitle: "", leadId: undefined })}
                 onConfirm={handleConfirmCloseLost}
                 leadTitle={closeLostModalState.leadTitle}
-                isSubmitting={isSubmittingMutation}
-            />
-
-            {/* Generic Stage Transition Confirmation Modal */}
-            <LeadStatusValidationModal
-                isOpen={pendingValidation.isOpen}
-                onClose={() =>
-                    setPendingValidation({
-                        isOpen: false,
-                        leadId: undefined,
-                        leadIds: undefined,
-                        leadTitle: "",
-                        fromStatus: "",
-                        toStatus: "",
-                    })
-                }
-                onConfirm={handleConfirmStatusChange}
-                leadTitle={pendingValidation.leadTitle}
-                fromStatus={pendingValidation.fromStatus}
-                toStatus={pendingValidation.toStatus}
                 isSubmitting={isSubmittingMutation}
             />
         </div>

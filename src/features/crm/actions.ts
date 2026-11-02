@@ -439,6 +439,13 @@ export async function transitionLeadStage(data: TransitionLeadValues): Promise<A
 
         if (!lead) return { success: false, message: "Lead not found" };
 
+        if (newStatus === "Proposal Sent" || newStatus === "In Negotiation" || newStatus === "Closed Won") {
+            return {
+                success: false,
+                message: `Cannot manually transition lead stage to "${newStatus}". This stage is set automatically by system workflow events.`,
+            };
+        }
+
         const validation = await validateLeadTransition(leadId, newStatus);
         if (!validation.valid) {
             return { success: false, message: validation.error };
