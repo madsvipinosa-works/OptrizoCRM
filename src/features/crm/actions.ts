@@ -451,10 +451,6 @@ export async function transitionLeadStage(data: TransitionLeadValues): Promise<A
             return { success: false, message: validation.error };
         }
 
-        if (newStatus === "Closed Won") {
-            return await markLeadAsWon(leadId);
-        }
-
         const oldStatus = lead.status;
         const now = new Date();
 
