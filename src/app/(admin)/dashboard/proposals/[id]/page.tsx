@@ -13,6 +13,7 @@ import {
 import type { ContractSettings } from "@/features/proposals/actions";
 import { PricingMeetingPanel } from "@/features/proposals/components/PricingMeetingPanel";
 import { BookPricingMeetingModal } from "@/features/meetings/components/BookPricingMeetingModal";
+import { PaperSigningForm } from "@/features/proposals/components/PaperSigningForm";
 import { ProposalThread } from "@/features/proposals/components/ProposalThread";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit3, Printer, Info } from "lucide-react";
@@ -286,6 +287,14 @@ export default async function StaffProposalViewPage({
                             businessName={proposal.lead?.businessName}
                         />
                     )}
+
+                    {/* Paper Signature Execution Form */}
+                    <PaperSigningForm
+                        proposalId={proposal.id}
+                        proposalStatus={proposal.status}
+                        proposalCode={proposal.proposalCode}
+                        clientName={proposal.lead?.client?.name || proposal.lead?.contactName}
+                    />
                 </div>
             )}
 

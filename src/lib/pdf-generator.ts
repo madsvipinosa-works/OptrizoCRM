@@ -90,6 +90,10 @@ export function generateSOWHtml(data: {
     acceptedByName?: string | null;
     acceptedByTitle?: string | null;
     acceptedAt?: string | Date | null;
+    signerName?: string | null;
+    signedAt?: string | Date | null;
+    signatureType?: string | null;
+    signedFileUrl?: string | null;
     signatureData?: string | null;
     createdAt?: string | Date | null;
     validUntil?: string | Date | null;
@@ -123,7 +127,7 @@ export function generateSOWHtml(data: {
     const safeMilestones = data.milestones || [];
     const safeSchedule = data.paymentScheduleItems || [];
     const safeTerms = escapeHtml(data.terms || "Standard agency terms apply: 50% deposit required upon acceptance to initiate sprint planning, with the remaining balance due upon milestone handover. All custom deliverables and intellectual property will transfer to Client upon receipt of final contract settlement.");
-    const safeAcceptedByName = data.acceptedByName ? escapeHtml(data.acceptedByName) : "Client Signatory";
+    const safeAcceptedByName = escapeHtml(data.signerName || data.acceptedByName || data.businessName || "Client Signatory");
     const safeAcceptedByTitle = data.acceptedByTitle ? escapeHtml(data.acceptedByTitle) : null;
     const safeAgencyName = escapeHtml(data.agencyName || "Optrizo Digital Solutions");
     const safeAgencyEmail = escapeHtml(data.agencyEmail || "contact@optrizo.com");
@@ -152,8 +156,9 @@ export function generateSOWHtml(data: {
         ? new Date(data.validUntil).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : "30 Days from Issue";
 
-    const formattedSignedDate = data.acceptedAt
-        ? new Date(data.acceptedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    const effectiveSignedAt = data.signedAt || data.acceptedAt;
+    const formattedSignedDate = effectiveSignedAt
+        ? new Date(effectiveSignedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : formattedCreatedDate;
 
     // Check if signature is a valid base64 data URL
@@ -849,13 +854,18 @@ export function generateSOWHtml(data: {
             ${data.status === "signed" ? `
                 <div class="verified-badge">
                     <div>
-                        <div class="verified-text">&#10003; Digital Portal Sign-Off &amp; Verification Timestamp</div>
+                        <div class="verified-text">&#10003; ${data.signatureType === "paper" ? "Physical Paper Agreement Recorded" : "Digital Portal Sign-Off &amp; Verification Timestamp"}</div>
                         <div style="font-size: 7.5pt; color: #16a34a; margin-top: 2px;">
-                            Signed via Client Portal by <strong>${safeAcceptedByName}</strong> ${safeAcceptedByTitle ? `(${safeAcceptedByTitle})` : ""} on ${formattedSignedDate}.
+                            ${data.signatureType === "paper"
+                                ? `Paper copy signed by <strong>${safeAcceptedByName}</strong> on ${formattedSignedDate}. Verified and uploaded by Project Manager.`
+                                : `Signed via Client Portal by <strong>${safeAcceptedByName}</strong> ${safeAcceptedByTitle ? `(${safeAcceptedByTitle})` : ""} on ${formattedSignedDate}.`
+                            }
                         </div>
                     </div>
                     <div style="margin-top: 2px;">
-                        ${isValidSignatureImage
+                        ${data.signatureType === "paper" ? `
+                            <span style="font-family: Georgia, serif; font-style: italic; font-size: 11pt; font-weight: 700; color: #0284c7;">[Signed on Paper]</span>
+                        ` : isValidSignatureImage
                             ? `<img src="${data.signatureData}" alt="Authorized Client Signature" style="max-height: 48px; max-width: 190px; object-fit: contain; filter: contrast(1.25);" />`
                             : `<span style="font-family: Georgia, serif; font-style: italic; font-size: 11pt; font-weight: 700; color: #16a34a;">${escapeHtml(data.signatureData || safeAcceptedByName)}</span>`
                         }
