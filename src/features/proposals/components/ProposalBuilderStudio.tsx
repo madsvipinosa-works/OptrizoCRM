@@ -689,10 +689,10 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.push(`/dashboard/leads`)}
+                        onClick={() => router.push(`/dashboard/proposals`)}
                         className="text-muted-foreground hover:text-foreground"
                     >
-                        <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Lead
+                        <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Proposals
                     </Button>
                     <div className="h-4 w-px bg-border hidden sm:block" />
                     <div>

@@ -86,15 +86,15 @@ export function CommandPalette({ open, setOpen, userRole = "client" }: CommandPa
                                             <Users className="h-4 w-4 text-emerald-500" />
                                             <span>Client Contacts</span>
                                         </Command.Item>
+                                        <Command.Item
+                                            onSelect={() => runCommand(() => router.push("/dashboard/leads"))}
+                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                                        >
+                                            <KanbanSquare className="h-4 w-4 text-amber-500" />
+                                            <span>Sales Pipeline</span>
+                                        </Command.Item>
                                     </>
                                 )}
-                                <Command.Item
-                                    onSelect={() => runCommand(() => router.push("/dashboard/leads"))}
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
-                                >
-                                    <KanbanSquare className="h-4 w-4 text-amber-500" />
-                                    <span>Sales Pipeline</span>
-                                </Command.Item>
                                 <Command.Item
                                     onSelect={() => runCommand(() => router.push("/dashboard/proposals"))}
                                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer transition-colors"

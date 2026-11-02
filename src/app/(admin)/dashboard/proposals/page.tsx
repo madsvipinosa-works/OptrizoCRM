@@ -15,7 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { FileText, Plus, Edit3, Eye } from "lucide-react";
+import { FileText, Edit3, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { PmProposalQueue } from "@/features/proposals/components/PmProposalQueue";
 import { getProposalRequestsQueue } from "@/features/proposals/actions";
@@ -92,13 +92,6 @@ export default async function ProposalsPage() {
                             : "Track issued proposals and client statements of work."}
                     </p>
                 </div>
-                {isManager && (
-                    <Link href="/dashboard/leads">
-                        <Button className="bg-primary text-black hover:bg-primary/90 font-semibold gap-1.5 shadow-lg shadow-primary/20">
-                            <Plus className="h-4 w-4" /> New Proposal from Lead
-                        </Button>
-                    </Link>
-                )}
             </div>
 
             {/* PM Step 9 Proposal Requests Queue */}
