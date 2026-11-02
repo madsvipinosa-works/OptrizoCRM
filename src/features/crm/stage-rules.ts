@@ -13,22 +13,22 @@ export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export async function moveLeadToProposalSent(
     tx: DbTransaction,
     leadId: string
-): Promise<void> {
+): Promise<{ success: boolean; message?: string }> {
     const lead = await tx.query.leads.findFirst({
         where: eq(leads.id, leadId),
         columns: { id: true, status: true, proposalRequestedAt: true },
     });
 
     if (!lead) {
-        throw new Error("Lead not found");
+        return { success: false, message: "Lead not found" };
     }
 
     if (lead.status !== "Discovery & Qualifying") {
-        throw new Error(`Cannot move to "Proposal Sent". Lead must be in "Discovery & Qualifying", currently in "${lead.status}".`);
+        return { success: false, message: `Cannot move to "Proposal Sent". Lead must be in "Discovery & Qualifying", currently in "${lead.status}".` };
     }
 
     if (!lead.proposalRequestedAt) {
-        throw new Error(`Cannot move to "Proposal Sent". Lead has no proposal requested.`);
+        return { success: false, message: `Cannot move to "Proposal Sent". Lead has no proposal requested.` };
     }
 
     const now = new Date();
@@ -46,5 +46,7 @@ export async function moveLeadToProposalSent(
         activityType: "System",
         content: "Stage moved to Proposal Sent on proposal delivery",
     });
+
+    return { success: true };
 }
 
