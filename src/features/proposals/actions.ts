@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { proposals, leads, users } from "@/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
@@ -583,4 +583,60 @@ export async function claimOrAssignLeadPm(leadId: string) {
 
     revalidatePath("/dashboard/proposals");
     return { success: true, assignedPmId: lead.assignedPmId || session.user.id };
+}
+
+
+export async function getProposalRequestsQueue() {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return [];
+    }
+
+    const requests = await db.query.leads.findMany({
+        where: and(
+            isNotNull(leads.proposalRequestedAt),
+            isNull(leads.archivedAt)
+        ),
+        with: {
+            assignedPm: true,
+            discoveryForms: {
+                orderBy: (df, { desc }) => [desc(df.submittedAt)],
+                limit: 1,
+            },
+            proposals: {
+                where: isNull(proposals.deletedAt),
+                orderBy: (p, { desc }) => [desc(p.updatedAt)],
+            },
+        },
+        orderBy: (l, { desc }) => [desc(l.proposalRequestedAt)],
+    });
+
+    return requests.map((req) => ({
+        id: req.id,
+        businessName: req.businessName,
+        contactName: req.contactName,
+        contactEmail: req.contactEmail,
+        contactPhone: req.contactPhone,
+        urgency: req.urgency,
+        proposalRequestedAt: req.proposalRequestedAt,
+        assignedPmId: req.assignedPmId,
+        assignedPm: req.assignedPm ? {
+            id: req.assignedPm.id,
+            name: req.assignedPm.name,
+            email: req.assignedPm.email,
+        } : null,
+        discoveryForm: req.discoveryForms && req.discoveryForms[0] ? {
+            goals: req.discoveryForms[0].goals,
+            requiredFeatures: req.discoveryForms[0].requiredFeatures,
+            targetTimeline: req.discoveryForms[0].targetTimeline,
+            budgetRange: req.discoveryForms[0].budgetRange,
+            clientType: req.discoveryForms[0].clientType,
+            notes: req.discoveryForms[0].notes,
+        } : null,
+        proposals: req.proposals.map((p) => ({
+            id: p.id,
+            status: p.status,
+            version: (p as unknown as { version?: number | null }).version ?? 1,
+        })),
+    }));
 }
