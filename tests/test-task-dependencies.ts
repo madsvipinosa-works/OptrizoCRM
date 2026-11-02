@@ -37,7 +37,7 @@ async function runTaskDependencyTest() {
       milestoneId: testMilestoneId,
       title: "Task A: Database Migrations & Schema",
       description: "Core tables and foreign keys",
-      status: "In Progress",
+      status: "in_progress",
       weight: 3,
       requiresProof: false,
     });
@@ -49,7 +49,7 @@ async function runTaskDependencyTest() {
       milestoneId: testMilestoneId,
       title: "Task B: REST API Endpoints",
       description: "CRUD handlers for PM tasks",
-      status: "Todo",
+      status: "to_do",
       weight: 3,
       requiresProof: false,
     });
@@ -61,7 +61,7 @@ async function runTaskDependencyTest() {
       milestoneId: testMilestoneId,
       title: "Task C: Frontend Dashboard Integration",
       description: "Kanban board and details drawer",
-      status: "Todo",
+      status: "to_do",
       weight: 2,
       requiresProof: false,
     });
@@ -133,7 +133,7 @@ async function runTaskDependencyTest() {
         const prereq = await db.query.tasks.findFirst({
           where: eq(tasks.id, task.dependsOnTaskId),
         });
-        if (prereq && prereq.status !== "Done") {
+        if (prereq && prereq.status !== "done") {
           return {
             success: false,
             message: `Cannot move task: Prerequisite task "${prereq.title}" is not completed yet.`,
@@ -176,12 +176,12 @@ async function runTaskDependencyTest() {
     // 7. Test Case 6: Unblocking when Prerequisite is Marked Done
     console.log("\n7️⃣ Test Case 6: Unblocking Task B when Task A is Completed...");
     // Mark Task A as Done
-    await db.update(tasks).set({ status: "Done" }).where(eq(tasks.id, taskAId));
+    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskAId));
 
     const postDoneTransition = await validateTaskStatusTransition(taskBId, "In Progress");
     if (postDoneTransition.success) {
       // Actually advance Task B
-      await db.update(tasks).set({ status: "In Progress" }).where(eq(tasks.id, taskBId));
+      await db.update(tasks).set({ status: "in_progress" }).where(eq(tasks.id, taskBId));
       console.log("   ✅ PASSED: Task B successfully unblocked and moved to 'In Progress'!");
     } else {
       throw new Error(`Unblocking failed: ${postDoneTransition.message}`);

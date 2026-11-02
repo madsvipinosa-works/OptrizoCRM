@@ -31,6 +31,9 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
     Calendar,
+    Play,
+    Send,
+    RotateCcw,
     Clock,
     AlertTriangle,
     ShieldCheck,
@@ -43,8 +46,6 @@ import {
     Check,
     Lock,
     ArrowRight,
-    Sparkles,
-    AlertOctagon,
     CheckCircle2,
     Layers,
     MoreVertical,
@@ -54,9 +55,7 @@ import {
     GitBranch,
     Link2,
     Unlink,
-    Flag,
     Sliders,
-    Workflow,
 } from "lucide-react";
 import { format, formatDistanceToNow, isPast, isToday, isTomorrow, differenceInDays } from "date-fns";
 import { toast } from "sonner";
@@ -73,7 +72,11 @@ interface TaskDetailsDrawerProps {
     allTasks: PmTask[];
     currentUserId?: string;
     currentUserRole?: string;
-    onStatusChangeRequest: (taskId: string, targetStatus: PmTask["status"]) => void;
+    onStartTask?: (taskId: string) => void;
+    onSubmitTask?: (task: PmTask) => void;
+    onApproveTask?: (taskId: string) => void;
+    onRequestChanges?: (task: PmTask) => void;
+    onStatusChangeRequest?: (taskId: string, targetStatus: PmTask["status"]) => void;
     onUpdateTaskDetails: (
         taskId: string,
         data: {
@@ -92,9 +95,39 @@ interface TaskDetailsDrawerProps {
 }
 
 const STATUS_CONFIG: Record<
-    PmTask["status"],
+    string,
     { label: string; badgeClass: string; dotClass: string; ringClass: string }
 > = {
+    to_do: {
+        label: "To Do",
+        badgeClass: "bg-muted text-foreground border-border",
+        dotClass: "bg-muted-foreground",
+        ringClass: "ring-muted-foreground/20",
+    },
+    in_progress: {
+        label: "In Progress",
+        badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
+        dotClass: "bg-blue-500",
+        ringClass: "ring-blue-500/25",
+    },
+    changes_requested: {
+        label: "Changes Requested",
+        badgeClass: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40",
+        dotClass: "bg-orange-500",
+        ringClass: "ring-orange-500/25",
+    },
+    in_review: {
+        label: "In Review",
+        badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
+        dotClass: "bg-amber-500",
+        ringClass: "ring-amber-500/25",
+    },
+    done: {
+        label: "Done",
+        badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+        dotClass: "bg-emerald-500",
+        ringClass: "ring-emerald-500/25",
+    },
     Todo: {
         label: "To Do",
         badgeClass: "bg-muted text-foreground border-border",
@@ -136,6 +169,10 @@ export function TaskDetailsDrawer({
     allTasks,
     currentUserId,
     currentUserRole,
+    onStartTask,
+    onSubmitTask,
+    onApproveTask,
+    onRequestChanges,
     onStatusChangeRequest,
     onUpdateTaskDetails,
     onDeleteTask,
@@ -185,9 +222,10 @@ export function TaskDetailsDrawer({
         (t) => t.id !== task.id && t.dependsOnTaskId !== task.id
     );
 
-    const isOverdue =
-        task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "Done";
-    const canManage = ["manager", "developer"].includes(currentUserRole || "");
+    const canManage = ["manager"].includes(currentUserRole || "");
+    const isDeveloper = currentUserRole === "developer";
+    const isAssignedToUser = currentUserId ? task.assignees?.some((a) => a.user.id === currentUserId) : false;
+    const isChangesRequested = task.status === "changes_requested" || (task.status as string) === "Changes Requested";
     const isManagerOrAdmin = ["manager"].includes(currentUserRole || "");
 
     // Format deadline
@@ -471,73 +509,83 @@ export function TaskDetailsDrawer({
 
                     {/* 2. Interactive Action Bar: Glowing Status Dropdown & Contextual Action Buttons */}
                     <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5 border-t border-border/50">
-                        {/* Live Task Status Selector Dropdown */}
+                        {/* Static Task Status Badge */}
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status:</span>
-                            <Select
-                                value={task.status}
-                                onValueChange={(val) => {
-                                    if (val !== task.status) {
-                                        onStatusChangeRequest(task.id, val as PmTask["status"]);
-                                    }
-                                }}
-                                disabled={!canManage}
+                            <Badge
+                                className={cn(
+                                    "h-8 text-xs font-semibold px-2.5 rounded-lg border gap-2 shadow-xs transition-all",
+                                    STATUS_CONFIG[task.status]?.badgeClass
+                                )}
                             >
-                                <SelectTrigger
+                                <span
                                     className={cn(
-                                        "h-8 text-xs font-semibold px-2.5 rounded-lg border gap-2 shadow-xs transition-all",
-                                        STATUS_CONFIG[task.status]?.badgeClass
+                                        "w-2 h-2 rounded-full shrink-0 ring-4",
+                                        STATUS_CONFIG[task.status]?.dotClass,
+                                        STATUS_CONFIG[task.status]?.ringClass
                                     )}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <span
-                                            className={cn(
-                                                "w-2 h-2 rounded-full shrink-0 ring-4",
-                                                STATUS_CONFIG[task.status]?.dotClass,
-                                                STATUS_CONFIG[task.status]?.ringClass
-                                            )}
-                                        />
-                                        <SelectValue>{STATUS_CONFIG[task.status]?.label}</SelectValue>
-                                    </div>
-                                </SelectTrigger>
-                                <SelectContent className="bg-card border-border text-foreground shadow-xl">
-                                    {(Object.keys(STATUS_CONFIG) as PmTask["status"][]).map((st) => (
-                                        <SelectItem key={st} value={st} className="text-xs cursor-pointer">
-                                            <div className="flex items-center gap-2">
-                                                <span className={cn("w-2 h-2 rounded-full", STATUS_CONFIG[st].dotClass)} />
-                                                <span>{STATUS_CONFIG[st].label}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                />
+                                <span>{STATUS_CONFIG[task.status]?.label || task.status}</span>
+                            </Badge>
                         </div>
 
                         {/* Quick Contextual Actions */}
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            {/* Submit for Review Button */}
-                            {["Todo", "In Progress", "Changes Requested"].includes(task.status) && onRequestVerificationReview && (
+                            {/* 1. Developer Start */}
+                            {(task.status === "to_do" || (task.status as string) === "Todo") && isDeveloper && isAssignedToUser && onStartTask && (
                                 <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs font-semibold gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border-amber-500/30 shadow-xs active:scale-[0.98] transition-all"
-                                    onClick={() => onRequestVerificationReview(task)}
+                                    disabled={Boolean(isPrerequisiteIncomplete)}
+                                    className="h-8 text-xs font-semibold gap-1.5 shadow-xs"
+                                    onClick={() => onStartTask(task.id)}
                                 >
-                                    <ShieldCheck className="w-3.5 h-3.5" />
-                                    <span>Submit for Review</span>
+                                    <Play className="w-3.5 h-3.5 fill-current" />
+                                    <span>Start Task</span>
                                 </Button>
                             )}
 
-                            {/* Approve as Done Button (Managers/Admins) */}
-                            {task.status === "In Review" && isManagerOrAdmin && (
+                            {/* 2. Developer Submit */}
+                            {(task.status === "in_progress" || (task.status as string) === "In Progress" || isChangesRequested) && isDeveloper && isAssignedToUser && (
                                 <Button
                                     size="sm"
-                                    className="h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs active:scale-[0.98] transition-all"
-                                    onClick={() => onStatusChangeRequest(task.id, "Done")}
+                                    variant="outline"
+                                    className="h-8 text-xs font-semibold gap-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-300 border-blue-500/30 shadow-xs"
+                                    onClick={() => {
+                                        if (onSubmitTask) onSubmitTask(task);
+                                        else onRequestVerificationReview?.(task);
+                                    }}
                                 >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>Approve as Done</span>
+                                    <Send className="w-3.5 h-3.5" />
+                                    <span>Submit Work</span>
                                 </Button>
+                            )}
+
+                            {/* 3. PM Review Actions */}
+                            {(task.status === "in_review" || (task.status as string) === "In Review") && isManagerOrAdmin && (
+                                <>
+                                    {onRequestChanges && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 text-xs font-semibold gap-1.5 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10 shadow-xs"
+                                            onClick={() => onRequestChanges(task)}
+                                        >
+                                            <RotateCcw className="w-3.5 h-3.5" />
+                                            <span>Request Changes</span>
+                                        </Button>
+                                    )}
+                                    <Button
+                                        size="sm"
+                                        className="h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                        onClick={() => {
+                                            if (onApproveTask) onApproveTask(task.id);
+                                            else onStatusChangeRequest?.(task.id, "Done");
+                                        }}
+                                    >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Approve as Done</span>
+                                    </Button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -565,6 +613,18 @@ export function TaskDetailsDrawer({
 
                     {/* TAB 1: OVERVIEW */}
                     <TabsContent value="overview" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-6 focus:outline-none">
+                        {/* Changes Requested Banner */}
+                        {isChangesRequested && task.reviewNote && (
+                            <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive space-y-1.5 shadow-xs">
+                                <div className="font-bold flex items-center gap-2 text-sm text-destructive">
+                                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                                    <span>Changes Requested by Project Manager</span>
+                                </div>
+                                <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap pl-6">
+                                    {task.reviewNote}
+                                </p>
+                            </div>
+                        )}
                         {/* Task Dependencies & Sequencing Section (Graph Topology) */}
                         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
                             <div className="flex items-center justify-between pb-3 border-b border-border/60">

@@ -6,10 +6,7 @@ import { usePathname } from "next/navigation";
 import {
     FileText,
     Calendar,
-    Briefcase,
     Settings,
-    Star,
-    Layers,
     Mail,
     BarChart3,
     Users,
@@ -21,7 +18,7 @@ import {
     Monitor,
     Search,
     Sparkles,
-    Info,
+    CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -49,6 +46,7 @@ const navGroups: NavGroup[] = [
         title: "Overview",
         items: [
             { href: "/dashboard", label: "Dashboard", icon: Sparkles, allowedRoles: ["sales", "manager"] },
+            { href: "/dashboard/my-tasks", label: "My tasks", icon: CheckCircle2, allowedRoles: ["developer"] },
         ],
     },
     {
@@ -65,7 +63,7 @@ const navGroups: NavGroup[] = [
     {
         title: "Operations & Content",
         items: [
-            { href: "/dashboard/pm", label: "Active Delivery", icon: KanbanSquare, allowedRoles: ["manager", "developer"] },
+            { href: "/dashboard/pm", label: "Projects", icon: KanbanSquare, allowedRoles: ["manager", "developer"] },
             { href: "/dashboard/cms", label: "Content Manager", icon: Monitor, allowedRoles: ["content_editor"] },
         ],
     },

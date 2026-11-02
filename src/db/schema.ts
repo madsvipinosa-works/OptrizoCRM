@@ -811,7 +811,7 @@ export const systemErrorLogsRelations = relations(systemErrorLogs, ({ one }) => 
 // 13. Operational Project Management (PM Engine)
 export const agencyProjectStatusEnum = pgEnum("agency_project_status", ["Kickoff", "In Progress", "In Review", "Completed"]);
 export const milestoneStatusEnum = pgEnum("milestone_status", ["Pending", "In Progress", "Completed"]);
-export const taskStatusEnum = pgEnum("task_status", ["Todo", "In Progress", "Changes Requested", "In Review", "Done"]);
+export const taskStatusEnum = pgEnum("task_status", ["backlog", "to_do", "in_progress", "in_review", "changes_requested", "done"]);
 
 export type ProjectDocumentItem = {
     id: string;
@@ -889,6 +889,7 @@ export const milestones = pgTable("milestone", {
     status: milestoneStatusEnum("status").default("Pending").notNull(),
     order: integer("order").default(0).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    doneReason: text("done_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
@@ -911,7 +912,7 @@ export const tasks = pgTable("task", {
     description: text("description"),
     dependsOnTaskId: text("dependsOnTaskId"),
     dueDate: timestamp("due_date", { mode: "date" }),
-    status: taskStatusEnum("status").default("Todo").notNull(),
+    status: taskStatusEnum("status").default("to_do").notNull(),
     weight: integer("weight").notNull().default(1),
     estimatedHours: integer("estimated_hours"),
     proofLinks: jsonb("proof_links").$type<{ label: string; url: string }[]>().default([]),
@@ -921,6 +922,7 @@ export const tasks = pgTable("task", {
     blockedReason: text("blocked_reason"),
     overdueNotified: boolean("overdue_notified").default(false).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    reviewNote: text("review_note"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),

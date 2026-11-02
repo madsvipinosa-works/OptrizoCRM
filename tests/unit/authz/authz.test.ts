@@ -49,13 +49,13 @@ describe("authorizeProject", () => {
     expect((await authorizeProject("p1", "write")).ok).toBe(true);
   });
 
-  it("lets a developer read only a project where they have an assigned task", async () => {
+  it("lets a developer read only a project where they are a team member", async () => {
     signInAs(auth, "developer", "dev-1");
-    mockDb.setSelectRows([{ taskId: "t1" }]);
+    mockDb.query.projectTeamMembers.findFirst.mockResolvedValue({ projectId: "p1", userId: "dev-1" });
     expect((await authorizeProject("p1", "read")).ok).toBe(true);
     expect(await authorizeProject("p1", "write")).toMatchObject({ ok: false, reason: "FORBIDDEN" });
 
-    mockDb.setSelectRows([]);
+    mockDb.query.projectTeamMembers.findFirst.mockResolvedValue(undefined);
     expect(await authorizeProject("p1", "read")).toMatchObject({ ok: false, reason: "FORBIDDEN" });
   });
 

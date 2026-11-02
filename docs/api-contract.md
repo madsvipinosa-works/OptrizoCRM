@@ -290,4 +290,99 @@ Side effects: acquires PostgreSQL advisory transaction lock `pg_advisory_xact_lo
 - `convertLeadToProject`: Removed. Project provisioning is automated atomically during proposal signing via `provisionProjectFromProposal`.
 - `updateLeadStatusWithAudit` / `bulkUpdateLeadStatus`: Updated to explicitly reject manual transitions to `Closed Won`, `Proposal Sent`, and `In Negotiation`.
 
+---
+
+## Session 7: Tasks, Milestones, Project Team, Developer Home
+
+### UI Structure & Delivery Views (Session 7)
+- **Project Team Management**: Implemented as a centered modal popup (`ProjectTeamDrawer`) titled "Project team" with the project title at top right, opened directly from the "Team" button on the PM project delivery board (`/dashboard/pm/[id]`). Displays the PM section ("You"), developers with their in-project open-task counts and red Remove link, Remove confirmation showing exact reassigned task count, "Add a developer" dropdown showing cross-project open tasks, and a read-only client line. No separate team page.
+- **Milestone Sequential Strip**: Mounted as a top-level progress strip (`MilestoneStrip`) above the Kanban board showing the 5 sequential phases and offering the "Mark Milestone Done" modal for empty milestones.
+- **Developer Home**: Hosted at `/dashboard/my-tasks` with a legacy redirect route at `/dashboard/dev` for backwards compatibility.
+
+### addProjectTeamMember  (step 22a)
+Who can call: manager
+Input:  `{ projectId: string, userId: string }`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `INVALID_USER`: user does not exist, is inactive, or role is not `developer`.
+- `PROJECT_NOT_FOUND`: project does not exist.
+Side effects: inserts into `project_team_member` (`addedBy = session.user.id`) with `ON CONFLICT DO NOTHING`; notifies developer; audit log row.
+
+### removeProjectTeamMember  (step 22a)
+Who can call: manager
+Input:  `{ projectId: string, userId: string }`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+Side effects: reassigns developer's open (not done) tasks in the project to the removing PM and writes notification; deletes `project_team_member` record; notifies removed developer; audit log row.
+
+### startTask  (step 25)
+Who can call: developer (assigned to task)
+Input:  `{ taskId: string }`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not a developer assigned to this task.
+- `INVALID_STATUS`: task is not in status `to_do`.
+- `MILESTONE_NOT_CURRENT`: task's milestone is not `In Progress`.
+- `PREREQUISITE_INCOMPLETE`: prerequisite task (`dependsOnTaskId`) is not `done`.
+Side effects: locks task for update, reads milestone for share; updates task status → `in_progress`; audit log row.
+
+### submitTask  (step 26)
+Who can call: developer (assigned to task)
+Input:  `{ taskId: string, files?: { name: string; url: string; size?: number; type?: string }[], links?: { label: string; url: string }[], note?: string }`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not a developer assigned to this task (re-verified inside tx).
+- `INVALID_STATUS`: task is not in status `in_progress` or `changes_requested`.
+- `PROOF_REQUIRED`: caller must provide at least one file or link.
+Side effects: updates task status → `in_review`; stores proof files, links, and note; notifies assigned PM (or lead PMs / all managers); audit log row.
+
+### approveTask  (step 27)
+Who can call: manager
+Input:  `{ taskId: string }`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `INVALID_STATUS`: task is not in status `in_review`.
+Side effects: updates task status → `done`, `completedAt = now()`; checks if all non-deleted tasks in the milestone are `done`; if all done, calls `closeMilestoneAndAdvance` inside the same transaction; notifies task assignees; audit log row.
+
+### requestTaskChanges  (step 27)
+Who can call: manager
+Input:  `{ taskId: string, comment: string }`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `INVALID_STATUS`: task is not in status `in_review`.
+- `COMMENT_REQUIRED`: comment must be non-empty and non-whitespace (trimmed, capped at 2000 chars).
+Side effects: updates task status → `changes_requested`; saves comment to `task.reviewNote`; notifies developer assignees; audit log row.
+
+### markEmptyMilestoneDone  (step 28)
+Who can call: manager
+Input:  `{ milestoneId: string, reason: string }`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `REASON_REQUIRED`: reason must be non-empty (trimmed, capped at 2000 chars).
+- `NOT_CURRENT`: milestone is not currently in status `In Progress`.
+- `MILESTONE_HAS_TASKS`: milestone contains non-deleted tasks (re-counted inside tx).
+Side effects: sets `milestone.doneReason = reason`; invokes `closeMilestoneAndAdvance` inside transaction; audit log row.
+
+### closeMilestoneAndAdvance  (internal transactional engine)
+Who can call: internal transaction caller (`approveTask`, `markEmptyMilestoneDone`)
+Input:  `(tx, milestoneId, opts?: { reason?: string })`
+Output: `{ closedMilestoneId: string, nextMilestoneId?: string, paymentsBecameDue: string[] }`
+Errors:
+- Throws if milestone is not found or not `In Progress`.
+- Throws if Development milestone has any non-deleted backlog tasks.
+Side effects: locks milestone for update; sets status → `Completed`, `completedAt = now()`; finds next milestone by `order ASC` with status `Pending` and sets to `In Progress`; updates `payments` for matching schedule item triggers (`milestone.name` or `before_completion` if UAT) from `not_yet_due` to `due`, sets `becameDueAt = now()`, `dueDate = now() + 14 days`; post-commit client notification for payment due and milestone completion.
+
+### Removed / Deprecated Actions (Session 7 cleanup)
+- `createMilestone`, `editMilestone`, `deleteMilestone`: Removed. Milestones are fixed at proposal acceptance / project provisioning.
+- `updateMilestoneStatus`: Removed. Milestones advance automatically via `closeMilestoneAndAdvance` or `markEmptyMilestoneDone`.
+- `handleMilestoneBubbling`: Removed. Replaced by `closeMilestoneAndAdvance`.
+- `syncProjectStatus`: Removed. Project status is decoupled from automated task completion.
+- `updateTaskStatus`, `submitTaskProofAndMove`: Removed. Replaced by state-specific actions `startTask`, `submitTask`, `approveTask`, `requestTaskChanges`.
+- `DndContext` in `PmKanbanBoard`: Removed. Board is non-draggable; state transitions occur via buttons.
+
 (Add one per action as modules are built.)

@@ -281,12 +281,12 @@ export function ClientPortalDashboardView({
 
             {projects.map((project) => {
                 const totalTasks = project.tasks.length;
-                const completedTasks = project.tasks.filter(t => t.status === "Done").length;
+                const completedTasks = project.tasks.filter(t => t.status === "done").length;
 
                 // Calculate weighted progress (story points) matching the Project Board trigger engine
                 const totalWeight = project.tasks.reduce((sum, t) => sum + (t.weight || 1), 0);
                 const completedWeight = project.tasks
-                    .filter(t => t.status === "Done")
+                    .filter(t => t.status === "done")
                     .reduce((sum, t) => sum + (t.weight || 1), 0);
 
                 const computedPercentage = totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;

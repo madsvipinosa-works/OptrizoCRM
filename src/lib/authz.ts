@@ -4,7 +4,7 @@ import type { Session } from "next-auth";
 import { and, eq, isNull } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { agencyProjects, leads, projectStakeholders, taskAssignees, tasks } from "@/db/schema";
+import { agencyProjects, leads, projectStakeholders, projectTeamMembers, taskAssignees, tasks } from "@/db/schema";
 
 /**
  * Shared access checks for server actions and route handlers (spec §1).
@@ -64,14 +64,11 @@ async function isStakeholderOrLeadClient(projectId: string, userId: string): Pro
     return !!lead;
 }
 
-async function hasAssignedTaskInProject(projectId: string, userId: string): Promise<boolean> {
-    const rows = await db
-        .select({ taskId: taskAssignees.taskId })
-        .from(taskAssignees)
-        .innerJoin(tasks, eq(tasks.id, taskAssignees.taskId))
-        .where(and(eq(tasks.projectId, projectId), eq(taskAssignees.userId, userId), isNull(tasks.deletedAt)))
-        .limit(1);
-    return rows.length > 0;
+async function isProjectTeamMember(projectId: string, userId: string): Promise<boolean> {
+    const member = await db.query.projectTeamMembers.findFirst({
+        where: and(eq(projectTeamMembers.projectId, projectId), eq(projectTeamMembers.userId, userId)),
+    });
+    return !!member;
 }
 
 /**
@@ -93,7 +90,7 @@ export async function authorizeProject(projectId: string, mode: "read" | "write"
         case "manager":
             return result;
         case "developer":
-            return mode === "read" && (await hasAssignedTaskInProject(projectId, userId)) ? result : FORBIDDEN;
+            return mode === "read" && (await isProjectTeamMember(projectId, userId)) ? result : FORBIDDEN;
         case "client":
             return (await isStakeholderOrLeadClient(projectId, userId)) ? result : FORBIDDEN;
         default:

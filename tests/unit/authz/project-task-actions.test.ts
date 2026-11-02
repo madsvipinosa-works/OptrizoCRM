@@ -79,9 +79,9 @@ describe("getProjectProgress", () => {
     expect(mockDb.execute).not.toHaveBeenCalled();
   });
 
-  it("throws for a developer with no task in the project", async () => {
+  it("throws for a developer who is not a team member on the project", async () => {
     signInAs(auth, "developer", "dev-1");
-    mockDb.setSelectRows([]);
+    mockDb.query.projectTeamMembers.findFirst.mockResolvedValue(undefined);
     await expect(getProjectProgress("p1")).rejects.toThrow("Unauthorized");
     expect(mockDb.execute).not.toHaveBeenCalled();
   });
@@ -102,7 +102,7 @@ describe("getProjectProgress", () => {
     expect(await getProjectProgress("p1")).toEqual(progress);
 
     signInAs(auth, "developer", "dev-1");
-    mockDb.setSelectRows([{ taskId: "t1" }]);
+    mockDb.query.projectTeamMembers.findFirst.mockResolvedValue({ projectId: "p1", userId: "dev-1" });
     expect(await getProjectProgress("p1")).toEqual(progress);
 
     signInAs(auth, "client", "client-1");
@@ -145,22 +145,28 @@ describe("submitTask", () => {
   it("rejects when task is in an invalid status", async () => {
     signInAs(auth, "developer", "dev-1");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
-    mockDb.query.tasks.findFirst.mockResolvedValue({
-      id: "task-1",
-      status: "Done",
-      milestone: { project: { id: "p1" } },
-    });
+    mockDb.setSelectRows([
+      {
+        id: "task-1",
+        title: "Task 1",
+        status: "done",
+        projectId: "p1",
+      },
+    ]);
     expect(await submitTask(validInput)).toEqual({ ok: false, error: "INVALID_STATUS" });
   });
 
   it("lets the assigned developer submit from In Progress", async () => {
     signInAs(auth, "developer", "dev-1");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
-    mockDb.query.tasks.findFirst.mockResolvedValue({
-      id: "task-1",
-      status: "In Progress",
-      milestone: { project: { id: "p1" } },
-    });
+    mockDb.setSelectRows([
+      {
+        id: "task-1",
+        title: "Task 1",
+        status: "in_progress",
+        projectId: "p1",
+      },
+    ]);
 
     const result = await submitTask(validInput);
     expect(result).toEqual({ ok: true, status: "in_review" });

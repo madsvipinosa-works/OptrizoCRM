@@ -104,7 +104,7 @@ export async function provisionLeadProject(leadId: string) {
                     title: `Deliverable: ${title}`,
                     description: deliverable?.description || "Refer to the approved proposal for details.",
                     requiresProof: true,
-                    status: "Todo",
+                    status: "to_do",
                 });
             }
             proposalScopeCreated = true;
@@ -136,7 +136,7 @@ export async function provisionLeadProject(leadId: string) {
                         title: taskTemplate.title,
                         description: taskTemplate.description,
                         requiresProof: taskTemplate.requiresProof,
-                        status: "Todo" as const,
+                        status: "to_do" as const,
                     })));
                 }
                 proposalScopeCreated = true;
@@ -157,7 +157,7 @@ export async function provisionLeadProject(leadId: string) {
                     title: "Client Onboarding & Access Handshake",
                     description: "Acquire repository, hosting, and asset credentials.",
                     requiresProof: false,
-                    status: "In Progress" as const,
+                    status: "in_progress" as const,
                 },
                 {
                     projectId: project.id,
@@ -165,7 +165,7 @@ export async function provisionLeadProject(leadId: string) {
                     title: "Technical Specification & Architecture Review",
                     description: "Formalize deliverable requirements and engineering milestones.",
                     requiresProof: true,
-                    status: "Todo" as const,
+                    status: "to_do" as const,
                 },
             ]);
             const [delivery] = await tx.insert(milestones).values({
@@ -180,7 +180,7 @@ export async function provisionLeadProject(leadId: string) {
                 title: "Core Feature Sprints",
                 description: "Execute scoped sprint deliverables.",
                 requiresProof: true,
-                status: "Todo",
+                status: "to_do",
             });
         }
 

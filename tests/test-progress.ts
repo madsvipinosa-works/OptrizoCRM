@@ -36,9 +36,9 @@ async function runTest() {
     // 2. Insert 3 tasks with weights: 2, 3, 5 (Total = 10 points)
     console.log("2️⃣ Inserting 3 tasks with weights: 2pts, 3pts, 5pts (Total = 10pts)...");
     await db.insert(tasks).values([
-      { id: taskAId, projectId: testProjectId, milestoneId: testMilestoneId, title: "Task A (Quick fix)", weight: 2, status: "Todo" },
-      { id: taskBId, projectId: testProjectId, milestoneId: testMilestoneId, title: "Task B (Backend API)", weight: 3, status: "Todo" },
-      { id: taskCId, projectId: testProjectId, milestoneId: testMilestoneId, title: "Task C (Complex UI)", weight: 5, status: "Todo" },
+      { id: taskAId, projectId: testProjectId, milestoneId: testMilestoneId, title: "Task A (Quick fix)", weight: 2, status: "to_do" },
+      { id: taskBId, projectId: testProjectId, milestoneId: testMilestoneId, title: "Task B (Backend API)", weight: 3, status: "to_do" },
+      { id: taskCId, projectId: testProjectId, milestoneId: testMilestoneId, title: "Task C (Complex UI)", weight: 5, status: "to_do" },
     ]);
 
     // Check initial progress via Trigger & Server Action
@@ -48,7 +48,7 @@ async function runTest() {
 
     // 3. Complete Task A (Weight: 2) -> Progress should be 2/10 = 20% (Notice: unweighted would be 1/3 = 33%)
     console.log("\n3️⃣ Completing Task A (Weight: 2)...");
-    await db.update(tasks).set({ status: "Done" }).where(eq(tasks.id, taskAId));
+    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskAId));
 
     proj = await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.id, testProjectId) });
     metrics = await getProjectProgress(testProjectId);
@@ -62,7 +62,7 @@ async function runTest() {
 
     // 4. Complete Task C (Weight: 5) -> Total completed: 2 + 5 = 7/10 = 70% (Notice: unweighted would be 2/3 = 67%)
     console.log("\n4️⃣ Completing Task C (Weight: 5)...");
-    await db.update(tasks).set({ status: "Done" }).where(eq(tasks.id, taskCId));
+    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskCId));
 
     proj = await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.id, testProjectId) });
     metrics = await getProjectProgress(testProjectId);
@@ -76,7 +76,7 @@ async function runTest() {
 
     // 5. Complete Task B (Weight: 3) -> Total completed: 10/10 = 100%
     console.log("\n5️⃣ Completing Task B (Weight: 3)...");
-    await db.update(tasks).set({ status: "Done" }).where(eq(tasks.id, taskBId));
+    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskBId));
 
     proj = await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.id, testProjectId) });
     metrics = await getProjectProgress(testProjectId);
