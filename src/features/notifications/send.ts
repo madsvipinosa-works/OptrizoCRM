@@ -123,6 +123,45 @@ export async function notifyLeadClient(
     }
 }
 
+/**
+ * Notifies the PM(s) responsible for a lead: assignedPmId if set, else all managers.
+ */
+export async function notifyLeadPms(
+    leadId: string,
+    message: string,
+    type: string,
+    link?: string
+) {
+    try {
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId),
+            columns: { id: true, assignedPmId: true },
+        });
+
+        if (lead?.assignedPmId) {
+            await createSystemNotification(lead.assignedPmId, message, type, link);
+            return;
+        }
+
+        const managers = await db.query.users.findMany({
+            where: eq(users.role, "manager"),
+        });
+
+        if (managers.length === 0) return;
+
+        const payloads = managers.map(pm => ({
+            userId: pm.id,
+            message,
+            type,
+            link: link || null,
+        }));
+
+        await db.insert(notifications).values(payloads);
+    } catch (error) {
+        console.error("Failed to notify lead PMs:", error);
+    }
+}
+
 
 /**
  * Broadcasts a notification to all sales users

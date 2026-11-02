@@ -10,9 +10,12 @@ import {
     XCircle,
     Printer,
     CheckSquare,
+    Calendar,
 } from "lucide-react";
 import { rejectProposalByClient } from "@/features/proposals/actions";
+import { requestPricingMeeting } from "@/features/proposals/signing";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -111,11 +114,29 @@ export function ProposalClientView({
     const [rejectReason, setRejectReason] = useState("");
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+    const [isRequestingPricing, setIsRequestingPricing] = useState(false);
 
     const isApproved = proposal.status === "signed";
     const isRejected = proposal.status === "declined";
 
     const grandTotal = proposal.total || parsedPricing.total || 0;
+
+    const handleRequestPricingMeeting = async () => {
+        setIsRequestingPricing(true);
+        try {
+            const res = await requestPricingMeeting(proposal.id);
+            if (res.success) {
+                toast.success("Pricing meeting requested. Your Project Manager has been notified.");
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to request pricing meeting");
+            }
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed to request pricing meeting");
+        } finally {
+            setIsRequestingPricing(false);
+        }
+    };
 
     const handleDownloadPdf = async () => {
         try {
@@ -367,16 +388,42 @@ export function ProposalClientView({
                             </Dialog>
                         )}
 
-                        {/* Accept & Sign Button */}
+                        {/* Accept & Sign or Request Pricing Meeting Button */}
                         {!isPreview ? (
-                            <Button
-                                size="sm"
-                                onClick={() => setIsAcceptDialogOpen(true)}
-                                className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
-                            >
-                                <CheckSquare className="h-4 w-4" />
-                                Accept & Sign
-                            </Button>
+                            proposal.priceMode === "to_be_discussed" ? (
+                                proposal.status === "pricing_meeting_requested" ? (
+                                    <Badge
+                                        variant="outline"
+                                        className="h-9 px-3 text-xs bg-amber-500/10 text-amber-500 border-amber-500/20 flex items-center gap-1.5"
+                                    >
+                                        <Calendar className="h-3.5 w-3.5" />
+                                        Meeting Requested
+                                    </Badge>
+                                ) : (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleRequestPricingMeeting}
+                                        disabled={isRequestingPricing}
+                                        className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
+                                    >
+                                        {isRequestingPricing ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Calendar className="h-4 w-4" />
+                                        )}
+                                        Request Pricing Meeting
+                                    </Button>
+                                )
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    onClick={() => setIsAcceptDialogOpen(true)}
+                                    className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
+                                >
+                                    <CheckSquare className="h-4 w-4" />
+                                    Accept & Sign
+                                </Button>
+                            )
                         ) : canEditInStudio ? (
                             <Button
                                 size="sm"
