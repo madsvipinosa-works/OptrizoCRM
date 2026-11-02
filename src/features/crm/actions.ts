@@ -1089,7 +1089,7 @@ export async function reopenLead(leadId: string, reopenReason: string): Promise<
 }
 
 export async function getLeads() {
-    const authz = await requireRole(["sales", "manager"]);
+    const authz = await requireRole(["sales"]);
     if (!authz.ok) return [];
 
     return db.query.leads.findMany({
@@ -1107,7 +1107,7 @@ export async function getLeads() {
 }
 
 export async function getPipelineLeads() {
-    const authz = await requireRole(["sales", "manager"]);
+    const authz = await requireRole(["sales"]);
     if (!authz.ok) return [];
 
     return db.query.leads.findMany({
@@ -1375,7 +1375,7 @@ export async function bulkAssignLeads(
 
 export async function getDiscoveryTrackerData(leadId: string) {
     const session = await auth();
-    if (!hasRole(session, ["sales", "manager"])) {
+    if (!hasRole(session, ["sales"])) {
         return null;
     }
 

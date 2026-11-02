@@ -57,7 +57,7 @@ const navGroups: NavGroup[] = [
             { href: "/dashboard/analytics", label: "Analytics & Reports", icon: BarChart3, allowedRoles: ["superadmin"] },
             { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["sales"] },
             { href: "/dashboard/contacts", label: "Contacts", icon: Users, allowedRoles: ["sales"] },
-            { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["sales", "manager"] },
+            { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["sales"] },
             { href: "/dashboard/meetings", label: "Meetings", icon: Calendar, allowedRoles: ["sales", "manager"] },
             { href: "/dashboard/proposals", label: "Proposals & SOWs", icon: FileText, allowedRoles: ["sales", "manager"] },
         ],

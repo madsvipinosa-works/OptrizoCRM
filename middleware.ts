@@ -28,7 +28,7 @@ function isAllowedOnDashboardPath(pathname: string, role: string): boolean {
   }
 
   if (cleanPath === "/dashboard/leads" || cleanPath.startsWith("/dashboard/leads/")) {
-    return role === "sales" || role === "manager";
+    return role === "sales";
   }
 
   if (
