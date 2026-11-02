@@ -179,8 +179,8 @@ export default async function AvailedServicesPage() {
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2">
-                        {clientLeads.map((lead: any) => {
-                            const activeProposal = lead.proposals?.[0];
+                        {clientLeads.map((lead) => {
+                            const activeProposal = lead.proposals?.find((p) => ["signed", "sent", "pricing_meeting_requested", "changes_requested"].includes(p.status));
                             return (
                                 <div
                                     key={lead.id}
@@ -216,23 +216,23 @@ export default async function AvailedServicesPage() {
                                                     </span>
                                                 </div>
                                                 <Badge variant="outline" className={`text-[10px] py-0 font-mono ${
-                                                    activeProposal.status === "Approved"
+                                                    activeProposal.status === "signed"
                                                         ? "border-primary/40 text-primary bg-primary/10"
                                                         : "border-amber-500/40 text-amber-500 bg-amber-500/10"
                                                 }`}>
-                                                    {activeProposal.status === "Approved" ? "Executed Contract" : "Ready for Review"}
+                                                    {activeProposal.status === "signed" ? "Executed Contract" : "Ready for Review"}
                                                 </Badge>
                                             </div>
 
                                             <div className="flex items-center justify-between pt-1 text-xs">
                                                 <span className="font-mono text-emerald-400 font-bold">
-                                                    Investment: ${(Number(activeProposal.total) || 0).toLocaleString()}
+                                                    Investment: {activeProposal.priceMode === "to_be_discussed" ? "To be discussed" : `${activeProposal.currency === "PHP" ? "₱" : "$"}${(Number(activeProposal.totalPrice ?? activeProposal.total) || 0).toLocaleString()}`}
                                                 </span>
                                                 <Link
                                                     href={`/proposal/${activeProposal.id}`}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-black text-xs font-bold transition-all shadow-xs"
                                                 >
-                                                    {activeProposal.status === "Approved" ? "View Agreement" : "Review & Sign"} &rarr;
+                                                    {activeProposal.status === "signed" ? "View Agreement" : "Review & Sign"} &rarr;
                                                 </Link>
                                             </div>
                                         </div>

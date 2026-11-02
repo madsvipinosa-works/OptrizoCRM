@@ -24,12 +24,30 @@ export interface ProposalDocumentData {
     timeline?: string | null;
     pricingStructure?: PricingLineItem[] | null;
     subtotal?: number | null;
+    priceMode?: "to_be_discussed" | "priced" | string | null;
+    currency?: "PHP" | "USD" | string | null;
+    totalPrice?: number | null;
     discount?: number | null;
     tax?: number | null;
     total?: number | null;
+    needsGoals?: string | { needs?: string; goals?: string } | null;
+    milestones?: Array<{
+        key: string;
+        title: string;
+        description?: string;
+        startDate?: string | null;
+        endDate?: string | null;
+    }> | null;
+    paymentScheduleItems?: Array<{
+        id?: string;
+        label: string;
+        percent: number;
+        trigger: string;
+        sortOrder?: number;
+    }> | null;
     terms?: string | null;
     validUntil?: string | Date | null;
-    status?: "Draft" | "Sent" | "Approved" | "Rejected";
+    status?: string;
     // Signature Audit
     acceptedByName?: string | null;
     acceptedByTitle?: string | null;
@@ -51,6 +69,15 @@ interface ProposalDocumentSheetProps {
     agencyLogoUrl?: string | null;
     agencyFaviconUrl?: string | null;
 }
+
+
+const DEFAULT_MILESTONES_META: Record<string, { title: string; description: string }> = {
+    requirements: { title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
+    design: { title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
+    development: { title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
+    uat_testing: { title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
+    handover: { title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
+};
 
 export function ProposalDocumentSheet({
     data,
@@ -90,11 +117,11 @@ export function ProposalDocumentSheet({
     const deliverablesList = Array.isArray(data.deliverables) ? data.deliverables : [];
     const pricingItems = Array.isArray(data.pricingStructure) ? data.pricingStructure : [];
 
-    const currencyFormatter = new Intl.NumberFormat("en-US", {
+    const effectiveCurrency = data.currency === "USD" ? "USD" : "PHP";
+    const currencyFormatter = new Intl.NumberFormat(effectiveCurrency === "PHP" ? "en-PH" : "en-US", {
         style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
+        currency: effectiveCurrency,
+        maximumFractionDigits: 0,
     });
 
     // Section counter — increments only for rendered sections
@@ -208,9 +235,9 @@ export function ProposalDocumentSheet({
                         <div>
                             STATUS: <span className={cn(
                                 "font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded",
-                                data.status === "Approved" ? "bg-emerald-500/10 text-emerald-500 font-bold" :
-                                data.status === "Sent" ? "bg-blue-500/10 text-blue-500 font-bold" :
-                                data.status === "Rejected" ? "bg-rose-500/10 text-rose-500 font-bold" :
+                                data.status === "signed" ? "bg-emerald-500/10 text-emerald-500 font-bold" :
+                                data.status === "sent" ? "bg-blue-500/10 text-blue-500 font-bold" :
+                                data.status === "declined" ? "bg-rose-500/10 text-rose-500 font-bold" :
                                 "bg-muted text-muted-foreground"
                             )}>{data.status || "DRAFT"}</span>
                         </div>
@@ -309,6 +336,20 @@ export function ProposalDocumentSheet({
                 </div>
             </section>
 
+            {/* Needs & Strategic Objectives */}
+            {data.needsGoals && (
+                <section className="space-y-3 print-avoid-break w-full min-w-0">
+                    <h2 className="text-base font-serif font-bold text-foreground border-b border-border/60 pb-1.5 uppercase tracking-wide">
+                        {nextSection()}. Needs &amp; Strategic Objectives
+                    </h2>
+                    <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line break-words min-w-0">
+                        {typeof data.needsGoals === "object" && data.needsGoals !== null
+                            ? [data.needsGoals.needs ? `Client Needs:\n${data.needsGoals.needs}` : "", data.needsGoals.goals ? `Goals:\n${data.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
+                            : data.needsGoals}
+                    </div>
+                </section>
+            )}
+
             {/* 3. Technical Architecture */}
             {data.technicalApproach && (
                 <section className="space-y-3 print-avoid-break w-full min-w-0">
@@ -341,15 +382,37 @@ export function ProposalDocumentSheet({
                 </section>
             )}
 
-            {/* 5. Timeline */}
-            {data.timeline && (
-                <section className="space-y-2 print-avoid-break w-full min-w-0">
-                    <h2 className="text-base font-serif font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                        <Calendar className="w-4 h-4 text-primary shrink-0" /> {nextSection()}. Target Timeline &amp; Delivery Schedule
-                    </h2>
+            {/* 5. Scope of Work & Delivery Timeline */}
+            <section className="space-y-3 print-avoid-break w-full min-w-0">
+                <h2 className="text-base font-serif font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-1.5 uppercase tracking-wide">
+                    <Calendar className="w-4 h-4 text-primary shrink-0" /> {nextSection()}. Scope of Work &amp; Delivery Timeline
+                </h2>
+                {data.milestones && data.milestones.length > 0 ? (
+                    <div className="border border-border/60 rounded-lg overflow-hidden text-xs divide-y divide-border/40">
+                        {data.milestones.map((m) => {
+                            const meta = DEFAULT_MILESTONES_META[m.key] || { title: m.title, description: m.description || "" };
+                            const dateStr = m.startDate && m.endDate
+                                ? `${safeFormatDate(m.startDate, { month: "short", day: "numeric" })} – ${safeFormatDate(m.endDate, { month: "short", day: "numeric", year: "numeric" })}`
+                                : m.startDate
+                                ? `Starts ${safeFormatDate(m.startDate, { month: "short", day: "numeric" })}`
+                                : "Dates to be finalized";
+                            return (
+                                <div key={m.key} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/10 gap-2">
+                                    <div className="min-w-0">
+                                        <div className="font-semibold text-foreground text-xs">{meta.title}</div>
+                                        <div className="text-[11px] text-muted-foreground">{meta.description}</div>
+                                    </div>
+                                    <div className="text-foreground/90 font-mono text-[11px] whitespace-nowrap shrink-0 text-right">
+                                        {dateStr}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : data.timeline ? (
                     <p className="text-sm text-foreground/90 leading-relaxed break-words min-w-0">{data.timeline}</p>
-                </section>
-            )}
+                ) : null}
+            </section>
 
             {/* 6. Pricing */}
             <section className="space-y-3 print-avoid-break w-full min-w-0">
@@ -357,7 +420,31 @@ export function ProposalDocumentSheet({
                     {nextSection()}. Commercial Terms &amp; Investment Schedule
                 </h2>
 
-                <div className="border border-border rounded-lg overflow-x-auto print:overflow-visible w-full min-w-0 shadow-sm">
+                {data.priceMode === "to_be_discussed" ? (
+                    <div className="p-5 rounded-xl border border-border bg-muted/20 text-center space-y-1.5 my-3">
+                        <span className="text-xs uppercase font-mono tracking-wider text-muted-foreground block font-semibold">
+                            Commercial Investment
+                        </span>
+                        <div className="text-lg sm:text-xl font-bold font-serif text-foreground">
+                            Price to be discussed
+                        </div>
+                        <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                            Technical scope and deliverables are outlined above. Commercial pricing and payment milestone triggers will be agreed upon during project alignment.
+                        </p>
+                    </div>
+                ) : data.priceMode === "priced" ? (
+                    <div className="p-5 rounded-xl border border-border bg-primary/5 space-y-3 my-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span className="text-xs uppercase font-mono tracking-wider text-muted-foreground font-semibold">
+                                Total Contract Value
+                            </span>
+                            <span className="text-2xl font-bold font-mono text-primary">
+                                {currencyFormatter.format(data.totalPrice ?? data.total ?? 0)}
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="border border-border rounded-lg overflow-x-auto print:overflow-visible w-full min-w-0 shadow-sm">
                     <table className="w-full text-left text-sm table-fixed min-w-[500px] sm:min-w-0">
                         <colgroup>
                             <col className="w-[52%] sm:w-[56%]" />
@@ -429,6 +516,8 @@ export function ProposalDocumentSheet({
                     </table>
                 </div>
 
+                
+                )}
                 {/* Payment Method */}
                 {cs.paymentMethod && (
                     <div className="flex items-start gap-2 text-xs text-muted-foreground mt-2 p-2.5 rounded-lg border border-border/60 bg-muted/20 min-w-0 break-words">
@@ -541,14 +630,14 @@ export function ProposalDocumentSheet({
                     IN WITNESS WHEREOF, the parties hereto have caused this Statement of Work to be executed by their duly authorized representatives.
                 </p>
 
-                {data.status === "Approved" ? (
+                {data.status === "signed" ? (
                     <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full min-w-0 overflow-hidden">
                         <div className="space-y-1 min-w-0 break-words">
                             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                                 <ShieldCheck className="w-4 h-4 shrink-0" /> Digital Portal Sign-Off &amp; Verification Timestamp
                             </div>
                             <p className="text-xs text-muted-foreground break-words">
-                                Approved via Client Portal by <strong className="text-foreground">{data.acceptedByName || "Client Signatory"}</strong>
+                                Signed via Client Portal by <strong className="text-foreground">{data.acceptedByName || "Client Signatory"}</strong>
                                 {data.acceptedByTitle ? ` (${data.acceptedByTitle})` : ""} on{" "}
                                 {data.acceptedAt ? safeFormatDate(data.acceptedAt, undefined, formattedCreatedDate) : formattedCreatedDate}.
                             </p>

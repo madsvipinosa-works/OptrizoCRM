@@ -68,6 +68,23 @@ export function generateSOWHtml(data: {
     discount: number;
     tax: number;
     total: number;
+    priceMode?: "to_be_discussed" | "priced" | string | null;
+    currency?: "PHP" | "USD" | string | null;
+    totalPrice?: number | null;
+    needsGoals?: string | { needs?: string; goals?: string } | null;
+    milestones?: Array<{
+        key: string;
+        title: string;
+        description?: string;
+        startDate?: string | null;
+        endDate?: string | null;
+    }> | null;
+    paymentScheduleItems?: Array<{
+        label: string;
+        percent: number;
+        trigger: string;
+        sortOrder?: number;
+    }> | null;
     terms?: string | null;
     status: string;
     acceptedByName?: string | null;
@@ -86,11 +103,11 @@ export function generateSOWHtml(data: {
     agencyFaviconUrl?: string | null;
     contractSettings?: any;
 }): string {
-    const currencyFormatter = new Intl.NumberFormat("en-US", {
+    const effectiveCurrency = data.currency === "USD" ? "USD" : "PHP";
+    const currencyFormatter = new Intl.NumberFormat(effectiveCurrency === "PHP" ? "en-PH" : "en-US", {
         style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
+        currency: effectiveCurrency,
+        maximumFractionDigits: 0,
     });
 
     const cs = data.contractSettings || {};
@@ -100,6 +117,11 @@ export function generateSOWHtml(data: {
     const safeScope = escapeHtml(data.scope || "Detailed scope parameters and technical deliverables.");
     const safeTechnicalApproach = data.technicalApproach ? escapeHtml(data.technicalApproach) : null;
     const safeTimeline = data.timeline ? escapeHtml(data.timeline) : null;
+    const safeNeedsGoals = typeof data.needsGoals === "object" && data.needsGoals !== null
+        ? escapeHtml([data.needsGoals.needs ? `Client Needs:\n${data.needsGoals.needs}` : '', data.needsGoals.goals ? `Goals:\n${data.needsGoals.goals}` : ''].filter(Boolean).join('\n\n'))
+        : escapeHtml(data.needsGoals || data.scope || '');
+    const safeMilestones = data.milestones || [];
+    const safeSchedule = data.paymentScheduleItems || [];
     const safeTerms = escapeHtml(data.terms || "Standard agency terms apply: 50% deposit required upon acceptance to initiate sprint planning, with the remaining balance due upon milestone handover. All custom deliverables and intellectual property will transfer to Client upon receipt of final contract settlement.");
     const safeAcceptedByName = data.acceptedByName ? escapeHtml(data.acceptedByName) : "Client Signatory";
     const safeAcceptedByTitle = data.acceptedByTitle ? escapeHtml(data.acceptedByTitle) : null;
@@ -626,6 +648,13 @@ export function generateSOWHtml(data: {
             <div class="section-content">${safeScope}</div>
         </div>
 
+        <!-- Needs & Strategic Objectives -->
+        ${safeNeedsGoals ? `
+        <div class="section">
+            <div class="section-title">${nextNum()}. Needs &amp; Strategic Objectives</div>
+            <div class="section-content" style="white-space: pre-line;">${safeNeedsGoals}</div>
+        </div>` : ""}
+
         <!-- 2. Technical Architecture -->
         ${safeTechnicalApproach ? `
         <div class="section">
@@ -648,15 +677,50 @@ export function generateSOWHtml(data: {
         </div>` : ""}
 
         <!-- 4. Timeline -->
-        ${safeTimeline ? `
         <div class="section">
-            <div class="section-title">${nextNum()}. Target Timeline &amp; Delivery Schedule</div>
-            <div class="section-content">${safeTimeline}</div>
-        </div>` : ""}
+            <div class="section-title">${nextNum()}. Scope of Work &amp; Delivery Timeline</div>
+            ${safeMilestones.length > 0 ? `
+                <div style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-top: 8px;">
+                    ${safeMilestones.map((m, idx) => {
+                        const dateStr = m.startDate && m.endDate
+                            ? `${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(m.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                            : m.startDate
+                            ? `Starts ${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                            : "Dates to be finalized";
+                        return `
+                            <div style="padding: 10px 14px; border-bottom: ${idx === safeMilestones.length - 1 ? 'none' : '1px solid #e2e8f0'}; display: flex; justify-content: space-between; align-items: center; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                <div>
+                                    <div style="font-size: 9pt; font-weight: 700; color: #0f172a;">${escapeHtml(m.title)}</div>
+                                    <div style="font-size: 7.5pt; color: #64748b;">${escapeHtml(m.description || '')}</div>
+                                </div>
+                                <div style="font-size: 8pt; font-family: monospace; color: #334155; white-space: nowrap; font-weight: 600;">${dateStr}</div>
+                            </div>
+                        `;
+                    }).join("")}
+                </div>
+            ` : `
+                <div class="section-content">${safeTimeline || 'Timeline milestones to be agreed.'}</div>
+            `}
+        </div>
 
         <!-- 5. Investment Schedule / Commercial Terms -->
         <div class="section">
-            <div class="section-title">${nextNum()}. Commercial Terms &amp; Investment Schedule</div>
+            <div class="section-title">${nextNum()}. Commercial Terms &amp; Investment</div>
+            ${data.priceMode === "to_be_discussed" ? `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 18px; text-align: center; margin-top: 8px;">
+                    <div style="font-size: 11pt; font-weight: 700; color: #0f172a;">Commercial Investment: To be discussed</div>
+                    <div style="font-size: 8pt; color: #64748b; margin-top: 4px;">Commercial terms, fees, and milestone payment triggers will be finalized during project alignment.</div>
+                </div>
+            ` : data.priceMode === "priced" ? `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 18px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 8pt; font-weight: 600; color: #64748b; text-transform: uppercase;">Total Contract Value</div>
+                        <div style="font-size: 14pt; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                            ${currencyFormatter.format(data.totalPrice ?? data.total)}
+                        </div>
+                    </div>
+                </div>
+            ` : `
             <table>
                 <colgroup>
                     <col style="width: 52%;" />
@@ -704,6 +768,7 @@ export function generateSOWHtml(data: {
                     </tr>
                 </tfoot>
             </table>
+            `}
             ${cs.paymentMethod ? `
                 <div style="font-size: 7.5pt; color: #64748b; margin-top: 6px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
                     <strong>Accepted Payment Method:</strong> ${escapeHtml(cs.paymentMethod)}
@@ -781,12 +846,12 @@ export function generateSOWHtml(data: {
                 IN WITNESS WHEREOF, the parties hereto have caused this Statement of Work to be executed by their duly authorized representatives.
             </p>
 
-            ${data.status === "Approved" ? `
+            ${data.status === "signed" ? `
                 <div class="verified-badge">
                     <div>
                         <div class="verified-text">&#10003; Digital Portal Sign-Off &amp; Verification Timestamp</div>
                         <div style="font-size: 7.5pt; color: #16a34a; margin-top: 2px;">
-                            Approved via Client Portal by <strong>${safeAcceptedByName}</strong> ${safeAcceptedByTitle ? `(${safeAcceptedByTitle})` : ""} on ${formattedSignedDate}.
+                            Signed via Client Portal by <strong>${safeAcceptedByName}</strong> ${safeAcceptedByTitle ? `(${safeAcceptedByTitle})` : ""} on ${formattedSignedDate}.
                         </div>
                     </div>
                     <div style="margin-top: 2px;">

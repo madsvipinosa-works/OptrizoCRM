@@ -317,7 +317,7 @@ export async function seedDemoAccounts() {
         total: 35000,
         terms: "Net 30 milestone disbursement schedule. Full 100% intellectual property and source code handover upon final sprint delivery. SLA guarantees 99.9% application uptime.",
         validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-        status: "Approved",
+        status: "signed",
         acceptedByName: "Elena Rostova",
         acceptedByEmail: "client@optrizo.com",
         acceptedByTitle: "Chief Technology Officer",
@@ -374,7 +374,7 @@ export async function seedDemoAccounts() {
         total: 18500,
         terms: "Addendum to Master Services Agreement OPT-2026-1042. 50% upon kickoff, 50% upon final acceptance.",
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        status: "Sent",
+        status: "sent",
         contractSettings: {
             clientAddress: "742 Innovation Way, Suite 400, San Francisco, CA 94105",
             clientPhone: "+1 (555) 349-8821",

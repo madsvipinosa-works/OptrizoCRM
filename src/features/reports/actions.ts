@@ -230,7 +230,7 @@ export async function getLeadConversionReport(dateRange: ReportDateRange): Promi
             // 1. lead.closedWonAt
             // 2. Approved proposal acceptedAt / updatedAt
             // 3. lead.updatedAt
-            const approvedProposal = lead.proposals?.find(p => p.status === "Approved");
+            const approvedProposal = lead.proposals?.find(p => p.status === "signed");
             const effectiveWonDate = lead.closedWonAt
                 ? new Date(lead.closedWonAt)
                 : approvedProposal?.acceptedAt

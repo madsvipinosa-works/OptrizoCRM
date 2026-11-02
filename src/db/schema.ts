@@ -1,6 +1,7 @@
 import {
     boolean,
     timestamp,
+    date,
     pgTable,
     text,
     primaryKey,
@@ -8,6 +9,7 @@ import {
     pgEnum,
     foreignKey,
     index,
+    uniqueIndex,
     jsonb,
     check
 } from "drizzle-orm/pg-core";
@@ -298,6 +300,7 @@ export const leads = pgTable("lead", {
     details: text("details"),
     clientType: clientTypeEnum("client_type").default("local").notNull(),
     proposalRequestedAt: timestamp("proposal_requested_at", { withTimezone: true }),
+    assignedPmId: text("assigned_pm_id").references(() => users.id, { onDelete: "set null" }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -425,7 +428,34 @@ export const discoveryForms = pgTable("discovery_form", {
 ]);
 
 // 14. Proposals
-export const proposalStatusEnum = pgEnum("proposal_status", ["Draft", "Sent", "Approved", "Rejected"]);
+export const proposalStatusEnum = pgEnum("proposal_status", [
+    "draft",
+    "sent",
+    "pricing_meeting_requested",
+    "changes_requested",
+    "signed",
+    "declined",
+    "replaced",
+]);
+
+export const priceModeEnum = pgEnum("price_mode", ["to_be_discussed", "priced"]);
+export const currencyEnum = pgEnum("currency", ["PHP", "USD"]);
+export const milestoneNameEnum = pgEnum("milestone_name", [
+    "requirements",
+    "design",
+    "development",
+    "uat_testing",
+    "handover",
+]);
+export const paymentTriggerEnum = pgEnum("payment_trigger", [
+    "on_signing",
+    "requirements",
+    "design",
+    "development",
+    "uat_testing",
+    "handover",
+    "before_completion",
+]);
 
 export const proposals = pgTable("proposal", {
     id: text("id")
@@ -446,7 +476,13 @@ export const proposals = pgTable("proposal", {
     total: integer("total").default(0),
     terms: text("terms"),
     validUntil: timestamp("valid_until"),
-    status: proposalStatusEnum("status").default("Draft").notNull(),
+    version: integer("version").notNull().default(1),
+    status: proposalStatusEnum("status").default("draft").notNull(),
+    priceMode: priceModeEnum("price_mode").default("to_be_discussed").notNull(),
+    currency: currencyEnum("currency").default("PHP").notNull(),
+    totalPrice: integer("total_price"),
+    needsGoals: jsonb("needs_goals").$type<{ needs: string; goals: string }>(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
     fileUrl: text("fileUrl"),
     rejectionReason: text("rejection_reason"),
     // Hybrid Digital Signature Metadata
@@ -480,7 +516,43 @@ export const proposals = pgTable("proposal", {
 }, (t) => [
     index("idx_proposal_lead").on(t.leadId),
     index("idx_proposal_code").on(t.proposalCode),
+    uniqueIndex("idx_proposal_lead_version").on(t.leadId, t.version),
 ]);
+
+export const proposalMilestones = pgTable("proposal_milestone", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    proposalId: text("proposal_id")
+        .notNull()
+        .references(() => proposals.id, { onDelete: "cascade" }),
+    name: milestoneNameEnum("name").notNull(),
+    startDate: timestamp("start_date", { withTimezone: true }),
+    endDate: timestamp("end_date", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex("proposal_milestone_proposal_name_idx").on(t.proposalId, t.name)
+]);
+
+export const paymentScheduleItems = pgTable("payment_schedule_item", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    proposalId: text("proposal_id")
+        .notNull()
+        .references(() => proposals.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    percent: integer("percent").notNull(),
+    trigger: paymentTriggerEnum("trigger").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index("idx_payment_schedule_item_proposal_id").on(t.proposalId),
+]);
+
+
 
 // 15. Audit Logs
 export const auditActionEnum = pgEnum("audit_action", ["CREATE", "UPDATE", "DELETE", "LOGIN", "OTHER"]);
@@ -584,6 +656,10 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
     service: one(services, {
         fields: [leads.serviceId],
         references: [services.id],
+    }),
+    assignedPm: one(users, {
+        fields: [leads.assignedPmId],
+        references: [users.id],
     })
 }));
 
@@ -630,10 +706,27 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     }),
 }));
 
-export const proposalsRelations = relations(proposals, ({ one }) => ({
+export const proposalsRelations = relations(proposals, ({ one, many }) => ({
     lead: one(leads, {
         fields: [proposals.leadId],
         references: [leads.id],
+    }),
+    milestones: many(proposalMilestones),
+    paymentScheduleItems: many(paymentScheduleItems),
+}));
+
+
+export const paymentScheduleItemsRelations = relations(paymentScheduleItems, ({ one }) => ({
+    proposal: one(proposals, {
+        fields: [paymentScheduleItems.proposalId],
+        references: [proposals.id],
+    }),
+}));
+
+export const proposalMilestonesRelations = relations(proposalMilestones, ({ one }) => ({
+    proposal: one(proposals, {
+        fields: [proposalMilestones.proposalId],
+        references: [proposals.id],
     }),
 }));
 

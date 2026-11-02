@@ -693,7 +693,7 @@ export async function getUnifiedDashboardData() {
 
         // Pending Proposals (Medium / Yellow)
         allProposals.forEach(p => {
-            if (p.status === "Sent" && !p.deletedAt && !p.lead?.archivedAt) {
+            if (p.status === "sent" && !p.deletedAt && !p.lead?.archivedAt) {
                 actionQueue.push({
                     id: `prop-${p.id}`,
                     type: "pending_proposal",
@@ -1167,7 +1167,7 @@ async function validateLeadTransition(
 
     if (newStatus === "Closed Won") {
         const proposal = await db.query.proposals.findFirst({
-            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "Approved")),
+            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "signed")),
         });
         if (!proposal) {
             return { valid: false, error: "Cannot move to Closed Won. This deal requires an approved proposal." };

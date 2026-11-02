@@ -94,7 +94,7 @@ export default async function ClientPortalPage() {
 
     const pendingProposals = clientLeadsWithProposals
         .flatMap((l) => l.proposals)
-        .filter((p) => p.status === "Sent");
+        .filter((p) => p.status === "sent" || p.status === "pricing_meeting_requested" || p.status === "changes_requested");
 
     // Fetch recent notifications for this client
     const recentNotifications = await db.query.notifications.findMany({

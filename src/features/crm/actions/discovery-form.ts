@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { discoveryForms, leads, meetings, leadActivityLogs, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
@@ -192,16 +192,36 @@ export async function requestProposal(leadId: string) {
             updatedAt: now,
         }).where(eq(leads.id, leadId));
 
-        // 2. Notify every PM (role: "manager") using existing notification helper in send.ts (User change 5)
-        const pmUsers = await db.query.users.findMany({
-            where: and(
-                eq(users.role, "manager"),
-                eq(users.isActive, true)
-            ),
-        });
+        // 2. Notify assigned PM if active, or every PM (role: "manager") if unassigned/deactivated
+        let targetPms: Array<{ id: string }> = [];
+        if (lead.assignedPmId) {
+            const assignedPm = await db.query.users.findFirst({
+                where: and(
+                    eq(users.id, lead.assignedPmId),
+                    eq(users.role, "manager"),
+                    eq(users.isActive, true),
+                    isNull(users.deletedAt)
+                ),
+                columns: { id: true },
+            });
+            if (assignedPm) {
+                targetPms = [assignedPm];
+            }
+        }
+
+        if (targetPms.length === 0) {
+            targetPms = await db.query.users.findMany({
+                where: and(
+                    eq(users.role, "manager"),
+                    eq(users.isActive, true),
+                    isNull(users.deletedAt)
+                ),
+                columns: { id: true },
+            });
+        }
 
         const leadTitle = lead.businessName || lead.contactName || "lead";
-        for (const pm of pmUsers) {
+        for (const pm of targetPms) {
             await createSystemNotification(
                 pm.id,
                 `Proposal requested for ${leadTitle}`,

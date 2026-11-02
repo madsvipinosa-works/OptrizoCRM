@@ -36,6 +36,8 @@ export default async function ProposalPage({
     const proposal = await db.query.proposals.findFirst({
         where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),
         with: {
+            milestones: true,
+            paymentScheduleItems: true,
             lead: {
                 with: {
                     client: true,
@@ -72,15 +74,14 @@ export default async function ProposalPage({
          session.user.email === proposal.lead.contactEmail);
 
     if (!isOwner) {
-        return (
-            <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
-                <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
-                    <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
-                    <p className="text-foreground/80 text-sm">Forbidden: You do not own this proposal.</p>
-                </div>
-            </div>
-        );
+        notFound();
     }
+
+    // Clients see proposals only in active sent/discussion/signed/declined statuses. 404 on draft and replaced.
+    if (proposal.status === "draft" || proposal.status === "replaced") {
+        notFound();
+    }
+
 
     // Parse the JSON data safely
     let parsedDeliverables: string[] = [];

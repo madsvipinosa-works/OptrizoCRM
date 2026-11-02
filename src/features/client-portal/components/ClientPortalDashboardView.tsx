@@ -141,7 +141,7 @@ export function ClientPortalDashboardView({
                                                 {prop.proposalCode || "Statement of Work"}
                                             </span>
                                             <Badge className="bg-primary text-black font-bold text-[10px]">
-                                                {prop.status === "Approved" ? "Executed Contract" : "Awaiting Signature"}
+                                                {prop.status === "signed" ? "Executed Contract" : "Awaiting Signature"}
                                             </Badge>
                                         </div>
                                         {prop.scope && (
@@ -150,7 +150,7 @@ export function ClientPortalDashboardView({
                                             </p>
                                         )}
                                         <div className="text-xs font-mono text-emerald-400 font-semibold">
-                                            Total Investment: ${(Number(prop.total) || 0).toLocaleString()}
+                                            Total Investment: {(prop as unknown as { priceMode?: string }).priceMode === "to_be_discussed" ? "To be discussed" : `${(prop as unknown as { currency?: string }).currency === "PHP" ? "₱" : "$"}${(Number((prop as unknown as { totalPrice?: number | null }).totalPrice ?? prop.total) || 0).toLocaleString()}`}
                                         </div>
                                     </div>
                                     <Link

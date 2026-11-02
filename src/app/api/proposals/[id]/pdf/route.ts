@@ -50,6 +50,7 @@ export async function GET(
                 lead: {
                     with: {
                         client: true,
+                        assignees: true,
                     },
                 },
             },
@@ -59,27 +60,32 @@ export async function GET(
             return new NextResponse("Proposal not found", { status: 404 });
         }
 
-        // Strictly block internal production/marketing roles from financial PDFs
-        const userRole = (session.user as any)?.role;
-        if (["editor", "developer", "content_editor"].includes(userRole)) {
-            return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 });
-        }
-
         // Access Control
-        const isStaff = hasRole(session, ["manager", "sales"]);
-        const isOwner =
-            proposal.lead &&
-            (session.user.id === proposal.lead.clientId ||
-             session.user.email === proposal.lead.client?.email ||
-             session.user.email === proposal.lead.contactEmail);
+        // Staff allowed: sales (own or unassigned leads) and manager. Clients: own lead only, and never draft or replaced.
+        const userRole = (session.user as any)?.role;
+        const lead = proposal.lead;
 
-        // Tenant/Client Isolation Check (Prevent IDOR)
         if (userRole === "client") {
-            if (!isOwner) {
+            const isOwner =
+                lead &&
+                (session.user.id === lead.clientId ||
+                 session.user.email === lead.client?.email ||
+                 session.user.email === lead.contactEmail);
+
+            if (!isOwner || proposal.status === "draft" || proposal.status === "replaced") {
                 return NextResponse.json({ error: "Forbidden: You do not own this proposal" }, { status: 403 });
             }
-        } else if (!isStaff) {
-            return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
+        } else if (hasRole(session, ["manager"])) {
+            // Managers have staff access to all proposals
+        } else if (hasRole(session, ["sales"])) {
+            const assignees = lead?.assignees || [];
+            const isOwnLead = assignees.some((a) => a.userId === session.user.id);
+            const isUnassigned = assignees.length === 0;
+            if (!isOwnLead && !isUnassigned) {
+                return new NextResponse("Forbidden: Access denied", { status: 403 });
+            }
+        } else {
+            return new NextResponse("Forbidden: Access denied", { status: 403 });
         }
 
         // Parse deliverables & pricing
@@ -131,6 +137,10 @@ export async function GET(
             discount: proposal.discount || 0,
             tax: proposal.tax || 0,
             total: proposal.total || 0,
+            priceMode: proposal.priceMode,
+            currency: proposal.currency,
+            totalPrice: proposal.totalPrice,
+            needsGoals: proposal.needsGoals,
             terms: proposal.terms,
             status: proposal.status,
             acceptedByName: proposal.acceptedByName,

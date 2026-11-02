@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateProposal, sendProposalEmail, ProposalData, ContractSettings } from "@/features/proposals/actions";
+import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals, updateProposalMilestones, savePaymentSchedule, sendProposal } from "@/features/proposals/actions";
 import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 import { printProposalPdf } from "@/features/proposals/utils/printProposalPdf";
 import {
@@ -55,23 +55,55 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+
+const DEFAULT_PROPOSAL_MILESTONES = [
+    { key: "requirements", title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
+    { key: "design", title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
+    { key: "development", title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
+    { key: "uat_testing", title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
+    { key: "handover", title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
+] as const;
+
+const DEFAULT_PAYMENT_SCHEDULE_ITEMS = [
+    { label: "On signing", percent: 30, trigger: "on_signing", sortOrder: 0 },
+    { label: "After design approval", percent: 30, trigger: "design", sortOrder: 1 },
+    { label: "On handover", percent: 40, trigger: "handover", sortOrder: 2 },
+] as const;
+
 interface ProposalBuilderStudioProps {
     proposal: {
         id: string;
         leadId: string;
         proposalCode?: string | null;
         scope?: string | null;
-        deliverables?: any;
+        deliverables?: unknown;
         timeline?: string | null;
         technicalApproach?: string | null;
-        pricingStructure?: any;
+        pricingStructure?: unknown;
         subtotal?: number | null;
+        priceMode?: "to_be_discussed" | "priced" | null;
+        currency?: "PHP" | "USD" | null;
+        totalPrice?: number | null;
+        needsGoals?: string | { needs?: string; goals?: string } | null;
+        milestones?: Array<{
+            key: string;
+            title: string;
+            startDate?: string | null;
+            endDate?: string | null;
+        }> | null;
+        paymentScheduleItems?: Array<{
+            id?: string;
+            label: string;
+            percent: number;
+            trigger: string;
+            sortOrder?: number;
+        }> | null;
         discount?: number | null;
         tax?: number | null;
         total?: number | null;
         terms?: string | null;
         validUntil?: Date | string | null;
-        status: "Draft" | "Sent" | "Approved" | "Rejected";
+        status: "draft" | "sent" | "pricing_meeting_requested" | "changes_requested" | "signed" | "declined" | "replaced";
         fileUrl?: string | null;
         acceptedByName?: string | null;
         acceptedByTitle?: string | null;
@@ -159,7 +191,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
-    const [currentStatus, setCurrentStatus] = useState<"Draft" | "Sent" | "Approved" | "Rejected">(proposal.status);
+    const [currentStatus, setCurrentStatus] = useState<string>(proposal.status);
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(() => {
         if (!proposal.createdAt) return null;
         const d = new Date(proposal.createdAt);
@@ -191,18 +223,19 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             try {
                 raw = JSON.parse(raw);
             } catch {
-                return [raw];
+                return [String(raw)];
             }
         }
         if (Array.isArray(raw)) {
-            const list = raw.map((d: any) => {
+            const list: string[] = raw.map((d: unknown) => {
                 if (typeof d === "string") return d;
                 if (d && typeof d === "object") {
-                    return d.title ? (d.description ? `${d.title}: ${d.description}` : d.title) : (d.description || JSON.stringify(d));
+                    const item = d as { title?: string; description?: string };
+                    return item.title ? (item.description ? `${item.title}: ${item.description}` : item.title) : (item.description || JSON.stringify(d));
                 }
                 return String(d || "");
             }).filter((s) => typeof s === "string" && s.trim() !== "");
-            return list.length > 0 ? list : [""];
+            return list.length > 0 ? (list as string[]) : [""];
         }
         return [""];
     }, [proposal.deliverables]);
@@ -217,16 +250,17 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                 // ignore
             }
         }
-        if (typeof raw === "object" && raw !== null && "items" in raw && Array.isArray((raw as any).items)) {
-            raw = (raw as any).items;
+        if (typeof raw === "object" && raw !== null && "items" in raw && Array.isArray((raw as { items?: unknown[] }).items)) {
+            raw = (raw as { items: unknown[] }).items;
         }
         if (Array.isArray(raw)) {
-            const list = raw.map((i: any) => {
-                const name = i.name || i.title || i.description || "Service Item";
-                const description = i.description || "";
-                const quantity = Number(i.quantity) || 1;
-                const unitPrice = Number(i.unitPrice ?? i.amount ?? i.price) || 0;
-                const total = Number(i.total) || quantity * unitPrice;
+            const list = raw.map((i: unknown) => {
+                const item = (i && typeof i === "object" ? i : {}) as Record<string, unknown>;
+                const name = String(item.name || item.title || item.description || "Service Item");
+                const description = String(item.description || "");
+                const quantity = Number(item.quantity) || 1;
+                const unitPrice = Number(item.unitPrice ?? item.amount ?? item.price) || 0;
+                const total = Number(item.total) || quantity * unitPrice;
                 return { name, description, quantity, unitPrice, total };
             });
             return list.length > 0 ? list : [{ name: "", description: "", quantity: 1, unitPrice: 0, total: 0 }];
@@ -246,6 +280,165 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const [deliverables, setDeliverables] = useState<string[]>(initialDeliverables);
     const [timeline, setTimeline] = useState(proposal.timeline || "4 - 6 Weeks");
     const [pricingItems, setPricingItems] = useState<PricingLineItem[]>(initialPricingItems);
+    const initialNeedsGoals = typeof proposal.needsGoals === "object" && proposal.needsGoals !== null
+        ? [proposal.needsGoals.needs ? `Client Needs:\n${proposal.needsGoals.needs}` : "", proposal.needsGoals.goals ? `Goals:\n${proposal.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
+        : (typeof proposal.needsGoals === "string" ? proposal.needsGoals : (proposal.scope || ""));
+    const [needsGoals, setNeedsGoals] = useState(initialNeedsGoals);
+    const [isNeedsGoalsModalOpen, setIsNeedsGoalsModalOpen] = useState(false);
+    const [isResettingNeedsGoals, setIsResettingNeedsGoals] = useState(false);
+
+    const [milestones, setMilestones] = useState<Array<{
+        key: string;
+        title: string;
+        description: string;
+        startDate: string;
+        endDate: string;
+    }>>(() => {
+        const list = (proposal as { milestones?: Array<{ name?: string; key?: string; startDate?: string | null | Date; endDate?: string | null | Date }> }).milestones || [];
+        const map = new Map(list.map((m) => [m.name || m.key, m]));
+        return DEFAULT_PROPOSAL_MILESTONES.map((def) => {
+            const found = map.get(def.key);
+            return {
+                key: def.key,
+                title: def.title,
+                description: def.description,
+                startDate: (found?.startDate as string) || "",
+                endDate: (found?.endDate as string) || "",
+            };
+        });
+    });
+    const [isMilestonesModalOpen, setIsMilestonesModalOpen] = useState(false);
+    const [isScopeTimelineModalOpen, setIsScopeTimelineModalOpen] = useState(false);
+    const [isSavingMilestones, setIsSavingMilestones] = useState(false);
+
+    const [paymentSchedule, setPaymentSchedule] = useState<Array<{
+        id?: string;
+        label: string;
+        percent: number;
+        trigger: string;
+        sortOrder?: number;
+    }>>(() => {
+        const list = (proposal as { paymentScheduleItems?: Array<{ id?: string; label: string; percent: number; trigger: string; sortOrder?: number }> }).paymentScheduleItems || [];
+        if (list.length > 0) {
+            return list.map((item) => ({
+                id: item.id,
+                label: item.label,
+                percent: Number(item.percent) || 0,
+                trigger: item.trigger || "on_signing",
+                sortOrder: item.sortOrder ?? 0,
+            }));
+        }
+        return DEFAULT_PAYMENT_SCHEDULE_ITEMS.map((item, idx) => ({
+            label: item.label,
+            percent: item.percent,
+            trigger: item.trigger,
+            sortOrder: idx,
+        }));
+    });
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+
+    const totalSchedulePercent = useMemo(() => {
+        return paymentSchedule.reduce((sum, item) => sum + (Number(item.percent) || 0), 0);
+    }, [paymentSchedule]);
+
+    const scheduleSummaryText = useMemo(() => {
+        if (paymentSchedule.length === 0) return "No payments configured";
+        const parts = paymentSchedule.map(p => `${p.percent}% ${p.label.toLowerCase()}`);
+        return `${paymentSchedule.length} payments · ${parts.join(", ")}`;
+    }, [paymentSchedule]);
+
+    const handleSaveSchedule = async () => {
+        if (totalSchedulePercent !== 100) {
+            toast.error(`Percents must add up to exactly 100% (currently ${totalSchedulePercent}%).`);
+            return;
+        }
+        for (const item of paymentSchedule) {
+            if (!item.label.trim()) {
+                toast.error("Every payment schedule item must have a label.");
+                return;
+            }
+        }
+        setIsSavingSchedule(true);
+        try {
+            const res = await savePaymentSchedule(proposal.id, paymentSchedule);
+            if (res.success) {
+                toast.success("Payment schedule saved!");
+                setIsScheduleModalOpen(false);
+            } else {
+                toast.error(res.message || "Failed to save payment schedule");
+            }
+        } catch {
+            toast.error("Failed to save payment schedule");
+        } finally {
+            setIsSavingSchedule(false);
+        }
+    };
+
+
+    const milestoneDateRangeText = useMemo(() => {
+        const dates = milestones.flatMap(m => [m.startDate, m.endDate]).filter(Boolean).sort();
+        if (dates.length === 0) return "5 default milestones · Dates not set";
+        const start = new Date(dates[0]).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const end = new Date(dates[dates.length - 1]).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return `5 default milestones · ${start} – ${end}`;
+    }, [milestones]);
+
+    const handleSaveMilestones = async () => {
+        setIsSavingMilestones(true);
+        try {
+            const res = await updateProposalMilestones(proposal.id, milestones);
+            if (totalSchedulePercent === 100) {
+                await savePaymentSchedule(proposal.id, paymentSchedule);
+            } else if (priceMode === "priced") {
+                toast.error(`Payment schedule total is ${totalSchedulePercent}%. It must be exactly 100%.`);
+                return;
+            }
+            if (res.success) {
+                toast.success("Milestone dates updated!");
+                setIsMilestonesModalOpen(false);
+            } else {
+                toast.error(res.message || "Failed to update milestone dates");
+            }
+        } catch {
+            toast.error("Error updating milestone dates");
+        } finally {
+            setIsSavingMilestones(false);
+        }
+    };
+
+
+    const handleResetNeedsGoals = async () => {
+        setIsResettingNeedsGoals(true);
+        try {
+            const res = await resetProposalNeedsGoals(proposal.id);
+            if (res.success && (res as any).needsGoals) {
+                const ng = (res as any).needsGoals;
+                const formatted = typeof ng === "object" && ng !== null
+                    ? [ng.needs ? `Client Needs:\n${ng.needs}` : "", ng.goals ? `Goals:\n${ng.goals}` : ""].filter(Boolean).join("\n\n")
+                    : String(ng || "");
+                setNeedsGoals(formatted);
+                toast.success("Needs and goals reset to discovery form values.");
+            } else {
+                toast.error(res.message || "Failed to reset");
+            }
+        } catch {
+            toast.error("Failed to reset needs and goals");
+        } finally {
+            setIsResettingNeedsGoals(false);
+        }
+    };
+    const [priceMode, setPriceMode] = useState<"to_be_discussed" | "priced">(
+        proposal.priceMode || "to_be_discussed"
+    );
+    const [currency, setCurrency] = useState<"PHP" | "USD">(
+        proposal.currency || "PHP"
+    );
+    const [totalPrice, setTotalPrice] = useState<number | null>(
+        proposal.totalPrice !== undefined && proposal.totalPrice !== null
+            ? Number(proposal.totalPrice)
+            : null
+    );
     const [discount, setDiscount] = useState<number>(Number(proposal.discount) || 0);
     const [tax, setTax] = useState<number>(Number(proposal.tax) || 0);
     const [terms, setTerms] = useState(
@@ -323,13 +516,13 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     };
 
     // Save handler
-    const handleSave = async (statusOverride?: "Draft" | "Sent") => {
-        const isSentAction = statusOverride === "Sent";
+    const handleSave = async (statusOverride?: string) => {
+        const isSentAction = statusOverride === "sent";
         if (isSentAction) setIsPublishing(true);
         else setIsSaving(true);
 
         const cleanDeliverables = deliverables
-            .map((d) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? ((d as any).title || (d as any).description || "") : String(d || "")).trim())
+            .map((d: unknown) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? (((d as { title?: string; description?: string }).title) || ((d as { title?: string; description?: string }).description) || "") : String(d || "")).trim())
             .filter(Boolean);
         const cleanPricing = pricingItems.filter((p) => (p?.name || "").trim() !== "");
 
@@ -344,6 +537,10 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             discount,
             tax,
             total: grandTotal,
+            priceMode,
+            currency,
+            totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
+            needsGoals,
             terms,
             validUntil: validUntil ? new Date(validUntil) : null,
             contractSettings,
@@ -423,7 +620,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             a.remove();
             window.URL.revokeObjectURL(url);
             toast.success("Statement of Work PDF downloaded!");
-        } catch (e: any) {
+        } catch (e) {
             console.error("PDF download error:", e);
             toast.error("Could not download PDF. Opening print preview...");
             window.print();
@@ -451,7 +648,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         scope,
         technicalApproach,
         deliverables: deliverables
-            .map((d) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? ((d as any).title || (d as any).description || "") : String(d || "")).trim())
+            .map((d: unknown) => (typeof d === "string" ? d : typeof d === "object" && d !== null ? (((d as { title?: string; description?: string }).title) || ((d as { title?: string; description?: string }).description) || "") : String(d || "")).trim())
             .filter(Boolean),
         timeline,
         pricingStructure: pricingItems.filter((p) => (p?.name || "").trim() !== ""),
@@ -459,6 +656,18 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         discount,
         tax,
         total: grandTotal,
+        priceMode,
+        currency,
+        totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
+        needsGoals,
+        milestones: milestones.map(m => ({
+            key: m.key,
+            title: m.title,
+            description: m.description,
+            startDate: m.startDate || null,
+            endDate: m.endDate || null,
+        })),
+        paymentScheduleItems: paymentSchedule,
         terms,
         validUntil,
         status: currentStatus,
@@ -491,21 +700,21 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                             <span className="font-serif font-bold text-base tracking-tight">Proposal Studio</span>
                             <Badge
                                 variant={
-                                    currentStatus === "Approved"
+                                    currentStatus === "signed"
                                         ? "default"
-                                        : currentStatus === "Sent"
+                                        : currentStatus === "sent"
                                         ? "secondary"
                                         : "outline"
                                 }
                                 className={`text-xs capitalize font-medium ${
-                                    currentStatus === "Sent" 
+                                    currentStatus === "sent" 
                                         ? "border-sky-500/40 text-sky-400 bg-sky-500/10" 
-                                        : currentStatus === "Approved"
+                                        : currentStatus === "signed"
                                         ? "bg-primary text-black font-semibold"
                                         : ""
                                 }`}
                             >
-                                {currentStatus === "Sent" ? "Sent to Client" : currentStatus === "Approved" ? "Executed Contract" : currentStatus}
+                                {currentStatus === "sent" ? "Sent to Client" : currentStatus === "signed" ? "Executed Contract" : currentStatus}
                             </Badge>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 hidden sm:flex">
@@ -572,7 +781,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     </div>
 
                     {/* Share Client Link Trigger */}
-                    {currentStatus !== "Draft" && (
+                    {currentStatus !== "draft" && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -590,7 +799,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                         variant="secondary"
                         size="sm"
                         disabled={isSaving || isPublishing}
-                        onClick={() => handleSave("Draft")}
+                        onClick={() => handleSave("draft")}
                         className="items-center gap-1.5"
                     >
                         {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -601,11 +810,11 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     <Button
                         size="sm"
                         disabled={isSaving || isPublishing}
-                        onClick={() => handleSave("Sent")}
+                        onClick={() => handleSave("sent")}
                         className="bg-primary text-black font-semibold hover:bg-primary/90 items-center gap-1.5 shadow-sm"
                     >
                         {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                        {currentStatus === "Sent" ? "Update & Re-send" : "Publish & Send"}
+                        {currentStatus === "sent" ? "Update & Re-send" : "Publish & Send"}
                     </Button>
                 </div>
             </header>
@@ -651,6 +860,25 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                                     className="text-xs"
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Needs and Goals (Step 10a) */}
+                    <div className="space-y-3 pt-4 border-t border-border/60">
+                        <div className="p-4 rounded-xl border border-border bg-card/60 flex items-center justify-between gap-4">
+                            <div>
+                                <strong className="text-foreground text-sm font-semibold block">Needs and goals</strong>
+                                <span className="text-xs text-muted-foreground">Filled in from the discovery form · Editable per proposal</span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsNeedsGoalsModalOpen(true)}
+                                className="font-semibold text-xs"
+                            >
+                                Review &amp; Edit
+                            </Button>
                         </div>
                     </div>
 
@@ -724,198 +952,97 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                         </div>
                     </div>
 
-                    {/* Section: Timeline */}
-                    <div className="space-y-4 pt-4 border-t border-border/60">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground uppercase tracking-wider font-mono">
-                            <Calendar className="h-4 w-4 text-primary" /> Estimated Timeline
+                    {/* Section: Milestones (Step 10b) */}
+                    <div className="bg-card border border-border/70 rounded-xl p-4 flex items-center justify-between">
+                        <div className="space-y-0.5">
+                            <div className="font-semibold text-sm text-foreground">Milestones</div>
+                            <div className="text-xs text-muted-foreground">{milestoneDateRangeText}</div>
                         </div>
-                        <Input
-                            value={timeline}
-                            maxLength={100}
-                            onChange={(e) => setTimeline(e.target.value)}
-                            placeholder="e.g. 4 - 6 Weeks (Milestone-based delivery)"
-                            className="text-sm"
-                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsMilestonesModalOpen(true)}
+                            className="text-xs font-semibold"
+                        >
+                            Edit dates
+                        </Button>
                     </div>
 
-                    {/* Section: Pricing & Investment Schedule */}
+                    {/* Section: Price & Currency (Step 10b / 17a) */}
                     <div className="space-y-4 pt-4 border-t border-border/60">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm font-semibold text-foreground uppercase tracking-wider font-mono">
-                                <DollarSign className="h-4 w-4 text-primary" /> Investment Schedule
+                                <DollarSign className="h-4 w-4 text-primary" /> Price
                             </div>
-                            <Button variant="outline" size="sm" onClick={addPricingItem} className="h-7 text-xs">
-                                <Plus className="h-3 w-3 mr-1" /> Add Line Item
-                            </Button>
                         </div>
 
-                        <div className="space-y-3">
-                            {pricingItems.map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    className="p-3.5 rounded-lg bg-muted/40 border border-border/80 space-y-2.5 relative"
-                                >
-                                    <div className="flex items-start gap-2">
-                                        <div className="flex-1 space-y-1">
-                                            <Input
-                                                value={item.name}
-                                                maxLength={120}
-                                                onChange={(e) => updatePricingItem(idx, "name", e.target.value)}
-                                                placeholder="Service / Phase Name (e.g. Frontend Architecture)"
-                                                className="font-medium text-sm"
-                                            />
-                                            <Input
-                                                value={item.description || ""}
-                                                maxLength={300}
-                                                onChange={(e) => updatePricingItem(idx, "description", e.target.value)}
-                                                placeholder="Description or sub-scope (optional)"
-                                                className="text-xs text-muted-foreground"
-                                            />
-                                        </div>
-                                        {pricingItems.length > 1 && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => removePricingItem(idx)}
-                                                className="text-muted-foreground hover:text-destructive shrink-0 h-8 w-8"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        )}
-                                    </div>
+                        {/* Segmented Toggle: Include price vs Price to be discussed */}
+                        <div className="grid grid-cols-2 rounded-lg border border-border p-1 bg-muted/30">
+                            <button
+                                type="button"
+                                onClick={() => setPriceMode("priced")}
+                                className={`py-2 px-3 text-xs font-semibold rounded-md transition-all ${
+                                    priceMode === "priced"
+                                        ? "bg-primary text-black shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Include price
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPriceMode("to_be_discussed")}
+                                className={`py-2 px-3 text-xs font-semibold rounded-md transition-all ${
+                                    priceMode === "to_be_discussed"
+                                        ? "bg-primary text-black shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Price to be discussed
+                            </button>
+                        </div>
 
-                                    <div className="grid grid-cols-3 gap-3 pt-1">
-                                        <div>
-                                            <Label className="text-[10px] text-muted-foreground uppercase">Qty (1–9,999)</Label>
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                max="9999"
-                                                value={item.quantity === 0 ? "" : item.quantity}
-                                                placeholder="1"
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === "") {
-                                                        updatePricingItem(idx, "quantity", 0);
-                                                        return;
-                                                    }
-                                                    const raw = parseInt(val, 10);
-                                                    if (!isNaN(raw)) {
-                                                        updatePricingItem(idx, "quantity", Math.min(9999, Math.max(0, raw)));
-                                                    }
-                                                }}
-                                                onBlur={(e) => {
-                                                    const raw = parseInt(e.target.value, 10);
-                                                    updatePricingItem(idx, "quantity", isNaN(raw) || raw < 1 ? 1 : Math.min(9999, raw));
-                                                }}
-                                                className="h-8 text-xs font-mono"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label className="text-[10px] text-muted-foreground uppercase">Unit Rate ($)</Label>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                max="10000000"
-                                                value={item.unitPrice === 0 ? "" : item.unitPrice}
-                                                placeholder="0"
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === "") {
-                                                        updatePricingItem(idx, "unitPrice", 0);
-                                                        return;
-                                                    }
-                                                    const raw = parseFloat(val);
-                                                    if (!isNaN(raw)) {
-                                                        updatePricingItem(idx, "unitPrice", Math.min(10000000, Math.max(0, raw)));
-                                                    }
-                                                }}
-                                                onBlur={(e) => {
-                                                    const raw = parseFloat(e.target.value);
-                                                    updatePricingItem(idx, "unitPrice", isNaN(raw) || raw < 0 ? 0 : Math.min(10000000, raw));
-                                                }}
-                                                className="h-8 text-xs font-mono"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label className="text-[10px] text-muted-foreground uppercase">Item Total</Label>
-                                            <div className="h-8 flex items-center justify-end font-mono text-sm font-semibold px-2 bg-background/50 rounded border border-border">
-                                                ${(item.total ?? 0).toLocaleString()}
-                                            </div>
-                                        </div>
+                        {priceMode === "priced" ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl border border-border/80 bg-muted/20">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase font-mono">Currency</Label>
+                                    <select
+                                        value={currency}
+                                        onChange={(e) => setCurrency(e.target.value as "PHP" | "USD")}
+                                        className="h-9 w-full mt-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    >
+                                        <option value="PHP">PHP (₱)</option>
+                                        <option value="USD">USD ($)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase font-mono">Total Price</Label>
+                                    <div className="relative mt-1">
+                                        <span className="absolute left-3 top-2 text-sm text-muted-foreground font-mono">
+                                            {currency === "PHP" ? "₱" : "$"}
+                                        </span>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={totalPrice === null ? "" : totalPrice}
+                                            placeholder="e.g. 150000"
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                setTotalPrice(v === "" ? null : Math.max(0, Math.round(Number(v))));
+                                            }}
+                                            className="pl-8 font-mono text-sm"
+                                        />
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* Financial Aggregate Summary Controls */}
-                        <div className="p-4 rounded-lg bg-muted/60 border border-border space-y-3 font-mono text-xs">
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Subtotal:</span>
-                                <span className="font-semibold text-foreground">${subtotal.toLocaleString()}</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex items-center gap-2">
-                                    <Label htmlFor="discount" className="text-xs text-muted-foreground">Discount ($):</Label>
-                                    <Input
-                                        id="discount"
-                                        type="number"
-                                        min="0"
-                                        max={subtotal}
-                                        value={discount === 0 ? "" : discount}
-                                        placeholder="0"
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val === "") {
-                                                setDiscount(0);
-                                                return;
-                                            }
-                                            const raw = parseFloat(val);
-                                            if (!isNaN(raw)) {
-                                                setDiscount(Math.min(subtotal, Math.max(0, raw)));
-                                            }
-                                        }}
-                                        onBlur={(e) => {
-                                            const raw = parseFloat(e.target.value);
-                                            setDiscount(isNaN(raw) || raw < 0 ? 0 : Math.min(subtotal, raw));
-                                        }}
-                                        className="h-7 text-xs font-mono"
-                                    />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Label htmlFor="tax" className="text-xs text-muted-foreground">Tax ($):</Label>
-                                    <Input
-                                        id="tax"
-                                        type="number"
-                                        min="0"
-                                        max="10000000"
-                                        value={tax === 0 ? "" : tax}
-                                        placeholder="0"
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val === "") {
-                                                setTax(0);
-                                                return;
-                                            }
-                                            const raw = parseFloat(val);
-                                            if (!isNaN(raw)) {
-                                                setTax(Math.min(10000000, Math.max(0, raw)));
-                                            }
-                                        }}
-                                        onBlur={(e) => {
-                                            const raw = parseFloat(e.target.value);
-                                            setTax(isNaN(raw) || raw < 0 ? 0 : Math.min(10000000, raw));
-                                        }}
-                                        className="h-7 text-xs font-mono"
-                                    />
-                                </div>
+                        ) : (
+                            <div className="p-3.5 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
+                                <strong className="text-foreground font-medium block mb-0.5">Price to be discussed</strong>
+                                Local client default: SOW specifies technical scope &amp; deliverables first. Investment and payment schedule will be agreed upon during commercial discussion.
                             </div>
-                            <div className="flex justify-between items-center pt-2 border-t border-border/80 font-sans font-bold text-base">
-                                <span className="font-serif">Grand Total:</span>
-                                <span className="text-primary font-mono text-lg">${grandTotal.toLocaleString()}</span>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Section: Contract Settings (Collapsible) */}
@@ -1209,6 +1336,238 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                             className="bg-primary text-black font-semibold hover:bg-primary/90 w-full sm:w-auto"
                         >
                             Continue Editing
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Step 10b: Edit Milestone Dates Dialog */}
+            <Dialog open={isMilestonesModalOpen} onOpenChange={setIsMilestonesModalOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Edit milestone dates</DialogTitle>
+                        <DialogDescription>
+                            Only dates are editable. The 5 default milestones and descriptions are fixed across all proposals.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+                        {milestones.map((m, index) => (
+                            <div key={m.key} className="p-3.5 border border-border/70 rounded-lg bg-muted/20 space-y-2">
+                                <div>
+                                    <div className="font-semibold text-sm text-foreground">{m.title}</div>
+                                    <div className="text-xs text-muted-foreground">{m.description}</div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] text-muted-foreground font-mono">Start date</Label>
+                                        <Input
+                                            type="date"
+                                            value={m.startDate}
+                                            onChange={(e) => {
+                                                const updated = [...milestones];
+                                                updated[index].startDate = e.target.value;
+                                                setMilestones(updated);
+                                            }}
+                                            className="h-8 text-xs font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] text-muted-foreground font-mono">End date</Label>
+                                        <Input
+                                            type="date"
+                                            value={m.endDate}
+                                            onChange={(e) => {
+                                                const updated = [...milestones];
+                                                updated[index].endDate = e.target.value;
+                                                setMilestones(updated);
+                                            }}
+                                            className="h-8 text-xs font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsMilestonesModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={handleSaveMilestones} disabled={isSavingMilestones}>
+                            {isSavingMilestones ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Save dates
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Step 10b: Scope of Work and Timeline View Dialog */}
+            <Dialog open={isScopeTimelineModalOpen} onOpenChange={setIsScopeTimelineModalOpen}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Scope of work and timeline</DialogTitle>
+                        <DialogDescription>
+                            Built automatically from the 5 default milestones. To change dates, close this and use Edit dates on the Milestones card.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground border-b border-border/60 pb-2 mb-2 font-mono uppercase tracking-wider">
+                            <span className="col-span-4">Milestone</span>
+                            <span className="col-span-5">What is done (standard)</span>
+                            <span className="col-span-3 text-right">Dates</span>
+                        </div>
+                        <div className="divide-y divide-border/40 text-xs">
+                            {milestones.map((m) => {
+                                const dateStr = m.startDate && m.endDate
+                                    ? `${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(m.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                                    : m.startDate
+                                    ? `Starts ${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                                    : "Dates to be set";
+                                return (
+                                    <div key={m.key} className="grid grid-cols-12 gap-2 py-3 items-center">
+                                        <b className="col-span-4 font-semibold text-foreground">{m.title}</b>
+                                        <span className="col-span-5 text-muted-foreground">{m.description}</span>
+                                        <span className="col-span-3 text-right font-mono text-muted-foreground whitespace-nowrap">{dateStr}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-4 pt-2 border-t border-border/40">
+                            Read only. Milestone names and descriptions are the same for every project.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsScopeTimelineModalOpen(false)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Step 17a: Edit Payment Schedule Dialog */}
+            <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Payment schedule</DialogTitle>
+                        <DialogDescription>
+                            Total price {currency === "PHP" ? "₱" : "$"}{totalPrice !== null ? totalPrice.toLocaleString() : "0"}. Set when each payment is due and its share. Amounts are calculated.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+                        <div className="grid grid-cols-12 gap-2 text-[11px] font-semibold text-muted-foreground uppercase font-mono tracking-wider border-b border-border/60 pb-2">
+                            <span className="col-span-5">Payment due</span>
+                            <span className="col-span-3">Trigger</span>
+                            <span className="col-span-2 text-right">Percent</span>
+                            <span className="col-span-2 text-right">Amount</span>
+                        </div>
+                        {paymentSchedule.map((item, index) => {
+                            const calculatedAmount = totalPrice !== null ? Math.round(totalPrice * (item.percent / 100)) : null;
+                            return (
+                                <div key={index} className="grid grid-cols-12 gap-2 items-center py-1">
+                                    <div className="col-span-5">
+                                        <Input
+                                            value={item.label}
+                                            onChange={(e) => {
+                                                const updated = [...paymentSchedule];
+                                                updated[index].label = e.target.value;
+                                                setPaymentSchedule(updated);
+                                            }}
+                                            placeholder="e.g. On signing"
+                                            className="h-8 text-xs"
+                                        />
+                                    </div>
+                                    <div className="col-span-3">
+                                        <select
+                                            value={item.trigger}
+                                            onChange={(e) => {
+                                                const updated = [...paymentSchedule];
+                                                updated[index].trigger = e.target.value;
+                                                setPaymentSchedule(updated);
+                                            }}
+                                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                                        >
+                                            <option value="on_signing">On signing</option>
+                                            <option value="requirements">Requirements</option>
+                                            <option value="design">Design approval</option>
+                                            <option value="development">Development</option>
+                                            <option value="uat_testing">UAT testing</option>
+                                            <option value="handover">Handover</option>
+                                            <option value="before_completion">Before completion</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={item.percent}
+                                                onChange={(e) => {
+                                                    const updated = [...paymentSchedule];
+                                                    updated[index].percent = Number(e.target.value) || 0;
+                                                    setPaymentSchedule(updated);
+                                                }}
+                                                className="h-8 text-xs text-right pr-6 font-mono"
+                                            />
+                                            <span className="absolute right-2 top-2 text-xs text-muted-foreground">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="col-span-2 flex items-center justify-between gap-1">
+                                        <span className="text-xs font-mono font-medium text-foreground truncate">
+                                            {calculatedAmount !== null ? `${currency === "PHP" ? "₱" : "$"}${calculatedAmount.toLocaleString()}` : "—"}
+                                        </span>
+                                        {paymentSchedule.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const updated = paymentSchedule.filter((_, i) => i !== index);
+                                                    setPaymentSchedule(updated);
+                                                }}
+                                                className="text-destructive hover:opacity-80 text-xs shrink-0"
+                                                title="Remove payment"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div className="flex justify-between items-center pt-3 border-t border-border/60">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setPaymentSchedule([
+                                        ...paymentSchedule,
+                                        { label: "New payment", percent: 0, trigger: "handover", sortOrder: paymentSchedule.length }
+                                    ]);
+                                }}
+                                className="text-xs"
+                            >
+                                + Add payment
+                            </Button>
+                            <div className="text-xs font-mono font-bold">
+                                <span className={totalSchedulePercent === 100 ? "text-emerald-500" : "text-destructive"}>
+                                    Total {totalSchedulePercent}% {totalPrice !== null ? `· ${currency === "PHP" ? "₱" : "$"}${totalPrice.toLocaleString()}` : ""}
+                                </span>
+                            </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                            Percents must add up to 100% before you can save.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsScheduleModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleSaveSchedule}
+                            disabled={isSavingSchedule || totalSchedulePercent !== 100}
+                        >
+                            {isSavingSchedule ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Save schedule
                         </Button>
                     </DialogFooter>
                 </DialogContent>
