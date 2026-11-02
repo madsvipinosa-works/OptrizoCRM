@@ -2,8 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { proposals } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { meetings, proposalMessages, proposals } from "@/db/schema";
+import { and, desc, eq, or } from "drizzle-orm";
 import { getSiteSettings } from "@/features/cms/actions";
 import {
     ProposalDocumentSheet,
@@ -11,6 +11,9 @@ import {
     PricingLineItem,
 } from "@/features/proposals/components/ProposalDocumentSheet";
 import type { ContractSettings } from "@/features/proposals/actions";
+import { PricingMeetingPanel } from "@/features/proposals/components/PricingMeetingPanel";
+import { BookPricingMeetingModal } from "@/features/meetings/components/BookPricingMeetingModal";
+import { ProposalThread } from "@/features/proposals/components/ProposalThread";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit3, Printer, Info } from "lucide-react";
 
@@ -23,10 +26,14 @@ export const dynamic = "force-dynamic";
 
 export default async function StaffProposalViewPage({
     params,
+    searchParams,
 }: {
     params: Promise<{ id: string }>;
+    searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
     const { id } = await params;
+    const resolvedSearchParams = searchParams ? await searchParams : {};
+    const openPricingBooking = resolvedSearchParams.book === "pricing";
 
     const session = await auth();
     if (!session?.user?.id) {
@@ -56,6 +63,43 @@ export default async function StaffProposalViewPage({
     if (!proposal) {
         notFound();
     }
+
+    async function handleClosePricingBooking() {
+        "use server";
+        redirect(`/dashboard/proposals/${id}`);
+    }
+
+    async function handleOpenPricingBooking() {
+        "use server";
+        redirect(`/dashboard/proposals/${id}?book=pricing`);
+    }
+
+    const pricingMeeting = isManager
+        ? await db.query.meetings.findFirst({
+            where: and(
+                eq(meetings.proposalId, proposal.id),
+                eq(meetings.type, "budget_pricing")
+            ),
+            orderBy: [desc(meetings.createdAt)],
+        })
+        : null;
+
+    const messages = isManager
+        ? await db.query.proposalMessages.findMany({
+            where: eq(proposalMessages.proposalId, proposal.id),
+            with: {
+                author: {
+                    columns: {
+                        id: true,
+                        name: true,
+                        role: true,
+                        email: true,
+                    },
+                },
+            },
+            orderBy: (msg, { asc }) => [asc(msg.createdAt)],
+        })
+        : [];
 
     // Parse deliverables safely
     let parsedDeliverables: string[] = [];
@@ -214,6 +258,37 @@ export default async function StaffProposalViewPage({
                 </div>
             </div>
 
+            {/* PM-Only Pricing Meeting Panel & Booking Modal */}
+            {isManager && proposal.leadId && (
+                <div className="space-y-4">
+                    <PricingMeetingPanel
+                        proposalId={proposal.id}
+                        leadId={proposal.leadId}
+                        proposalStatus={proposal.status}
+                        pricingMeeting={pricingMeeting ? {
+                            id: pricingMeeting.id,
+                            status: pricingMeeting.status as "awaiting_client" | "confirmed" | "reschedule_requested" | "done" | "cancelled",
+                            startsAt: pricingMeeting.startsAt,
+                            format: pricingMeeting.format,
+                            agenda: pricingMeeting.agenda,
+                            notes: pricingMeeting.notes,
+                        } : null}
+                        onBookMeeting={handleOpenPricingBooking}
+                    />
+
+                    {openPricingBooking && (
+                        <BookPricingMeetingModal
+                            isOpen={true}
+                            onClose={handleClosePricingBooking}
+                            proposalId={proposal.id}
+                            proposalCode={proposal.proposalCode}
+                            clientName={proposal.lead?.client?.name}
+                            businessName={proposal.lead?.businessName}
+                        />
+                    )}
+                </div>
+            )}
+
             {/* Document Sheet */}
             <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden p-4 sm:p-8">
                 <ProposalDocumentSheet
@@ -221,6 +296,17 @@ export default async function StaffProposalViewPage({
                     agencyName={settings?.heroTitle || "Optrizo Digital Solutions"}
                 />
             </div>
+
+            {/* PM-Only Discussion & Negotiation Thread */}
+            {isManager && (
+                <div className="bg-card border border-border rounded-2xl shadow-sm p-4 sm:p-6">
+                    <ProposalThread
+                        proposalId={proposal.id}
+                        messages={messages}
+                        userRole="manager"
+                    />
+                </div>
+            )}
         </div>
     );
 }
