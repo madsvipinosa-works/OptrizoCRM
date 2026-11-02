@@ -2,23 +2,26 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { updateTaskStatus, updateMilestoneStatus, createTask, submitTaskProofAndMove, deleteTask, updateTaskDetails } from "@/features/pm/actions";
+import {
+    startTask,
+    submitTask,
+    approveTask,
+    requestTaskChanges,
+    createTask,
+    deleteTask,
+    updateTaskDetails,
+} from "@/features/pm/actions";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Users, AlertTriangle, Pencil } from "lucide-react";
+import { Plus, Users, RotateCcw, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
-import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
-import { PmKanbanBoard, PmTask, type PmTaskStatus } from "./PmKanbanBoard";
+import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
+import { MilestoneStrip } from "./MilestoneStrip";
+import { ProjectTeamDrawer, ProjectTeamMemberRecord, TeamMemberUser } from "./ProjectTeamDrawer";
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
@@ -28,25 +31,38 @@ interface KanbanMilestone {
     order: number;
     title: string;
     status: "Pending" | "In Progress" | "Completed";
+    doneReason?: string | null;
     feedback?: { id: string; status: "APPROVED" | "REVISION_REQUESTED"; commentText: string | null; createdAt: Date }[];
 }
 
 interface KanbanProject {
     id: string;
+    title?: string;
+    status?: string;
     milestones: KanbanMilestone[];
     tasks: PmTask[];
+    lead?: {
+        businessName?: string | null;
+        clientName?: string | null;
+    } | null;
 }
 
 export function KanbanBoard({
     project,
     teamMembers,
+    availableDevelopers = [],
+    projectTeamRecords = [],
     currentUserId,
     currentUserRole,
+    viewAll = false,
 }: {
     project: KanbanProject;
     teamMembers: TeamMemberItem[];
+    availableDevelopers?: TeamMemberUser[];
+    projectTeamRecords?: ProjectTeamMemberRecord[];
     currentUserId?: string;
     currentUserRole?: string;
+    viewAll?: boolean;
 }) {
     const router = useRouter();
     const [optimisticTasks, setOptimisticTasks] = useState<PmTask[]>(project.tasks || []);
@@ -59,231 +75,251 @@ export function KanbanBoard({
             setOptimisticTasks(project.tasks);
         }
     }, [project.tasks]);
-    const [activeMilestoneId, setActiveMilestoneId] = useState<string>(project.milestones?.[0]?.id || "");
+
+    useEffect(() => {
+        if (project.milestones) {
+            setOptimisticMilestones(project.milestones.sort((a, b) => a.order - b.order));
+        }
+    }, [project.milestones]);
+
+    // Active milestone selection
+    const [activeMilestoneId, setActiveMilestoneId] = useState<string>(
+        optimisticMilestones.find((m) => m.status === "In Progress")?.id ||
+            optimisticMilestones[0]?.id ||
+            ""
+    );
+
+    const activeMilestone = optimisticMilestones.find((m) => m.id === activeMilestoneId);
+
+    // Roles and Developer View Mode
+    const isManager = currentUserRole === "manager";
+    const isDeveloper = currentUserRole === "developer";
+    const [showAllTasks, setShowAllTasks] = useState<boolean>(viewAll);
+
+    // Modals and Drawers
+    const [teamDrawerOpen, setTeamDrawerOpen] = useState(false);
     const [isAddingTask, setIsAddingTask] = useState(false);
-
-    // Filters
-    const [filterAssignee, setFilterAssignee] = useState<string>("all");
-    const [myTasksOnly, setMyTasksOnly] = useState<boolean>(!["manager"].includes(currentUserRole || ""));
-
-    // Delete Task State
+    const [viewingTaskDetails, setViewingTaskDetails] = useState<PmTask | null>(null);
+    const [proofingTask, setProofingTask] = useState<PmTask | null>(null);
+    const [requestChangesTask, setRequestChangesTask] = useState<PmTask | null>(null);
+    const [requestChangesComment, setRequestChangesComment] = useState("");
+    const [isSubmittingChanges, setIsSubmittingChanges] = useState(false);
     const [deletingTask, setDeletingTask] = useState<PmTask | null>(null);
 
-    // Task Form state
+    // Create Task Form state
     const [newTaskTitle, setNewTaskTitle] = useState("");
     const [newTaskDesc, setNewTaskDesc] = useState("");
     const [newAssigneeIds, setNewAssigneeIds] = useState<string[]>([]);
     const [newTaskWeight, setNewTaskWeight] = useState<number>(1);
     const [newTaskHours, setNewTaskHours] = useState<string>("");
+    const [newTaskDueDate, setNewTaskDueDate] = useState<string>("");
+    const [isCreatingTask, setIsCreatingTask] = useState(false);
 
-    // Workload & Capacity Guardrail constants and calculations
-    const STANDARD_WEEKLY_CAPACITY = 40;
-
-    const memberWorkloadMap = useMemo(() => {
-        const map = new Map<string, { totalHours: number; taskCount: number }>();
-        teamMembers.forEach((m) => map.set(m.id, { totalHours: 0, taskCount: 0 }));
-
-        optimisticTasks.forEach((t) => {
-            if (t.status !== "Done" && t.assignees) {
-                const hours = t.estimatedHours || 0;
-                t.assignees.forEach((a) => {
-                    const current = map.get(a.user.id) || { totalHours: 0, taskCount: 0 };
-                    map.set(a.user.id, {
-                        totalHours: current.totalHours + hours,
-                        taskCount: current.taskCount + 1,
-                    });
-                });
-            }
-        });
-        return map;
-    }, [optimisticTasks, teamMembers]);
-
-    const overloadedMembers = useMemo(() => {
-        const overloaded: { member: TeamMemberItem; hours: number; percentage: number; overHours: number }[] = [];
-        teamMembers.forEach((m) => {
-            const stats = memberWorkloadMap.get(m.id);
-            const hours = stats?.totalHours || 0;
-            if (hours > STANDARD_WEEKLY_CAPACITY) {
-                overloaded.push({
-                    member: m,
-                    hours,
-                    percentage: Math.round((hours / STANDARD_WEEKLY_CAPACITY) * 100),
-                    overHours: hours - STANDARD_WEEKLY_CAPACITY,
-                });
-            }
-        });
-        return overloaded;
-    }, [memberWorkloadMap, teamMembers]);
-
-    // Task Proof Intercept state
-    const [proofingTask, setProofingTask] = useState<{
-        task: PmTask;
-        targetStatus: "In Review" | "Done";
-    } | null>(null);
-
-    // Task Proof Viewing state
-    const [viewingProofsTask, setViewingProofsTask] = useState<{ task: PmTask } | null>(null);
-
-    // Task Details Viewing state
-    const [viewingTaskDetails, setViewingTaskDetails] = useState<PmTask | null>(null);
+    // Active Task Details reference
     const currentViewingTask = useMemo(() => {
         if (!viewingTaskDetails) return null;
         return optimisticTasks.find((t) => t.id === viewingTaskDetails.id) || viewingTaskDetails;
     }, [viewingTaskDetails, optimisticTasks]);
 
-    // Milestone State
-    const [isAddingMilestone, setIsAddingMilestone] = useState(false);
-    const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
-    const [isSavingMilestone, setIsSavingMilestone] = useState(false);
-    const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
-    const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
-    const [editMilestoneOrder, setEditMilestoneOrder] = useState<number>(1);
-    const [isSavingMilestoneEdit, setIsSavingMilestoneEdit] = useState(false);
+    // Filter tasks by active milestone
+    const milestoneTasks = useMemo(() => {
+        return optimisticTasks.filter((t) => t.milestoneId === activeMilestoneId);
+    }, [optimisticTasks, activeMilestoneId]);
 
-    const activeMilestone = optimisticMilestones?.find((m) => m.id === activeMilestoneId);
-    if (!activeMilestone && optimisticMilestones.length > 0) {
-        setActiveMilestoneId(optimisticMilestones[0].id);
-    }
+    // Apply Developer filter (My tasks vs All tasks)
+    const displayedTasks = useMemo(() => {
+        if (isDeveloper && !showAllTasks) {
+            return milestoneTasks.filter((t) =>
+                t.assignees?.some((a) => a.user.id === currentUserId)
+            );
+        }
+        return milestoneTasks;
+    }, [milestoneTasks, isDeveloper, showAllTasks, currentUserId]);
 
-    let tasksForMilestone = optimisticTasks.filter((t) => t.milestoneId === activeMilestoneId);
-
-    // Apply Filters
-    if (myTasksOnly && currentUserId) {
-        tasksForMilestone = tasksForMilestone.filter((t) =>
+    // Count tasks for developer
+    const myMilestoneTaskCount = useMemo(() => {
+        return milestoneTasks.filter((t) =>
             t.assignees?.some((a) => a.user.id === currentUserId)
-        );
-    } else if (filterAssignee !== "all") {
-        if (filterAssignee === "unassigned") {
-            tasksForMilestone = tasksForMilestone.filter(
-                (t) => !t.assignees || t.assignees.length === 0
-            );
-        } else {
-            tasksForMilestone = tasksForMilestone.filter((t) =>
-                t.assignees?.some((a) => a.user.id === filterAssignee)
-            );
-        }
-    }
+        ).length;
+    }, [milestoneTasks, currentUserId]);
 
-    const handleStatusChangeRequest = (
-        taskId: string,
-        targetStatus: PmTask["status"]
-    ) => {
-        const task = optimisticTasks.find((t) => t.id === taskId);
-        if (!task) return;
+    // -------------------------------------------------------------------------
+    // Task Action Handlers
+    // -------------------------------------------------------------------------
 
-        if (targetStatus === "Done" && !["manager"].includes(currentUserRole || "")) {
-            toast.error("Only Managers can approve tasks to Done.");
-            return;
-        }
-
-        // Always intercept if moving to "In Review" or "Done"
-        if (targetStatus === "In Review" || targetStatus === "Done") {
-            setProofingTask({
-                task,
-                targetStatus: targetStatus as "In Review" | "Done",
-            });
-            return;
-        }
-
-        // Direct optimistic update for non-intercepted moves
-        const updated = optimisticTasks.map((t) =>
-            t.id === taskId ? { ...t, status: targetStatus } : t
-        );
-        setOptimisticTasks(updated);
-
-        updateTaskStatus(taskId, targetStatus as PmTaskStatus).then((res) => {
-            if (!res.success) {
-                toast.error(res.message || "Failed to update task status");
-                setOptimisticTasks(optimisticTasks); // Revert
-            } else {
+    const handleStartTask = async (taskId: string) => {
+        try {
+            const res = await startTask(taskId);
+            if (res.success) {
+                toast.success("Task started");
+                setOptimisticTasks((prev) =>
+                    prev.map((t) => (t.id === taskId ? { ...t, status: "in_progress" } : t))
+                );
                 router.refresh();
+            } else {
+                toast.error(res.message || "Failed to start task");
             }
-        });
+        } catch (error) {
+            console.error("Start task error:", error);
+            toast.error("An error occurred while starting task");
+        }
     };
 
-    const handleConfirmTaskProof = async (proofLinks: { label: string; url: string }[], proofNotes: string) => {
+    const handleSubmitWorkConfirm = async (
+        proofLinks: { label: string; url: string }[],
+        proofNotes: string,
+        files?: string[]
+    ) => {
         if (!proofingTask) return;
+        try {
+            const fileUrls = files || [];
+            const linkUrls = proofLinks.filter((l) => l.label !== "File").map((l) => l.url);
 
-        const { task, targetStatus } = proofingTask;
+            const res = await submitTask({
+                taskId: proofingTask.id,
+                files: fileUrls,
+                links: linkUrls,
+                note: proofNotes,
+            });
 
-        // Optimistic UI Update
-        const updated = optimisticTasks.map((t) =>
-            t.id === task.id
-                ? {
-                    ...t,
-                    status: targetStatus,
-                    proofLinks: proofLinks.length > 0 ? proofLinks : t.proofLinks,
-                    proofNotes: proofNotes || t.proofNotes,
-                }
-                : t
-        );
-        setOptimisticTasks(updated);
-
-        const res = await submitTaskProofAndMove(task.id, targetStatus, proofLinks, proofNotes);
-        if (!res.success) {
-            toast.error(res.message || "Failed to submit task proof");
-            setOptimisticTasks(optimisticTasks); // Revert
-        } else {
-            toast.success(res.message || "Task proof submitted & status updated!");
-            router.refresh();
+            if (res.ok) {
+                toast.success("Work submitted for review");
+                setOptimisticTasks((prev) =>
+                    prev.map((t) =>
+                        t.id === proofingTask.id
+                            ? { ...t, status: "in_review", proofLinks, proofNotes, reviewNote: null }
+                            : t
+                    )
+                );
+                setProofingTask(null);
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to submit work");
+            }
+        } catch (error) {
+            console.error("Submit work error:", error);
+            toast.error("An error occurred while submitting work");
         }
-
-        setProofingTask(null);
     };
 
-    const handleConfirmDeleteTask = async () => {
-        if (!deletingTask) return;
+    const handleApproveTask = async (taskId: string) => {
+        try {
+            const res = await approveTask(taskId);
+            if (res.success) {
+                toast.success("Task approved as Done");
+                setOptimisticTasks((prev) =>
+                    prev.map((t) => (t.id === taskId ? { ...t, status: "done" } : t))
+                );
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to approve task");
+            }
+        } catch (error) {
+            console.error("Approve task error:", error);
+            toast.error("An error occurred while approving task");
+        }
+    };
 
-        const taskId = deletingTask.id;
-        const updated = optimisticTasks.filter((t) => t.id !== taskId);
-        setOptimisticTasks(updated);
-
-        const res = await deleteTask(taskId);
-        if (!res.success) {
-            toast.error(res.message || "Failed to delete task");
-            setOptimisticTasks(optimisticTasks); // Revert
-        } else {
-            toast.success("Task soft-deleted");
+    const handleRequestChangesConfirm = async () => {
+        if (!requestChangesTask) return;
+        const trimmed = requestChangesComment.trim();
+        if (!trimmed) {
+            toast.error("Comment is required to request changes");
+            return;
         }
 
-        setDeletingTask(null);
+        setIsSubmittingChanges(true);
+        try {
+            const res = await requestTaskChanges(requestChangesTask.id, trimmed);
+            if (res.success) {
+                toast.success("Changes requested");
+                setOptimisticTasks((prev) =>
+                    prev.map((t) =>
+                        t.id === requestChangesTask.id
+                            ? { ...t, status: "changes_requested", reviewNote: trimmed }
+                            : t
+                    )
+                );
+                setRequestChangesTask(null);
+                setRequestChangesComment("");
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to request changes");
+            }
+        } catch (error) {
+            console.error("Request changes error:", error);
+            toast.error("An error occurred while requesting changes");
+        } finally {
+            setIsSubmittingChanges(false);
+        }
+    };
+
+    const handleDeleteTaskConfirm = async () => {
+        if (!deletingTask) return;
+        try {
+            const res = await deleteTask(deletingTask.id);
+            if (res.success) {
+                toast.success("Task deleted");
+                setOptimisticTasks((prev) => prev.filter((t) => t.id !== deletingTask.id));
+                setDeletingTask(null);
+                if (viewingTaskDetails?.id === deletingTask.id) {
+                    setViewingTaskDetails(null);
+                }
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to delete task");
+            }
+        } catch (error) {
+            console.error("Delete task error:", error);
+            toast.error("An error occurred while deleting task");
+        }
     };
 
     const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!activeMilestone) return;
-        setIsAddingTask(true);
-        const res = await createTask(
-            project.id,
-            activeMilestoneId,
-            newTaskTitle,
-            newTaskDesc,
-            newAssigneeIds,
-            newTaskWeight,
-            newTaskHours ? parseInt(newTaskHours) : undefined
-        );
-        if (res.success && res.task) {
-            toast.success("Task added");
-            const optimisticNewTask: PmTask = {
-                ...(res.task as unknown as PmTask),
-                assignees: teamMembers
-                    .filter((m) => newAssigneeIds.includes(m.id))
-                    .map((m) => ({ user: m })),
-            };
-            setOptimisticTasks([...optimisticTasks, optimisticNewTask]);
-            setNewTaskTitle("");
-            setNewTaskDesc("");
-            setNewAssigneeIds([]);
-            setNewTaskWeight(1);
-            setNewTaskHours("");
-            router.refresh();
-        } else {
-            toast.error(res.message || "Failed to create task");
+        if (!newTaskTitle.trim() || !activeMilestone) return;
+
+        if (activeMilestone.status === "Completed") {
+            toast.error("Cannot add tasks to a completed milestone");
+            return;
         }
-        setIsAddingTask(false);
+
+        setIsCreatingTask(true);
+        try {
+            const hours = newTaskHours ? parseInt(newTaskHours) : undefined;
+
+            const res = await createTask(
+                project.id,
+                activeMilestone.id,
+                newTaskTitle.trim(),
+                newTaskDesc.trim() || undefined,
+                newAssigneeIds,
+                newTaskWeight,
+                hours
+            );
+
+            if (res.success) {
+                toast.success("Task created");
+                setIsAddingTask(false);
+                setNewTaskTitle("");
+                setNewTaskDesc("");
+                setNewAssigneeIds([]);
+                setNewTaskWeight(1);
+                setNewTaskHours("");
+                setNewTaskDueDate("");
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to create task");
+            }
+        } catch (error) {
+            console.error("Create task error:", error);
+            toast.error("An error occurred while creating task");
+        } finally {
+            setIsCreatingTask(false);
+        }
     };
 
-    const handleUpdateTaskFromDrawer = async (
+    const handleUpdateTaskDetails = async (
         taskId: string,
         data: {
             title?: string;
@@ -295,700 +331,178 @@ export function KanbanBoard({
             dependsOnTaskId?: string | null;
         }
     ): Promise<boolean> => {
-        const previousTasks = [...optimisticTasks];
-        const updatedTasks = optimisticTasks.map((t) => {
-            if (t.id !== taskId) return t;
-            const updatedAssignees =
-                data.assigneeIds !== undefined
-                    ? teamMembers
-                          .filter((m) => data.assigneeIds!.includes(m.id))
-                          .map((m) => ({ user: m }))
-                    : t.assignees;
+        try {
+            const res = await updateTaskDetails(taskId, {
+                title: data.title,
+                description: data.description,
+                assigneeIds: data.assigneeIds,
+                dueDate: data.dueDate ?? undefined,
+                weight: data.weight,
+                estimatedHours: data.estimatedHours,
+                dependsOnTaskId: data.dependsOnTaskId,
+            });
 
-            return {
-                ...t,
-                title: data.title !== undefined ? data.title : t.title,
-                description: data.description !== undefined ? data.description : t.description,
-                assignees: updatedAssignees,
-                dueDate: data.dueDate !== undefined ? data.dueDate : t.dueDate,
-                weight: data.weight !== undefined ? data.weight : t.weight,
-                estimatedHours: data.estimatedHours !== undefined ? data.estimatedHours : t.estimatedHours,
-                dependsOnTaskId: data.dependsOnTaskId !== undefined ? data.dependsOnTaskId : t.dependsOnTaskId,
-            };
-        });
-
-        setOptimisticTasks(updatedTasks);
-
-        const res = await updateTaskDetails(taskId, data);
-        if (!res.success) {
-            toast.error(res.message || "Failed to update task");
-            setOptimisticTasks(previousTasks);
+            if (res.success) {
+                toast.success("Task updated");
+                setOptimisticTasks((prev) =>
+                    prev.map((t) => {
+                        if (t.id !== taskId) return t;
+                        return {
+                            ...t,
+                            ...(data.title !== undefined ? { title: data.title } : {}),
+                            ...(data.description !== undefined ? { description: data.description } : {}),
+                            ...(data.dueDate !== undefined ? { dueDate: data.dueDate } : {}),
+                            ...(data.weight !== undefined ? { weight: data.weight } : {}),
+                            ...(data.estimatedHours !== undefined ? { estimatedHours: data.estimatedHours } : {}),
+                            ...(data.dependsOnTaskId !== undefined ? { dependsOnTaskId: data.dependsOnTaskId } : {}),
+                            ...(data.assigneeIds !== undefined
+                                ? {
+                                      assignees: data.assigneeIds.map((id) => {
+                                          const member = teamMembers.find((m) => m.id === id);
+                                          return {
+                                              user: {
+                                                  id,
+                                                  name: member?.name || "Member",
+                                                  image: member?.image || null,
+                                                  jobTitle: member?.jobTitle || null,
+                                                  role: "developer",
+                                              },
+                                          };
+                                      }),
+                                  }
+                                : {}),
+                        };
+                    })
+                );
+                router.refresh();
+                return true;
+            } else {
+                toast.error(res.message || "Failed to update task");
+                return false;
+            }
+        } catch (error) {
+            console.error("Update task details error:", error);
+            toast.error("An error occurred while updating task");
             return false;
-        } else {
-            toast.success("Task updated");
-            router.refresh();
-            return true;
         }
     };
-
-    const handleCreateMilestone = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSavingMilestone(true);
-        const { createMilestone } = await import("@/features/pm/actions");
-        const res = await createMilestone(project.id, newMilestoneTitle);
-        if (res.success && res.milestone) {
-            toast.success("Milestone created.");
-            const newM = res.milestone as unknown as KanbanMilestone;
-            setOptimisticMilestones((prev) => [...prev, newM]);
-            setActiveMilestoneId(newM.id);
-            setNewMilestoneTitle("");
-            setIsAddingMilestone(false);
-        } else {
-            toast.error(res.message);
-        }
-        setIsSavingMilestone(false);
-    };
-
-    const handleDeleteMilestone = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this Milestone? All tasks within will be deleted."))
-            return;
-
-        setOptimisticMilestones(optimisticMilestones.filter((m) => m.id !== id));
-        if (activeMilestoneId === id) {
-            setActiveMilestoneId(optimisticMilestones.find((m) => m.id !== id)?.id || "");
-        }
-
-        const { deleteMilestone } = await import("@/features/pm/actions");
-        const res = await deleteMilestone(id);
-        if (!res.success) {
-            toast.error(res.message);
-            setOptimisticMilestones(optimisticMilestones);
-        } else {
-            toast.success("Milestone deleted.");
-        }
-    };
-
-    const handleUpdateMilestone = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingMilestoneId || !editMilestoneTitle.trim()) return;
-
-        const currentMilestone = optimisticMilestones.find((m) => m.id === editingMilestoneId);
-        if (!currentMilestone) return;
-
-        const trimmedTitle = editMilestoneTitle.trim();
-        const parsedOrder = Number(editMilestoneOrder) || currentMilestone.order;
-
-        if (trimmedTitle === currentMilestone.title && parsedOrder === currentMilestone.order) {
-            setEditingMilestoneId(null);
-            return;
-        }
-
-        setIsSavingMilestoneEdit(true);
-        const previousMilestones = [...optimisticMilestones];
-
-        // Optimistically re-sequence milestones to prevent duplicate sequence numbers
-        const remaining = optimisticMilestones.filter((m) => m.id !== editingMilestoneId);
-        const targetIndex = Math.max(0, Math.min(parsedOrder - 1, remaining.length));
-        remaining.splice(targetIndex, 0, {
-            ...currentMilestone,
-            title: trimmedTitle,
-        });
-
-        const updatedMilestones = remaining.map((m, idx) => ({
-            ...m,
-            order: idx + 1,
-        }));
-
-        setOptimisticMilestones(updatedMilestones);
-
-        const { editMilestone } = await import("@/features/pm/actions");
-        const res = await editMilestone(editingMilestoneId, trimmedTitle, parsedOrder);
-
-        if (!res.success) {
-            toast.error(res.message || "Failed to update milestone");
-            setOptimisticMilestones(previousMilestones);
-        } else {
-            toast.success("Milestone updated.");
-            setEditingMilestoneId(null);
-            setEditMilestoneTitle("");
-            router.refresh();
-        }
-        setIsSavingMilestoneEdit(false);
-    };
-
-    const handleMilestoneStatusChange = async (newStatus: string) => {
-        if (!activeMilestone) return;
-        const res = await updateMilestoneStatus(
-            activeMilestoneId,
-            newStatus as KanbanMilestone["status"]
-        );
-        if (res.success) {
-            const updated = optimisticMilestones.map((m) =>
-                m.id === activeMilestoneId
-                    ? { ...m, status: newStatus as KanbanMilestone["status"] }
-                    : m
-            );
-            setOptimisticMilestones(updated);
-            toast.success(`Milestone status updated to ${newStatus}`);
-        }
-    };
-
-    if (!activeMilestone) {
-        return (
-            <div className="flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl mt-4 text-center">
-                <h3 className="text-xl font-bold mb-2 text-foreground">No Milestones</h3>
-                <p className="text-muted-foreground mb-4">Create a milestone to start organizing your project tasks.</p>
-                {["manager"].includes(currentUserRole || "") && (
-                    <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
-                        <DialogTrigger asChild>
-                            <Button className="bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs">
-                                <Plus className="h-4 w-4 mr-2" /> Add Milestone
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-card border-border text-foreground shadow-2xl">
-                            <DialogHeader>
-                                <DialogTitle className="text-foreground">Add New Milestone</DialogTitle>
-                            </DialogHeader>
-                            <form onSubmit={handleCreateMilestone} className="space-y-4 pt-4">
-                                <div className="space-y-2">
-                                    <Label className="text-foreground">Milestone Title</Label>
-                                    <Input
-                                        required
-                                        value={newMilestoneTitle}
-                                        onChange={(e) => setNewMilestoneTitle(e.target.value)}
-                                        className="bg-background border-border text-foreground"
-                                        placeholder="e.g. Design Phase"
-                                    />
-                                </div>
-                                <Button
-                                    type="submit"
-                                    disabled={isSavingMilestone}
-                                    className="w-full bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs"
-                                >
-                                    Create Milestone
-                                </Button>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                )}
-            </div>
-        );
-    }
 
     return (
-        <div className="h-full flex flex-col pt-2">
-            {/* Milestone Tabs */}
-            <div className="flex gap-2 mb-2.5 overflow-x-auto pb-1 shrink-0 items-center scrollbar-none touch-pan-x">
-                {optimisticMilestones.map((m) => (
-                    <button
-                        key={m.id}
-                        onClick={() => setActiveMilestoneId(m.id)}
-                        className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${activeMilestoneId === m.id
-                                ? "bg-primary text-black font-bold border-primary shadow-xs"
-                                : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground"
-                            }`}
-                    >
-                        {m.order}. {m.title}
-                    </button>
-                ))}
-
-                {["manager"].includes(currentUserRole || "") && (
-                    <Dialog open={isAddingMilestone} onOpenChange={setIsAddingMilestone}>
-                        <DialogTrigger asChild>
-                            <button className="px-3 py-1.5 sm:py-2 rounded-lg text-xs font-medium border border-border hover:bg-muted text-muted-foreground hover:text-foreground whitespace-nowrap flex items-center gap-1 transition-all shrink-0">
-                                <Plus className="h-3.5 w-3.5" /> Add
-                            </button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-card border-border text-foreground shadow-2xl">
-                            <DialogHeader>
-                                <DialogTitle className="text-foreground">Add New Milestone</DialogTitle>
-                            </DialogHeader>
-                            <form onSubmit={handleCreateMilestone} className="space-y-4 pt-4">
-                                <div className="space-y-2">
-                                    <Label className="text-foreground">Milestone Title</Label>
-                                    <Input
-                                        required
-                                        value={newMilestoneTitle}
-                                        onChange={(e) => setNewMilestoneTitle(e.target.value)}
-                                        className="bg-background border-border text-foreground"
-                                        placeholder="e.g. Design Phase"
-                                    />
-                                </div>
-                                <Button
-                                    type="submit"
-                                    disabled={isSavingMilestone}
-                                    className="w-full bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs"
-                                >
-                                    Create Milestone
-                                </Button>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                )}
-            </div>
-
-            {/* Active Milestone Context Bar & Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-card/70 p-2.5 sm:px-3.5 sm:py-2 rounded-xl border border-border mb-3 shrink-0 gap-2.5 w-full min-w-0">
-                <div className="flex items-center justify-between sm:justify-start gap-2.5 w-full sm:w-auto min-w-0">
-                    <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2 truncate min-w-0">
-                        <span className="truncate">{activeMilestone.title}</span>
-                        {["manager"].includes(currentUserRole || "") && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 opacity-50 hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
-                                    >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width="16"
-                                                height="16"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            >
-                                                <circle cx="12" cy="12" r="1" />
-                                                <circle cx="12" cy="5" r="1" />
-                                                <circle cx="12" cy="19" r="1" />
-                                            </svg>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className="w-40 bg-card border-border text-foreground shadow-xl">
-                                        <DropdownMenuItem
-                                            onClick={() => {
-                                                setEditingMilestoneId(activeMilestone.id);
-                                                setEditMilestoneTitle(activeMilestone.title);
-                                                setEditMilestoneOrder(activeMilestone.order);
-                                            }}
-                                            className="gap-2 cursor-pointer"
-                                        >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                            Edit Milestone
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            className="text-rose-500 focus:text-rose-500 focus:bg-rose-500/10 cursor-pointer"
-                                            onClick={() => handleDeleteMilestone(activeMilestone.id)}
-                                        >
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                        )}
-                    </h3>
-                    <div className="shrink-0">
-                        {["manager"].includes(currentUserRole || "") ? (
-                            <MilestoneStatusDropdown
-                                status={activeMilestone.status}
-                                onStatusChange={handleMilestoneStatusChange}
-                            />
-                        ) : (
-                            <Badge variant="outline" className="border-border text-muted-foreground font-mono text-[10px]">
-                                {activeMilestone.status}
-                            </Badge>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 sm:pb-0 w-full sm:w-auto scrollbar-none shrink-0">
-                    {/* Team Capacity Tracker Popover */}
-                    {["manager"].includes(currentUserRole || "") && (
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={cn(
-                                        "h-8 text-xs border-border bg-card/80 gap-1.5 shrink-0 px-2 sm:px-3",
-                                        overloadedMembers.length > 0
-                                            ? "text-rose-500 hover:text-rose-600 border-rose-500/30 hover:bg-rose-500/10"
-                                            : "text-foreground hover:bg-muted"
-                                    )}
-                                    title="View team workload & capacity allocation"
-                                >
-                                    <Users className="w-3.5 h-3.5 text-primary shrink-0" />
-                                    <span className="hidden sm:inline">Capacity</span>
-                                    {overloadedMembers.length > 0 ? (
-                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-500 border border-rose-500/40">
-                                             {overloadedMembers.length} Over
-                                        </span>
-                                    ) : (
-                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-                                            Balanced
-                                        </span>
-                                    )}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 bg-card border-border text-foreground p-4 shadow-2xl space-y-3 z-50">
-                                <div className="border-b border-border pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                                            <Users className="w-3.5 h-3.5 text-primary" />
-                                            Weekly Capacity Guardrail
-                                        </h4>
-                                        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                            40h / week
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                                        Active workload across all ongoing tasks
-                                    </p>
-                                </div>
-                                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                                    {teamMembers.map((member) => {
-                                        const stats = memberWorkloadMap.get(member.id);
-                                        const hours = stats?.totalHours || 0;
-                                        const pct = Math.round((hours / STANDARD_WEEKLY_CAPACITY) * 100);
-                                        const isOver = hours > STANDARD_WEEKLY_CAPACITY;
-                                        return (
-                                            <div
-                                                key={member.id}
-                                                className={cn(
-                                                    "space-y-1.5 p-2.5 rounded-lg border transition-colors cursor-pointer",
-                                                    filterAssignee === member.id
-                                                        ? "bg-primary/10 border-primary/40"
-                                                        : "bg-background border-border hover:bg-muted/50"
-                                                )}
-                                                onClick={() => {
-                                                    setFilterAssignee(member.id);
-                                                    setMyTasksOnly(false);
-                                                }}
-                                                title="Click to filter board by this developer"
-                                            >
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="font-medium text-foreground truncate max-w-[140px]">
-                                                        {member.name || member.id}
-                                                    </span>
-                                                    <span
-                                                        className={cn(
-                                                            "font-mono text-[11px] font-bold",
-                                                            isOver
-                                                                ? "text-rose-500"
-                                                                : hours >= 32
-                                                                ? "text-amber-500"
-                                                                : "text-emerald-600 dark:text-emerald-400"
-                                                        )}
-                                                    >
-                                                        {hours}h / 40h ({pct}%)
-                                                    </span>
-                                                </div>
-                                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                                                    <div
-                                                        className={cn(
-                                                            "h-full rounded-full transition-all",
-                                                            isOver ? "bg-rose-500" : hours >= 32 ? "bg-amber-500" : "bg-primary"
-                                                        )}
-                                                        style={{ width: `${Math.min(100, pct)}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                    )}
-
-                    {/* Filter Assignee */}
-                    {["manager"].includes(currentUserRole || "") && (
-                        <div className="flex items-center gap-1.5">
-                            <Select
-                                value={filterAssignee}
-                                onValueChange={(val) => {
-                                    setFilterAssignee(val);
-                                    if (val !== "all") setMyTasksOnly(false);
-                                }}
+        <div className="flex flex-col flex-1 min-h-0 space-y-3.5 w-full">
+            {/* Top Bar Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2">
+                    {/* Developer: My Tasks vs All Tasks Toggle */}
+                    {isDeveloper && (
+                        <div role="group" aria-label="Task view filter" className="inline-flex rounded-full border border-border p-0.5 bg-muted/40">
+                            <button
+                                type="button"
+                                onClick={() => setShowAllTasks(false)}
+                                className={`h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                                    !showAllTasks
+                                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
                             >
-                                <SelectTrigger className="w-[125px] sm:w-[155px] h-8 bg-card border-border text-xs text-foreground shrink-0">
-                                    <SelectValue placeholder="All Tasks" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-card border-border text-foreground">
-                                    <SelectItem value="all">All Assignees</SelectItem>
-                                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                                    {teamMembers.map((member) => {
-                                        const stats = memberWorkloadMap.get(member.id);
-                                        const hours = stats?.totalHours || 0;
-                                        const isOver = hours > STANDARD_WEEKLY_CAPACITY;
-                                        return (
-                                            <SelectItem key={member.id} value={member.id}>
-                                                <div className="flex items-center justify-between gap-2 w-full">
-                                                    <span className="truncate max-w-[90px]">{member.name || member.id}</span>
-                                                    <span
-                                                        className={cn(
-                                                            "text-[10px] font-mono px-1 rounded shrink-0",
-                                                            isOver
-                                                                ? "text-rose-500 font-bold bg-rose-500/10 border border-rose-500/30"
-                                                                : hours >= 32
-                                                                ? "text-amber-500 font-medium bg-amber-500/10"
-                                                                : "text-muted-foreground"
-                                                        )}
-                                                    >
-                                                        {hours}h{isOver ? " ⚠️" : ""}
-                                                    </span>
-                                                </div>
-                                            </SelectItem>
-                                        );
-                                    })}
-                                </SelectContent>
-                            </Select>
+                                <span>My tasks</span>
+                                <span
+                                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                                        !showAllTasks ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                                    }`}
+                                >
+                                    {myMilestoneTaskCount}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowAllTasks(true)}
+                                className={`h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                                    showAllTasks
+                                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                <span>All tasks</span>
+                                <span
+                                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                                        showAllTasks ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                                    }`}
+                                >
+                                    {milestoneTasks.length}
+                                </span>
+                            </button>
                         </div>
                     )}
+                </div>
 
-                    {currentUserId && (
+                <div className="flex items-center gap-2 ml-auto">
+                    {/* Manager: Team Drawer Button */}
+                    {isManager && (
                         <Button
-                            variant={myTasksOnly ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
-                            className={`h-8 text-xs shrink-0 px-2.5 sm:px-3 ${myTasksOnly
-                                    ? "bg-primary text-black font-semibold border-primary shadow-xs"
-                                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                                }`}
-                            onClick={() => {
-                                setMyTasksOnly(!myTasksOnly);
-                                if (!myTasksOnly) setFilterAssignee("all");
-                            }}
+                            className="h-8 text-xs font-semibold gap-1.5"
+                            onClick={() => setTeamDrawerOpen(true)}
                         >
-                            My Tasks
+                            <Users className="w-3.5 h-3.5 text-primary" />
+                            <span>Team ({projectTeamRecords.length})</span>
                         </Button>
                     )}
 
-                    {["manager"].includes(currentUserRole || "") && (
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs text-xs shrink-0 ml-auto sm:ml-0">
-                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Task
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-card border-border text-foreground shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
-                                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-border bg-card/95 backdrop-blur z-10">
-                                    <DialogTitle className="text-lg font-bold text-foreground tracking-tight">Add Task to {activeMilestone.title}</DialogTitle>
-                                </DialogHeader>
-                                <form onSubmit={handleCreateTask} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                                    <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Task Title</Label>
-                                            <Input
-                                                className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
-                                                value={newTaskTitle}
-                                                onChange={(e) => setNewTaskTitle(e.target.value)}
-                                                placeholder="e.g. Implement OAuth Flow"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Description (Optional)</Label>
-                                            <Textarea
-                                                className="bg-background border-border focus:border-primary resize-none text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
-                                                rows={3}
-                                                value={newTaskDesc}
-                                                onChange={(e) => setNewTaskDesc(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <div className="space-y-2">
-                                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Effort Weight</Label>
-                                                <div className="flex gap-1.5">
-                                                    {[1, 2, 3, 5, 8].map((pts) => (
-                                                        <button
-                                                            key={pts}
-                                                            type="button"
-                                                            onClick={() => setNewTaskWeight(pts)}
-                                                            className={`flex-1 py-1.5 rounded-md text-xs font-mono font-bold border transition-all ${
-                                                                newTaskWeight === pts
-                                                                    ? "bg-primary text-black border-primary shadow-xs"
-                                                                    : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                                                            }`}
-                                                        >
-                                                            {pts}p
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Est. Hours</Label>
-                                                <Input
-                                                    type="number"
-                                                    min="1"
-                                                    max="500"
-                                                    placeholder="e.g. 8"
-                                                    value={newTaskHours}
-                                                    onChange={(e) => setNewTaskHours(e.target.value)}
-                                                    className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Assign Staff</Label>
-                                            <AssigneeCombobox
-                                                teamMembers={teamMembers}
-                                                selectedIds={newAssigneeIds}
-                                                onSelectionChange={setNewAssigneeIds}
-                                                placeholder="Select assigned staff..."
-                                            />
-                                        </div>
-
-                                        {/* Workload & Capacity Guardrail Alert */}
-                                        {(() => {
-                                            const hours = parseInt(newTaskHours) || 0;
-                                            if (newAssigneeIds.length === 0 || hours <= 0) return null;
-
-                                            const warnings = newAssigneeIds
-                                                .map((id) => {
-                                                    const member = teamMembers.find((m) => m.id === id);
-                                                    const currentHours = memberWorkloadMap.get(id)?.totalHours || 0;
-                                                    const projectedHours = currentHours + hours;
-                                                    if (projectedHours > STANDARD_WEEKLY_CAPACITY || hours > STANDARD_WEEKLY_CAPACITY) {
-                                                        return {
-                                                            name: member?.name || "Developer",
-                                                            currentHours,
-                                                            projectedHours,
-                                                            overHours: projectedHours - STANDARD_WEEKLY_CAPACITY,
-                                                            percentage: Math.round((projectedHours / STANDARD_WEEKLY_CAPACITY) * 100),
-                                                        };
-                                                    }
-                                                    return null;
-                                                })
-                                                .filter(Boolean);
-
-                                            if (warnings.length === 0) return null;
-
-                                            return (
-                                                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-500 space-y-1.5 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px] text-rose-500">
-                                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
-                                                        <span>Workload & Capacity Guardrail Alert</span>
-                                                    </div>
-                                                    {warnings.map((w, i) => (
-                                                        <p key={i} className="text-[11px] text-muted-foreground leading-relaxed pl-5">
-                                                            Assigning <strong className="text-foreground">{hours}h</strong> puts <strong className="text-foreground">{w?.name}</strong> at{" "}
-                                                            <strong className="text-rose-500">{w?.projectedHours}h / {STANDARD_WEEKLY_CAPACITY}h</strong> capacity (
-                                                            <span className="text-rose-500 font-bold">{w?.percentage}% allocation</span>, +{w?.overHours}h over 40h standard week).
-                                                        </p>
-                                                    ))}
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-                                    <div className="shrink-0 p-4 sm:p-5 border-t border-border bg-card/95 backdrop-blur">
-                                        <Button
-                                            type="submit"
-                                            disabled={isAddingTask}
-                                            className="w-full bg-primary hover:bg-primary/90 text-black font-semibold text-xs sm:text-sm"
-                                        >
-                                            Create Task
-                                        </Button>
-                                    </div>
-                                </form>
-                            </DialogContent>
-                        </Dialog>
+                    {/* Manager: Add Task Button */}
+                    {isManager && (
+                        <Button
+                            size="sm"
+                            disabled={!activeMilestone || activeMilestone.status === "Completed"}
+                            className="h-8 text-xs font-semibold gap-1.5 shadow-xs"
+                            onClick={() => setIsAddingTask(true)}
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Task</span>
+                        </Button>
                     )}
                 </div>
             </div>
 
-            {/* dnd-kit PmKanbanBoard */}
-            <div className="flex-1 min-h-0 flex flex-col">
-                <PmKanbanBoard
-                    tasks={tasksForMilestone}
-                    teamMembers={teamMembers}
-                    currentUserId={currentUserId}
-                    currentUserRole={currentUserRole}
-                    onStatusChangeRequest={handleStatusChangeRequest}
-                    onDeleteTask={(task) => setDeletingTask(task)}
-                    onViewProofs={(task) => setViewingProofsTask({ task })}
-                    onClickTask={(task) => setViewingTaskDetails(task)}
+            {/* 5 Sequential Milestones Strip */}
+            <div className="shrink-0">
+                <MilestoneStrip
+                    milestones={optimisticMilestones.map((m) => ({
+                        id: m.id,
+                        order: m.order,
+                        title: m.title,
+                        status: m.status,
+                        doneReason: m.doneReason,
+                        taskCount: optimisticTasks.filter((t) => t.milestoneId === m.id).length,
+                    }))}
+                    activeMilestoneId={activeMilestoneId}
+                    onSelectMilestone={setActiveMilestoneId}
+                    isManager={isManager}
+                    onMilestoneUpdated={() => router.refresh()}
                 />
             </div>
 
-            {/* Task Proof Intercept Modal */}
-            <TaskProofValidationModal
-                open={!!proofingTask}
-                onOpenChange={(open) => {
-                    if (!open) setProofingTask(null);
-                }}
-                task={proofingTask?.task || null}
-                targetStatus={proofingTask?.targetStatus || "In Review"}
-                onConfirm={handleConfirmTaskProof}
-            />
+            {/* 4-Column Kanban Board */}
+            <div className="flex-1 min-h-0 flex flex-col">
+                <PmKanbanBoard
+                    tasks={displayedTasks}
+                    teamMembers={teamMembers}
+                    currentUserId={currentUserId}
+                    currentUserRole={currentUserRole}
+                    onStartTask={handleStartTask}
+                    onSubmitTask={(task) => setProofingTask(task)}
+                    onApproveTask={handleApproveTask}
+                    onRequestChanges={(task) => {
+                        setRequestChangesTask(task);
+                        setRequestChangesComment("");
+                    }}
+                    onDeleteTask={(task) => setDeletingTask(task)}
+                    onClickTask={(task) => setViewingTaskDetails(task)}
+                    isViewOnly={isDeveloper && showAllTasks}
+                />
+            </div>
 
-            {/* Task Proof Viewing/Editing Modal */}
-            <TaskProofValidationModal
-                open={!!viewingProofsTask}
-                onOpenChange={(open) => {
-                    if (!open) setViewingProofsTask(null);
-                }}
-                task={viewingProofsTask?.task || null}
-                targetStatus={(viewingProofsTask?.task?.status as "In Review" | "Done") || "In Review"}
-                mode="edit"
-                isViewOnly={
-                    !(
-                        ["manager"].includes(currentUserRole || "") ||
-                        viewingProofsTask?.task?.assignees?.some((a) => a.user.id === currentUserId)
-                    )
-                }
-                onConfirm={async (proofLinks, proofNotes) => {
-                    if (!viewingProofsTask?.task) return;
-                    const taskId = viewingProofsTask.task.id;
-                    const res = await submitTaskProofAndMove(
-                        taskId,
-                        viewingProofsTask.task.status as "In Review" | "Done",
-                        proofLinks,
-                        proofNotes
-                    );
-                    if (!res.success) {
-                        toast.error(res.message || "Failed to update task proofs");
-                        throw new Error(res.message || "Failed to update task proofs");
-                    } else {
-                        toast.success("Task proofs updated!");
-                        const updated = optimisticTasks.map((t) =>
-                            t.id === taskId
-                                ? {
-                                      ...t,
-                                      proofLinks,
-                                      proofNotes,
-                                  }
-                                : t
-                        );
-                        setOptimisticTasks(updated);
-                        router.refresh();
-                    }
-                }}
-                onRequestChanges={
-                    ["manager"].includes(currentUserRole || "") &&
-                    viewingProofsTask?.task?.status === "In Review"
-                        ? async () => {
-                              const taskId = viewingProofsTask!.task.id;
-                              const res = await updateTaskStatus(taskId, "Changes Requested");
-                              if (!res.success) {
-                                  throw new Error(res.message || "Failed to request changes");
-                              }
-                              toast.warning(`"${viewingProofsTask!.task.title}" sent back — Changes Requested.`);
-                              setOptimisticTasks((prev) =>
-                                  prev.map((t) =>
-                                      t.id === taskId ? { ...t, status: "Changes Requested" } : t
-                                  )
-                              );
-                              setViewingProofsTask(null);
-                              router.refresh();
-                          }
-                        : undefined
-                }
-            />
-
-            {/* Task Soft-Delete Confirmation Modal */}
-            <TaskDeleteConfirmModal
-                open={!!deletingTask}
-                onOpenChange={(open) => {
-                    if (!open) setDeletingTask(null);
-                }}
-                taskTitle={deletingTask?.title}
-                onConfirm={handleConfirmDeleteTask}
-            />
-
-            {/* Task Details Slide-Over Drawer */}
+            {/* Task Details Drawer */}
             <TaskDetailsDrawer
                 task={currentViewingTask}
                 isOpen={!!viewingTaskDetails}
@@ -998,85 +512,217 @@ export function KanbanBoard({
                 allTasks={optimisticTasks}
                 currentUserId={currentUserId}
                 currentUserRole={currentUserRole}
-                onStatusChangeRequest={handleStatusChangeRequest}
-                onUpdateTaskDetails={handleUpdateTaskFromDrawer}
-                onDeleteTask={(t) => setDeletingTask(t)}
-                onRequestVerificationReview={(t) => {
-                    setProofingTask({
-                        task: t,
-                        targetStatus: "In Review",
-                    });
+                onStartTask={handleStartTask}
+                onSubmitTask={(task) => {
+                    setViewingTaskDetails(null);
+                    setProofingTask(task);
                 }}
-                onSelectTask={(t) => setViewingTaskDetails(t)}
+                onApproveTask={handleApproveTask}
+                onRequestChanges={(task) => {
+                    setRequestChangesTask(task);
+                    setRequestChangesComment("");
+                }}
+                onUpdateTaskDetails={handleUpdateTaskDetails}
+                onDeleteTask={(task) => setDeletingTask(task)}
+                onSelectTask={(task) => setViewingTaskDetails(task)}
             />
 
-            {/* Milestone Edit Modal */}
-            <Dialog
-                open={editingMilestoneId !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setEditingMilestoneId(null);
-                        setEditMilestoneTitle("");
-                    }
-                }}
-            >
-                <DialogContent className="bg-card border-border text-foreground shadow-2xl max-w-md">
+            {/* Developer Submit Work Modal */}
+            <TaskProofValidationModal
+                open={!!proofingTask}
+                onOpenChange={(open) => !open && setProofingTask(null)}
+                task={proofingTask}
+                targetStatus="In Review"
+                onConfirm={handleSubmitWorkConfirm}
+            />
+
+            {/* PM Project Team Drawer */}
+            <ProjectTeamDrawer
+                projectId={project.id}
+                isOpen={teamDrawerOpen}
+                onClose={() => setTeamDrawerOpen(false)}
+                teamMembers={projectTeamRecords}
+                availableDevelopers={availableDevelopers}
+                isManager={isManager}
+                onTeamUpdated={() => router.refresh()}
+            />
+
+            {/* Delete Task Confirmation Modal */}
+            <TaskDeleteConfirmModal
+                open={!!deletingTask}
+                onOpenChange={(open) => !open && setDeletingTask(null)}
+                taskTitle={deletingTask?.title || ""}
+                onConfirm={handleDeleteTaskConfirm}
+            />
+
+            {/* PM Request Changes Comment Dialog */}
+            <Dialog open={!!requestChangesTask} onOpenChange={(open) => !open && setRequestChangesTask(null)}>
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-foreground">Edit Milestone</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                            <RotateCcw className="w-5 h-5" />
+                            Request Task Changes
+                        </DialogTitle>
+                        <DialogDescription>
+                            Provide feedback to the developer detailing what changes are required before this task can be approved.
+                        </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleUpdateMilestone} className="space-y-4 pt-4">
-                        <div className="space-y-2">
-                            <Label className="text-foreground">Milestone Title</Label>
-                            <Input
-                                required
-                                value={editMilestoneTitle}
-                                onChange={(e) => setEditMilestoneTitle(e.target.value)}
-                                className="bg-background border-border text-foreground"
-                                placeholder="e.g. Design Phase"
-                                autoFocus
-                            />
+                    <div className="space-y-3 py-2">
+                        <Label htmlFor="review-note" className="text-xs font-semibold">
+                            Review Comment <span className="text-destructive">*</span>
+                        </Label>
+                        <Textarea
+                            id="review-note"
+                            rows={4}
+                            placeholder="e.g. Please update the responsive layout on mobile screens and ensure error states are handled."
+                            value={requestChangesComment}
+                            onChange={(e) => setRequestChangesComment(e.target.value)}
+                            maxLength={2000}
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                            The task will move to &ldquo;Changes Requested&rdquo; (inside In Progress) with your review note attached.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setRequestChangesTask(null)}
+                            disabled={isSubmittingChanges}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleRequestChangesConfirm}
+                            disabled={isSubmittingChanges || !requestChangesComment.trim()}
+                            className="bg-rose-600 hover:bg-rose-700 text-white"
+                        >
+                            {isSubmittingChanges ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+                            Request Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Manager: Create Task Dialog */}
+            <Dialog open={isAddingTask} onOpenChange={setIsAddingTask}>
+                <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-card border-border text-foreground shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
+                    <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-border bg-card/95 backdrop-blur z-10">
+                        <DialogTitle className="text-lg font-bold text-foreground tracking-tight">
+                            Add Task to {activeMilestone?.title || "Milestone"}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateTask} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                        <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                                    Task Title <span className="text-destructive">*</span>
+                                </Label>
+                                <Input
+                                    className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
+                                    value={newTaskTitle}
+                                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                                    placeholder="e.g. Implement OAuth Flow"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                                    Description (Optional)
+                                </Label>
+                                <Textarea
+                                    className="bg-background border-border focus:border-primary resize-none text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
+                                    rows={3}
+                                    value={newTaskDesc}
+                                    onChange={(e) => setNewTaskDesc(e.target.value)}
+                                    placeholder="Details or deliverables for the assigned developer..."
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                                        Effort Weight
+                                    </Label>
+                                    <div className="flex gap-1.5">
+                                        {[1, 2, 3, 5, 8].map((pts) => (
+                                            <button
+                                                key={pts}
+                                                type="button"
+                                                onClick={() => setNewTaskWeight(pts)}
+                                                className={`flex-1 py-1.5 rounded-md text-xs font-mono font-bold border transition-all ${
+                                                    newTaskWeight === pts
+                                                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                                                        : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                                                }`}
+                                            >
+                                                {pts}p
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                                        Est. Hours
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        max="500"
+                                        placeholder="e.g. 8"
+                                        value={newTaskHours}
+                                        onChange={(e) => setNewTaskHours(e.target.value)}
+                                        className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                                    Due Date
+                                </Label>
+                                <Input
+                                    type="date"
+                                    value={newTaskDueDate}
+                                    onChange={(e) => setNewTaskDueDate(e.target.value)}
+                                    className="bg-background border-border focus:border-primary text-foreground text-xs"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                                    Assign Developer (Project Team)
+                                </Label>
+                                <AssigneeCombobox
+                                    teamMembers={teamMembers}
+                                    selectedIds={newAssigneeIds}
+                                    onSelectionChange={setNewAssigneeIds}
+                                    placeholder="Select team developer..."
+                                />
+                                {teamMembers.length === 0 && (
+                                    <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                        No developers on the project team yet. Add developers via the Team drawer first.
+                                    </p>
+                                )}
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-foreground">Sequence Position</Label>
-                            <Select
-                                value={String(editMilestoneOrder)}
-                                onValueChange={(val) => setEditMilestoneOrder(parseInt(val) || 1)}
-                            >
-                                <SelectTrigger className="bg-background border-border text-foreground">
-                                    <SelectValue placeholder="Select sequence position" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-card border-border text-foreground shadow-xl">
-                                    {optimisticMilestones.map((_, idx) => (
-                                        <SelectItem key={idx + 1} value={String(idx + 1)}>
-                                            Position {idx + 1}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <p className="text-[11px] text-muted-foreground">
-                                Milestones will automatically shift to maintain unique sequence order (1, 2, 3...).
-                            </p>
-                        </div>
-                        <div className="flex justify-end gap-2 pt-2">
+
+                        <DialogFooter className="p-4 border-t border-border bg-card/95">
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => {
-                                    setEditingMilestoneId(null);
-                                    setEditMilestoneTitle("");
-                                }}
-                                className="border-border text-foreground hover:bg-muted"
+                                onClick={() => setIsAddingTask(false)}
+                                disabled={isCreatingTask}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={isSavingMilestoneEdit || !editMilestoneTitle.trim()}
-                                className="bg-primary hover:bg-primary/90 text-black font-semibold shadow-xs"
+                                disabled={isCreatingTask || !newTaskTitle.trim()}
                             >
-                                {isSavingMilestoneEdit ? "Saving..." : "Save Changes"}
+                                {isCreatingTask ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+                                Create Task
                             </Button>
-                        </div>
+                        </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
