@@ -79,9 +79,9 @@ describe("getProjectProgress", () => {
     expect(mockDb.execute).not.toHaveBeenCalled();
   });
 
-  it("throws for a developer with no task in the project", async () => {
+  it("throws for a developer who is not a team member on the project", async () => {
     signInAs(auth, "developer", "dev-1");
-    mockDb.setSelectRows([]);
+    mockDb.query.projectTeamMembers.findFirst.mockResolvedValue(undefined);
     await expect(getProjectProgress("p1")).rejects.toThrow("Unauthorized");
     expect(mockDb.execute).not.toHaveBeenCalled();
   });
@@ -102,7 +102,7 @@ describe("getProjectProgress", () => {
     expect(await getProjectProgress("p1")).toEqual(progress);
 
     signInAs(auth, "developer", "dev-1");
-    mockDb.setSelectRows([{ taskId: "t1" }]);
+    mockDb.query.projectTeamMembers.findFirst.mockResolvedValue({ projectId: "p1", userId: "dev-1" });
     expect(await getProjectProgress("p1")).toEqual(progress);
 
     signInAs(auth, "client", "client-1");
