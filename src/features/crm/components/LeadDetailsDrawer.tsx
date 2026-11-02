@@ -72,7 +72,6 @@ import { formatDistanceToNow, format } from "date-fns";
 import { logLeadActivity, archiveLead, convertLeadToProject, getProjectForLead, claimLead } from "@/features/crm/actions";
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { completeCrmTask, createCrmTask, deleteCrmTask } from "@/actions/crm-tasks";
-import { createDraftProposalForLead } from "@/features/proposals/actions";
 import { toast } from "sonner";
 import type { LeadItem } from "./LeadsDataTable";
 import Link from "next/link";
@@ -195,26 +194,6 @@ export function LeadDetailsDrawer({
             loadTracker();
         }
     }, [lead?.id]);
-
-    const [isGeneratingSOW, setIsGeneratingSOW] = useState(false);
-    const handleGenerateSOW = async () => {
-        if (!lead || isGeneratingSOW || !isManager) return;
-        setIsGeneratingSOW(true);
-        try {
-            const res = await createDraftProposalForLead(lead.id);
-            if (res.success && res.proposalId) {
-                toast.success("Draft SOW proposal initialized!");
-                router.push(isManager ? `/dashboard/proposals/builder/${res.proposalId}` : `/dashboard/proposals/${res.proposalId}`);
-            } else {
-                toast.error(res.message || "Failed to initialize SOW proposal");
-                setIsGeneratingSOW(false);
-            }
-        } catch (err: any) {
-            console.error("Error creating draft proposal:", err);
-            toast.error(err?.message || "An unexpected error occurred generating SOW");
-            setIsGeneratingSOW(false);
-        }
-    };
 
     // Task Creation Form State
     const [isAddingTask, setIsAddingTask] = useState(false);
@@ -879,16 +858,6 @@ export function LeadDetailsDrawer({
                                     <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                         Proposals & SOW Contracts
                                     </h4>
-                                    {canManageProposals && (
-                                        <button
-                                            type="button"
-                                            disabled={isGeneratingSOW}
-                                            onClick={handleGenerateSOW}
-                                            className="text-xs text-primary hover:underline flex items-center gap-1 font-medium disabled:opacity-50"
-                                        >
-                                            {isGeneratingSOW ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New SOW Proposal
-                                        </button>
-                                    )}
                                 </div>
 
                                 {lead.proposals && lead.proposals.length > 0 ? (
@@ -936,25 +905,6 @@ export function LeadDetailsDrawer({
                                 ) : (
                                     <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-2">
                                         <p className="text-xs text-muted-foreground">No proposals generated yet for this deal.</p>
-                                        {canManageProposals && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                disabled={isGeneratingSOW}
-                                                onClick={handleGenerateSOW}
-                                                className="h-7 text-xs border-border"
-                                            >
-                                                {isGeneratingSOW ? (
-                                                    <>
-                                                        <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> Initializing SOW...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Plus className="h-3 w-3 mr-1.5" /> Generate First SOW Proposal
-                                                    </>
-                                                )}
-                                            </Button>
-                                        )}
                                     </div>
                                 )}
                             </div>
