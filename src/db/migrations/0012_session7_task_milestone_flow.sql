@@ -71,3 +71,4 @@ WHERE u.role = 'developer'
 ON CONFLICT DO NOTHING;
 
 COMMIT;
+
