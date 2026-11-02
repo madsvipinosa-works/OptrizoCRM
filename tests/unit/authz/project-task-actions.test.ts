@@ -145,22 +145,28 @@ describe("submitTask", () => {
   it("rejects when task is in an invalid status", async () => {
     signInAs(auth, "developer", "dev-1");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
-    mockDb.query.tasks.findFirst.mockResolvedValue({
-      id: "task-1",
-      status: "done",
-      milestone: { project: { id: "p1" } },
-    });
+    mockDb.setSelectRows([
+      {
+        id: "task-1",
+        title: "Task 1",
+        status: "done",
+        projectId: "p1",
+      },
+    ]);
     expect(await submitTask(validInput)).toEqual({ ok: false, error: "INVALID_STATUS" });
   });
 
   it("lets the assigned developer submit from In Progress", async () => {
     signInAs(auth, "developer", "dev-1");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
-    mockDb.query.tasks.findFirst.mockResolvedValue({
-      id: "task-1",
-      status: "in_progress",
-      milestone: { project: { id: "p1" } },
-    });
+    mockDb.setSelectRows([
+      {
+        id: "task-1",
+        title: "Task 1",
+        status: "in_progress",
+        projectId: "p1",
+      },
+    ]);
 
     const result = await submitTask(validInput);
     expect(result).toEqual({ ok: true, status: "in_review" });

@@ -423,23 +423,11 @@ export async function submitTask(input: {
 
     try {
         await db.transaction(async (tx) => {
-            let task: typeof tasks.$inferSelect | undefined;
-            const selected = await tx
+            const [task] = await tx
                 .select()
                 .from(tasks)
                 .where(and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)))
                 .for("update");
-
-            if (Array.isArray(selected) && selected.length > 0) {
-                task = selected[0];
-            } else {
-                const txWithQuery = tx as unknown as { query?: { tasks?: { findFirst: (args: unknown) => Promise<typeof tasks.$inferSelect | undefined> } } };
-                if (txWithQuery.query?.tasks?.findFirst) {
-                    task = await txWithQuery.query.tasks.findFirst({
-                        where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)),
-                    });
-                }
-            }
 
             if (!task) {
                 throw new Error("TASK_NOT_FOUND");

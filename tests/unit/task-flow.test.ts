@@ -139,14 +139,15 @@ describe("submitTask", () => {
   it("clears reviewNote and sets in_review on successful submission", async () => {
     signInAs(auth, "developer", "dev-1");
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
-    mockDb.query.tasks.findFirst.mockResolvedValue({
-      id: "task-1",
-      title: "Task 1",
-      status: "changes_requested",
-      reviewNote: "Fix the alignment",
-      milestone: { project: { id: "p1" } },
-    });
-    mockDb.query.tasks.findMany.mockResolvedValue([]);
+    setSelectRows([
+      {
+        id: "task-1",
+        title: "Task 1",
+        status: "changes_requested",
+        reviewNote: "Fix the alignment",
+        projectId: "p1",
+      },
+    ]);
 
     const res = await submitTask({
       taskId: "task-1",
