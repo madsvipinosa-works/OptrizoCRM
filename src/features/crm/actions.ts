@@ -439,13 +439,16 @@ export async function transitionLeadStage(data: TransitionLeadValues): Promise<A
 
         if (!lead) return { success: false, message: "Lead not found" };
 
+        if (newStatus === "Proposal Sent" || newStatus === "In Negotiation" || newStatus === "Closed Won") {
+            return {
+                success: false,
+                message: `Cannot manually transition lead stage to "${newStatus}". This stage is set automatically by system workflow events.`,
+            };
+        }
+
         const validation = await validateLeadTransition(leadId, newStatus);
         if (!validation.valid) {
             return { success: false, message: validation.error };
-        }
-
-        if (newStatus === "Closed Won") {
-            return await markLeadAsWon(leadId);
         }
 
         const oldStatus = lead.status;
@@ -1089,7 +1092,7 @@ export async function reopenLead(leadId: string, reopenReason: string): Promise<
 }
 
 export async function getLeads() {
-    const authz = await requireRole(["sales", "manager"]);
+    const authz = await requireRole(["sales"]);
     if (!authz.ok) return [];
 
     return db.query.leads.findMany({
@@ -1107,7 +1110,7 @@ export async function getLeads() {
 }
 
 export async function getPipelineLeads() {
-    const authz = await requireRole(["sales", "manager"]);
+    const authz = await requireRole(["sales"]);
     if (!authz.ok) return [];
 
     return db.query.leads.findMany({
@@ -1375,7 +1378,7 @@ export async function bulkAssignLeads(
 
 export async function getDiscoveryTrackerData(leadId: string) {
     const session = await auth();
-    if (!hasRole(session, ["sales", "manager"])) {
+    if (!hasRole(session, ["sales"])) {
         return null;
     }
 

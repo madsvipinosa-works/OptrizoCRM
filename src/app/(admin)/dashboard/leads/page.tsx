@@ -4,6 +4,7 @@ import { desc, like, eq, and, or, inArray, isNull, sql } from "drizzle-orm";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
 import { CreateLeadModal } from "@/features/crm/components/CreateLeadModal";
 import { auth, hasRole } from "@/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,26 +18,24 @@ export default async function LeadsPage({
     }>;
 }) {
     const session = await auth();
-    if (!hasRole(session, ["sales", "manager"])) {
-        return <div className="p-8 text-center text-red-500">Unauthorized</div>;
+    if (!session?.user?.id) {
+        redirect("/login");
+    }
+
+    if (!hasRole(session, ["sales"])) {
+        redirect("/dashboard");
     }
 
     const currentUserId = session.user.id;
-    const isManager = session.user.role === "manager";
     const isSales = session.user.role === "sales";
-    const canSeeAllLeads = isManager;
 
     // Role-based CRM visibility:
-    // - Manager sees all leads (read-only).
     // - Sales sees leads assigned to them plus unassigned leads.
-    let assignedLeadIds: string[] = [];
-    if (!canSeeAllLeads && session.user.id) {
-        const assigned = await db.query.leadAssignees.findMany({
-            where: eq(leadAssignees.userId, currentUserId),
-            columns: { leadId: true },
-        });
-        assignedLeadIds = assigned.map(a => a.leadId);
-    }
+    const assigned = await db.query.leadAssignees.findMany({
+        where: eq(leadAssignees.userId, currentUserId),
+        columns: { leadId: true },
+    });
+    const assignedLeadIds = assigned.map(a => a.leadId);
 
     const params = await searchParams;
     const query = params?.query || "";
@@ -53,7 +52,7 @@ export default async function LeadsPage({
                 : unassigned;
         return and(
             isNull(lead.archivedAt),
-            !canSeeAllLeads ? visibility : undefined,
+            visibility,
             status && status !== "all" ? eq(lead.status, status as any) : undefined,
             query
                 ? or(
@@ -89,7 +88,7 @@ export default async function LeadsPage({
 
     // Sales staff may open an unassigned lead from the daily overview so they
     // can claim it, without exposing leads already assigned to another rep.
-    if (!canSeeAllLeads && focusedLeadId && !leadsList.some((lead) => lead.id === focusedLeadId)) {
+    if (focusedLeadId && !leadsList.some((lead) => lead.id === focusedLeadId)) {
         const focusedLead = await db.query.leads.findFirst({
             where: eq(leads.id, focusedLeadId),
             with: {
@@ -136,7 +135,7 @@ export default async function LeadsPage({
             updatedAt: t.updatedAt.toISOString()
         })) || []
     }));
-    const focusedLeadCanBeClaimed = !canSeeAllLeads && leadsList.some(
+    const focusedLeadCanBeClaimed = leadsList.some(
         (lead) => lead.id === focusedLeadId && lead.assignees.length === 0
     );
 

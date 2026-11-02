@@ -9,7 +9,6 @@ interface LeadsKanbanBoardProps {
     leads: LeadItem[];
     assignableUsers: { id: string; name: string | null; image: string | null; jobTitle?: string | null; role?: string | null }[];
     isAdmin?: boolean;
-    onStatusChangeRequest?: (leadId: string, leadTitle: string, fromStatus: string, toStatus: string) => void;
     onSelectLead?: (lead: LeadItem) => void;
     onEditLead?: (lead: LeadItem) => void;
     onArchiveLead?: (leadId: string) => void;
