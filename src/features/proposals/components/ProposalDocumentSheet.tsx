@@ -38,6 +38,13 @@ export interface ProposalDocumentData {
         startDate?: string | null;
         endDate?: string | null;
     }> | null;
+    paymentScheduleItems?: Array<{
+        id?: string;
+        label: string;
+        percent: number;
+        trigger: string;
+        sortOrder?: number;
+    }> | null;
     terms?: string | null;
     validUntil?: string | Date | null;
     status?: string;

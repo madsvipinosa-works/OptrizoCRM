@@ -48,6 +48,7 @@ export async function GET(
             where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),
             with: {
                 milestones: true,
+                paymentScheduleItems: true,
                 lead: {
                     with: {
                         client: true,

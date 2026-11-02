@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals, updateProposalMilestones, DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/actions";
+import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals, updateProposalMilestones, DEFAULT_PROPOSAL_MILESTONES, savePaymentSchedule, DEFAULT_PAYMENT_SCHEDULE_ITEMS } from "@/features/proposals/actions";
 import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 import { printProposalPdf } from "@/features/proposals/utils/printProposalPdf";
 import {
@@ -75,6 +75,13 @@ interface ProposalBuilderStudioProps {
             title: string;
             startDate?: string | null;
             endDate?: string | null;
+        }> | null;
+        paymentScheduleItems?: Array<{
+            id?: string;
+            label: string;
+            percent: number;
+            trigger: string;
+            sortOrder?: number;
         }> | null;
         discount?: number | null;
         tax?: number | null;
@@ -284,6 +291,71 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const [isScopeTimelineModalOpen, setIsScopeTimelineModalOpen] = useState(false);
     const [isSavingMilestones, setIsSavingMilestones] = useState(false);
 
+    const [paymentSchedule, setPaymentSchedule] = useState<Array<{
+        id?: string;
+        label: string;
+        percent: number;
+        trigger: string;
+        sortOrder?: number;
+    }>>(() => {
+        const list = (proposal as any).paymentScheduleItems || [];
+        if (list.length > 0) {
+            return list.map((item: any) => ({
+                id: item.id,
+                label: item.label,
+                percent: Number(item.percent) || 0,
+                trigger: item.trigger || "on_signing",
+                sortOrder: item.sortOrder ?? 0,
+            }));
+        }
+        return DEFAULT_PAYMENT_SCHEDULE_ITEMS.map((item, idx) => ({
+            label: item.label,
+            percent: item.percent,
+            trigger: item.trigger,
+            sortOrder: idx,
+        }));
+    });
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+
+    const totalSchedulePercent = useMemo(() => {
+        return paymentSchedule.reduce((sum, item) => sum + (Number(item.percent) || 0), 0);
+    }, [paymentSchedule]);
+
+    const scheduleSummaryText = useMemo(() => {
+        if (paymentSchedule.length === 0) return "No payments configured";
+        const parts = paymentSchedule.map(p => `${p.percent}% ${p.label.toLowerCase()}`);
+        return `${paymentSchedule.length} payments · ${parts.join(", ")}`;
+    }, [paymentSchedule]);
+
+    const handleSaveSchedule = async () => {
+        if (totalSchedulePercent !== 100) {
+            toast.error(`Percents must add up to exactly 100% (currently ${totalSchedulePercent}%).`);
+            return;
+        }
+        for (const item of paymentSchedule) {
+            if (!item.label.trim()) {
+                toast.error("Every payment schedule item must have a label.");
+                return;
+            }
+        }
+        setIsSavingSchedule(true);
+        try {
+            const res = await savePaymentSchedule(proposal.id, paymentSchedule);
+            if (res.success) {
+                toast.success("Payment schedule saved!");
+                setIsScheduleModalOpen(false);
+            } else {
+                toast.error(res.message || "Failed to save payment schedule");
+            }
+        } catch {
+            toast.error("Failed to save payment schedule");
+        } finally {
+            setIsSavingSchedule(false);
+        }
+    };
+
+
     const milestoneDateRangeText = useMemo(() => {
         const dates = milestones.flatMap(m => [m.startDate, m.endDate]).filter(Boolean).sort();
         if (dates.length === 0) return "5 default milestones · Dates not set";
@@ -296,6 +368,12 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         setIsSavingMilestones(true);
         try {
             const res = await updateProposalMilestones(proposal.id, milestones);
+            if (totalSchedulePercent === 100) {
+                await savePaymentSchedule(proposal.id, paymentSchedule);
+            } else if (priceMode === "priced") {
+                toast.error(`Payment schedule total is ${totalSchedulePercent}%. It must be exactly 100%.`);
+                return;
+            }
             if (res.success) {
                 toast.success("Milestone dates updated!");
                 setIsMilestonesModalOpen(false);
@@ -558,6 +636,14 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         currency,
         totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
         needsGoals,
+        milestones: milestones.map(m => ({
+            key: m.key,
+            title: m.title,
+            description: m.description,
+            startDate: m.startDate || null,
+            endDate: m.endDate || null,
+        })),
+        paymentScheduleItems: paymentSchedule,
         terms,
         validUntil,
         status: currentStatus,
@@ -1328,6 +1414,136 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsScopeTimelineModalOpen(false)}>
                             Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Step 17a: Edit Payment Schedule Dialog */}
+            <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Payment schedule</DialogTitle>
+                        <DialogDescription>
+                            Total price {currency === "PHP" ? "₱" : "$"}{totalPrice !== null ? totalPrice.toLocaleString() : "0"}. Set when each payment is due and its share. Amounts are calculated.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+                        <div className="grid grid-cols-12 gap-2 text-[11px] font-semibold text-muted-foreground uppercase font-mono tracking-wider border-b border-border/60 pb-2">
+                            <span className="col-span-5">Payment due</span>
+                            <span className="col-span-3">Trigger</span>
+                            <span className="col-span-2 text-right">Percent</span>
+                            <span className="col-span-2 text-right">Amount</span>
+                        </div>
+                        {paymentSchedule.map((item, index) => {
+                            const calculatedAmount = totalPrice !== null ? Math.round(totalPrice * (item.percent / 100)) : null;
+                            return (
+                                <div key={index} className="grid grid-cols-12 gap-2 items-center py-1">
+                                    <div className="col-span-5">
+                                        <Input
+                                            value={item.label}
+                                            onChange={(e) => {
+                                                const updated = [...paymentSchedule];
+                                                updated[index].label = e.target.value;
+                                                setPaymentSchedule(updated);
+                                            }}
+                                            placeholder="e.g. On signing"
+                                            className="h-8 text-xs"
+                                        />
+                                    </div>
+                                    <div className="col-span-3">
+                                        <select
+                                            value={item.trigger}
+                                            onChange={(e) => {
+                                                const updated = [...paymentSchedule];
+                                                updated[index].trigger = e.target.value;
+                                                setPaymentSchedule(updated);
+                                            }}
+                                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                                        >
+                                            <option value="on_signing">On signing</option>
+                                            <option value="requirements">Requirements</option>
+                                            <option value="design">Design approval</option>
+                                            <option value="development">Development</option>
+                                            <option value="uat_testing">UAT testing</option>
+                                            <option value="handover">Handover</option>
+                                            <option value="before_completion">Before completion</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={item.percent}
+                                                onChange={(e) => {
+                                                    const updated = [...paymentSchedule];
+                                                    updated[index].percent = Number(e.target.value) || 0;
+                                                    setPaymentSchedule(updated);
+                                                }}
+                                                className="h-8 text-xs text-right pr-6 font-mono"
+                                            />
+                                            <span className="absolute right-2 top-2 text-xs text-muted-foreground">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="col-span-2 flex items-center justify-between gap-1">
+                                        <span className="text-xs font-mono font-medium text-foreground truncate">
+                                            {calculatedAmount !== null ? `${currency === "PHP" ? "₱" : "$"}${calculatedAmount.toLocaleString()}` : "—"}
+                                        </span>
+                                        {paymentSchedule.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const updated = paymentSchedule.filter((_, i) => i !== index);
+                                                    setPaymentSchedule(updated);
+                                                }}
+                                                className="text-destructive hover:opacity-80 text-xs shrink-0"
+                                                title="Remove payment"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div className="flex justify-between items-center pt-3 border-t border-border/60">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setPaymentSchedule([
+                                        ...paymentSchedule,
+                                        { label: "New payment", percent: 0, trigger: "handover", sortOrder: paymentSchedule.length }
+                                    ]);
+                                }}
+                                className="text-xs"
+                            >
+                                + Add payment
+                            </Button>
+                            <div className="text-xs font-mono font-bold">
+                                <span className={totalSchedulePercent === 100 ? "text-emerald-500" : "text-destructive"}>
+                                    Total {totalSchedulePercent}% {totalPrice !== null ? `· ${currency === "PHP" ? "₱" : "$"}${totalPrice.toLocaleString()}` : ""}
+                                </span>
+                            </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                            Percents must add up to 100% before you can save.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsScheduleModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleSaveSchedule}
+                            disabled={isSavingSchedule || totalSchedulePercent !== 100}
+                        >
+                            {isSavingSchedule ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Save schedule
                         </Button>
                     </DialogFooter>
                 </DialogContent>

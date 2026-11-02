@@ -518,6 +518,23 @@ export const proposalMilestones = pgTable("proposal_milestone", {
     uniqueIndex("proposal_milestone_proposal_key_idx").on(t.proposalId, t.key)
 ]);
 
+export const paymentScheduleItems = pgTable("payment_schedule_item", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    proposalId: text("proposalId")
+        .notNull()
+        .references(() => proposals.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    percent: integer("percent").notNull(),
+    trigger: text("trigger").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+    index("idx_payment_schedule_proposal").on(t.proposalId),
+]);
+
+
 
 // 15. Audit Logs
 export const auditActionEnum = pgEnum("audit_action", ["CREATE", "UPDATE", "DELETE", "LOGIN", "OTHER"]);
@@ -677,6 +694,15 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
         references: [leads.id],
     }),
     milestones: many(proposalMilestones),
+    paymentScheduleItems: many(paymentScheduleItems),
+}));
+
+
+export const paymentScheduleItemsRelations = relations(paymentScheduleItems, ({ one }) => ({
+    proposal: one(proposals, {
+        fields: [paymentScheduleItems.proposalId],
+        references: [proposals.id],
+    }),
 }));
 
 export const proposalMilestonesRelations = relations(proposalMilestones, ({ one }) => ({

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
     proposals,
     proposalMilestones,
+    paymentScheduleItems,
     leads, users, discoveryForms } from "@/db/schema";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
@@ -828,6 +829,7 @@ export async function createProposalRevision(leadId: string) {
             orderBy: (p, { desc }) => [desc(p.version), desc(p.createdAt)],
             with: {
                 milestones: true,
+                paymentScheduleItems: true,
             },
         });
 
@@ -880,12 +882,118 @@ export async function createProposalRevision(leadId: string) {
             await seedDefaultProposalMilestones(revision.id);
         }
 
+        
+        if (latestProposal.paymentScheduleItems && latestProposal.paymentScheduleItems.length > 0) {
+            for (const item of latestProposal.paymentScheduleItems) {
+                await db.insert(paymentScheduleItems).values({
+                    proposalId: revision.id,
+                    label: item.label,
+                    percent: item.percent,
+                    trigger: item.trigger,
+                    sortOrder: item.sortOrder,
+                });
+            }
+        } else {
+            await seedDefaultPaymentSchedule(revision.id);
+        }
+
         await logAction("CREATE", "Proposal", `Created proposal revision v${nextVersion} for Lead ${leadId}`);
         revalidatePath(`/dashboard/proposals`);
         revalidatePath(`/dashboard/leads/${leadId}`);
         return { success: true, proposalId: revision.id };
     } catch (error) {
         console.error("Failed to create proposal revision:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+
+export const DEFAULT_PAYMENT_SCHEDULE_ITEMS = [
+    { label: "On signing", percent: 30, trigger: "on_signing", sortOrder: 0 },
+    { label: "After design approval", percent: 30, trigger: "design", sortOrder: 1 },
+    { label: "On handover", percent: 40, trigger: "handover", sortOrder: 2 },
+] as const;
+
+export async function seedDefaultPaymentSchedule(proposalId: string) {
+    const existing = await db.query.paymentScheduleItems.findFirst({
+        where: eq(paymentScheduleItems.proposalId, proposalId),
+    });
+    if (!existing) {
+        for (const item of DEFAULT_PAYMENT_SCHEDULE_ITEMS) {
+            await db.insert(paymentScheduleItems).values({
+                proposalId,
+                label: item.label,
+                percent: item.percent,
+                trigger: item.trigger,
+                sortOrder: item.sortOrder,
+            });
+        }
+    }
+}
+
+export async function getPaymentSchedule(proposalId: string) {
+    const items = await db.query.paymentScheduleItems.findMany({
+        where: eq(paymentScheduleItems.proposalId, proposalId),
+        orderBy: (psi, { asc }) => [asc(psi.sortOrder), asc(psi.createdAt)],
+    });
+    return items;
+}
+
+export async function savePaymentSchedule(
+    proposalId: string,
+    items: Array<{ id?: string; label: string; percent: number; trigger: string; sortOrder?: number }>
+) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can edit payment schedules" };
+    }
+
+    if (!items || items.length === 0) {
+        return { success: false, message: "At least one payment schedule item is required" };
+    }
+
+    const totalPercent = items.reduce((sum, item) => sum + (Number(item.percent) || 0), 0);
+    if (totalPercent !== 100) {
+        return {
+            success: false,
+            message: `Payment schedule percentages must total exactly 100% (currently ${totalPercent}%)`,
+        };
+    }
+
+    for (const item of items) {
+        if (!item.label || !item.label.trim()) {
+            return { success: false, message: "Label is required for every payment item" };
+        }
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, proposalId),
+        });
+        if (!proposal) return { success: false, message: "Proposal not found" };
+
+        await db.delete(paymentScheduleItems).where(eq(paymentScheduleItems.proposalId, proposalId));
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            await db.insert(paymentScheduleItems).values({
+                proposalId,
+                label: item.label.trim(),
+                percent: Math.round(Number(item.percent)),
+                trigger: item.trigger || "on_signing",
+                sortOrder: item.sortOrder !== undefined ? item.sortOrder : i,
+            });
+        }
+
+        await logAction("UPDATE", "Proposal", `Updated payment schedule (100%) for Proposal ${proposal.proposalCode || proposalId}`);
+        revalidatePath(`/dashboard/proposals/builder/${proposalId}`);
+        revalidatePath(`/dashboard/proposals/${proposalId}`);
+        revalidatePath(`/proposal/${proposalId}`);
+
+        const updated = await getPaymentSchedule(proposalId);
+        return { success: true, items: updated };
+    } catch (error) {
+        console.error("Failed to save payment schedule:", error);
         return { success: false, message: "Database Error" };
     }
 }

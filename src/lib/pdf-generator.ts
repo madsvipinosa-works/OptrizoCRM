@@ -79,6 +79,12 @@ export function generateSOWHtml(data: {
         startDate?: string | null;
         endDate?: string | null;
     }> | null;
+    paymentScheduleItems?: Array<{
+        label: string;
+        percent: number;
+        trigger: string;
+        sortOrder?: number;
+    }> | null;
     terms?: string | null;
     status: string;
     acceptedByName?: string | null;
@@ -112,6 +118,7 @@ export function generateSOWHtml(data: {
     const safeTechnicalApproach = data.technicalApproach ? escapeHtml(data.technicalApproach) : null;
     const safeTimeline = data.timeline ? escapeHtml(data.timeline) : null;
     const safeMilestones = data.milestones || [];
+    const safeSchedule = data.paymentScheduleItems || [];
     const safeTerms = escapeHtml(data.terms || "Standard agency terms apply: 50% deposit required upon acceptance to initiate sprint planning, with the remaining balance due upon milestone handover. All custom deliverables and intellectual property will transfer to Client upon receipt of final contract settlement.");
     const safeAcceptedByName = data.acceptedByName ? escapeHtml(data.acceptedByName) : "Client Signatory";
     const safeAcceptedByTitle = data.acceptedByTitle ? escapeHtml(data.acceptedByTitle) : null;

@@ -47,6 +47,13 @@ interface Props {
             startDate?: string | null;
             endDate?: string | null;
         }> | null;
+        paymentScheduleItems?: Array<{
+            id?: string;
+            label: string;
+            percent: number;
+            trigger: string;
+            sortOrder?: number;
+        }> | null;
         fileUrl?: string | null;
         scope?: string | null;
         timeline?: string | null;

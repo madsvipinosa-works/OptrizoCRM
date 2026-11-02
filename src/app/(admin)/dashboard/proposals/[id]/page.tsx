@@ -43,6 +43,7 @@ export default async function StaffProposalViewPage({
         where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),
         with: {
             milestones: true,
+            paymentScheduleItems: true,
             lead: {
                 with: {
                     client: true,

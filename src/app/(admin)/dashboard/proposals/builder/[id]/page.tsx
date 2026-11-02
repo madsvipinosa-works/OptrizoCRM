@@ -34,6 +34,7 @@ export default async function ProposalBuilderPage({
         where: eq(proposals.id, id),
         with: {
             milestones: true,
+            paymentScheduleItems: true,
             lead: {
                 with: {
                     client: true,
@@ -49,6 +50,7 @@ export default async function ProposalBuilderPage({
             orderBy: (p, { desc }) => [desc(p.createdAt)],
             with: {
             milestones: true,
+            paymentScheduleItems: true,
             lead: {
                 with: {
                     client: true,

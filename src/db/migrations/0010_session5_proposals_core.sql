@@ -148,4 +148,38 @@ CROSS JOIN (
 ) AS m(key, title)
 ON CONFLICT ("proposalId", "key") DO NOTHING;
 
+-- 6. Item 7: payment_schedule_item (30/30/40 default, 100% check)
+CREATE TABLE IF NOT EXISTS "payment_schedule_item" (
+    "id" text PRIMARY KEY NOT NULL,
+    "proposalId" text NOT NULL REFERENCES "proposal"("id") ON DELETE CASCADE,
+    "label" text NOT NULL,
+    "percent" integer NOT NULL,
+    "trigger" text NOT NULL,
+    "sort_order" integer NOT NULL DEFAULT 0,
+    "created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS "idx_payment_schedule_proposal" ON "payment_schedule_item" ("proposalId");
+
+-- Backfill default 30/30/40 for every existing proposal that has no payment schedule items yet
+INSERT INTO "payment_schedule_item" ("id", "proposalId", "label", "percent", "trigger", "sort_order", "created_at")
+SELECT
+    gen_random_uuid()::text,
+    p.id,
+    item.label,
+    item.percent,
+    item.trigger,
+    item.sort_order,
+    now()
+FROM "proposal" p
+CROSS JOIN (
+    VALUES
+        ('On signing', 30, 'on_signing', 0),
+        ('After design approval', 30, 'design', 1),
+        ('On handover', 40, 'handover', 2)
+) AS item(label, percent, trigger, sort_order)
+WHERE NOT EXISTS (
+    SELECT 1 FROM "payment_schedule_item" psi WHERE psi."proposalId" = p.id
+);
+
 COMMIT;
