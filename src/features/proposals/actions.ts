@@ -16,6 +16,7 @@ import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 import { notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
+import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
 import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
 
 export interface ContractSettings {
@@ -653,13 +654,6 @@ export async function resetProposalNeedsGoals(proposalId: string) {
 }
 
 
-export const DEFAULT_PROPOSAL_MILESTONES = [
-    { name: "requirements" as const, key: "requirements", title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
-    { name: "design" as const, key: "design", title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
-    { name: "development" as const, key: "development", title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
-    { name: "uat_testing" as const, key: "uat_testing", title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
-    { name: "handover" as const, key: "handover", title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
-] as const;
 
 export async function seedDefaultProposalMilestones(proposalId: string) {
     for (const m of DEFAULT_PROPOSAL_MILESTONES) {

@@ -14,7 +14,7 @@ import {
     tasks,
     users,
 } from "@/db/schema";
-import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/actions";
+import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
 import { sendClientWelcomeEmail } from "@/lib/notifications";
 import { and, eq, sql } from "drizzle-orm";
 
