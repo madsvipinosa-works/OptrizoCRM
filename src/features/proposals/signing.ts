@@ -2,17 +2,14 @@
 
 import { db } from "@/db";
 import { proposals, leads, leadActivityLogs, proposalMessages } from "@/db/schema";
-import { eq, and, gt, ne, sql } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
 import { auth } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { notifyLeadPms, notifyLeadClient, notifyLeadSales } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
-import { moveLeadToNegotiation, moveLeadToClosedWon } from "@/features/crm/stage-rules";
-import { provisionProjectFromProposal } from "@/features/crm/provisionLeadProject";
-import { isProposalExpired } from "@/features/proposals/utils/expiry";
-import { sendSignedProposalEmail } from "@/lib/notifications";
+import { moveLeadToNegotiation } from "@/features/crm/stage-rules";
+import { executeProposalSignature } from "@/features/proposals/signing-core";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 
 /**
  * 1. Client requests a pricing meeting.
@@ -436,266 +433,6 @@ export async function getProposalMessages(proposalId: string) {
     });
 }
 
-export interface ProposalSignatureParams {
-    proposalId: string;
-    signerName: string;
-    signatureType: "online" | "paper";
-    signatureData?: string | null;
-    signedFileUrl?: string | null;
-    signedAt?: Date;
-    signerIp?: string | null;
-    agreedToTerms?: boolean;
-    actorRole: "client" | "manager";
-    userId: string;
-    userEmail?: string | null;
-}
-
-/**
- * Shared internal execution engine for both online digital signatures and PM paper uploads.
- * Executes:
- * 1. Strict validation (role, ownership, terms, valid status, priceMode priced, !isProposalExpired).
- * 2. ACID Transaction:
- *    - pg_advisory_xact_lock(hashtext(leadId))
- *    - locks proposal and lead (.for('update'))
- *    - updates proposal status to 'signed' with signature metadata
- *    - moves lead to 'Closed Won' via moveLeadToClosedWon
- *    - provisions agency_project with 5 milestones and payment rows via provisionProjectFromProposal
- * 3. Post-commit:
- *    - notify PMs and Sales
- *    - sends signed copy PDF link email to client
- */
-export async function executeProposalSignature(
-    params: ProposalSignatureParams
-): Promise<{ success: boolean; message?: string; projectId?: string }> {
-    const {
-        proposalId,
-        signerName,
-        signatureType,
-        signatureData,
-        signedFileUrl,
-        signedAt = new Date(),
-        signerIp = null,
-        agreedToTerms,
-        actorRole,
-        userId,
-        userEmail,
-    } = params;
-
-    // 1. Parameter Validation
-    if (!signerName || !signerName.trim()) {
-        return { success: false, message: "Signer name is required" };
-    }
-
-    if (signatureType === "online") {
-        if (!agreedToTerms) {
-            return { success: false, message: "You must agree to the terms and conditions to sign" };
-        }
-        if (!signatureData || !signatureData.trim()) {
-            return { success: false, message: "Signature is required" };
-        }
-    } else if (signatureType === "paper") {
-        if (!signedFileUrl || !signedFileUrl.trim()) {
-            return { success: false, message: "Signed document file URL is required for paper signatures" };
-        }
-    }
-
-    // 2. Fetch proposal with lead and relations
-    const proposal = await db.query.proposals.findFirst({
-        where: eq(proposals.id, proposalId),
-        with: {
-            milestones: true,
-            paymentScheduleItems: true,
-            lead: {
-                with: {
-                    client: true,
-                    assignees: true,
-                },
-            },
-        },
-    });
-
-    if (!proposal) {
-        return { success: false, message: "Proposal not found" };
-    }
-
-    const lead = proposal.lead;
-    if (!lead) {
-        return { success: false, message: "Proposal has no associated lead" };
-    }
-
-    // 3. Authorization check
-    if (actorRole === "client") {
-        const isOwner =
-            userId === lead.clientId ||
-            userEmail === lead.client?.email ||
-            userEmail === lead.contactEmail;
-        if (!isOwner) {
-            return { success: false, message: "Forbidden: Only the client owner can execute this proposal" };
-        }
-    }
-
-    // 4. Precondition checks
-    if (proposal.status !== "sent") {
-        return {
-            success: false,
-            message: `Proposal cannot be signed. It is in status "${proposal.status}" (must be "sent").`,
-        };
-    }
-
-    const totalPrice = Number(proposal.totalPrice ?? proposal.total ?? 0);
-    if (proposal.priceMode !== "priced" || totalPrice <= 0) {
-        return {
-            success: false,
-            message: "Proposal cannot be signed without a confirmed price and investment breakdown.",
-        };
-    }
-
-    if (isProposalExpired(proposal.validUntil)) {
-        return {
-            success: false,
-            message: "Proposal has expired. Please contact your Project Manager for an updated proposal.",
-        };
-    }
-
-    const higherVersion = await db.query.proposals.findFirst({
-        where: and(
-            eq(proposals.leadId, lead.id),
-            gt(proposals.version, proposal.version),
-            ne(proposals.status, "draft")
-        ),
-    });
-    if (higherVersion) {
-        return { success: false, message: "A newer revision of this proposal exists. Please review the latest version." };
-    }
-
-    let provisionedProjectId: string | undefined;
-
-    try {
-        const txResult = await db.transaction(async (tx) => {
-            // Advisory lock on lead to prevent race conditions
-            await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${lead.id}))`);
-
-            // Lock proposal
-            const [lockedProposal] = await tx
-                .select()
-                .from(proposals)
-                .where(eq(proposals.id, proposalId))
-                .for("update");
-
-            if (!lockedProposal) {
-                return { success: false, message: "Proposal not found during transaction" };
-            }
-
-            if (lockedProposal.status !== "sent") {
-                return {
-                    success: false,
-                    message: `Proposal status changed to "${lockedProposal.status}". Only "sent" proposals can be signed.`,
-                };
-            }
-
-            if (isProposalExpired(lockedProposal.validUntil)) {
-                return { success: false, message: "Proposal has expired." };
-            }
-
-            // Lock lead
-            const [lockedLead] = await tx
-                .select()
-                .from(leads)
-                .where(eq(leads.id, lead.id))
-                .for("update");
-
-            if (!lockedLead) {
-                return { success: false, message: "Lead not found during transaction" };
-            }
-
-            if (lockedLead.status === "Closed Won") {
-                return { success: false, message: "Lead is already Closed Won." };
-            }
-
-            // Update proposal record
-            await tx
-                .update(proposals)
-                .set({
-                    status: "signed",
-                    signerName: signerName.trim(),
-                    signedAt,
-                    signerIp: signatureType === "online" ? signerIp : null,
-                    signatureType,
-                    signatureData: signatureType === "online" ? signatureData?.trim() : null,
-                    signedFileUrl: signatureType === "paper" ? signedFileUrl?.trim() : null,
-                    acceptedByName: signerName.trim(),
-                    acceptedAt: signedAt,
-                    updatedAt: new Date(),
-                })
-                .where(eq(proposals.id, proposalId));
-
-            // Move lead to Closed Won
-            const wonRes = await moveLeadToClosedWon(tx, lockedLead.id, signedAt, totalPrice);
-            if (!wonRes.success) {
-                throw new Error(wonRes.message || "Failed to move lead to Closed Won");
-            }
-
-            // Provision project, 5 default milestones and payment schedule rows
-            const provisionRes = await provisionProjectFromProposal(tx, {
-                ...lockedProposal,
-                milestones: proposal.milestones,
-                paymentScheduleItems: proposal.paymentScheduleItems,
-            });
-
-            provisionedProjectId = provisionRes.project?.id;
-            return { success: true };
-        });
-
-        if (!txResult.success) {
-            return txResult;
-        }
-
-        // Post-commit side effects: notifications and email link
-        try {
-            const code = proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`;
-            const link = `/dashboard/proposals/${proposalId}`;
-            const clientMsg = `Client ${signerName.trim()} has executed proposal ${code}. Delivery project initialized.`;
-            const salesMsg = `Proposal ${code} for lead "${lead.businessName || lead.contactName}" is Closed Won (${signatureType} signature).`;
-
-            await notifyLeadPms(lead.id, clientMsg, "proposal", link);
-            await notifyLeadSales(lead.id, salesMsg, "proposal", link);
-
-            const clientEmail = lead.client?.email || lead.contactEmail;
-            if (clientEmail) {
-                await sendSignedProposalEmail({
-                    clientEmail,
-                    clientName: signerName.trim(),
-                    proposalCode: code,
-                    pdfUrl: `${process.env.NEXTAUTH_URL || ""}/api/proposals/${proposalId}/pdf`,
-                });
-            }
-
-            await logAction(
-                "UPDATE",
-                "proposal",
-                `Proposal ${proposalId} signed (${signatureType}) by ${signerName.trim()}`
-            );
-        } catch (postCommitErr) {
-            console.error("Post-commit error in executeProposalSignature:", postCommitErr);
-        }
-
-        revalidatePath(`/proposal/${proposalId}`);
-        revalidatePath(`/dashboard/proposals/${proposalId}`);
-        revalidatePath(`/dashboard/leads/${lead.id}`);
-
-        return {
-            success: true,
-            message: "Proposal signed successfully. Delivery project initialized!",
-            projectId: provisionedProjectId,
-        };
-    } catch (error: unknown) {
-        console.error("executeProposalSignature transaction error:", error);
-        return {
-            success: false,
-            message: error instanceof Error ? error.message : "Failed to sign proposal",
-        };
-    }
-}
 
 /**
  * 6. Client executes digital acceptance and signing for a proposal.
@@ -733,20 +470,33 @@ export async function signProposal(
 /**
  * PM uploads a signed paper agreement and marks the proposal signed.
  * Role: manager.
- * Same transactional engine, Closed Won transition, and delivery project provisioning.
+ * Must call requireRole(["manager"]) first.
+ * Validates signedAt is a valid date and not in the future.
  */
 export async function recordPaperSignature(
     proposalId: string,
     signedFileUrl: string,
     signedAtDate?: Date | string
 ): Promise<{ success: boolean; message?: string; projectId?: string }> {
+    // 1. Must call requireRole(["manager"]) first
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
         return { success: false, message: "Unauthorized: Only Project Managers can record paper signatures" };
     }
 
+    // 2. Validate signedAt is a valid date and not in the future
+    if (!signedAtDate) {
+        return { success: false, message: "Signature date is required" };
+    }
+    const date = new Date(signedAtDate);
+    if (isNaN(date.getTime())) {
+        return { success: false, message: "Invalid signature date" };
+    }
+    if (date.getTime() > Date.now()) {
+        return { success: false, message: "Signature date cannot be in the future" };
+    }
+
     const { session } = authz;
-    const date = signedAtDate ? new Date(signedAtDate) : new Date();
 
     return await executeProposalSignature({
         proposalId,

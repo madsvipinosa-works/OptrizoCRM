@@ -19,7 +19,8 @@ vi.mock("@/lib/notifications", () => ({
 import { db } from "@/db";
 import { type MockDb } from "../helpers/mock-db";
 import { isProposalExpired } from "@/features/proposals/utils/expiry";
-import { executeProposalSignature } from "@/features/proposals/signing";
+import { executeProposalSignature } from "@/features/proposals/signing-core";
+import { provisionProjectFromProposal } from "@/features/crm/provisionLeadProject";
 
 const mockDb = db as unknown as MockDb;
 
@@ -49,35 +50,106 @@ describe("Proposal Signing & Expiry Unit Tests", () => {
         });
     });
 
-    describe("Payment Schedule Remainder Calculation", () => {
-        it("allocates exact remainder to the last item so sum equals totalPrice", () => {
-            const totalPrice = 100001; // Odd amount to test rounding
-            const items = [
-                { id: "1", label: "Deposit", percent: 30, trigger: "on_signing" },
-                { id: "2", label: "Milestone 1", percent: 30, trigger: "requirements" },
-                { id: "3", label: "Final", percent: 40, trigger: "handover" },
+    describe("Payment Schedule Remainder Calculation & Sorting", () => {
+        it("allocates exact remainder to the last item after sorting by sortOrder", async () => {
+            const totalPrice = 100001; // Odd amount where 30% produces .3 fraction
+
+            // Intentionally provide items out of order: sortOrder 2 first, then 0, then 1
+            const unsortedScheduleItems = [
+                { id: "item-last", label: "Final Handover", sortOrder: 2, percent: 40, trigger: "handover" as const },
+                { id: "item-first", label: "Initial Deposit", sortOrder: 0, percent: 30, trigger: "on_signing" as const },
+                { id: "item-mid", label: "Milestone Beta", sortOrder: 1, percent: 30, trigger: "development" as const },
             ];
 
-            let allocatedSum = 0;
-            const payments = items.map((item, index) => {
-                const isLast = index === items.length - 1;
-                const amount = isLast
-                    ? totalPrice - allocatedSum
-                    : Math.round((totalPrice * item.percent) / 100);
-                allocatedSum += amount;
-                return { ...item, amount };
+            mockDb.query.leads.findFirst.mockResolvedValue({
+                id: "lead-1",
+                businessName: "Acme Corp",
+                clientId: "client-1",
+                client: { id: "client-1", role: "client", email: "client@acme.com" },
             });
+            mockDb.query.agencyProjects.findFirst.mockResolvedValue(null);
 
-            expect(payments[0].amount).toBe(30000); // 30% of 100001 = 30000.3 -> 30000
-            expect(payments[1].amount).toBe(30000); // 30% of 100001 = 30000.3 -> 30000
-            expect(payments[2].amount).toBe(40001); // 100001 - 60000 = 40001 (remainder)
+            // Mock returned values for inserts
+            mockDb.setWriteRows([{ id: "proj-1", title: "Acme Corp Project" }]);
 
-            const totalAllocated = payments.reduce((sum, p) => sum + p.amount, 0);
-            expect(totalAllocated).toBe(totalPrice);
+            const proposal = {
+                id: "prop-1",
+                leadId: "lead-1",
+                priceMode: "priced" as const,
+                totalPrice,
+                currency: "PHP" as const,
+                paymentScheduleItems: unsortedScheduleItems,
+            };
+
+            const result = await provisionProjectFromProposal(mockDb, proposal);
+
+            expect(result.payments).toHaveLength(3);
+            // After sort by sortOrder (0, 1, 2):
+            // 0: item-first (30% of 100001 = 30000)
+            expect(result.payments[0].label).toBe("Initial Deposit");
+            expect(result.payments[0].amount).toBe(30000);
+            expect(result.payments[0].status).toBe("due");
+
+            // 1: item-mid (30% of 100001 = 30000)
+            expect(result.payments[1].label).toBe("Milestone Beta");
+            expect(result.payments[1].amount).toBe(30000);
+            expect(result.payments[1].status).toBe("not_yet_due");
+
+            // 2: item-last (40% + remainder = 100001 - 60000 = 40001)
+            expect(result.payments[2].label).toBe("Final Handover");
+            expect(result.payments[2].amount).toBe(40001);
+            expect(result.payments[2].status).toBe("not_yet_due");
+
+            // Verify sum of amounts strictly matches totalPrice
+            const sum = result.payments.reduce((acc, p) => acc + p.amount, 0);
+            expect(sum).toBe(totalPrice);
+        });
+
+        it("throws when priced proposal has no payment schedule items", async () => {
+            mockDb.query.leads.findFirst.mockResolvedValue({
+                id: "lead-1",
+                clientId: "client-1",
+            });
+            mockDb.query.agencyProjects.findFirst.mockResolvedValue(null);
+
+            const proposal = {
+                id: "prop-empty-schedule",
+                leadId: "lead-1",
+                priceMode: "priced" as const,
+                totalPrice: 50000,
+                paymentScheduleItems: [],
+            };
+
+            await expect(provisionProjectFromProposal(mockDb, proposal)).rejects.toThrow(
+                /has no payment schedule items/
+            );
+        });
+
+        it("throws when payment schedule item percentages do not sum to 100%", async () => {
+            mockDb.query.leads.findFirst.mockResolvedValue({
+                id: "lead-1",
+                clientId: "client-1",
+            });
+            mockDb.query.agencyProjects.findFirst.mockResolvedValue(null);
+
+            const proposal = {
+                id: "prop-bad-sum",
+                leadId: "lead-1",
+                priceMode: "priced" as const,
+                totalPrice: 50000,
+                paymentScheduleItems: [
+                    { id: "1", label: "Deposit", percent: 50, sortOrder: 0, trigger: "on_signing" as const },
+                    { id: "2", label: "Final", percent: 40, sortOrder: 1, trigger: "handover" as const },
+                ], // Totals 90%
+            };
+
+            await expect(provisionProjectFromProposal(mockDb, proposal)).rejects.toThrow(
+                /must total 100%, got 90%/
+            );
         });
     });
 
-    describe("executeProposalSignature Precondition Guards", () => {
+    describe("executeProposalSignature Precondition Guards & Transaction Isolation", () => {
         it("rejects proposal when status is not sent (e.g. draft)", async () => {
             mockDb.query.proposals.findFirst.mockResolvedValue({
                 id: "prop-draft",
@@ -101,7 +173,7 @@ describe("Proposal Signing & Expiry Unit Tests", () => {
             expect(res.message).toContain("must be \"sent\"");
         });
 
-        it("rejects second sign attempt on an already signed proposal", async () => {
+        it("rejects initial check if proposal is already signed", async () => {
             mockDb.query.proposals.findFirst.mockResolvedValue({
                 id: "prop-signed",
                 status: "signed",
@@ -122,6 +194,77 @@ describe("Proposal Signing & Expiry Unit Tests", () => {
 
             expect(res.success).toBe(false);
             expect(res.message).toContain("must be \"sent\"");
+        });
+
+        it("rejects second sign when locked row inside transaction is no longer sent", async () => {
+            // Initial read sees proposal in status 'sent', followed by higherVersion checks returning null
+            mockDb.query.proposals.findFirst
+                .mockResolvedValueOnce({
+                    id: "prop-race",
+                    status: "sent",
+                    priceMode: "priced",
+                    totalPrice: 50000,
+                    version: 1,
+                    validUntil: null,
+                    lead: { id: "lead-1", clientId: "client-1", client: { email: "client@acme.com" } },
+                })
+                .mockResolvedValueOnce(null) // pre-flight higherVersion check
+                .mockResolvedValueOnce(null); // inside tx higherVersionTx check
+
+            // But inside the transaction, the locked row read (.select().from(proposals)...for("update"))
+            // returns a row that was already marked 'signed' by a concurrent request
+            mockDb.setSelectRows([
+                {
+                    id: "prop-race",
+                    status: "signed",
+                    priceMode: "priced",
+                    totalPrice: 50000,
+                    version: 1,
+                    validUntil: null,
+                },
+            ]);
+
+            const res = await executeProposalSignature({
+                proposalId: "prop-race",
+                signerName: "Concurrent Client Signer",
+                signatureType: "online",
+                signatureData: "sig-data",
+                agreedToTerms: true,
+                actorRole: "client",
+                userId: "client-1",
+            });
+
+            expect(res.success).toBe(false);
+            expect(res.message).toContain("Only \"sent\" proposals can be signed");
+        });
+
+        it("rejects client signature when userEmail is null or empty to prevent null===null matches", async () => {
+            mockDb.query.proposals.findFirst.mockResolvedValue({
+                id: "prop-null-email",
+                status: "sent",
+                priceMode: "priced",
+                totalPrice: 50000,
+                lead: {
+                    id: "lead-1",
+                    clientId: "other-user",
+                    client: { email: null },
+                    contactEmail: null,
+                },
+            });
+
+            const res = await executeProposalSignature({
+                proposalId: "prop-null-email",
+                signerName: "Attacker",
+                signatureType: "online",
+                signatureData: "sig-data",
+                agreedToTerms: true,
+                actorRole: "client",
+                userId: "attacker-user-id",
+                userEmail: null, // Should not match client.email: null
+            });
+
+            expect(res.success).toBe(false);
+            expect(res.message).toContain("Forbidden");
         });
     });
 });
