@@ -9,7 +9,7 @@ function getLandingPage(role: string): string {
     case "manager":
       return "/dashboard";
     case "developer":
-      return "/dashboard/pm";
+      return "/dashboard/my-tasks";
     case "content_editor":
       return "/dashboard/cms";
     case "superadmin":
@@ -50,6 +50,15 @@ function isAllowedOnDashboardPath(pathname: string, role: string): boolean {
 
   if (cleanPath === "/dashboard/meetings" || cleanPath.startsWith("/dashboard/meetings/")) {
     return role === "sales" || role === "manager";
+  }
+
+  if (
+    cleanPath === "/dashboard/my-tasks" ||
+    cleanPath.startsWith("/dashboard/my-tasks/") ||
+    cleanPath === "/dashboard/dev" ||
+    cleanPath.startsWith("/dashboard/dev/")
+  ) {
+    return role === "developer" || role === "manager";
   }
 
   if (cleanPath === "/dashboard/pm" || cleanPath.startsWith("/dashboard/pm/")) {

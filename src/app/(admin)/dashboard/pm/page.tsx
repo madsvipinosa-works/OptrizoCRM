@@ -36,20 +36,18 @@ export default async function PMEnginePage() {
         orderBy: (p, { desc }) => [desc(p.updatedAt)],
     });
 
-    // Developer sees assigned work only
+    // Developer sees projects they are a team member of
+    let developerProjectIds = new Set<string>();
+    if (isDeveloper && currentUserId) {
+        const teamRows = await db.query.projectTeamMembers.findMany({
+            where: (ptm, { eq }) => eq(ptm.userId, currentUserId),
+            columns: { projectId: true },
+        });
+        developerProjectIds = new Set(teamRows.map((r) => r.projectId));
+    }
+
     const projects = isDeveloper
-        ? allProjects
-              .filter((project) =>
-                  project.tasks.some((task) =>
-                      task.assignees.some((assignee) => assignee.userId === currentUserId),
-                  ),
-              )
-              .map((project) => ({
-                  ...project,
-                  tasks: project.tasks.filter((task) =>
-                      task.assignees.some((assignee) => assignee.userId === currentUserId),
-                  ),
-              }))
+        ? allProjects.filter((project) => developerProjectIds.has(project.id))
         : allProjects;
 
     // Stats

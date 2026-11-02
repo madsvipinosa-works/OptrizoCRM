@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { agencyProjects } from "@/db/schema";
+import { agencyProjects, projectTeamMembers } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { eq } from "drizzle-orm";
 import { redirect, notFound } from "next/navigation";
@@ -11,15 +11,28 @@ import { ProjectSettingsModal } from "@/features/pm/components/ProjectSettingsMo
 import { ProjectResourcesSidebar } from "@/features/pm/components/ProjectResourcesSidebar";
 import { ProjectProgressCard } from "@/components/projects/weighted-progress-bar";
 import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
+import { authorizeProject } from "@/lib/authz";
 
-export default async function KanbanBoardPage(props: { params: Promise<{ id: string }> }) {
+export default async function KanbanBoardPage(props: {
+    params: Promise<{ id: string }>;
+    searchParams?: Promise<{ view?: string; taskId?: string }>;
+}) {
     const session = await auth();
     if (!hasRole(session, ["manager", "developer"])) {
         redirect("/");
     }
 
     const { id } = await props.params;
-    const isSuperAdmin = hasRole(session, ["manager"]);
+    const searchParams = await props.searchParams;
+    const viewAll = searchParams?.view === "all";
+
+    // Authorize project read access
+    const hasReadAccess = await authorizeProject(id, "read");
+    if (!hasReadAccess) {
+        notFound();
+    }
+
+    const isManager = hasRole(session, ["manager"]);
 
     // Trigger deadline checks on load
     const { checkAndNotifyOverdueTasks } = await import("@/features/pm/actions");
@@ -33,28 +46,70 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                 orderBy: (m, { asc }) => [asc(m.order)],
                 with: {
                     feedback: {
-                        orderBy: (f, { desc }) => [desc(f.createdAt)]
-                    }
-                }
+                        orderBy: (f, { desc }) => [desc(f.createdAt)],
+                    },
+                },
             },
             tasks: {
                 where: (tasks, { isNull }) => isNull(tasks.deletedAt),
                 with: {
                     assignees: {
-                        with: { user: true }
-                    }
-                }
+                        with: { user: true },
+                    },
+                },
             },
-            lead: true
-        }
+            lead: true,
+        },
     });
 
-    if (!project || (session?.user?.role === "developer" && !project.tasks.some((t) => t.assignees.some((a) => a.userId === session.user.id)))) notFound();
+    if (!project) notFound();
 
-    // Internal users available for task assignment.
-    const internalUsers = await db.query.users.findMany({
-        where: (users, { inArray }) => inArray(users.role, ["manager", "developer"]),
+    // Query project team members (developers on this project)
+    const teamMemberRecords = await db.query.projectTeamMembers.findMany({
+        where: eq(projectTeamMembers.projectId, id),
+        with: {
+            user: {
+                columns: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                    role: true,
+                    jobTitle: true,
+                },
+            },
+        },
     });
+
+    // Team members formatted for AssigneeCombobox
+    const teamMemberOptions = teamMemberRecords.map((r) => ({
+        id: r.user.id,
+        name: r.user.name,
+        email: r.user.email,
+        image: r.user.image,
+        role: r.user.role,
+        jobTitle: r.user.jobTitle,
+    }));
+
+    // Available developers for PM to add to project team
+    const availableDevelopers = isManager
+        ? await db.query.users.findMany({
+              where: (users, { eq, and, isNull }) =>
+                  and(
+                      eq(users.role, "developer"),
+                      eq(users.isActive, true),
+                      isNull(users.deletedAt)
+                  ),
+              columns: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  image: true,
+                  role: true,
+                  jobTitle: true,
+              },
+          })
+        : [];
 
     return (
         <div className="space-y-3 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500 w-full max-w-full min-w-0">
@@ -70,17 +125,22 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                             {project.title}
                         </h2>
                         <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 truncate">
-                            {project.stakeholders?.[0]?.user?.name || "Unknown Client"} • Status: <span className="text-foreground font-semibold font-mono">{project.status}</span>
+                            {project.stakeholders?.[0]?.user?.name || project.lead?.contactName || "Unknown Client"} • Status:{" "}
+                            <span className="text-foreground font-semibold font-mono">{project.status}</span>
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    <ProjectResourcesSidebar project={project} />
-                    <ProjectSettingsModal project={project} />
-                </div>
+
+                {/* Hide resources sidebar and settings modal for developer */}
+                {isManager && (
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        <ProjectResourcesSidebar project={project} />
+                        <ProjectSettingsModal project={project} />
+                    </div>
+                )}
             </div>
 
-            {project.status === "Completed" && !project.isArchived && isSuperAdmin && (
+            {project.status === "Completed" && !project.isArchived && isManager && (
                 <div className="shrink-0 bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
                     <p className="text-sm font-medium text-primary">
                         This project is marked as Completed. Would you like to archive it to clear it from the active delivery board?
@@ -105,7 +165,7 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                         <p className="text-muted-foreground text-sm">
                             This project is archived and its Kanban board is locked. You cannot manage tasks or milestones in an archived project.
                         </p>
-                        {isSuperAdmin && (
+                        {isManager && (
                             <div className="pt-4 flex justify-center">
                                 <ProjectArchiveButton projectId={project.id} isArchived={project.isArchived} />
                             </div>
@@ -116,9 +176,12 @@ export default async function KanbanBoardPage(props: { params: Promise<{ id: str
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                     <KanbanBoard
                         project={project as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
-                        teamMembers={internalUsers as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
+                        teamMembers={teamMemberOptions as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
+                        availableDevelopers={availableDevelopers}
+                        projectTeamRecords={teamMemberRecords as unknown as React.ComponentProps<typeof KanbanBoard>["projectTeamRecords"]}
                         currentUserId={session.user.id}
                         currentUserRole={session.user.role}
+                        viewAll={viewAll}
                     />
                 </div>
             )}
