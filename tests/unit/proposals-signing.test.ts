@@ -17,10 +17,14 @@ vi.mock("@/lib/notifications", () => ({
 }));
 
 import { db } from "@/db";
+import { auth } from "@/auth";
+import { signInAs } from "../helpers/mock-auth";
 import { type MockDb } from "../helpers/mock-db";
 import { isProposalExpired } from "@/features/proposals/utils/expiry";
 import { executeProposalSignature } from "@/features/proposals/signing-core";
 import { provisionProjectFromProposal } from "@/features/crm/provisionLeadProject";
+import * as signingModule from "@/features/proposals/signing";
+import { requestProposalChanges } from "@/features/proposals/signing";
 
 const mockDb = db as unknown as MockDb;
 
@@ -265,6 +269,78 @@ describe("Proposal Signing & Expiry Unit Tests", () => {
 
             expect(res.success).toBe(false);
             expect(res.message).toContain("Forbidden");
+        });
+    });
+
+    describe("Proposal Messages & Negotiation Hardening", () => {
+        it("ensures getProposalMessages is not exposed as an uncalled server action (function is gone)", () => {
+            expect((signingModule as Record<string, unknown>).getProposalMessages).toBeUndefined();
+        });
+
+        it("requestProposalChanges drops unknown topics and retains only allowed topics", async () => {
+            signInAs(auth, "client", "client-1");
+
+            // Mock proposal and lead returned during tx.select()...for("update")
+            mockDb.setSelectRows([
+                {
+                    id: "prop-1",
+                    leadId: "lead-1",
+                    status: "sent",
+                    proposalCode: "OPT-001",
+                    clientId: "client-1",
+                },
+            ]);
+
+            mockDb.query.leads.findFirst.mockResolvedValue({
+                id: "lead-1",
+                status: "Proposal Sent",
+            });
+
+            // Capture inserted values for proposalMessages
+            let insertedMessage: Record<string, unknown> | null = null;
+            const origInsert = mockDb.insert;
+            mockDb.insert = vi.fn((table: unknown) => {
+                const proxy = origInsert(table);
+                return new Proxy(proxy, {
+                    get(target, prop) {
+                        if (prop === "values") {
+                            return (vals: Record<string, unknown>) => {
+                                if (!insertedMessage && vals?.kind === "change_request") {
+                                    insertedMessage = vals;
+                                }
+                                return typeof target.values === "function" ? target.values(vals) : target;
+                            };
+                        }
+                        return Reflect.get(target, prop);
+                    },
+                });
+            }) as unknown as typeof mockDb.insert;
+
+            const res = await requestProposalChanges(
+                "prop-1",
+                ["price", "unauthorized_topic", "timeline", "hacked_scope", "scope"],
+                "Please adjust budget and milestone schedule"
+            );
+
+            expect(res.success).toBe(true);
+            const msg = insertedMessage as Record<string, unknown> | null;
+            expect(msg).not.toBeNull();
+            expect(msg?.topics).toEqual(["price", "timeline", "scope"]);
+            expect(msg?.topics).not.toContain("unauthorized_topic");
+            expect(msg?.topics).not.toContain("hacked_scope");
+        });
+
+        it("requestProposalChanges rejects if all topics are unknown and body is empty", async () => {
+            signInAs(auth, "client", "client-1");
+
+            const res = await requestProposalChanges(
+                "prop-1",
+                ["unknown_topic_only", "fake_topic"],
+                "   "
+            );
+
+            expect(res.success).toBe(false);
+            expect(res.message).toContain("Please select at least one topic");
         });
     });
 });

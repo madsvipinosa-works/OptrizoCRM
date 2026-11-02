@@ -121,12 +121,16 @@ export async function requestPricingMeeting(
     }
 }
 
+const ALLOWED_CHANGE_TOPICS = new Set(["price", "timeline", "scope", "other"]);
+
 /**
  * 4a. Client requests changes on a proposal.
  * Role: client who owns the lead.
  * Allowed from 'sent' or 'pricing_meeting_requested'.
  * Inserts proposal_message (kind: 'change_request'), updates proposal status to 'changes_requested',
  * and transitions lead from 'Proposal Sent' to 'In Negotiation' via moveLeadToNegotiation.
+ * Accepts only topics from price, timeline, scope, other (drop anything else).
+ * At least one valid topic or non-empty body required; capped at 2000 chars.
  * Notifies PM.
  */
 export async function requestProposalChanges(
@@ -137,6 +141,22 @@ export async function requestProposalChanges(
     const session = await auth();
     if (!session?.user?.id) {
         return { success: false, message: "Unauthorized" };
+    }
+
+    // Accepts only topics from price, timeline, scope, other (drop anything else)
+    const validTopics = Array.isArray(topics)
+        ? topics.filter((t): t is string => typeof t === "string" && ALLOWED_CHANGE_TOPICS.has(t.trim().toLowerCase()))
+        : [];
+
+    // Trim and cap body text at 2000 characters
+    const trimmedBody = (typeof body === "string" ? body.trim() : "").slice(0, 2000);
+
+    // At least one valid topic or a non-empty body required
+    if (validTopics.length === 0 && !trimmedBody) {
+        return {
+            success: false,
+            message: "Please select at least one topic (price, timeline, scope, other) or provide details for your change request",
+        };
     }
 
     try {
@@ -180,8 +200,8 @@ export async function requestProposalChanges(
                 proposalId,
                 authorId: session.user.id,
                 kind: "change_request",
-                topics,
-                body,
+                topics: validTopics,
+                body: trimmedBody,
             });
 
             // 2. Proposal status -> changes_requested
@@ -215,7 +235,7 @@ export async function requestProposalChanges(
                 "proposal",
                 `/dashboard/proposals/${proposalId}`
             );
-            await logAction("UPDATE", "proposal", `Client requested changes on proposal ${proposalId}: ${topics.join(", ")}`);
+            await logAction("UPDATE", "proposal", `Client requested changes on proposal ${proposalId}: ${validTopics.join(", ")}`);
         } catch (postCommitErr) {
             console.error("Post-commit error in requestProposalChanges:", postCommitErr);
         }
@@ -244,6 +264,11 @@ export async function sendClientMessage(
         return { success: false, message: "Unauthorized" };
     }
 
+    const trimmedBody = (typeof body === "string" ? body.trim() : "").slice(0, 2000);
+    if (!trimmedBody) {
+        return { success: false, message: "Message text cannot be empty" };
+    }
+
     try {
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, proposalId),
@@ -263,7 +288,7 @@ export async function sendClientMessage(
             authorId: session.user.id,
             kind: "message",
             topics: [],
-            body,
+            body: trimmedBody,
         });
 
         try {
@@ -302,6 +327,11 @@ export async function replyToClient(
         return { success: false, message: "Unauthorized: Only managers can reply to client messages" };
     }
 
+    const trimmedBody = (typeof body === "string" ? body.trim() : "").slice(0, 2000);
+    if (!trimmedBody) {
+        return { success: false, message: "Reply text cannot be empty" };
+    }
+
     try {
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, proposalId),
@@ -317,7 +347,7 @@ export async function replyToClient(
             authorId: authz.session.user.id,
             kind: "reply",
             topics: [],
-            body,
+            body: trimmedBody,
         });
 
         try {
@@ -359,6 +389,11 @@ export async function logOutsideDiscussion(
         return { success: false, message: "Unauthorized: Only managers can log outside discussions" };
     }
 
+    const trimmedSummary = (typeof summary === "string" ? summary.trim() : "").slice(0, 2000);
+    if (!trimmedSummary) {
+        return { success: false, message: "Discussion summary cannot be empty" };
+    }
+
     try {
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, proposalId),
@@ -382,14 +417,14 @@ export async function logOutsideDiscussion(
                 outsideType: type,
                 heldAt: heldAtDate,
                 topics: [],
-                body: summary,
+                body: trimmedSummary,
             });
 
             await tx.insert(leadActivityLogs).values({
                 leadId: proposal.leadId,
                 authorId: authz.session.user.id,
                 activityType: "outside_discussion",
-                content: `Outside discussion logged (${type} on ${heldAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}): ${summary}`,
+                content: `Outside discussion logged (${type} on ${heldAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}): ${trimmedSummary}`,
             });
         });
 
@@ -413,24 +448,6 @@ export async function logOutsideDiscussion(
             message: error instanceof Error ? error.message : "Failed to log outside discussion",
         };
     }
-}
-
-/**
- * Retrieves the negotiation message thread for a proposal.
- */
-export async function getProposalMessages(proposalId: string) {
-    const session = await auth();
-    if (!session?.user?.id) return [];
-
-    return await db.query.proposalMessages.findMany({
-        where: eq(proposalMessages.proposalId, proposalId),
-        orderBy: (m, { asc }) => [asc(m.createdAt)],
-        with: {
-            author: {
-                columns: { id: true, name: true, role: true, email: true },
-            },
-        },
-    });
 }
 
 
