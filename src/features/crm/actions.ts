@@ -11,10 +11,8 @@ import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { sendClientOnboardingEmail } from "@/lib/notifications";
 import { auth, hasRole } from "@/auth";
 import { requireRoles, requireRole } from "@/lib/authz";
-import { notifyAllAdmins } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { DEFAULT_CRM_PLAYBOOK, type PlaybookTaskTemplate } from "@/config/crm-playbook";
-import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -916,83 +914,6 @@ export async function getAnalyticsData() {
     }
 }
 
-export async function markLeadAsWon(leadId: string): Promise<ActionState> {
-    const session = await auth();
-    if (!hasRole(session, ["sales"])) {
-        return { success: false, message: "Unauthorized" };
-    }
-
-    try {
-        const result = await provisionLeadProject(leadId);
-        if (!result.success) return result;
-
-        if (result.created) {
-            const sideEffects = await Promise.allSettled([
-                notifyAllAdmins(
-                    `Lead ${result.lead.businessName || result.lead.client?.name} won! Project provisioned.`,
-                    "deal_won",
-                    `/dashboard/pm/${result.projectId}`
-                ),
-                logAction("UPDATE", "Lead", `Lead ${leadId} marked as Won and project provisioned.`),
-            ]);
-            sideEffects.forEach((effect) => {
-                if (effect.status === "rejected") console.error("Lead won side effect failed:", effect.reason);
-            });
-        }
-
-        revalidatePath("/dashboard/leads");
-        revalidatePath("/dashboard/analytics");
-        revalidatePath("/dashboard/pm");
-        revalidatePath(`/dashboard/pm/${result.projectId}`);
-
-        return {
-            success: true,
-            message: result.created ? "Project provisioned successfully." : "Project is already provisioned.",
-        };
-    } catch (error) {
-        console.error("Failed to mark lead as won:", error);
-        return { success: false, message: "Could not complete the Won workflow." };
-    }
-}
-
-export async function convertLeadToProject(leadId: string): Promise<ActionState & { projectId?: string }> {
-    const session = await auth();
-    if (!hasRole(session, ["sales", "manager"])) {
-        return { success: false, message: "Unauthorized" };
-    }
-
-    try {
-        const result = await provisionLeadProject(leadId);
-        if (!result.success) return result;
-
-        if (result.created) {
-            const sideEffects = await Promise.allSettled([
-                notifyAllAdmins(
-                    `Lead ${result.lead.businessName || result.lead.client?.name} converted to a PM delivery project.`,
-                    "deal_won",
-                    `/dashboard/pm/${result.projectId}`
-                ),
-                logAction("CREATE", "Project", `Project ${result.projectId} provisioned from Lead ${leadId}`),
-            ]);
-            sideEffects.forEach((effect) => {
-                if (effect.status === "rejected") console.error("Project conversion side effect failed:", effect.reason);
-            });
-        }
-
-        revalidatePath("/dashboard/leads");
-        revalidatePath("/dashboard/pm");
-        revalidatePath(`/dashboard/pm/${result.projectId}`);
-
-        return {
-            success: true,
-            message: result.created ? "Project successfully provisioned." : `Project already active: ${result.projectTitle}`,
-            projectId: result.projectId,
-        };
-    } catch (error) {
-        console.error("Failed to convert lead to project:", error);
-        return { success: false, message: "Could not convert deal to project." };
-    }
-}
 export async function getProjectForLead(leadId: string): Promise<{ id: string | null; title: string; status: string } | null> {
     // Only the PM and Sales see whether a lead has a project (spec §1). Everyone else gets nothing.
     const access = await requireRoles(["manager", "sales"]);
@@ -1197,13 +1118,17 @@ export async function updateLeadStatusWithAudit(
 
         if (!lead) return { success: false, message: "Lead not found" };
 
+        const restrictedAutomatedStages = ["Closed Won", "Proposal Sent", "In Negotiation"];
+        if (restrictedAutomatedStages.includes(newStatus)) {
+            return {
+                success: false,
+                message: `Cannot manually update lead stage to "${newStatus}". This stage is managed exclusively via automated workflows.`,
+            };
+        }
+
         const validation = await validateLeadTransition(leadId, newStatus);
         if (!validation.valid) {
             return { success: false, message: validation.error };
-        }
-
-        if (newStatus === "Closed Won") {
-            return await markLeadAsWon(leadId);
         }
 
         const oldStatus = lead.status;
@@ -1285,6 +1210,14 @@ export async function bulkUpdateLeadStatus(
         return { success: false, message: "No leads selected" };
     }
 
+    const restrictedAutomatedStages = ["Closed Won", "Proposal Sent", "In Negotiation"];
+    if (restrictedAutomatedStages.includes(newStatus)) {
+        return {
+            success: false,
+            message: `Cannot manually bulk update leads to "${newStatus}". This stage is managed exclusively via automated workflows.`,
+        };
+    }
+
     try {
         const validLeadIds: string[] = [];
         const errors: Record<string, string[]> = {};
@@ -1306,25 +1239,19 @@ export async function bulkUpdateLeadStatus(
             };
         }
 
-        if (newStatus === "Closed Won") {
-            for (const id of validLeadIds) {
-                await markLeadAsWon(id);
-            }
-        } else {
-            await db.update(leads)
-                .set({ status: newStatus, closedWonAt: null, updatedAt: new Date() })
-                .where(inArray(leads.id, validLeadIds));
+        await db.update(leads)
+            .set({ status: newStatus, closedWonAt: null, updatedAt: new Date() })
+            .where(inArray(leads.id, validLeadIds));
 
-            const logEntries = validLeadIds.map(id => ({
-                leadId: id,
-                authorId: session.user.id || null,
-                activityType: "System" as const,
-                content: `Bulk status update to "${newStatus}"`,
-            }));
-            await db.insert(leadActivityLogs).values(logEntries);
+        const logEntries = validLeadIds.map(id => ({
+            leadId: id,
+            authorId: session.user.id || null,
+            activityType: "System" as const,
+            content: `Bulk status update to "${newStatus}"`,
+        }));
+        await db.insert(leadActivityLogs).values(logEntries);
 
-            await logAction("UPDATE", "Lead", `Bulk status update for ${validLeadIds.length} leads to ${newStatus}`);
-        }
+        await logAction("UPDATE", "Lead", `Bulk status update for ${validLeadIds.length} leads to ${newStatus}`);
 
         revalidatePath("/dashboard/leads");
         

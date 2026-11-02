@@ -14,8 +14,7 @@ import { moveLeadToProposalSent, moveLeadToClosedLost } from "@/features/crm/sta
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
-import { notifyAllAdmins, notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
-import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
+import { notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
 
@@ -341,117 +340,6 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
     }
 }
 
-export interface ProposalAcceptancePayload {
-    acceptedByName: string;
-    acceptedByTitle?: string;
-    signatureData?: string;
-    clientAddress?: string;
-    clientPhone?: string;
-    clientTaxId?: string;
-}
-
-export async function acceptProposalByClient(id: string, payload?: ProposalAcceptancePayload) {
-    try {
-
-        const session = await auth();
-        if (!session?.user?.id) {
-            return { success: false, message: "Unauthorized: Please log in to accept proposal" };
-        }
-
-        const proposal = await db.query.proposals.findFirst({
-            where: eq(proposals.id, id),
-            with: {
-                lead: {
-                    with: {
-                        client: true,
-                    },
-                },
-            },
-        });
-
-        if (!proposal) return { success: false, message: "Proposal not found" };
-        if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
-
-        const userRole = (session.user as any)?.role;
-        const isLeadOwner =
-            proposal.lead &&
-            (session.user.id === proposal.lead.clientId ||
-                session.user.email === proposal.lead.client?.email ||
-                session.user.email === proposal.lead.contactEmail);
-
-        // Strict RBAC: Administrators and internal staff are blocked from signing on behalf of clients.
-        if (userRole !== "client") {
-            return {
-                success: false,
-                message: "Forbidden: Administrators and internal staff cannot sign proposals on behalf of clients. Proposal acceptance must be completed by the authorized client organization.",
-            };
-        }
-
-        // Ownership check: client can only accept proposals linked to their lead
-        if (!isLeadOwner) {
-            return { success: false, message: "Forbidden: You do not own this proposal" };
-        }
-
-        if (proposal.status === "signed") return { success: false, message: "Proposal has already been signed" };
-
-        const signerName = payload?.acceptedByName || session.user.name || "Authorized Client";
-        const signerTitle = payload?.acceptedByTitle || "Client Representative";
-        const signature = payload?.signatureData || signerName;
-        const acceptedAt = new Date();
-
-        const oldContractSettings = (proposal.contractSettings as ContractSettings) || {};
-        const updatedContractSettings = { ...oldContractSettings };
-        if (payload?.clientAddress) updatedContractSettings.clientAddress = payload.clientAddress;
-        if (payload?.clientPhone) updatedContractSettings.clientPhone = payload.clientPhone;
-        if (payload?.clientTaxId) updatedContractSettings.clientTaxId = payload.clientTaxId;
-
-        // Execute atomic status update with full digital signature audit trail
-        await db.update(proposals)
-            .set({
-                status: "signed",
-                acceptedByName: signerName,
-                acceptedByEmail: session.user.email,
-                acceptedByTitle: signerTitle,
-                signatureData: signature,
-                contractSettings: updatedContractSettings,
-                acceptedAt,
-                updatedAt: new Date()
-            })
-            .where(eq(proposals.id, id));
-
-        // Ensure lead's estimatedValue matches final accepted proposal total
-        if (proposal.total !== null && proposal.total !== undefined && proposal.total > 0) {
-            await db.update(leads)
-                .set({ estimatedValue: proposal.total, updatedAt: new Date() })
-                .where(eq(leads.id, proposal.leadId));
-        }
-
-        // Trigger Won Automation internally (provisions Project, Stakeholder, Milestones, Client Welcome Email)
-        const wonResult = await provisionLeadProject(proposal.leadId);
-        if (!wonResult.success) {
-            console.error("markLeadAsWon failed during proposal acceptance:", wonResult.message);
-        }
-
-        if (proposal.lead) {
-            await notifyAllAdmins(`Proposal accepted and signed by ${signerName} (${proposal.lead.businessName || "Client"})!`, "proposal", `/dashboard/leads`);
-        }
-
-        await logAction("UPDATE", "Proposal", `Proposal ${proposal.proposalCode || id} executed and signed by ${signerName} (${signerTitle})`);
-
-        // Instant UI cache updates across all client & staff views
-        revalidatePath(`/proposal/${id}`);
-        revalidatePath("/dashboard/leads");
-        revalidatePath(`/dashboard/leads/${proposal.leadId}`);
-        revalidatePath("/dashboard/analytics");
-        revalidatePath("/portal/projects");
-        revalidatePath("/dashboard/pm");
-
-        return { success: true, message: "Proposal accepted and authorized! Project board has been provisioned." };
-    } catch (error) {
-        console.error("Failed to accept proposal:", error);
-        return { success: false, message: "System error while accepting proposal." };
-    }
-}
 
 export async function rejectProposalByClient(id: string, reason?: string) {
     try {

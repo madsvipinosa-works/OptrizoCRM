@@ -606,7 +606,6 @@ export function LeadsPipelineView({
                                 <SelectItem value="Discovery & Qualifying" className="text-xs">Discovery & Qualifying</SelectItem>
                                 <SelectItem value="Proposal Sent" className="text-xs">Proposal Sent</SelectItem>
                                 <SelectItem value="In Negotiation" className="text-xs">In Negotiation</SelectItem>
-                                <SelectItem value="Closed Won" className="text-xs text-emerald-500 dark:text-emerald-400">Closed Won</SelectItem>
                                 <SelectItem value="Closed Lost" className="text-xs text-rose-500 dark:text-rose-400">Closed Lost</SelectItem>
                             </SelectContent>
                         </Select>
