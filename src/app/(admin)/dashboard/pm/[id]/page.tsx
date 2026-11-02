@@ -1,7 +1,7 @@
 import { db } from "@/db";
-import { agencyProjects, projectTeamMembers } from "@/db/schema";
+import { agencyProjects, projectTeamMembers, tasks, taskAssignees } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
-import { eq } from "drizzle-orm";
+import { eq, and, ne, isNull, sql } from "drizzle-orm";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Lock } from "lucide-react";
@@ -111,6 +111,56 @@ export default async function KanbanBoardPage(props: {
           })
         : [];
 
+    // Compute open task counts server-side in ONE grouped query (no per-row queries)
+    // Open = status != 'done' and deletedAt is null
+    const openTaskRows = await db
+        .select({
+            userId: taskAssignees.userId,
+            projectId: tasks.projectId,
+            count: sql<number>`count(*)::int`,
+        })
+        .from(taskAssignees)
+        .innerJoin(tasks, eq(taskAssignees.taskId, tasks.id))
+        .where(and(ne(tasks.status, "done"), isNull(tasks.deletedAt)))
+        .groupBy(taskAssignees.userId, tasks.projectId);
+
+    const projectTaskCountsByUser = new Map<string, number>();
+    const allProjectsTaskCountsByUser = new Map<string, number>();
+
+    for (const row of openTaskRows) {
+        const cnt = Number(row.count) || 0;
+        allProjectsTaskCountsByUser.set(
+            row.userId,
+            (allProjectsTaskCountsByUser.get(row.userId) || 0) + cnt
+        );
+        if (row.projectId === id) {
+            projectTaskCountsByUser.set(
+                row.userId,
+                (projectTaskCountsByUser.get(row.userId) || 0) + cnt
+            );
+        }
+    }
+
+    const projectTeamRecordsWithCounts = teamMemberRecords.map((r) => ({
+        projectId: r.projectId,
+        userId: r.userId,
+        user: r.user,
+        openTaskCount: projectTaskCountsByUser.get(r.userId) || 0,
+    }));
+
+    const availableDevelopersWithCounts = availableDevelopers.map((dev) => ({
+        ...dev,
+        allOpenTasksCount: allProjectsTaskCountsByUser.get(dev.id) || 0,
+    }));
+
+    const clientStakeholder = project.stakeholders?.find((s) => s.user?.role === "client");
+    const clientName = clientStakeholder?.user?.name || project.lead?.contactName || "Client";
+    const clientBusiness = clientStakeholder?.user?.companyName || project.lead?.businessName || "Client Business";
+    const clientInfo = {
+        name: clientName,
+        businessName: clientBusiness,
+    };
+
     return (
         <div className="space-y-3 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500 w-full max-w-full min-w-0">
             <div className="flex items-center justify-between gap-2.5 sm:gap-4 shrink-0">
@@ -177,11 +227,12 @@ export default async function KanbanBoardPage(props: {
                     <KanbanBoard
                         project={project as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
                         teamMembers={teamMemberOptions as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
-                        availableDevelopers={availableDevelopers}
-                        projectTeamRecords={teamMemberRecords as unknown as React.ComponentProps<typeof KanbanBoard>["projectTeamRecords"]}
+                        availableDevelopers={availableDevelopersWithCounts}
+                        projectTeamRecords={projectTeamRecordsWithCounts}
                         currentUserId={session.user.id}
                         currentUserRole={session.user.role}
                         viewAll={viewAll}
+                        clientInfo={clientInfo}
                     />
                 </div>
             )}

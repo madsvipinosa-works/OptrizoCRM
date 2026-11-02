@@ -1,14 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-} from "@/components/ui/sheet";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,7 +18,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { UserPlus, Trash2, Shield, User, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { addProjectTeamMember, removeProjectTeamMember } from "@/features/pm/team-actions";
 
@@ -39,34 +31,51 @@ export interface TeamMemberUser {
     jobTitle?: string | null;
 }
 
+export interface AvailableDeveloperUser extends TeamMemberUser {
+    allOpenTasksCount?: number;
+}
+
 export interface ProjectTeamMemberRecord {
     projectId: string;
     userId: string;
     user: TeamMemberUser;
+    openTaskCount?: number;
+}
+
+export interface ClientInfo {
+    name: string;
+    businessName: string;
 }
 
 interface ProjectTeamDrawerProps {
     projectId: string;
+    projectTitle?: string;
     isOpen: boolean;
     onClose: () => void;
     teamMembers: ProjectTeamMemberRecord[];
-    availableDevelopers: TeamMemberUser[];
+    availableDevelopers: AvailableDeveloperUser[];
+    clientInfo?: ClientInfo;
     isManager: boolean;
     onTeamUpdated?: () => void;
 }
 
 export function ProjectTeamDrawer({
     projectId,
+    projectTitle,
     isOpen,
     onClose,
     teamMembers,
     availableDevelopers,
+    clientInfo,
     isManager,
     onTeamUpdated,
 }: ProjectTeamDrawerProps) {
     const [selectedDevId, setSelectedDevId] = useState<string>("");
     const [isAdding, setIsAdding] = useState(false);
-    const [removingMember, setRemovingMember] = useState<TeamMemberUser | null>(null);
+    const [removingMember, setRemovingMember] = useState<{
+        user: TeamMemberUser;
+        count: number;
+    } | null>(null);
     const [isRemoving, setIsRemoving] = useState(false);
 
     // Filter available developers to only those not already in the project team
@@ -97,9 +106,9 @@ export function ProjectTeamDrawer({
         if (!removingMember) return;
         setIsRemoving(true);
         try {
-            const res = await removeProjectTeamMember(projectId, removingMember.id);
+            const res = await removeProjectTeamMember(projectId, removingMember.user.id);
             if (res.success) {
-                toast.success(`Removed ${removingMember.name || removingMember.email} from project team`);
+                toast.success(`Removed ${removingMember.user.name || removingMember.user.email} from project team`);
                 setRemovingMember(null);
                 onTeamUpdated?.();
             } else {
@@ -115,149 +124,210 @@ export function ProjectTeamDrawer({
 
     return (
         <>
-            <Sheet open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
-                <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0">
-                    <SheetHeader className="p-6 border-b border-border">
-                        <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                            <Shield className="h-5 w-5 text-primary" />
-                            Project Team
-                        </SheetTitle>
-                        <SheetDescription>
-                            Developers assigned to this project team have read access and can work on tasks.
-                        </SheetDescription>
-                    </SheetHeader>
-
-                    {/* Add Developer Form (Managers only) */}
-                    {isManager && (
-                        <div className="p-6 border-b border-border bg-muted/30">
-                            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
-                                <UserPlus className="h-4 w-4 text-primary" />
-                                Add Developer to Team
-                            </h4>
-                            <div className="flex gap-2">
-                                <Select
-                                    value={selectedDevId}
-                                    onValueChange={setSelectedDevId}
-                                    disabled={isAdding || selectableDevelopers.length === 0}
-                                >
-                                    <SelectTrigger className="flex-1">
-                                        <SelectValue
-                                            placeholder={
-                                                selectableDevelopers.length === 0
-                                                    ? "No more developers available"
-                                                    : "Select developer..."
-                                            }
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {selectableDevelopers.map((dev) => (
-                                            <SelectItem key={dev.id} value={dev.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar className="h-5 w-5">
-                                                        <AvatarImage src={dev.image || ""} />
-                                                        <AvatarFallback className="text-[10px]">
-                                                            {(dev.name || dev.email || "D")[0].toUpperCase()}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <span>{dev.name || dev.email}</span>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <Button
-                                    onClick={handleAddMember}
-                                    disabled={!selectedDevId || isAdding}
-                                    size="sm"
-                                    className="shrink-0"
-                                >
-                                    {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-                                </Button>
-                            </div>
+            <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
+                <DialogContent className="sm:max-w-md max-w-[95vw] p-0 overflow-hidden gap-0">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-5 border-b border-border bg-card">
+                        <div>
+                            <DialogTitle className="text-lg font-bold text-foreground">
+                                Project team
+                            </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                Manage team members and view project assignments
+                            </DialogDescription>
                         </div>
-                    )}
-
-                    {/* Team Members List */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Current Members ({teamMembers.length})
-                        </h4>
-
-                        {teamMembers.length === 0 ? (
-                            <div className="text-center py-8 border border-dashed border-border rounded-xl">
-                                <User className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                                <p className="text-sm text-muted-foreground">No developers on the team yet.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {teamMembers.map((member) => (
-                                    <div
-                                        key={member.userId}
-                                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:bg-muted/40 transition-colors"
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <Avatar className="h-9 w-9 shrink-0">
-                                                <AvatarImage src={member.user?.image || ""} />
-                                                <AvatarFallback className="font-semibold text-xs">
-                                                    {(member.user?.name || member.user?.email || "U")[0].toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-foreground truncate">
-                                                    {member.user?.name || member.user?.email}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground truncate">
-                                                    {member.user?.email}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <Badge variant="outline" className="text-xs">
-                                                Developer
-                                            </Badge>
-                                            {isManager && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                    onClick={() => setRemovingMember(member.user)}
-                                                    title="Remove from team"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                        {projectTitle && (
+                            <span
+                                className="text-xs font-medium text-muted-foreground truncate max-w-[180px]"
+                                title={projectTitle}
+                            >
+                                {projectTitle}
+                            </span>
                         )}
                     </div>
-                </SheetContent>
-            </Sheet>
+
+                    {/* Body */}
+                    <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                        {/* Project Manager Section */}
+                        <div className="space-y-1.5">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Project Manager
+                            </h4>
+                            <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/40 border border-border/50 text-sm">
+                                <span className="font-medium text-foreground">You</span>
+                                <Badge variant="secondary" className="text-[11px] font-normal">
+                                    PM
+                                </Badge>
+                            </div>
+                        </div>
+
+                        {/* Developers Section */}
+                        <div className="space-y-2">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Developers
+                            </h4>
+                            {teamMembers.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic px-1">
+                                    No developers on the team yet.
+                                </p>
+                            ) : (
+                                <div className="space-y-1.5">
+                                    {teamMembers.map((member) => {
+                                        const count = member.openTaskCount || 0;
+                                        return (
+                                            <div
+                                                key={member.userId}
+                                                className="flex items-center justify-between py-2 px-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <span className="text-sm font-medium text-foreground truncate">
+                                                        {member.user?.name || member.user?.email}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                        · {count} open task{count === 1 ? "" : "s"}
+                                                    </span>
+                                                </div>
+                                                {isManager && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setRemovingMember({
+                                                                user: member.user,
+                                                                count,
+                                                            })
+                                                        }
+                                                        className="text-xs text-destructive hover:underline font-medium shrink-0 ml-2"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Add a developer (Managers only) */}
+                        {isManager && (
+                            <div className="space-y-2 pt-2 border-t border-border">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Add a developer
+                                </h4>
+                                <div className="flex items-center gap-2">
+                                    <Select
+                                        value={selectedDevId}
+                                        onValueChange={setSelectedDevId}
+                                        disabled={isAdding || selectableDevelopers.length === 0}
+                                    >
+                                        <SelectTrigger className="flex-1 h-9 text-xs">
+                                            <SelectValue
+                                                placeholder={
+                                                    selectableDevelopers.length === 0
+                                                        ? "No more developers available"
+                                                        : "Select developer..."
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {selectableDevelopers.map((dev) => {
+                                                const count = dev.allOpenTasksCount || 0;
+                                                const devName = dev.name || dev.email;
+                                                return (
+                                                    <SelectItem
+                                                        key={dev.id}
+                                                        value={dev.id}
+                                                        className="text-xs"
+                                                    >
+                                                        {devName} · {count} open task{count === 1 ? "" : "s"}, available
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button
+                                        onClick={handleAddMember}
+                                        disabled={!selectedDevId || isAdding}
+                                        size="sm"
+                                        className="h-9 px-3 shrink-0 text-xs font-semibold"
+                                    >
+                                        {isAdding ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            "Add"
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Read-only client line */}
+                        <div className="space-y-1.5 pt-2 border-t border-border">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Client
+                            </h4>
+                            <div className="py-2 px-3 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground">
+                                <span className="truncate">
+                                    {clientInfo?.name || "Client"} ({clientInfo?.businessName || "Client Business"}) · can see progress only
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Close button at bottom */}
+                    <div className="flex justify-end p-4 border-t border-border bg-muted/20">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onClose}
+                            className="h-8 px-4 text-xs font-medium"
+                        >
+                            Close
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Remove Confirmation Dialog */}
-            <Dialog open={!!removingMember} onOpenChange={(open: boolean) => !open && setRemovingMember(null)}>
-                <DialogContent>
+            <Dialog
+                open={!!removingMember}
+                onOpenChange={(open: boolean) => !open && setRemovingMember(null)}
+            >
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Remove Developer from Team?</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to remove <strong>{removingMember?.name || removingMember?.email}</strong> from this project team?
-                            <br /><br />
-                            Any open (not done) tasks assigned to this developer in this project will be automatically reassigned to you.
+                        <DialogDescription className="space-y-2 pt-1 text-sm text-muted-foreground">
+                            <span>
+                                Are you sure you want to remove{" "}
+                                <strong>
+                                    {removingMember?.user?.name || removingMember?.user?.email}
+                                </strong>{" "}
+                                from this project team?
+                            </span>
+                            <span className="block font-medium text-foreground">
+                                Reassigns {removingMember?.count || 0} open task{removingMember?.count === 1 ? "" : "s"} to you.
+                            </span>
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setRemovingMember(null)} disabled={isRemoving}>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRemovingMember(null)}
+                            disabled={isRemoving}
+                        >
                             Cancel
                         </Button>
                         <Button
+                            size="sm"
                             onClick={handleConfirmRemove}
                             disabled={isRemoving}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {isRemoving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                            Remove & Reassign Tasks
+                            {isRemoving ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                            ) : null}
+                            Remove & Reassign
                         </Button>
                     </DialogFooter>
                 </DialogContent>

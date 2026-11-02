@@ -21,7 +21,12 @@ import { Label } from "@/components/ui/label";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
 import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
 import { MilestoneStrip } from "./MilestoneStrip";
-import { ProjectTeamDrawer, ProjectTeamMemberRecord, TeamMemberUser } from "./ProjectTeamDrawer";
+import {
+    ProjectTeamDrawer,
+    ProjectTeamMemberRecord,
+    AvailableDeveloperUser,
+    ClientInfo,
+} from "./ProjectTeamDrawer";
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
@@ -55,14 +60,16 @@ export function KanbanBoard({
     currentUserId,
     currentUserRole,
     viewAll = false,
+    clientInfo,
 }: {
     project: KanbanProject;
     teamMembers: TeamMemberItem[];
-    availableDevelopers?: TeamMemberUser[];
+    availableDevelopers?: AvailableDeveloperUser[];
     projectTeamRecords?: ProjectTeamMemberRecord[];
     currentUserId?: string;
     currentUserRole?: string;
     viewAll?: boolean;
+    clientInfo?: ClientInfo;
 }) {
     const router = useRouter();
     const [optimisticTasks, setOptimisticTasks] = useState<PmTask[]>(project.tasks || []);
@@ -536,13 +543,15 @@ export function KanbanBoard({
                 onConfirm={handleSubmitWorkConfirm}
             />
 
-            {/* PM Project Team Drawer */}
+            {/* PM Project Team Modal */}
             <ProjectTeamDrawer
                 projectId={project.id}
+                projectTitle={project.title || "Project"}
                 isOpen={teamDrawerOpen}
                 onClose={() => setTeamDrawerOpen(false)}
                 teamMembers={projectTeamRecords}
                 availableDevelopers={availableDevelopers}
+                clientInfo={clientInfo}
                 isManager={isManager}
                 onTeamUpdated={() => router.refresh()}
             />

@@ -295,7 +295,7 @@ Side effects: acquires PostgreSQL advisory transaction lock `pg_advisory_xact_lo
 ## Session 7: Tasks, Milestones, Project Team, Developer Home
 
 ### UI Structure & Delivery Views (Session 7)
-- **Project Team Management**: Implemented as a slide-out drawer (`ProjectTeamDrawer`) mounted directly on the PM project delivery board (`/dashboard/pm/[id]`), rather than a separate page, providing inline developer team management with task reassignment confirmation without navigating away from the project board.
+- **Project Team Management**: Implemented as a centered modal popup (`ProjectTeamDrawer`) titled "Project team" with the project title at top right, opened directly from the "Team" button on the PM project delivery board (`/dashboard/pm/[id]`). Displays the PM section ("You"), developers with their in-project open-task counts and red Remove link, Remove confirmation showing exact reassigned task count, "Add a developer" dropdown showing cross-project open tasks, and a read-only client line. No separate team page.
 - **Milestone Sequential Strip**: Mounted as a top-level progress strip (`MilestoneStrip`) above the Kanban board showing the 5 sequential phases and offering the "Mark Milestone Done" modal for empty milestones.
 - **Developer Home**: Hosted at `/dashboard/my-tasks` with a legacy redirect route at `/dashboard/dev` for backwards compatibility.
 
