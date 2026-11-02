@@ -5,7 +5,10 @@ import {
     proposals,
     proposalMilestones,
     paymentScheduleItems,
-    leads, users, discoveryForms } from "@/db/schema";
+    leads,
+    users,
+    discoveryForms,
+} from "@/db/schema";
 import { eq, and, isNull, isNotNull, ne, inArray } from "drizzle-orm";
 import { moveLeadToProposalSent } from "@/features/crm/stage-rules";
 import { auth, hasRole } from "@/auth";
@@ -67,59 +70,146 @@ export async function createDraftProposalForLead(leadId: string) {
     }
 
     try {
-        const lead = await db.query.leads.findFirst({
-            where: eq(leads.id, leadId),
-            with: {
-                client: true,
-            },
+        let createdProposalId = "";
+
+        await db.transaction(async (tx) => {
+            const lead = await tx.query.leads.findFirst({
+                where: eq(leads.id, leadId),
+            });
+
+            if (!lead) {
+                throw new Error("Lead not found");
+            }
+
+            // Check existing proposals for this lead
+            const existingProposals = await tx.query.proposals.findMany({
+                where: eq(proposals.leadId, leadId),
+                orderBy: (p, { desc }) => [desc(p.version), desc(p.createdAt)],
+            });
+
+            if (existingProposals.length > 0) {
+                const activeDraft = existingProposals.find((p) => p.status === "draft");
+                if (activeDraft) {
+                    createdProposalId = activeDraft.id;
+                    return;
+                }
+                throw new Error("A proposal already exists for this lead. Use createProposalRevision to create a new version.");
+            }
+
+            // Rule: a v1 may be created only when lead has no proposal, proposalRequestedAt is set and lead is in "Discovery & Qualifying"
+            if (lead.status !== "Discovery & Qualifying") {
+                throw new Error(`Cannot create draft proposal: lead must be in "Discovery & Qualifying" (currently "${lead.status}").`);
+            }
+
+            if (!lead.proposalRequestedAt) {
+                throw new Error("Cannot create draft proposal: proposal request has not been submitted for this lead.");
+            }
+
+            // Read discovery form
+            const df = await tx.query.discoveryForms.findFirst({
+                where: eq(discoveryForms.leadId, leadId),
+                orderBy: (d, { desc }) => [desc(d.createdAt)],
+            });
+
+            const needsGoals = {
+                needs: df?.requiredFeatures || "",
+                goals: df?.goals || "",
+            };
+
+            const priceMode: "priced" | "to_be_discussed" =
+                lead.clientType === "international" ? "priced" : "to_be_discussed";
+
+            const proposalCode = `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+            const [newProposal] = await tx.insert(proposals).values({
+                leadId: lead.id,
+                proposalCode,
+                version: 1,
+                scope: lead.goals || `Strategic agency implementation and digital transformation for ${lead.businessName || "Client"}.`,
+                timeline: lead.timelineExpectation || "4-6 Weeks from project kickoff",
+                deliverables: [
+                    "Technical Architecture & Requirements Document",
+                    "UI/UX Design System & Interactive Prototypes",
+                    "Full-Stack Application Development",
+                    "Quality Assurance, Performance & Security Audit",
+                ],
+                priceMode,
+                currency: "PHP",
+                totalPrice: null,
+                needsGoals,
+                terms: "Standard Agency Terms: Commercial terms and payment schedule to be finalized upon project alignment.",
+                validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                status: "draft",
+            }).returning();
+
+            createdProposalId = newProposal.id;
+
+            // Insert 5 default milestones with null dates
+            const defaultMilestoneNames: Array<"requirements" | "design" | "development" | "uat_testing" | "handover"> = [
+                "requirements",
+                "design",
+                "development",
+                "uat_testing",
+                "handover",
+            ];
+
+            await tx.insert(proposalMilestones).values(
+                defaultMilestoneNames.map((name) => ({
+                    id: crypto.randomUUID(),
+                    proposalId: newProposal.id,
+                    name,
+                    startDate: null,
+                    endDate: null,
+                }))
+            );
+
+            // Insert default 30/30/40 payment schedule
+            await tx.insert(paymentScheduleItems).values([
+                {
+                    id: crypto.randomUUID(),
+                    proposalId: newProposal.id,
+                    label: "On signing",
+                    percent: 30,
+                    trigger: "on_signing" as const,
+                    sortOrder: 0,
+                },
+                {
+                    id: crypto.randomUUID(),
+                    proposalId: newProposal.id,
+                    label: "After design approval",
+                    percent: 30,
+                    trigger: "design" as const,
+                    sortOrder: 1,
+                },
+                {
+                    id: crypto.randomUUID(),
+                    proposalId: newProposal.id,
+                    label: "On handover",
+                    percent: 40,
+                    trigger: "handover" as const,
+                    sortOrder: 2,
+                },
+            ]);
         });
 
-        if (!lead) {
-            return { success: false, message: "Lead not found" };
-        }
-
-        const proposalCode = `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const estValue = Number(lead.estimatedValue) || 5000;
-
-        const [created] = await db.insert(proposals).values({
-            leadId: lead.id,
-            proposalCode,
-            scope: lead.goals || `Strategic agency implementation and digital transformation for ${lead.businessName || "Client"}.`,
-            timeline: lead.timelineExpectation || "4-6 Weeks from project kickoff",
-            technicalApproach: "Modern Next.js architecture, high-performance API endpoints, responsive UX/UI, and automated deployment infrastructure.",
-            deliverables: [
-                "Architecture & Discovery: Comprehensive specification and visual design system.",
-                "Core System Implementation: Full-stack feature delivery and component implementation.",
-                "Quality Assurance & Deployment: Rigorous testing, performance optimization, and production go-live.",
-            ],
-            pricingStructure: [
-                { name: "Strategic Design & Discovery", description: "Design tokens, components, and user flows", quantity: 1, unitPrice: Math.round(estValue * 0.3), total: Math.round(estValue * 0.3) },
-                { name: "Full-Stack Development & Integration", description: "Frontend, backend server actions, and database", quantity: 1, unitPrice: Math.round(estValue * 0.5), total: Math.round(estValue * 0.5) },
-                { name: "Deployment, QA & Handover", description: "Infrastructure setup, SSL, and performance optimization", quantity: 1, unitPrice: Math.round(estValue * 0.2), total: Math.round(estValue * 0.2) },
-            ],
-            subtotal: estValue,
-            total: estValue,
-            terms: "Payment Milestone Schedule: 50% initial commitment upon agreement signing, 50% upon final acceptance and handover.",
-            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            status: "draft",
-            contractSettings: {
-                agencyRegistration: "CS202612345",
-                agencyAddress: "4th Floor, Innovation Hub Building, Metro Manila, Philippines",
-                agencyPhone: "+63 (917) 555-1234",
-                governingLaw: "Republic of the Philippines",
-                paymentMethod: "Bank Transfer, GCash, PayPal, or Stripe",
-            },
-        }).returning();
-
-        await logAction("CREATE", "Proposal", `Draft proposal generated for Lead ${lead.businessName || lead.id} (${proposalCode})`);
+        await logAction("CREATE", "Proposal", `Draft proposal generated for Lead ${leadId}`);
 
         revalidatePath(`/dashboard/leads/${leadId}`);
         revalidatePath(`/dashboard/leads`);
         revalidatePath(`/dashboard/proposals`);
-        revalidatePath(`/dashboard/proposals/builder/${created.id}`);
+        revalidatePath(`/dashboard/proposals/builder/${createdProposalId}`);
 
-        return { success: true, proposalId: created.id };
+        return { success: true, proposalId: createdProposalId };
     } catch (error) {
+        // Concurrency: catch unique-violation on (leadId, version) and return existing draft
+        if (error && typeof error === "object" && (("code" in error && error.code === "23505") || String(error).includes("idx_proposal_lead_version"))) {
+            const existingDraft = await db.query.proposals.findFirst({
+                where: and(eq(proposals.leadId, leadId), eq(proposals.status, "draft")),
+            });
+            if (existingDraft) {
+                return { success: true, proposalId: existingDraft.id };
+            }
+        }
         console.error("Failed to generate draft proposal for lead:", error);
         return { success: false, message: error instanceof Error ? error.message : "Database Error" };
     }
@@ -138,26 +228,18 @@ export async function createProposal(leadId: string, data: ProposalData) {
 
     try {
         const proposalCode = data.proposalCode || `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const insertPayload: any = {
+        const formattedNeedsGoals = typeof data.needsGoals === "string"
+            ? { needs: data.needsGoals, goals: "" }
+            : data.needsGoals ?? null;
+
+        const [newProposal] = await db.insert(proposals).values({
             ...data,
             leadId,
-            priceMode: data.priceMode || "to_be_discussed",
-            currency: data.currency || "PHP",
+            needsGoals: formattedNeedsGoals,
             proposalCode,
             validUntil: data.validUntil ? new Date(data.validUntil) : null,
             status: "draft",
-        };
-        if (typeof data.needsGoals === "string") {
-            insertPayload.needsGoals = { needs: data.needsGoals, goals: "" };
-        } else if (data.needsGoals) {
-            insertPayload.needsGoals = data.needsGoals;
-        }
-        delete insertPayload.subtotal;
-        delete insertPayload.discount;
-        delete insertPayload.tax;
-        delete insertPayload.total;
-        delete insertPayload.pricingStructure;
-        const [newProposal] = await db.insert(proposals).values(insertPayload).returning();
+        }).returning();
 
         // Auto-sync contract value to Lead estimatedValue if total is provided
         if (data.total !== undefined && Number(data.total) > 0) {
@@ -194,21 +276,7 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
         const oldProposal = await db.query.proposals.findFirst({ where: eq(proposals.id, id) });
         if (!oldProposal) return { success: false, message: "Proposal not found" };
 
-        const updatePayload: Record<string, unknown> = { ...data, updatedAt: new Date() };
-        if (data.priceMode) updatePayload.priceMode = data.priceMode;
-        if (data.currency) updatePayload.currency = data.currency;
-        if (data.totalPrice !== undefined) updatePayload.totalPrice = data.totalPrice !== null ? Math.round(Number(data.totalPrice)) : null;
-        if (data.needsGoals !== undefined) {
-            updatePayload.needsGoals = typeof data.needsGoals === 'string'
-                ? { needs: data.needsGoals, goals: '' }
-                : data.needsGoals;
-        }
-        // Do not write legacy pricing columns
-        delete updatePayload.subtotal;
-        delete updatePayload.discount;
-        delete updatePayload.tax;
-        delete updatePayload.total;
-        delete updatePayload.pricingStructure;
+        const updatePayload: any = { ...data, updatedAt: new Date() };
         if (false as boolean) {
             updatePayload.status = status;
         }
@@ -233,28 +301,28 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
         revalidatePath(`/dashboard/analytics`);
         revalidatePath(`/dashboard/proposals/builder/${id}`);
         revalidatePath(`/proposal/${id}`);
-        
-        if (false as boolean) {
-             const { transitionLeadStage } = await import("@/features/crm/actions");
-             await transitionLeadStage({ leadId: updated.leadId, newStatus: "Proposal Sent" });
 
-             const { notifyLeadClient } = await import("@/features/notifications/send");
-             await notifyLeadClient(
-                 updated.leadId,
-                 `Your Project Proposal (${updated.proposalCode || 'Agreement'}) has been published and is ready for your digital signature.`,
-                 "proposal",
-                 `/proposal/${id}`
-             );
+        if (false as boolean) {
+            const { transitionLeadStage } = await import("@/features/crm/actions");
+            await transitionLeadStage({ leadId: updated.leadId, newStatus: "Proposal Sent" });
+
+            const { notifyLeadClient } = await import("@/features/notifications/send");
+            await notifyLeadClient(
+                updated.leadId,
+                `Your Project Proposal (${updated.proposalCode || 'Agreement'}) has been published and is ready for your digital signature.`,
+                "proposal",
+                `/proposal/${id}`
+            );
         } else if (oldProposal.status === "sent" && (data.total !== undefined || data.scope || data.deliverables)) {
-             const { notifyLeadClient } = await import("@/features/notifications/send");
-             await notifyLeadClient(
-                 updated.leadId,
-                 `Proposal Revisions: Updated terms and scope have been published for your project proposal.`,
-                 "proposal",
-                 `/proposal/${id}`
-             );
+            const { notifyLeadClient } = await import("@/features/notifications/send");
+            await notifyLeadClient(
+                updated.leadId,
+                `Proposal Revisions: Updated terms and scope have been published for your project proposal.`,
+                "proposal",
+                `/proposal/${id}`
+            );
         }
-        
+
         // Custom Audit Log Logic for Scope & Pricing
         let auditMsg = `Proposal ${id} updated (Status: ${updated.status})`;
         if (data.total !== undefined && data.total !== oldProposal.total) {
@@ -263,9 +331,9 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
         if (data.scope && data.scope !== oldProposal.scope) {
             auditMsg += ` | Scope changed`;
         }
-        
+
         await logAction("UPDATE", "Proposal", auditMsg);
-        
+
         return { success: true, proposal: updated };
     } catch (error) {
         console.error("Failed to update proposal:", error);
@@ -284,7 +352,7 @@ export interface ProposalAcceptancePayload {
 
 export async function acceptProposalByClient(id: string, payload?: ProposalAcceptancePayload) {
     try {
-    
+
         const session = await auth();
         if (!session?.user?.id) {
             return { success: false, message: "Unauthorized: Please log in to accept proposal" };
@@ -304,12 +372,12 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        const userRole = (session.user as { role?: string })?.role;
+        const userRole = (session.user as any)?.role;
         const isLeadOwner =
             proposal.lead &&
             (session.user.id === proposal.lead.clientId ||
-             session.user.email === proposal.lead.client?.email ||
-             session.user.email === proposal.lead.contactEmail);
+                session.user.email === proposal.lead.client?.email ||
+                session.user.email === proposal.lead.contactEmail);
 
         // Strict RBAC: Administrators and internal staff are blocked from signing on behalf of clients.
         if (userRole !== "client") {
@@ -339,15 +407,15 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
 
         // Execute atomic status update with full digital signature audit trail
         await db.update(proposals)
-            .set({ 
-                status: "signed", 
+            .set({
+                status: "signed",
                 acceptedByName: signerName,
                 acceptedByEmail: session.user.email,
                 acceptedByTitle: signerTitle,
                 signatureData: signature,
                 contractSettings: updatedContractSettings,
                 acceptedAt,
-                updatedAt: new Date() 
+                updatedAt: new Date()
             })
             .where(eq(proposals.id, id));
 
@@ -363,13 +431,13 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         if (!wonResult.success) {
             console.error("markLeadAsWon failed during proposal acceptance:", wonResult.message);
         }
-        
+
         if (proposal.lead) {
             await notifyAllAdmins(`Proposal accepted and signed by ${signerName} (${proposal.lead.businessName || "Client"})!`, "proposal", `/dashboard/leads`);
         }
-        
+
         await logAction("UPDATE", "Proposal", `Proposal ${proposal.proposalCode || id} executed and signed by ${signerName} (${signerTitle})`);
-        
+
         // Instant UI cache updates across all client & staff views
         revalidatePath(`/proposal/${id}`);
         revalidatePath("/dashboard/leads");
@@ -377,7 +445,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         revalidatePath("/dashboard/analytics");
         revalidatePath("/portal/projects");
         revalidatePath("/dashboard/pm");
-        
+
         return { success: true, message: "Proposal accepted and authorized! Project board has been provisioned." };
     } catch (error) {
         console.error("Failed to accept proposal:", error);
@@ -406,12 +474,12 @@ export async function rejectProposalByClient(id: string, reason?: string) {
         if (!proposal) return { success: false, message: "Proposal not found" };
         if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
 
-        const userRole = (session.user as { role?: string })?.role;
+        const userRole = (session.user as any)?.role;
         const isLeadOwner =
             proposal.lead &&
             (session.user.id === proposal.lead.clientId ||
-             session.user.email === proposal.lead.client?.email ||
-             session.user.email === proposal.lead.contactEmail);
+                session.user.email === proposal.lead.client?.email ||
+                session.user.email === proposal.lead.contactEmail);
 
         // Ownership: client can only reject proposals linked to their lead
         if (userRole !== "client" || !isLeadOwner) {
@@ -421,10 +489,10 @@ export async function rejectProposalByClient(id: string, reason?: string) {
         if (proposal.status === "declined") return { success: false, message: "Already declined" };
 
         await db.update(proposals)
-            .set({ 
-                status: "declined", 
-                rejectionReason: reason || null, 
-                updatedAt: new Date() 
+            .set({
+                status: "declined",
+                rejectionReason: reason || null,
+                updatedAt: new Date()
             })
             .where(eq(proposals.id, id));
 
@@ -434,13 +502,13 @@ export async function rejectProposalByClient(id: string, reason?: string) {
         if (proposal.lead) {
             await notifyAllAdmins(`Proposal rejected by ${proposal.lead.businessName || "Client"}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
         }
-        
+
         await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Reason: ${reason || 'N/A'}`);
-        
+
         revalidatePath(`/proposal/${id}`);
         revalidatePath("/dashboard/leads");
         revalidatePath(`/dashboard/leads/${proposal.leadId}`);
-        
+
         return { success: true, message: "Proposal rejected." };
     } catch (error) {
         console.error("Failed to reject proposal:", error);
@@ -461,12 +529,12 @@ export async function sendProposalEmail(proposalId: string) {
         where: eq(proposals.id, proposalId),
         with: { lead: { with: { client: true } } }
     });
-    
+
     if (!p || !p.lead || !p.lead.client) return { success: false, message: "Proposal, lead, or client not found" };
 
     try {
-        const url = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://'+process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000')}/proposal/${proposalId}`;
-        
+        const url = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000')}/proposal/${proposalId}`;
+
         await resend.emails.send({
             from: "Optrizo <onboarding@resend.dev>",
             to: p.lead.client.email,
@@ -475,10 +543,10 @@ export async function sendProposalEmail(proposalId: string) {
         });
 
         // Mark as sent
-        await updateProposal(proposalId, {}, "Sent");
+        await updateProposal(proposalId, {});
 
         return { success: true };
-    } catch(e) {
+    } catch (e) {
         console.error(e);
         return { success: false, message: "Failed to send email." };
     }
@@ -525,7 +593,7 @@ export async function deleteProposal(id: string) {
 
         await db.delete(proposals).where(eq(proposals.id, id));
         await logAction("DELETE", "Proposal", `Proposal ${id} deleted`);
-        
+
         revalidatePath(`/dashboard/leads/${proposal.leadId}`);
         return { success: true };
     } catch (error) {
@@ -535,64 +603,7 @@ export async function deleteProposal(id: string) {
 }
 
 export async function getOrCreateDraftProposal(leadId: string) {
-    const authz = await requireRole(["manager"]);
-    if (!authz.ok) {
-        return { success: false, message: "Unauthorized: Only managers can access or create draft proposals" };
-    }
-
-    try {
-        // Look for existing draft or active proposal
-        const existing = await db.query.proposals.findFirst({
-            where: eq(proposals.leadId, leadId),
-            orderBy: (p, { desc }) => [desc(p.createdAt)],
-        });
-
-        if (existing) {
-            return { success: true, proposalId: existing.id };
-        }
-
-        // Fetch lead goals and business name to pre-populate
-        const lead = await db.query.leads.findFirst({
-            where: eq(leads.id, leadId),
-        });
-
-        const proposalCode = `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const [newProposal] = await db.insert(proposals).values({
-            leadId,
-            proposalCode,
-            scope: lead?.goals || "Comprehensive digital solution and strategic implementation.",
-            deliverables: [
-                "Technical Architecture & Requirements Document",
-                "UI/UX Design System & Interactive Prototypes",
-                "Full-Stack Application Development",
-                "Quality Assurance, Performance & Security Audit",
-            ],
-            timeline: "4 - 6 Weeks",
-            priceMode: "to_be_discussed",
-            currency: "PHP",
-            totalPrice: null,
-            terms: "Standard Agency Terms: Commercial terms and payment schedule to be finalized upon project alignment.",
-            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            status: "draft",
-        }).returning();
-
-        await logAction("CREATE", "Proposal", `Initialized draft proposal ${proposalCode} for Lead ${leadId}`);
-
-        revalidatePath(`/dashboard/leads/${leadId}`);
-        return { success: true, proposalId: newProposal.id };
-    } catch (error) {
-        // Concurrency: catch unique-violation on (leadId, version) and return existing draft
-        if (error && typeof error === "object" && (("code" in error && error.code === "23505") || String(error).includes("idx_proposal_lead_version"))) {
-            const existingDraft = await db.query.proposals.findFirst({
-                where: and(eq(proposals.leadId, leadId), eq(proposals.status, "draft")),
-            });
-            if (existingDraft) {
-                return { success: true, proposalId: existingDraft.id };
-            }
-        }
-        console.error("Failed to initialize draft proposal:", error);
-        return { success: false, message: "Database Error" };
-    }
+    return createDraftProposalForLead(leadId);
 }
 
 
@@ -1027,52 +1038,6 @@ export async function sendProposal(proposalId: string) {
     }
 
     try {
-        const proposal = await db.query.proposals.findFirst({
-            where: eq(proposals.id, proposalId),
-            with: {
-                milestones: true,
-                paymentScheduleItems: true,
-                lead: true,
-            },
-        });
-
-        if (!proposal) return { success: false, message: "Proposal not found" };
-        if (proposal.status !== "draft") {
-            return { success: false, message: `Only draft proposals can be sent. Current status is '${proposal.status}'.` };
-        }
-
-        // Validate 5 default milestones: all must exist and have start and end dates
-        const milestones = proposal.milestones || [];
-        const map = new Map(milestones.map((m: any) => [m.name || m.key, m]));
-        const requiredKeys = ["requirements", "design", "development", "uat_testing", "handover"];
-        for (const k of requiredKeys) {
-            const m = map.get(k);
-            if (!m || !m.startDate || !m.endDate) {
-                return {
-                    success: false,
-                    code: "MILESTONES_INVALID",
-                    message: "Cannot send proposal: all 5 default milestones must have valid start and end dates.",
-                };
-            }
-        }
-
-        // If priced, validate total and payment schedule totaling 100%
-        if (proposal.priceMode === "priced") {
-            const total = proposal.totalPrice ?? proposal.total ?? 0;
-            if (total <= 0) {
-                return { success: false, message: "Cannot send priced proposal without a valid total price." };
-            }
-            const schedule = proposal.paymentScheduleItems || [];
-            const sumPercent = schedule.reduce((sum, item) => sum + (Number(item.percent) || 0), 0);
-            if (sumPercent !== 100) {
-                return {
-                    success: false,
-                    code: "SCHEDULE_NOT_100",
-                    message: `Cannot send proposal: payment schedule must total exactly 100% (currently ${sumPercent}%).`,
-                };
-            }
-        }
-
         let sentProposalCode = "";
         let leadId = "";
         let proposalVersion = 1;
@@ -1090,7 +1055,7 @@ export async function sendProposal(proposalId: string) {
             }
 
             if (lockedProposal.status !== "draft") {
-                throw new Error(`Proposal status changed to ${lockedProposal.status} before sending`);
+                throw new Error(`Only draft proposals can be sent. Current status is '${lockedProposal.status}'.`);
             }
 
             // 2. Lock lead row FOR UPDATE
@@ -1108,9 +1073,50 @@ export async function sendProposal(proposalId: string) {
             sentProposalCode = lockedProposal.proposalCode || proposalId;
             proposalVersion = lockedProposal.version ?? 1;
 
-            // 3. Stage transition logic
+            // 3. Move milestone, price and schedule validation inside transaction after both locks
+            const milestones = await tx
+                .select()
+                .from(proposalMilestones)
+                .where(eq(proposalMilestones.proposalId, proposalId));
+
+            const map = new Map(milestones.map((m) => [m.name, m]));
+            const requiredKeys = ["requirements", "design", "development", "uat_testing", "handover"] as const;
+            for (const k of requiredKeys) {
+                const m = map.get(k);
+                if (!m || !m.startDate || !m.endDate) {
+                    throw new Error("Cannot send proposal: all 5 default milestones must have valid start and end dates.");
+                }
+                const startTime = new Date(m.startDate).getTime();
+                const endTime = new Date(m.endDate).getTime();
+                if (isNaN(startTime) || isNaN(endTime) || endTime < startTime) {
+                    throw new Error(`Cannot send proposal: milestone "${k}" end date must be on or after start date.`);
+                }
+            }
+
+            // For priced proposals use totalPrice only (> 0), never the legacy total
+            if (lockedProposal.priceMode === "priced") {
+                const totalPrice = lockedProposal.totalPrice ?? 0;
+                if (totalPrice <= 0) {
+                    throw new Error("Cannot send priced proposal without a valid total price.");
+                }
+
+                const schedule = await tx
+                    .select()
+                    .from(paymentScheduleItems)
+                    .where(eq(paymentScheduleItems.proposalId, proposalId));
+
+                const sumPercent = schedule.reduce((sum, item) => sum + (Number(item.percent) || 0), 0);
+                if (sumPercent !== 100) {
+                    throw new Error(`Cannot send proposal: payment schedule must total exactly 100% (currently ${sumPercent}%).`);
+                }
+            }
+
+            // 4. Stage transition logic: check result of moveLeadToProposalSent
             if (lockedLead.status === "Discovery & Qualifying") {
-                await moveLeadToProposalSent(tx, leadId);
+                const transitionRes = await moveLeadToProposalSent(tx, leadId);
+                if (!transitionRes?.success) {
+                    throw new Error(transitionRes?.message || "Failed to move lead to Proposal Sent");
+                }
             } else if (lockedLead.status === "Proposal Sent" || lockedLead.status === "In Negotiation") {
                 // Already in or past Proposal Sent; send proposal without stage change or activity interaction
             } else {
@@ -1119,7 +1125,7 @@ export async function sendProposal(proposalId: string) {
 
             const now = new Date();
 
-            // 4. Update proposal status = "sent"
+            // 5. Update proposal status = "sent"
             await tx.update(proposals)
                 .set({
                     status: "sent",
@@ -1128,7 +1134,7 @@ export async function sendProposal(proposalId: string) {
                 })
                 .where(eq(proposals.id, proposalId));
 
-            // 5. Mark previous versions replaced ONLY where status IN ('sent','pricing_meeting_requested','changes_requested')
+            // 6. Mark previous versions replaced ONLY where status IN ('sent','pricing_meeting_requested','changes_requested')
             await tx.update(proposals)
                 .set({
                     status: "replaced",
