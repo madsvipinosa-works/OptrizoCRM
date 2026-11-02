@@ -41,6 +41,12 @@ interface Props {
         currency?: "PHP" | "USD" | null;
         totalPrice?: number | null;
         needsGoals?: string | null;
+        milestones?: Array<{
+            key: string;
+            title: string;
+            startDate?: string | null;
+            endDate?: string | null;
+        }> | null;
         fileUrl?: string | null;
         scope?: string | null;
         timeline?: string | null;

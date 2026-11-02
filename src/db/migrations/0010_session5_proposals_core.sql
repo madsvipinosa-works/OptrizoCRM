@@ -114,4 +114,38 @@ UPDATE "proposal"
 SET "needs_goals" = "scope"
 WHERE "needs_goals" IS NULL AND "scope" IS NOT NULL;
 
+-- 5. Item 6: proposal_milestone (5 default milestones)
+CREATE TABLE IF NOT EXISTS "proposal_milestone" (
+    "id" text PRIMARY KEY NOT NULL,
+    "proposalId" text NOT NULL REFERENCES "proposal"("id") ON DELETE CASCADE,
+    "key" text NOT NULL,
+    "title" text NOT NULL,
+    "startDate" date,
+    "endDate" date,
+    "created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "proposal_milestone_proposal_key_idx" ON "proposal_milestone" ("proposalId", "key");
+
+-- Backfill the 5 default milestones for every proposal that lacks them
+INSERT INTO "proposal_milestone" ("id", "proposalId", "key", "title", "startDate", "endDate", "created_at")
+SELECT
+    gen_random_uuid()::text,
+    p.id,
+    m.key,
+    m.title,
+    NULL,
+    NULL,
+    now()
+FROM "proposal" p
+CROSS JOIN (
+    VALUES
+        ('requirements', 'Requirements & Architecture'),
+        ('design', 'UI/UX Design & Prototyping'),
+        ('development', 'Full-Stack Development'),
+        ('uat_testing', 'QA & UAT Testing'),
+        ('handover', 'Final Handover & Deployment')
+) AS m(key, title)
+ON CONFLICT ("proposalId", "key") DO NOTHING;
+
 COMMIT;

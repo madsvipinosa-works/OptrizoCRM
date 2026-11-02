@@ -31,6 +31,13 @@ export interface ProposalDocumentData {
     tax?: number | null;
     total?: number | null;
     needsGoals?: string | null;
+    milestones?: Array<{
+        key: string;
+        title: string;
+        description?: string;
+        startDate?: string | null;
+        endDate?: string | null;
+    }> | null;
     terms?: string | null;
     validUntil?: string | Date | null;
     status?: string;
@@ -55,6 +62,15 @@ interface ProposalDocumentSheetProps {
     agencyLogoUrl?: string | null;
     agencyFaviconUrl?: string | null;
 }
+
+
+const DEFAULT_MILESTONES_META: Record<string, { title: string; description: string }> = {
+    requirements: { title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
+    design: { title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
+    development: { title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
+    uat_testing: { title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
+    handover: { title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
+};
 
 export function ProposalDocumentSheet({
     data,
@@ -357,15 +373,37 @@ export function ProposalDocumentSheet({
                 </section>
             )}
 
-            {/* 5. Timeline */}
-            {data.timeline && (
-                <section className="space-y-2 print-avoid-break w-full min-w-0">
-                    <h2 className="text-base font-serif font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                        <Calendar className="w-4 h-4 text-primary shrink-0" /> {nextSection()}. Target Timeline &amp; Delivery Schedule
-                    </h2>
+            {/* 5. Scope of Work & Delivery Timeline */}
+            <section className="space-y-3 print-avoid-break w-full min-w-0">
+                <h2 className="text-base font-serif font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-1.5 uppercase tracking-wide">
+                    <Calendar className="w-4 h-4 text-primary shrink-0" /> {nextSection()}. Scope of Work &amp; Delivery Timeline
+                </h2>
+                {data.milestones && data.milestones.length > 0 ? (
+                    <div className="border border-border/60 rounded-lg overflow-hidden text-xs divide-y divide-border/40">
+                        {data.milestones.map((m) => {
+                            const meta = DEFAULT_MILESTONES_META[m.key] || { title: m.title, description: m.description || "" };
+                            const dateStr = m.startDate && m.endDate
+                                ? `${safeFormatDate(m.startDate, { month: "short", day: "numeric" })} – ${safeFormatDate(m.endDate, { month: "short", day: "numeric", year: "numeric" })}`
+                                : m.startDate
+                                ? `Starts ${safeFormatDate(m.startDate, { month: "short", day: "numeric" })}`
+                                : "Dates to be finalized";
+                            return (
+                                <div key={m.key} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/10 gap-2">
+                                    <div className="min-w-0">
+                                        <div className="font-semibold text-foreground text-xs">{meta.title}</div>
+                                        <div className="text-[11px] text-muted-foreground">{meta.description}</div>
+                                    </div>
+                                    <div className="text-foreground/90 font-mono text-[11px] whitespace-nowrap shrink-0 text-right">
+                                        {dateStr}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : data.timeline ? (
                     <p className="text-sm text-foreground/90 leading-relaxed break-words min-w-0">{data.timeline}</p>
-                </section>
-            )}
+                ) : null}
+            </section>
 
             {/* 6. Pricing */}
             <section className="space-y-3 print-avoid-break w-full min-w-0">

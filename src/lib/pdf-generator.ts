@@ -72,6 +72,13 @@ export function generateSOWHtml(data: {
     currency?: "PHP" | "USD" | string | null;
     totalPrice?: number | null;
     needsGoals?: string | null;
+    milestones?: Array<{
+        key: string;
+        title: string;
+        description?: string;
+        startDate?: string | null;
+        endDate?: string | null;
+    }> | null;
     terms?: string | null;
     status: string;
     acceptedByName?: string | null;
@@ -104,6 +111,7 @@ export function generateSOWHtml(data: {
     const safeScope = escapeHtml(data.scope || "Detailed scope parameters and technical deliverables.");
     const safeTechnicalApproach = data.technicalApproach ? escapeHtml(data.technicalApproach) : null;
     const safeTimeline = data.timeline ? escapeHtml(data.timeline) : null;
+    const safeMilestones = data.milestones || [];
     const safeTerms = escapeHtml(data.terms || "Standard agency terms apply: 50% deposit required upon acceptance to initiate sprint planning, with the remaining balance due upon milestone handover. All custom deliverables and intellectual property will transfer to Client upon receipt of final contract settlement.");
     const safeAcceptedByName = data.acceptedByName ? escapeHtml(data.acceptedByName) : "Client Signatory";
     const safeAcceptedByTitle = data.acceptedByTitle ? escapeHtml(data.acceptedByTitle) : null;
@@ -659,11 +667,31 @@ export function generateSOWHtml(data: {
         </div>` : ""}
 
         <!-- 4. Timeline -->
-        ${safeTimeline ? `
         <div class="section">
-            <div class="section-title">${nextNum()}. Target Timeline &amp; Delivery Schedule</div>
-            <div class="section-content">${safeTimeline}</div>
-        </div>` : ""}
+            <div class="section-title">${nextNum()}. Scope of Work &amp; Delivery Timeline</div>
+            ${safeMilestones.length > 0 ? `
+                <div style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-top: 8px;">
+                    ${safeMilestones.map((m, idx) => {
+                        const dateStr = m.startDate && m.endDate
+                            ? `${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(m.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                            : m.startDate
+                            ? `Starts ${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                            : "Dates to be finalized";
+                        return `
+                            <div style="padding: 10px 14px; border-bottom: ${idx === safeMilestones.length - 1 ? 'none' : '1px solid #e2e8f0'}; display: flex; justify-content: space-between; align-items: center; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                <div>
+                                    <div style="font-size: 9pt; font-weight: 700; color: #0f172a;">${escapeHtml(m.title)}</div>
+                                    <div style="font-size: 7.5pt; color: #64748b;">${escapeHtml(m.description || '')}</div>
+                                </div>
+                                <div style="font-size: 8pt; font-family: monospace; color: #334155; white-space: nowrap; font-weight: 600;">${dateStr}</div>
+                            </div>
+                        `;
+                    }).join("")}
+                </div>
+            ` : `
+                <div class="section-content">${safeTimeline || 'Timeline milestones to be agreed.'}</div>
+            `}
+        </div>
 
         <!-- 5. Investment Schedule / Commercial Terms -->
         <div class="section">

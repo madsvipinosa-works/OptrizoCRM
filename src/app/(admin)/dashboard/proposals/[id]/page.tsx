@@ -42,6 +42,7 @@ export default async function StaffProposalViewPage({
     const proposal = await db.query.proposals.findFirst({
         where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),
         with: {
+            milestones: true,
             lead: {
                 with: {
                     client: true,

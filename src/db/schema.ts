@@ -1,6 +1,7 @@
 import {
     boolean,
     timestamp,
+    date,
     pgTable,
     text,
     primaryKey,
@@ -501,6 +502,23 @@ export const proposals = pgTable("proposal", {
     uniqueIndex("idx_proposal_lead_version").on(t.leadId, t.version),
 ]);
 
+export const proposalMilestones = pgTable("proposal_milestone", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    proposalId: text("proposalId")
+        .notNull()
+        .references(() => proposals.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    title: text("title").notNull(),
+    startDate: date("startDate", { mode: "string" }),
+    endDate: date("endDate", { mode: "string" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex("proposal_milestone_proposal_key_idx").on(t.proposalId, t.key)
+]);
+
+
 // 15. Audit Logs
 export const auditActionEnum = pgEnum("audit_action", ["CREATE", "UPDATE", "DELETE", "LOGIN", "OTHER"]);
 
@@ -653,10 +671,18 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     }),
 }));
 
-export const proposalsRelations = relations(proposals, ({ one }) => ({
+export const proposalsRelations = relations(proposals, ({ one, many }) => ({
     lead: one(leads, {
         fields: [proposals.leadId],
         references: [leads.id],
+    }),
+    milestones: many(proposalMilestones),
+}));
+
+export const proposalMilestonesRelations = relations(proposalMilestones, ({ one }) => ({
+    proposal: one(proposals, {
+        fields: [proposalMilestones.proposalId],
+        references: [proposals.id],
     }),
 }));
 

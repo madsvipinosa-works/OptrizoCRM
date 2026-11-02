@@ -1,7 +1,10 @@
 "use server";
 
 import { db } from "@/db";
-import { proposals, leads, users, discoveryForms } from "@/db/schema";
+import {
+    proposals,
+    proposalMilestones,
+    leads, users, discoveryForms } from "@/db/schema";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
@@ -697,6 +700,192 @@ export async function resetProposalNeedsGoals(proposalId: string) {
         return { success: true, needsGoals: resetText };
     } catch (error) {
         console.error("Failed to reset needs goals:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+
+export const DEFAULT_PROPOSAL_MILESTONES = [
+    { key: "requirements", title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
+    { key: "design", title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
+    { key: "development", title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
+    { key: "uat_testing", title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
+    { key: "handover", title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
+] as const;
+
+export async function seedDefaultProposalMilestones(proposalId: string) {
+    for (const m of DEFAULT_PROPOSAL_MILESTONES) {
+        await db.insert(proposalMilestones).values({
+            proposalId,
+            key: m.key,
+            title: m.title,
+            startDate: null,
+            endDate: null,
+        }).onConflictDoNothing();
+    }
+}
+
+export async function getProposalMilestones(proposalId: string) {
+    const rows = await db.query.proposalMilestones.findMany({
+        where: eq(proposalMilestones.proposalId, proposalId),
+    });
+
+    const map = new Map(rows.map((r) => [r.key, r]));
+    return DEFAULT_PROPOSAL_MILESTONES.map((def) => {
+        const found = map.get(def.key);
+        return {
+            id: found?.id || "",
+            proposalId,
+            key: def.key,
+            title: def.title,
+            description: def.description,
+            startDate: found?.startDate || null,
+            endDate: found?.endDate || null,
+        };
+    });
+}
+
+export async function updateProposalMilestones(
+    proposalId: string,
+    milestonesData: Array<{ key: string; startDate?: string | null; endDate?: string | null }>
+) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can update milestone dates" };
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, proposalId),
+        });
+        if (!proposal) return { success: false, message: "Proposal not found" };
+
+        for (const item of milestonesData) {
+            const def = DEFAULT_PROPOSAL_MILESTONES.find((d) => d.key === item.key);
+            if (!def) continue;
+
+            const existing = await db.query.proposalMilestones.findFirst({
+                where: and(
+                    eq(proposalMilestones.proposalId, proposalId),
+                    eq(proposalMilestones.key, item.key)
+                ),
+            });
+
+            if (existing) {
+                await db.update(proposalMilestones)
+                    .set({
+                        startDate: item.startDate || null,
+                        endDate: item.endDate || null,
+                    })
+                    .where(eq(proposalMilestones.id, existing.id));
+            } else {
+                await db.insert(proposalMilestones).values({
+                    proposalId,
+                    key: item.key,
+                    title: def.title,
+                    startDate: item.startDate || null,
+                    endDate: item.endDate || null,
+                });
+            }
+        }
+
+        await logAction("UPDATE", "Proposal", `Updated milestone dates for proposal ${proposal.proposalCode || proposalId}`);
+        revalidatePath(`/dashboard/proposals/builder/${proposalId}`);
+        revalidatePath(`/dashboard/proposals/${proposalId}`);
+        revalidatePath(`/proposal/${proposalId}`);
+
+        const updated = await getProposalMilestones(proposalId);
+        return { success: true, milestones: updated };
+    } catch (error) {
+        console.error("Failed to update milestone dates:", error);
+        return { success: false, message: "Database Error" };
+    }
+}
+
+export async function createProposalRevision(leadId: string) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can create proposal revisions" };
+    }
+
+    try {
+        const existingDraft = await db.query.proposals.findFirst({
+            where: and(
+                eq(proposals.leadId, leadId),
+                eq(proposals.status, "draft"),
+                isNull(proposals.deletedAt)
+            ),
+        });
+        if (existingDraft) {
+            return { success: false, message: "A draft proposal already exists for this lead", proposalId: existingDraft.id };
+        }
+
+        const latestProposal = await db.query.proposals.findFirst({
+            where: and(
+                eq(proposals.leadId, leadId),
+                isNull(proposals.deletedAt)
+            ),
+            orderBy: (p, { desc }) => [desc(p.version), desc(p.createdAt)],
+            with: {
+                milestones: true,
+            },
+        });
+
+        if (!latestProposal) {
+            return { success: false, message: "No existing proposal found to revise" };
+        }
+
+        const allowedStatuses = ["sent", "pricing_meeting_requested", "changes_requested"];
+        if (!allowedStatuses.includes(latestProposal.status)) {
+            return {
+                success: false,
+                message: `Cannot create revision: latest proposal status is '${latestProposal.status}'. Must be sent, pricing_meeting_requested, or changes_requested.`
+            };
+        }
+
+        const nextVersion = (latestProposal.version || 1) + 1;
+        const proposalCode = latestProposal.proposalCode
+            ? `${latestProposal.proposalCode.split("-v")[0]}-v${nextVersion}`
+            : `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}-v${nextVersion}`;
+
+        const [revision] = await db.insert(proposals).values({
+            leadId,
+            proposalCode,
+            version: nextVersion,
+            status: "draft",
+            priceMode: latestProposal.priceMode,
+            currency: latestProposal.currency,
+            totalPrice: latestProposal.totalPrice,
+            needsGoals: latestProposal.needsGoals,
+            scope: latestProposal.scope,
+            deliverables: latestProposal.deliverables,
+            timeline: latestProposal.timeline,
+            technicalApproach: latestProposal.technicalApproach,
+            terms: latestProposal.terms,
+            validUntil: latestProposal.validUntil,
+            contractSettings: latestProposal.contractSettings,
+        }).returning();
+
+        if (latestProposal.milestones && latestProposal.milestones.length > 0) {
+            for (const m of latestProposal.milestones) {
+                await db.insert(proposalMilestones).values({
+                    proposalId: revision.id,
+                    key: m.key,
+                    title: m.title,
+                    startDate: m.startDate,
+                    endDate: m.endDate,
+                });
+            }
+        } else {
+            await seedDefaultProposalMilestones(revision.id);
+        }
+
+        await logAction("CREATE", "Proposal", `Created proposal revision v${nextVersion} for Lead ${leadId}`);
+        revalidatePath(`/dashboard/proposals`);
+        revalidatePath(`/dashboard/leads/${leadId}`);
+        return { success: true, proposalId: revision.id };
+    } catch (error) {
+        console.error("Failed to create proposal revision:", error);
         return { success: false, message: "Database Error" };
     }
 }

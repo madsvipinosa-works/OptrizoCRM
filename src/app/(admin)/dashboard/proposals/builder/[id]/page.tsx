@@ -33,6 +33,7 @@ export default async function ProposalBuilderPage({
     let proposal = await db.query.proposals.findFirst({
         where: eq(proposals.id, id),
         with: {
+            milestones: true,
             lead: {
                 with: {
                     client: true,
@@ -47,12 +48,13 @@ export default async function ProposalBuilderPage({
             where: eq(proposals.leadId, id),
             orderBy: (p, { desc }) => [desc(p.createdAt)],
             with: {
-                lead: {
-                    with: {
-                        client: true,
-                    },
+            milestones: true,
+            lead: {
+                with: {
+                    client: true,
                 },
             },
+        },
         });
     }
 

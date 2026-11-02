@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals } from "@/features/proposals/actions";
+import { updateProposal, sendProposalEmail, ProposalData, ContractSettings, resetProposalNeedsGoals, updateProposalMilestones, DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/actions";
 import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 import { printProposalPdf } from "@/features/proposals/utils/printProposalPdf";
 import {
@@ -70,6 +70,12 @@ interface ProposalBuilderStudioProps {
         currency?: "PHP" | "USD" | null;
         totalPrice?: number | null;
         needsGoals?: string | null;
+        milestones?: Array<{
+            key: string;
+            title: string;
+            startDate?: string | null;
+            endDate?: string | null;
+        }> | null;
         discount?: number | null;
         tax?: number | null;
         total?: number | null;
@@ -253,6 +259,56 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const [needsGoals, setNeedsGoals] = useState(proposal.needsGoals || proposal.scope || "");
     const [isNeedsGoalsModalOpen, setIsNeedsGoalsModalOpen] = useState(false);
     const [isResettingNeedsGoals, setIsResettingNeedsGoals] = useState(false);
+
+    const [milestones, setMilestones] = useState<Array<{
+        key: string;
+        title: string;
+        description: string;
+        startDate: string;
+        endDate: string;
+    }>>(() => {
+        const list = (proposal as any).milestones || [];
+        const map = new Map<string, any>(list.map((m: any) => [m.key, m]));
+        return DEFAULT_PROPOSAL_MILESTONES.map((def) => {
+            const found: any = map.get(def.key);
+            return {
+                key: def.key,
+                title: def.title,
+                description: def.description,
+                startDate: (found?.startDate as string) || "",
+                endDate: (found?.endDate as string) || "",
+            };
+        });
+    });
+    const [isMilestonesModalOpen, setIsMilestonesModalOpen] = useState(false);
+    const [isScopeTimelineModalOpen, setIsScopeTimelineModalOpen] = useState(false);
+    const [isSavingMilestones, setIsSavingMilestones] = useState(false);
+
+    const milestoneDateRangeText = useMemo(() => {
+        const dates = milestones.flatMap(m => [m.startDate, m.endDate]).filter(Boolean).sort();
+        if (dates.length === 0) return "5 default milestones · Dates not set";
+        const start = new Date(dates[0]).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const end = new Date(dates[dates.length - 1]).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return `5 default milestones · ${start} – ${end}`;
+    }, [milestones]);
+
+    const handleSaveMilestones = async () => {
+        setIsSavingMilestones(true);
+        try {
+            const res = await updateProposalMilestones(proposal.id, milestones);
+            if (res.success) {
+                toast.success("Milestone dates updated!");
+                setIsMilestonesModalOpen(false);
+            } else {
+                toast.error(res.message || "Failed to update milestone dates");
+            }
+        } catch {
+            toast.error("Error updating milestone dates");
+        } finally {
+            setIsSavingMilestones(false);
+        }
+    };
+
 
     const handleResetNeedsGoals = async () => {
         setIsResettingNeedsGoals(true);
@@ -786,18 +842,21 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                         </div>
                     </div>
 
-                    {/* Section: Timeline */}
-                    <div className="space-y-4 pt-4 border-t border-border/60">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground uppercase tracking-wider font-mono">
-                            <Calendar className="h-4 w-4 text-primary" /> Estimated Timeline
+                    {/* Section: Milestones (Step 10b) */}
+                    <div className="bg-card border border-border/70 rounded-xl p-4 flex items-center justify-between">
+                        <div className="space-y-0.5">
+                            <div className="font-semibold text-sm text-foreground">Milestones</div>
+                            <div className="text-xs text-muted-foreground">{milestoneDateRangeText}</div>
                         </div>
-                        <Input
-                            value={timeline}
-                            maxLength={100}
-                            onChange={(e) => setTimeline(e.target.value)}
-                            placeholder="e.g. 4 - 6 Weeks (Milestone-based delivery)"
-                            className="text-sm"
-                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsMilestonesModalOpen(true)}
+                            className="text-xs font-semibold"
+                        >
+                            Edit dates
+                        </Button>
                     </div>
 
                     {/* Section: Price & Currency (Step 10b / 17a) */}
@@ -1167,6 +1226,108 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                             className="bg-primary text-black font-semibold hover:bg-primary/90 w-full sm:w-auto"
                         >
                             Continue Editing
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Step 10b: Edit Milestone Dates Dialog */}
+            <Dialog open={isMilestonesModalOpen} onOpenChange={setIsMilestonesModalOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Edit milestone dates</DialogTitle>
+                        <DialogDescription>
+                            Only dates are editable. The 5 default milestones and descriptions are fixed across all proposals.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+                        {milestones.map((m, index) => (
+                            <div key={m.key} className="p-3.5 border border-border/70 rounded-lg bg-muted/20 space-y-2">
+                                <div>
+                                    <div className="font-semibold text-sm text-foreground">{m.title}</div>
+                                    <div className="text-xs text-muted-foreground">{m.description}</div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] text-muted-foreground font-mono">Start date</Label>
+                                        <Input
+                                            type="date"
+                                            value={m.startDate}
+                                            onChange={(e) => {
+                                                const updated = [...milestones];
+                                                updated[index].startDate = e.target.value;
+                                                setMilestones(updated);
+                                            }}
+                                            className="h-8 text-xs font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] text-muted-foreground font-mono">End date</Label>
+                                        <Input
+                                            type="date"
+                                            value={m.endDate}
+                                            onChange={(e) => {
+                                                const updated = [...milestones];
+                                                updated[index].endDate = e.target.value;
+                                                setMilestones(updated);
+                                            }}
+                                            className="h-8 text-xs font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsMilestonesModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={handleSaveMilestones} disabled={isSavingMilestones}>
+                            {isSavingMilestones ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Save dates
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Step 10b: Scope of Work and Timeline View Dialog */}
+            <Dialog open={isScopeTimelineModalOpen} onOpenChange={setIsScopeTimelineModalOpen}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Scope of work and timeline</DialogTitle>
+                        <DialogDescription>
+                            Built automatically from the 5 default milestones. To change dates, close this and use Edit dates on the Milestones card.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground border-b border-border/60 pb-2 mb-2 font-mono uppercase tracking-wider">
+                            <span className="col-span-4">Milestone</span>
+                            <span className="col-span-5">What is done (standard)</span>
+                            <span className="col-span-3 text-right">Dates</span>
+                        </div>
+                        <div className="divide-y divide-border/40 text-xs">
+                            {milestones.map((m) => {
+                                const dateStr = m.startDate && m.endDate
+                                    ? `${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(m.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                                    : m.startDate
+                                    ? `Starts ${new Date(m.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                                    : "Dates to be set";
+                                return (
+                                    <div key={m.key} className="grid grid-cols-12 gap-2 py-3 items-center">
+                                        <b className="col-span-4 font-semibold text-foreground">{m.title}</b>
+                                        <span className="col-span-5 text-muted-foreground">{m.description}</span>
+                                        <span className="col-span-3 text-right font-mono text-muted-foreground whitespace-nowrap">{dateStr}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-4 pt-2 border-t border-border/40">
+                            Read only. Milestone names and descriptions are the same for every project.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsScopeTimelineModalOpen(false)}>
+                            Close
                         </Button>
                     </DialogFooter>
                 </DialogContent>
