@@ -218,4 +218,76 @@ Errors:
 - `TOO_MANY_ATTEMPTS`: the rate limit was hit.
 Side effects: password changed; audit log row.
 
+### scheduleBudgetPricingMeeting  (step 12)
+Who can call: manager
+Input:  `{ proposalId: string, format: 'video' | 'phone' | 'in_person' | 'on_site', startsAt: string, agenda?: string }`
+Output: `{ ok: true, meetingId: string }`
+Errors:
+- `UNAUTHORIZED` / `FORBIDDEN`: caller is not Manager.
+- `PROPOSAL_NOT_FOUND`: proposal does not exist.
+- `INVALID_STATUS`: proposal status is not `pricing_meeting_requested`.
+Side effects: creates meeting with type `budget_pricing` and status `awaiting_client`; client invited; audit log row.
+
+### requestProposalChanges  (step 18b)
+Who can call: client (own proposal only)
+Input:  `{ proposalId: string, topics: ('price' | 'timeline' | 'scope' | 'other')[], body: string }`
+Output: `{ ok: true }`
+Errors:
+- `FORBIDDEN`: caller is not client or does not own the lead.
+- `INVALID_STATUS`: proposal is not in `sent` or `pricing_meeting_requested`.
+- `INVALID_INPUT`: no topics selected or body is empty.
+Side effects: inserts `proposal_message` of kind `change_request`; proposal status → `changes_requested`; lead stage → `In Negotiation` (via `moveLeadToNegotiation`); PM notified; audit log row.
+
+### sendClientMessage  (step 18d)
+Who can call: client (own proposal only)
+Input:  `{ proposalId: string, body: string }`
+Output: `{ ok: true }`
+Errors:
+- `FORBIDDEN`: caller does not own the proposal.
+- `INVALID_INPUT`: body is empty.
+Side effects: inserts `proposal_message` of kind `message`; does NOT change proposal status or lead stage; PM notified; audit log row.
+
+### replyToClient  (step 18e)
+Who can call: manager
+Input:  `{ proposalId: string, body: string }`
+Output: `{ ok: true }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `INVALID_INPUT`: body is empty.
+Side effects: inserts `proposal_message` of kind `reply`; client notified; audit log row.
+
+### rejectProposalByClient  (step 18h)
+Who can call: client (own proposal only)
+Input:  `{ proposalId: string, reason?: string }`
+Output: `{ success: true, message: string }`
+Errors:
+- `FORBIDDEN`: caller is not the client owner.
+- `INVALID_STATUS`: proposal is already signed or replaced.
+Side effects: ACID transaction locks proposal then lead (`for("update")`); proposal status → `declined`, `rejectionReason = reason`; lead stage → `Closed Lost` (lossReason `'other'`, lossNotes `reason`); PM and Sales notified; audit log row.
+
+### recordPaperSignature  (step 19b)
+Who can call: manager
+Input:  `{ proposalId: string, signedFileUrl: string, signedAt: string }`
+Output: `{ ok: true, status: 'signed', projectId: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `INVALID_STATUS`: proposal is not the latest sent version, or priceMode is not priced.
+- `PROPOSAL_EXPIRED`: validUntil has passed in Asia/Manila timezone.
+- `ALREADY_SIGNED`: another proposal for this lead is already signed.
+Side effects: executes ACID transaction locking proposal then lead; saves `signatureType = 'paper'`, `signedFileUrl`, `signedAt`, status → `signed`; lead stage → `Closed Won`; provisions project and 5 milestones with payment schedule via `provisionProjectFromProposal`; post-commit notifications to PM, Sales, client; audit log row.
+
+### provisionProjectFromProposal  (internal transactional engine)
+Who can call: internal transaction caller (`signProposal`, `recordPaperSignature`)
+Input:  `(tx, proposal)`
+Output: `{ project: AgencyProject, created: boolean }`
+Errors:
+- Throws error if `proposal.leadId` is missing or lead has no associated `clientId`, rolling back the outer transaction.
+Side effects: acquires PostgreSQL advisory transaction lock `pg_advisory_xact_lock(hashtext(leadId))`; checks idempotence (returns existing project if already provisioned); inserts `agency_project` with status `Kickoff`; inserts client stakeholder in `projectStakeholders`; inserts 5 delivery milestones (`Requirements & Architecture` as `In Progress`, remaining 4 as `Pending`) with dates copied from proposal milestones; creates `payment` rows from `paymentScheduleItems` with rounding remainder on last item and `on_signing` set to `due` with 14-day due date window.
+
+### Removed / Deprecated Actions (Session 6 cleanup)
+- `acceptProposalByClient`: Removed. Replaced by `signProposal` (digital signature with IP/timestamp audit) and `recordPaperSignature`.
+- `markLeadAsWon`: Removed. Manual stage transition to Closed Won is prohibited. Leads transition to Closed Won exclusively via proposal signing.
+- `convertLeadToProject`: Removed. Project provisioning is automated atomically during proposal signing via `provisionProjectFromProposal`.
+- `updateLeadStatusWithAudit` / `bulkUpdateLeadStatus`: Updated to explicitly reject manual transitions to `Closed Won`, `Proposal Sent`, and `In Negotiation`.
+
 (Add one per action as modules are built.)
