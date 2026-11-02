@@ -27,7 +27,7 @@ Role values in code and data are `superadmin` and `manager`, not `super_admin` a
 
 | Area | Sales | PM | Developer | Content Editor | Client | Super Admin |
 |---|---|---|---|---|---|---|
-| Leads and pipeline | Edit | View | — | — | — | — |
+| Leads and pipeline | Edit | — | — | — | — | — |
 | Meetings | Edit `discovery`, view the rest | Edit `budget_pricing`, `project_review`, `uat`; view `discovery` | — | — | Own | — |
 | Proposals | View | Edit | — | — | Own | — |
 | Projects and tasks | — | Edit | Own (act); view all tasks in own projects | — | Own (progress only) | — |
@@ -43,7 +43,7 @@ Meetings: Sales edits `discovery` meetings, and the PM edits `budget_pricing`, `
 
 Developers: `Own` means they act only on tasks assigned to them. The board's "All tasks" toggle shows every task in the projects they are a team member of, read-only.
 
-PM and leads: the PM's lead view is read-only. A discussion the PM logs from a proposal is copied into the lead's activity log by the system.
+PM and leads: the PM has no access to leads or the pipeline. A discussion the PM logs from a proposal is copied into the lead's activity log by the system, for Sales to read.
 
 Sales and projects: on a won lead, Sales sees "Project created" as text only, with no link into the project.
 
@@ -90,7 +90,7 @@ Step numbers match the mockup titles. See `docs/mockups/00-workflow-overview-sta
 | # | Path | Rules |
 |---|---|---|
 | 18a–18c | Client requests changes (topics: price, timeline, scope, other) and can message the PM. | Stage → `negotiation`. PM notified. |
-| 18d–18g | PM reviews the request, replies in the system, **logs discussions held outside** (phone, email, in person, e.g. the client's lawyer), sends a revised version. | The PM logs each outside discussion from the proposal. The system saves it to the proposal history and copies it into the lead's activity log; the PM's lead view stays read-only. Old version → `replaced`. |
+| 18d–18g | PM reviews the request, replies in the system, **logs discussions held outside** (phone, email, in person, e.g. the client's lawyer), sends a revised version. | The PM logs each outside discussion from the proposal. The system saves it to the proposal history and copies it into the lead's activity log; the PM has no access to the lead. . Old version → `replaced`. |
 | 18h | Client reviews the revised version. | Same choices as step 11/19. |
 | 18i–18j | Client declines (optional reason and comment). | Proposal → `declined`. Lead → `closed_lost`. Sales can **Reopen** the lead (reason required): the stage goes back to `discovery` and a `system` interaction records it. Sales can also archive the lead: that sets `archivedAt` and hides it from the pipeline. Archive is a field, not a stage. |
 | 19a | Client signs on paper. | PM uploads the signed copy and records the date. Same automation as step 20. |
@@ -301,7 +301,7 @@ These settle earlier conflicts between this spec and the mockups. This spec wins
 | Reopen and archive (2026-10-31) | Sales reopens a `closed_lost` lead with a required reason: stage → `discovery`, and a `system` interaction records it. Archive is `archivedAt`, not a stage, and hides the lead from the pipeline. |
 | Meetings (2026-10-31) | Sales edits `discovery`; the PM edits `budget_pricing`, `project_review` and `uat`. Each role can view the other's. |
 | Sales and projects (2026-10-31) | On a won lead, Sales sees "Project created" as text only, with no link into the project. |
-| Outside discussions (2026-10-31) | The PM logs them from the proposal; the system copies them into the lead's activity log. The PM's lead view stays read-only. |
+| Outside discussions (2026-10-31) | The PM logs them from the proposal; the system copies them into the lead's activity log. The PM has no access to leads; Sales reads the copy. |
 | Developer "All tasks" (2026-10-31) | Read-only view of all tasks in the developer's own projects. They act only on tasks assigned to them. |
 | Retainer and warranty (2026-10-31) | Retainer is out of scope. The warranty is always 3 months. |
 | Completion (2026-10-31) | Needs all milestones done, final payment paid, handover files uploaded and the sign-off recorded. Handover notes are optional. The PM records the sign-off (signed file and date); there is no client online sign-off. The client is notified automatically. |
