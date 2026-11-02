@@ -5,12 +5,16 @@ import {
     agencyProjects,
     leads,
     milestones,
+    payments,
+    paymentScheduleItems,
     projectStakeholders,
+    proposalMilestones,
     proposals,
     serviceTemplates,
     tasks,
     users,
 } from "@/db/schema";
+import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/actions";
 import { sendClientWelcomeEmail } from "@/lib/notifications";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -211,4 +215,184 @@ export async function provisionLeadProject(leadId: string) {
     }
 
     return result;
+}
+
+export interface ProposalForProvisioning {
+    id: string;
+    leadId: string;
+    totalPrice?: number | null;
+    total?: number | null;
+    currency?: string | null;
+    timeline?: string | null;
+    milestones?: Array<{
+        name?: string | null;
+        startDate?: Date | string | null;
+        endDate?: Date | string | null;
+    }> | null;
+    paymentScheduleItems?: Array<{
+        id: string;
+        label: string;
+        percent: number;
+        trigger: "on_signing" | "requirements" | "design" | "development" | "uat_testing" | "handover" | "before_completion";
+        sortOrder?: number | null;
+    }> | null;
+}
+
+/**
+ * Provisions a delivery project from an accepted/signed proposal in an existing transaction tx.
+ * 1. Serializes with pg_advisory_xact_lock(hashtext(leadId)).
+ * 2. Requires lead.clientId (throws if missing to rollback).
+ * 3. Idempotently returns existing project if one already exists for this lead.
+ * 4. Inserts agency_project with status "Kickoff".
+ * 5. Links client as projectStakeholder.
+ * 6. Inserts 5 default milestones with exact titles and copied proposal dates (first In Progress, rest Pending).
+ * 7. Inserts payment records from paymentScheduleItems (on_signing becomes due with 14-day window).
+ */
+export async function provisionProjectFromProposal(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tx: any,
+    proposal: ProposalForProvisioning
+) {
+    if (!proposal.leadId) {
+        throw new Error("Cannot provision project: proposal has no associated lead");
+    }
+
+    // 1. Serialize using advisory transaction lock on leadId
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${proposal.leadId}))`);
+
+    // 2. Fetch the lead and verify clientId exists
+    const lead = await tx.query.leads.findFirst({
+        where: eq(leads.id, proposal.leadId),
+        with: { client: true },
+    });
+    if (!lead) {
+        throw new Error(`Cannot provision project: lead ${proposal.leadId} not found`);
+    }
+    if (!lead.clientId) {
+        throw new Error(`Cannot provision project: lead ${proposal.leadId} has no client associated`);
+    }
+
+    // 3. Idempotence: If lead already has a project, return existing project without creating another
+    const existingProject = await tx.query.agencyProjects.findFirst({
+        where: eq(agencyProjects.leadId, proposal.leadId),
+    });
+    if (existingProject) {
+        return {
+            project: existingProject,
+            milestones: [],
+            payments: [],
+            alreadyExisted: true,
+        };
+    }
+
+    // 4. Client role check/update if needed
+    const internalRoles = ["superadmin", "sales", "manager", "developer", "content_editor"];
+    if (lead.client && !internalRoles.includes(lead.client.role)) {
+        await tx.update(users).set({ role: "client" }).where(eq(users.id, lead.clientId));
+    }
+
+    // 5. Create agency_project
+    const projectTitle = lead.businessName
+        ? `${lead.businessName} Project`
+        : `${lead.client?.name || "Client"} Project`;
+
+    const projectDescription = [
+        lead.goals || `Client project originating from proposal for ${lead.businessName || lead.client?.name}`,
+        proposal.timeline ? `Approved proposal timeline: ${proposal.timeline}` : null,
+    ].filter(Boolean).join("\n\n");
+
+    const [project] = await tx.insert(agencyProjects).values({
+        title: projectTitle,
+        description: projectDescription,
+        leadId: lead.id,
+        status: "Kickoff",
+    }).returning();
+
+    // 6. Stakeholder = client
+    await tx.insert(projectStakeholders).values({
+        projectId: project.id,
+        userId: lead.clientId,
+    });
+
+    // 7. 5 Milestones named from proposal_milestone with their dates
+    // First is "In Progress", remaining four are "Pending"
+    // Fetch proposal milestones if not already passed on proposal object
+    const propMilestones = proposal.milestones || await tx.query.proposalMilestones.findMany({
+        where: eq(proposalMilestones.proposalId, proposal.id),
+    });
+    const milestoneDateMap = new Map<string, { startDate?: Date | null; endDate?: Date | null }>();
+    if (Array.isArray(propMilestones)) {
+        for (const pm of propMilestones) {
+            if (pm?.name) {
+                milestoneDateMap.set(pm.name, {
+                    startDate: pm.startDate ? new Date(pm.startDate) : null,
+                    endDate: pm.endDate ? new Date(pm.endDate) : null,
+                });
+            }
+        }
+    }
+
+    const createdMilestones = [];
+    for (let i = 0; i < DEFAULT_PROPOSAL_MILESTONES.length; i++) {
+        const def = DEFAULT_PROPOSAL_MILESTONES[i];
+        const dates = milestoneDateMap.get(def.name);
+        const [m] = await tx.insert(milestones).values({
+            projectId: project.id,
+            name: def.name,
+            title: def.title,
+            order: i,
+            status: i === 0 ? "In Progress" : "Pending",
+            startDate: dates?.startDate || null,
+            endDate: dates?.endDate || null,
+        }).returning();
+        createdMilestones.push(m);
+    }
+
+    // 8. Payment rows from paymentScheduleItems
+    const scheduleItems = proposal.paymentScheduleItems || await tx.query.paymentScheduleItems.findMany({
+        where: eq(paymentScheduleItems.proposalId, proposal.id),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        orderBy: (item: any, { asc }: any) => [asc(item.sortOrder)],
+    });
+
+    const totalPrice = Number(proposal.totalPrice ?? proposal.total ?? 0);
+    const currency = (proposal.currency || "PHP") as "PHP" | "USD";
+
+    let allocatedSum = 0;
+    const createdPayments = [];
+    if (Array.isArray(scheduleItems)) {
+        for (let i = 0; i < scheduleItems.length; i++) {
+            const item = scheduleItems[i];
+            const isLast = i === scheduleItems.length - 1;
+            const amount = isLast
+                ? totalPrice - allocatedSum
+                : Math.round((totalPrice * item.percent) / 100);
+            allocatedSum += amount;
+
+            const isOnSigning = item.trigger === "on_signing";
+            const dueDate = isOnSigning
+                ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+                : null;
+
+            const [p] = await tx.insert(payments).values({
+                projectId: project.id,
+                scheduleItemId: item.id,
+                label: item.label,
+                percent: item.percent,
+                amount,
+                currency,
+                status: isOnSigning ? "due" : "not_yet_due",
+                becameDueAt: isOnSigning ? new Date() : null,
+                dueDate,
+            }).returning();
+            createdPayments.push(p);
+        }
+    }
+
+    return {
+        project,
+        milestones: createdMilestones,
+        payments: createdPayments,
+        alreadyExisted: false,
+    };
 }
