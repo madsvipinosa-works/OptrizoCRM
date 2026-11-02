@@ -47,8 +47,6 @@ export async function GET(
         const proposal = await db.query.proposals.findFirst({
             where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),
             with: {
-                milestones: true,
-                paymentScheduleItems: true,
                 lead: {
                     with: {
                         client: true,
@@ -62,34 +60,31 @@ export async function GET(
             return new NextResponse("Proposal not found", { status: 404 });
         }
 
-        // Strictly block internal production/marketing roles from financial PDFs
-        const userRole = (session.user as any)?.role;
-        if (["editor", "developer", "content_editor"].includes(userRole)) {
-            return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 });
-        }
-
         // Access Control
-        const isStaff = hasRole(session, ["manager", "sales"]);
-        const isOwner =
-            proposal.lead &&
-            (session.user.id === proposal.lead.clientId ||
-             session.user.email === proposal.lead.client?.email ||
-             session.user.email === proposal.lead.contactEmail);
+        // Staff allowed: sales (own or unassigned leads) and manager. Clients: own lead only, and never draft or replaced.
+        const userRole = (session.user as any)?.role;
+        const lead = proposal.lead;
 
-        // Tenant/Client Isolation Check (Prevent IDOR)
         if (userRole === "client") {
-            if (!isOwner) {
-                return new NextResponse("Proposal not found", { status: 404 });
+            const isOwner =
+                lead &&
+                (session.user.id === lead.clientId ||
+                 session.user.email === lead.client?.email ||
+                 session.user.email === lead.contactEmail);
+
+            if (!isOwner || proposal.status === "draft" || proposal.status === "replaced") {
+                return NextResponse.json({ error: "Forbidden: You do not own this proposal" }, { status: 403 });
             }
-            if (proposal.status === "draft" || proposal.status === "replaced") {
-                return new NextResponse("Proposal not found", { status: 404 });
-            }
-        } else if (userRole === "sales") {
-            const isSalesOwner = proposal.lead && (proposal.lead.assignees || []).some((a) => a.userId === session.user.id);
-            if (!isSalesOwner) {
+        } else if (hasRole(session, ["manager"])) {
+            // Managers have staff access to all proposals
+        } else if (hasRole(session, ["sales"])) {
+            const assignees = lead?.assignees || [];
+            const isOwnLead = assignees.some((a) => a.userId === session.user.id);
+            const isUnassigned = assignees.length === 0;
+            if (!isOwnLead && !isUnassigned) {
                 return new NextResponse("Forbidden: Access denied", { status: 403 });
             }
-        } else if (!isStaff && userRole !== "superadmin") {
+        } else {
             return new NextResponse("Forbidden: Access denied", { status: 403 });
         }
 
