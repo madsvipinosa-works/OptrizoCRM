@@ -10,11 +10,11 @@ import {
     discoveryForms,
 } from "@/db/schema";
 import { eq, and, isNull, isNotNull, ne, inArray } from "drizzle-orm";
-import { moveLeadToProposalSent } from "@/features/crm/stage-rules";
+import { moveLeadToProposalSent, moveLeadToClosedLost } from "@/features/crm/stage-rules";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
-import { notifyAllAdmins } from "@/features/notifications/send";
+import { notifyAllAdmins, notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
 import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
 import { logAction } from "@/features/audit/log";
 import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
@@ -460,56 +460,86 @@ export async function rejectProposalByClient(id: string, reason?: string) {
             return { success: false, message: "Unauthorized" };
         }
 
-        const proposal = await db.query.proposals.findFirst({
-            where: eq(proposals.id, id),
-            with: {
-                lead: {
-                    with: {
-                        client: true,
-                    },
-                },
-            },
+        const result = await db.transaction(async (tx) => {
+            // Lock proposal then lead
+            const [proposal] = await tx
+                .select()
+                .from(proposals)
+                .where(eq(proposals.id, id))
+                .for("update");
+
+            if (!proposal) {
+                return { success: false, message: "Proposal not found" };
+            }
+
+            const [lead] = await tx
+                .select()
+                .from(leads)
+                .where(eq(leads.id, proposal.leadId))
+                .for("update");
+
+            if (!lead) {
+                return { success: false, message: "Proposal lead missing" };
+            }
+
+            // Ownership: client who owns the lead
+            const isClientOwner = session.user.role === "client" && lead.clientId === session.user.id;
+            if (!isClientOwner) {
+                return { success: false, message: "Forbidden: You do not own this proposal" };
+            }
+
+            // Allowed from sent | pricing_meeting_requested | changes_requested
+            const allowedStatuses = ["sent", "pricing_meeting_requested", "changes_requested"];
+            if (!allowedStatuses.includes(proposal.status)) {
+                return {
+                    success: false,
+                    message: `Cannot decline proposal. Current status is "${proposal.status}".`,
+                };
+            }
+
+            const now = new Date();
+            await tx
+                .update(proposals)
+                .set({
+                    status: "declined",
+                    rejectionReason: reason || null,
+                    updatedAt: now,
+                })
+                .where(eq(proposals.id, id));
+
+            // Lead -> Closed Lost via moveLeadToClosedLost
+            const lostRes = await moveLeadToClosedLost(tx, proposal.leadId, "other", reason || null);
+            if (!lostRes.success) {
+                throw new Error(lostRes.message || "Failed to move lead to Closed Lost");
+            }
+
+            return {
+                success: true,
+                leadId: proposal.leadId,
+                proposalCode: proposal.proposalCode,
+            };
         });
 
-        if (!proposal) return { success: false, message: "Proposal not found" };
-        if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
-
-        const userRole = (session.user as any)?.role;
-        const isLeadOwner =
-            proposal.lead &&
-            (session.user.id === proposal.lead.clientId ||
-                session.user.email === proposal.lead.client?.email ||
-                session.user.email === proposal.lead.contactEmail);
-
-        // Ownership: client can only reject proposals linked to their lead
-        if (userRole !== "client" || !isLeadOwner) {
-            return { success: false, message: "Forbidden: You do not own this proposal" };
+        if (!result.success) {
+            return result;
         }
 
-        if (proposal.status === "declined") return { success: false, message: "Already declined" };
-
-        await db.update(proposals)
-            .set({
-                status: "declined",
-                rejectionReason: reason || null,
-                updatedAt: new Date()
-            })
-            .where(eq(proposals.id, id));
-
-        // Sync proposal rejection back to the Lead status ("In Negotiation")
-        await db.update(leads).set({ status: "In Negotiation", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
-
-        if (proposal.lead) {
-            await notifyAllAdmins(`Proposal rejected by ${proposal.lead.businessName || "Client"}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
+        // Post-commit: notify PM and Sales (never Super Admin)
+        try {
+            const declineMsg = `Proposal #${result.proposalCode || id} declined by client${reason ? `: ${reason}` : ""}`;
+            await notifyLeadPms(result.leadId!, declineMsg, "proposal", `/dashboard/proposals/${id}`);
+            await notifyLeadSales(result.leadId!, declineMsg, "proposal", `/dashboard/proposals/${id}`);
+            await logAction("UPDATE", "Proposal", `Proposal ${id} declined by client. Reason: ${reason || "N/A"}`);
+        } catch (postCommitErr) {
+            console.error("Post-commit notification error in rejectProposalByClient:", postCommitErr);
         }
-
-        await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Reason: ${reason || 'N/A'}`);
 
         revalidatePath(`/proposal/${id}`);
-        revalidatePath("/dashboard/leads");
-        revalidatePath(`/dashboard/leads/${proposal.leadId}`);
+        revalidatePath("/dashboard/proposals");
+        revalidatePath(`/dashboard/proposals/${id}`);
+        revalidatePath("/portal");
 
-        return { success: true, message: "Proposal rejected." };
+        return { success: true, message: "Proposal declined." };
     } catch (error) {
         console.error("Failed to reject proposal:", error);
         return { success: false, message: "System error while rejecting proposal." };
