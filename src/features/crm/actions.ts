@@ -595,7 +595,7 @@ export async function getUnifiedDashboardData() {
 
         // Task Completion Velocity (exclude soft-deleted tasks and tasks in archived projects)
         const validTasks = allTasks.filter(t => !t.deletedAt && !t.project?.isArchived);
-        const doneTasksCount = validTasks.filter(t => t.status === "Done").length;
+        const doneTasksCount = validTasks.filter(t => t.status === "done").length;
         const totalTasksCount = validTasks.length;
         const taskCompletionRate = totalTasksCount > 0
             ? ((doneTasksCount / totalTasksCount) * 100).toFixed(1)
@@ -603,11 +603,12 @@ export async function getUnifiedDashboardData() {
 
         // 2. Visualizations Data - Comprehensive Task Distribution
         const taskStatusCounts = {
-            Todo: 0,
-            "In Progress": 0,
-            "In Review": 0,
-            "Changes Requested": 0,
-            Done: 0,
+            to_do: 0,
+            in_progress: 0,
+            in_review: 0,
+            changes_requested: 0,
+            done: 0,
+            backlog: 0,
         };
         validTasks.forEach(t => {
             if (taskStatusCounts[t.status as keyof typeof taskStatusCounts] !== undefined) {
@@ -616,11 +617,11 @@ export async function getUnifiedDashboardData() {
         });
 
         const taskDonutData = [
-            { name: "In Progress", value: taskStatusCounts["In Progress"], fill: "#f59e0b" },
-            { name: "In Review", value: taskStatusCounts["In Review"], fill: "#3b82f6" },
-            { name: "Changes Requested", value: taskStatusCounts["Changes Requested"], fill: "#ec4899" },
-            { name: "Todo", value: taskStatusCounts.Todo, fill: "#71717a" },
-            { name: "Done", value: taskStatusCounts.Done, fill: "#00D639" },
+            { name: "In Progress", value: taskStatusCounts.in_progress, fill: "#f59e0b" },
+            { name: "In Review", value: taskStatusCounts.in_review, fill: "#3b82f6" },
+            { name: "Changes Requested", value: taskStatusCounts.changes_requested, fill: "#ec4899" },
+            { name: "To Do", value: taskStatusCounts.to_do, fill: "#71717a" },
+            { name: "Done", value: taskStatusCounts.done, fill: "#00D639" },
         ];
 
         // Lead Source Bar Chart Data
@@ -678,7 +679,7 @@ export async function getUnifiedDashboardData() {
 
         // Changes Requested Tasks (High / Red)
         validTasks.forEach(t => {
-            if (t.status === "Changes Requested") {
+            if (t.status === "changes_requested") {
                 actionQueue.push({
                     id: `task-rev-${t.id}`,
                     type: "task_revision",

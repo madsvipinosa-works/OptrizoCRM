@@ -147,7 +147,7 @@ describe("submitTask", () => {
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
     mockDb.query.tasks.findFirst.mockResolvedValue({
       id: "task-1",
-      status: "Done",
+      status: "done",
       milestone: { project: { id: "p1" } },
     });
     expect(await submitTask(validInput)).toEqual({ ok: false, error: "INVALID_STATUS" });
@@ -158,7 +158,7 @@ describe("submitTask", () => {
     mockDb.query.taskAssignees.findFirst.mockResolvedValue({ taskId: "task-1", userId: "dev-1" });
     mockDb.query.tasks.findFirst.mockResolvedValue({
       id: "task-1",
-      status: "In Progress",
+      status: "in_progress",
       milestone: { project: { id: "p1" } },
     });
 

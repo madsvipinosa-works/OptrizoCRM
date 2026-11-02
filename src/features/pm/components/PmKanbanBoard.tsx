@@ -32,12 +32,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export type PmTaskStatus = "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done" | "backlog" | "to_do" | "in_progress" | "in_review" | "changes_requested" | "done";
+
 export interface PmTask {
     id: string;
     milestoneId: string;
     title: string;
     description: string | null;
-    status: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done";
+    status: PmTaskStatus;
     requiresProof?: boolean;
     proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
@@ -62,7 +64,7 @@ interface PmKanbanBoardProps {
     teamMembers: TeamMember[];
     currentUserId?: string;
     currentUserRole?: string;
-    onStatusChangeRequest: (taskId: string, targetStatus: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done") => void;
+    onStatusChangeRequest: (taskId: string, targetStatus: PmTaskStatus) => void;
     onDeleteTask: (task: PmTask) => void;
     onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;

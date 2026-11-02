@@ -75,7 +75,7 @@ export default async function DashboardPage() {
         const activeTasks = await db.query.tasks.findMany({
             where: and(
                 isNull(tasks.deletedAt),
-                ne(tasks.status, "Done")
+                ne(tasks.status, "done")
             ),
             with: { project: true, assignees: true },
         });

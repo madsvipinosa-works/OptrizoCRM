@@ -92,9 +92,39 @@ interface TaskDetailsDrawerProps {
 }
 
 const STATUS_CONFIG: Record<
-    PmTask["status"],
+    string,
     { label: string; badgeClass: string; dotClass: string; ringClass: string }
 > = {
+    to_do: {
+        label: "To Do",
+        badgeClass: "bg-muted text-foreground border-border",
+        dotClass: "bg-muted-foreground",
+        ringClass: "ring-muted-foreground/20",
+    },
+    in_progress: {
+        label: "In Progress",
+        badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
+        dotClass: "bg-blue-500",
+        ringClass: "ring-blue-500/25",
+    },
+    changes_requested: {
+        label: "Changes Requested",
+        badgeClass: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40",
+        dotClass: "bg-orange-500",
+        ringClass: "ring-orange-500/25",
+    },
+    in_review: {
+        label: "In Review",
+        badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
+        dotClass: "bg-amber-500",
+        ringClass: "ring-amber-500/25",
+    },
+    done: {
+        label: "Done",
+        badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+        dotClass: "bg-emerald-500",
+        ringClass: "ring-emerald-500/25",
+    },
     Todo: {
         label: "To Do",
         badgeClass: "bg-muted text-foreground border-border",

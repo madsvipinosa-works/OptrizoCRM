@@ -462,7 +462,7 @@ export async function createTask(
             milestoneId,
             title,
             description,
-            status: "Todo",
+            status: "to_do",
             weight: weight || 1,
             estimatedHours: estimatedHours || null
         }).returning();
@@ -484,7 +484,7 @@ export async function createTask(
     }
 }
 
-export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
+export async function updateTaskStatus(taskId: string, status: "Todo" | "In Progress" | "Changes Requested" | "In Review" | "Done" | "backlog" | "to_do" | "in_progress" | "in_review" | "changes_requested" | "done", proofLinks?: { label: string, url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
@@ -515,12 +515,12 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
             const parentTask = await db.query.tasks.findFirst({
                 where: eq(tasks.id, oldTask.dependsOnTaskId),
             });
-            if (parentTask && parentTask.status !== "Done") {
+            if (parentTask && parentTask.status !== "done" && (parentTask.status as string) !== "Done") {
                 return { success: false, message: `Cannot move task: Prerequisite task "${parentTask.title}" is not completed yet.` };
             }
         }
 
-        if (status === "Done" && oldTask.requiresProof && !hasRole(session, ["manager"])) {
+        if ((status === "done" || (status as string) === "Done") && oldTask.requiresProof && !hasRole(session, ["manager"])) {
             return { success: false, message: "Only Managers and Superadmins can approve tasks to Done." };
         }
 
@@ -536,7 +536,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
 
         if (status === "Done") {
             updateData.completedAt = new Date();
-        } else if (oldTask.status === "Done") {
+        } else if (oldTask.status === "done" || (oldTask.status as string) === "Done") {
             updateData.completedAt = null;
         }
 
@@ -583,7 +583,7 @@ export async function updateTaskStatus(taskId: string, status: "Todo" | "In Prog
     }
 }
 
-export async function submitTaskProofAndMove(taskId: string, newStatus: "In Review" | "Done", proofLinks?: { label: string; url: string }[], proofNotes?: string): Promise<ActionState> {
+export async function submitTaskProofAndMove(taskId: string, newStatus: "In Review" | "Done" | "in_review" | "done", proofLinks?: { label: string; url: string }[], proofNotes?: string): Promise<ActionState> {
     const session = await auth();
     if (!hasRole(session, ["manager", "developer"])) {
         return { success: false, message: "Unauthorized" };
@@ -613,7 +613,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             const parentTask = await db.query.tasks.findFirst({
                 where: eq(tasks.id, oldTask.dependsOnTaskId),
             });
-            if (parentTask && parentTask.status !== "Done") {
+            if (parentTask && parentTask.status !== "done" && (parentTask.status as string) !== "Done") {
                 return { success: false, message: `Cannot move task: Prerequisite task "${parentTask.title}" is not completed yet.` };
             }
         }
@@ -653,7 +653,7 @@ export async function submitTaskProofAndMove(taskId: string, newStatus: "In Revi
             };
             if (newStatus === "Done") {
                 updatePayload.completedAt = new Date();
-            } else if (oldTask.status === "Done") {
+            } else if (oldTask.status === "done" || (oldTask.status as string) === "Done") {
                 updatePayload.completedAt = null;
             }
 
@@ -761,7 +761,7 @@ export async function submitTask(input: {
     await db.transaction(async (tx) => {
         await tx.update(tasks)
             .set({
-                status: "In Review",
+                status: "in_review",
                 proofLinks: combinedProofLinks,
                 proofNotes: input.note?.trim() || null,
                 updatedAt: new Date(),
@@ -1049,7 +1049,7 @@ export async function checkAndNotifyOverdueTasks(): Promise<{ success: boolean; 
         // 4. Have not been notified yet (overdueNotified === false)
         const overdueTasks = await db.query.tasks.findMany({
             where: and(
-                ne(tasks.status, "Done"),
+                ne(tasks.status, "done"),
                 isNotNull(tasks.dueDate),
                 lte(tasks.dueDate, new Date()),
                 eq(tasks.overdueNotified, false)

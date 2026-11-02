@@ -18,7 +18,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { MilestoneStatusDropdown } from "./MilestoneStatusDropdown";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
-import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
+import { PmKanbanBoard, PmTask, type PmTaskStatus } from "./PmKanbanBoard";
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
@@ -191,7 +191,7 @@ export function KanbanBoard({
         );
         setOptimisticTasks(updated);
 
-        updateTaskStatus(taskId, targetStatus).then((res) => {
+        updateTaskStatus(taskId, targetStatus as PmTaskStatus).then((res) => {
             if (!res.success) {
                 toast.error(res.message || "Failed to update task status");
                 setOptimisticTasks(optimisticTasks); // Revert

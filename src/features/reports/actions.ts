@@ -335,7 +335,7 @@ export async function getTeamVelocityReport(dateRange: ReportDateRange): Promise
     const rawDoneTasks = await db.query.tasks.findMany({
         where: and(
             isNull(tasks.deletedAt),
-            eq(tasks.status, "Done")
+            eq(tasks.status, "done")
         ),
         with: {
             project: true,
@@ -551,7 +551,7 @@ export async function getProjectCompletionReport(dateRange: ReportDateRange): Pr
         const projectTasks = project.tasks || [];
         const totalPoints = projectTasks.reduce((sum, t) => sum + (t.weight || 1), 0);
         const deliveredPoints = projectTasks
-            .filter(t => t.status === "Done")
+            .filter(t => t.status === "done")
             .reduce((sum, t) => sum + (t.weight || 1), 0);
 
         totalStoryPointsDeliveredCount += deliveredPoints;

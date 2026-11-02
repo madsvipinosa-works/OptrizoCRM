@@ -518,7 +518,7 @@ export async function seedDemoAccounts() {
         title: "Design High-Fidelity Figma Wireframes & Design Tokens",
         description: "Develop 25 responsive mobile and desktop screen prototypes with unified design system tokens, WCAG AA color contrasts, and accessibility guidelines.",
         weight: 3,
-        status: "Done",
+        status: "done",
         requiresProof: true,
         proofLinks: [{ label: "Figma Prototype", url: "https://figma.com/@optrizo/nexora-telehealth-design-system" }],
         proofNotes: "25 responsive screen prototypes finalized and signed off by Elena Rostova during Sprint 1 review.",
@@ -531,7 +531,7 @@ export async function seedDemoAccounts() {
         title: "Implement PostgreSQL Relational Schema & 3NF Drizzle Migrations",
         description: "Configure normalized database schema across all operational modules with cascade integrity, primary keys, and index optimizations.",
         weight: 5,
-        status: "Done",
+        status: "done",
         requiresProof: true,
         proofLinks: [{ label: "GitHub PR #1", url: "https://github.com/optrizo/nexora-health/pull/1" }],
         proofNotes: "All 29 tables successfully migrated, foreign keys verified, and automated unit test suite passed.",
@@ -545,7 +545,7 @@ export async function seedDemoAccounts() {
         title: "Develop Real-Time Appointment Scheduling Engine with Conflict Matrix",
         description: "Implement slot reservation logic with transactional PostgreSQL row locks to prevent simultaneous double-booking of doctor consultations.",
         weight: 5,
-        status: "Done",
+        status: "done",
         dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
         requiresProof: true,
         proofLinks: [{ label: "GitHub PR #5 (Scheduling Engine)", url: "https://github.com/optrizo/nexora-health/pull/5" }],
@@ -559,7 +559,7 @@ export async function seedDemoAccounts() {
         title: "Build Role-Segregated Client Portal & Deliverable Approval Flow",
         description: "Create role-segregated portal views for external clients with proposal execution, document exchange, and interactive milestone sign-offs.",
         weight: 3,
-        status: "Done",
+        status: "done",
         dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
         requiresProof: true,
         proofLinks: [{ label: "GitHub PR #8 (Client Portal)", url: "https://github.com/optrizo/nexora-health/pull/8" }],
@@ -573,7 +573,7 @@ export async function seedDemoAccounts() {
         title: "Integrate Automated Definition of Done Gatekeeper Verification",
         description: "Connect Gemini AI link relevance analyzer with hard-fail caps for non-work URLs to validate deliverable authenticity.",
         weight: 2,
-        status: "Done",
+        status: "done",
         requiresProof: true,
         proofLinks: [{ label: "GitHub PR #9 (DoD Engine)", url: "https://github.com/optrizo/nexora-health/pull/9" }],
         proofNotes: "Automated test suite passing. Gatekeeper rejects invalid URLs and computes confidence scores accurately.",
@@ -587,7 +587,7 @@ export async function seedDemoAccounts() {
         title: "End-to-End Penetration Testing, OWASP Top 10 & TLS Audit",
         description: "Conduct comprehensive security audit verifying NextAuth session middleware, parameterized queries, and PII encryption at rest.",
         weight: 3,
-        status: "In Progress",
+        status: "in_progress",
         dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
         requiresProof: true
     }).returning();
@@ -598,7 +598,7 @@ export async function seedDemoAccounts() {
         title: "Automated Email & SMS Patient Dispatch Pipeline",
         description: "Deploy event-driven notification dispatch via Twilio and SendGrid for appointment confirmations, intake reminders, and telemedicine links.",
         weight: 2,
-        status: "Todo",
+        status: "to_do",
         dependsOnTaskId: t3.id,
         dueDate: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000),
         requiresProof: true
@@ -610,7 +610,7 @@ export async function seedDemoAccounts() {
         title: "Production Vercel Cloud Deployment, SSL Verification & DNS Cutover",
         description: "Deploy production build to Vercel Cloud Platform, configure custom domain SSL certificates, and deliver administrative handover documentation.",
         weight: 3,
-        status: "Todo",
+        status: "to_do",
         dependsOnTaskId: t6.id,
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         requiresProof: true
@@ -803,7 +803,7 @@ export async function seedDemoAccounts() {
     const [finalProject] = await db.select().from(agencyProjects).where(eq(agencyProjects.id, project.id));
     const projectTasks = await db.select().from(tasks).where(eq(tasks.projectId, project.id));
     const projectMilestones = await db.select().from(milestones).where(eq(milestones.projectId, project.id));
-    const completedTasks = projectTasks.filter(t => t.status === "Done");
+    const completedTasks = projectTasks.filter(t => t.status === "done");
     const totalPoints = projectTasks.reduce((sum, t) => sum + (t.weight || 1), 0);
     const completedPoints = completedTasks.reduce((sum, t) => sum + (t.weight || 1), 0);
 
