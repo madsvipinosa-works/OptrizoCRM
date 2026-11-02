@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { proposals, leads, leadActivityLogs, proposalMessages } from "@/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 import { auth } from "@/auth";
-import { notifyLeadPms } from "@/features/notifications/send";
+import { requireRole } from "@/lib/authz";
+import { notifyLeadPms, notifyLeadClient, notifyLeadSales } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { moveLeadToNegotiation } from "@/features/crm/stage-rules";
 
@@ -283,4 +284,149 @@ export async function sendClientMessage(
             message: error instanceof Error ? error.message : "Failed to send message",
         };
     }
+}
+
+/**
+ * 4c. Project Manager replies to client in the proposal discussion thread.
+ * Role: manager.
+ * Notifies the client.
+ */
+export async function replyToClient(
+    proposalId: string,
+    body: string
+): Promise<{ success: boolean; message?: string }> {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can reply to client messages" };
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, proposalId),
+            with: { lead: true },
+        });
+
+        if (!proposal || !proposal.leadId) {
+            return { success: false, message: "Proposal not found" };
+        }
+
+        await db.insert(proposalMessages).values({
+            proposalId,
+            authorId: authz.session.user.id,
+            kind: "reply",
+            topics: [],
+            body,
+        });
+
+        try {
+            await notifyLeadClient(
+                proposal.leadId,
+                `Project Manager replied on proposal #${proposal.proposalCode || ""}`,
+                "proposal",
+                `/proposal/${proposalId}`
+            );
+            await logAction("CREATE", "proposal_message", `PM reply on proposal ${proposalId}`);
+        } catch (postCommitErr) {
+            console.error("Post-commit error in replyToClient:", postCommitErr);
+        }
+
+        return { success: true };
+    } catch (error: unknown) {
+        console.error("replyToClient error:", error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to send reply",
+        };
+    }
+}
+
+/**
+ * 4d. Project Manager logs an outside discussion (call, email, in_person).
+ * Role: manager.
+ * Inserts into proposal_message (outside_discussion) AND lead_activity_log (outside_discussion).
+ * Notifies the lead's sales rep(s) (or all sales if unassigned).
+ */
+export async function logOutsideDiscussion(
+    proposalId: string,
+    type: "call" | "email" | "in_person",
+    heldAt: string | Date,
+    summary: string
+): Promise<{ success: boolean; message?: string }> {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can log outside discussions" };
+    }
+
+    try {
+        const proposal = await db.query.proposals.findFirst({
+            where: eq(proposals.id, proposalId),
+            with: { lead: true },
+        });
+
+        if (!proposal || !proposal.leadId) {
+            return { success: false, message: "Proposal not found" };
+        }
+
+        const heldAtDate = new Date(heldAt);
+        if (isNaN(heldAtDate.getTime())) {
+            return { success: false, message: "Invalid discussion date" };
+        }
+
+        await db.transaction(async (tx) => {
+            await tx.insert(proposalMessages).values({
+                proposalId,
+                authorId: authz.session.user.id,
+                kind: "outside_discussion",
+                outsideType: type,
+                heldAt: heldAtDate,
+                topics: [],
+                body: summary,
+            });
+
+            await tx.insert(leadActivityLogs).values({
+                leadId: proposal.leadId,
+                authorId: authz.session.user.id,
+                activityType: "outside_discussion",
+                content: `Outside discussion logged (${type} on ${heldAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}): ${summary}`,
+            });
+        });
+
+        try {
+            await notifyLeadSales(
+                proposal.leadId,
+                `Outside discussion logged by PM on proposal #${proposal.proposalCode || ""}`,
+                "proposal",
+                `/dashboard/proposals/${proposalId}`
+            );
+            await logAction("CREATE", "outside_discussion", `Logged outside discussion for proposal ${proposalId}`);
+        } catch (postCommitErr) {
+            console.error("Post-commit error in logOutsideDiscussion:", postCommitErr);
+        }
+
+        return { success: true };
+    } catch (error: unknown) {
+        console.error("logOutsideDiscussion error:", error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to log outside discussion",
+        };
+    }
+}
+
+/**
+ * Retrieves the negotiation message thread for a proposal.
+ */
+export async function getProposalMessages(proposalId: string) {
+    const session = await auth();
+    if (!session?.user?.id) return [];
+
+    return await db.query.proposalMessages.findMany({
+        where: eq(proposalMessages.proposalId, proposalId),
+        orderBy: (m, { asc }) => [asc(m.createdAt)],
+        with: {
+            author: {
+                columns: { id: true, name: true, role: true, email: true },
+            },
+        },
+    });
 }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/db";
-import { notifications, users, projectStakeholders, agencyProjects, leads } from "@/db/schema";
+import { notifications, users, projectStakeholders, agencyProjects, leads, leadAssignees } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 
 /*
@@ -184,5 +184,31 @@ export async function notifyAllSales(message: string, type: string, link?: strin
         await db.insert(notifications).values(payloads);
     } catch (error) {
         console.error("Failed to notify sales:", error);
+    }
+}
+
+/**
+ * Notifies the lead's assigned sales rep(s), falling back to all sales users if unassigned.
+ */
+export async function notifyLeadSales(leadId: string, message: string, type: string, link?: string) {
+    try {
+        const assignees = await db.query.leadAssignees.findMany({
+            where: eq(leadAssignees.leadId, leadId),
+        });
+
+        if (assignees.length > 0) {
+            const payloads = assignees.map(a => ({
+                userId: a.userId,
+                message,
+                type,
+                link: link || null,
+            }));
+            await db.insert(notifications).values(payloads);
+            return;
+        }
+
+        await notifyAllSales(message, type, link);
+    } catch (error) {
+        console.error("Failed to notify lead sales:", error);
     }
 }
