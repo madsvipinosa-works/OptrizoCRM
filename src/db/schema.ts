@@ -298,6 +298,7 @@ export const leads = pgTable("lead", {
     details: text("details"),
     clientType: clientTypeEnum("client_type").default("local").notNull(),
     proposalRequestedAt: timestamp("proposal_requested_at", { withTimezone: true }),
+    assignedPmId: text("assigned_pm_id").references(() => users.id, { onDelete: "set null" }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -584,6 +585,10 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
     service: one(services, {
         fields: [leads.serviceId],
         references: [services.id],
+    }),
+    assignedPm: one(users, {
+        fields: [leads.assignedPmId],
+        references: [users.id],
     })
 }));
 

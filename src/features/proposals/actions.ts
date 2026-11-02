@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { proposals, leads, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
@@ -553,4 +553,34 @@ export async function getOrCreateDraftProposal(leadId: string) {
         console.error("Failed to initialize draft proposal:", error);
         return { success: false, message: "Database Error" };
     }
+}
+
+
+export async function claimOrAssignLeadPm(leadId: string) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can claim proposal requests" };
+    }
+    const { session } = authz;
+
+    const lead = await db.query.leads.findFirst({
+        where: eq(leads.id, leadId),
+    });
+    if (!lead) {
+        return { success: false, message: "Lead not found" };
+    }
+
+    if (!lead.assignedPmId) {
+        const res = await db.update(leads)
+            .set({ assignedPmId: session.user.id, updatedAt: new Date() })
+            .where(and(eq(leads.id, leadId), isNull(leads.assignedPmId)))
+            .returning({ id: leads.id });
+
+        if (res.length > 0) {
+            await logAction("UPDATE", "Lead", `Lead ${leadId} assigned to PM ${session.user.name || session.user.id}`);
+        }
+    }
+
+    revalidatePath("/dashboard/proposals");
+    return { success: true, assignedPmId: lead.assignedPmId || session.user.id };
 }
