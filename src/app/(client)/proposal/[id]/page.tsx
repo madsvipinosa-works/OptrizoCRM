@@ -7,6 +7,7 @@ import { ProposalClientView } from "@/features/proposals/components/ProposalClie
 import { PricingLineItem } from "@/features/proposals/components/ProposalDocumentSheet";
 import { getSiteSettings } from "@/features/cms/actions";
 import { getWhatChanged } from "@/features/proposals/utils/whatChanged";
+import { isProposalExpired } from "@/features/proposals/utils/expiry";
 
 export const metadata = {
     title: "Project Proposal | Optrizo",
@@ -165,6 +166,7 @@ export default async function ProposalPage({
         })
         : null;
     const isCurrent = !higherVersion;
+    const isExpired = isProposalExpired(proposal.validUntil);
 
     // Load proposal messages (only kinds change_request, message, reply; NOT outside_discussion)
     const messages = await db.query.proposalMessages.findMany({
@@ -194,6 +196,7 @@ export default async function ProposalPage({
                     parsedPricing={parsedPricing}
                     isPreview={!isOwner}
                     isCurrent={isCurrent}
+                    isExpired={isExpired}
                     whatChanged={whatChanged}
                     messages={messages}
                     settings={settings ? {

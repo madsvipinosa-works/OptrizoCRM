@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShieldCheck, Loader2, PenTool, Type, RotateCcw, CheckSquare } from "lucide-react";
-import { acceptProposalByClient } from "@/features/proposals/actions";
+import { signProposal } from "@/features/proposals/signing";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
@@ -153,14 +153,12 @@ export function AcceptProposalDialog({
 
         setIsLoading(true);
         try {
-            const res = await acceptProposalByClient(proposalId, {
-                acceptedByName: legalName.trim(),
-                acceptedByTitle: title.trim() || "Authorized Signer",
-                signatureData: signatureString,
-                clientAddress: requireAddress ? clientAddress : undefined,
-                clientPhone: requirePhone ? clientPhone : undefined,
-                clientTaxId: requireTaxId ? clientTaxId : undefined,
-            });
+            const res = await signProposal(
+                proposalId,
+                legalName.trim(),
+                signatureString,
+                agreedToTerms
+            );
 
             if (res.success) {
                 confetti({

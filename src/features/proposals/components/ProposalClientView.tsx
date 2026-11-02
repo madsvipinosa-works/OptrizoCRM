@@ -11,6 +11,7 @@ import {
     Printer,
     CheckSquare,
     Calendar,
+    AlertCircle,
 } from "lucide-react";
 import { rejectProposalByClient } from "@/features/proposals/actions";
 import { requestPricingMeeting } from "@/features/proposals/signing";
@@ -96,6 +97,7 @@ interface Props {
     isPreview?: boolean;
     canEditInStudio?: boolean;
     isCurrent?: boolean;
+    isExpired?: boolean;
     whatChanged?: string[];
     messages?: ProposalMessageItem[];
     settings?: {
@@ -113,6 +115,7 @@ export function ProposalClientView({
     isPreview = false,
     canEditInStudio = false,
     isCurrent = true,
+    isExpired = false,
     whatChanged = [],
     messages = [],
     settings,
@@ -281,6 +284,19 @@ export function ProposalClientView({
                 </div>
             )}
 
+            {/* Expired Banner */}
+            {isExpired && !isApproved && !isRejected && (
+                <div className="max-w-[850px] mx-auto bg-destructive/10 border border-destructive/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                        <h4 className="font-bold text-destructive text-sm">Proposal Expired</h4>
+                        <p className="text-muted-foreground">
+                            The validity period for this proposal has lapsed. Please reach out to your Project Manager for an updated proposal.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* What Changed Banner for Revised Versions */}
             {whatChanged && whatChanged.length > 0 && (
                 <div className="max-w-[850px] mx-auto bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print space-y-2">
@@ -430,7 +446,7 @@ export function ProposalClientView({
                         )}
 
                         {/* Request Changes Trigger (Only for Client) */}
-                        {!isPreview && isCurrent !== false && (
+                        {!isPreview && isCurrent !== false && !isExpired && (
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -443,7 +459,15 @@ export function ProposalClientView({
 
                         {/* Accept & Sign or Request Pricing Meeting Button */}
                         {!isPreview ? (
-                            proposal.priceMode === "to_be_discussed" ? (
+                            isExpired ? (
+                                <Badge
+                                    variant="outline"
+                                    className="h-9 px-3 text-xs bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-1.5 font-semibold"
+                                >
+                                    <AlertCircle className="h-3.5 w-3.5" />
+                                    Proposal Expired
+                                </Badge>
+                            ) : proposal.priceMode === "to_be_discussed" ? (
                                 proposal.status === "pricing_meeting_requested" ? (
                                     <Badge
                                         variant="outline"

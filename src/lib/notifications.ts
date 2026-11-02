@@ -480,3 +480,55 @@ export async function sendMeetingReminderEmail(data: {
         return { success: false, error: err };
     }
 }
+
+/**
+ * Sends a confirmation email to the client containing a link to download the signed proposal PDF.
+ * Per specification, no file attachment is included; only a direct link to the PDF route.
+ */
+export async function sendSignedProposalEmail(data: {
+    clientEmail: string;
+    clientName: string;
+    proposalCode?: string | null;
+    pdfUrl: string;
+}) {
+    try {
+        const { error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: data.clientEmail,
+            subject: `Signed Statement of Work Copy - ${data.proposalCode || "Optrizo"}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px 20px; color: #14202b;">
+                    <div style="margin-bottom: 24px;">
+                        <span style="font-size: 18px; font-weight: 700; color: #0e6b7e; letter-spacing: -0.02em;">OPTRIZO</span>
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
+                        Agreement Executed: ${data.proposalCode || "Project Proposal"}
+                    </h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Hello ${data.clientName}, your project proposal has been successfully accepted and executed.
+                    </p>
+                    <p style="margin: 0 0 20px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Our engineering and delivery team has initialized your project kickoff. You can download and review your official signed Statement of Work PDF using the link below:
+                    </p>
+                    <div style="margin: 24px 0;">
+                        <a href="${data.pdfUrl}" style="background-color: #0e6b7e; color: #ffffff; padding: 12px 22px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 14px;">
+                            Download Signed SOW (PDF) &rarr;
+                        </a>
+                    </div>
+                    <p style="font-size: 12px; color: #7a8b98; margin: 24px 0 0;">
+                        Optrizo Digital Solutions &bull; Official Digital Execution Record
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending signed proposal email:", error);
+            return { success: false, error };
+        }
+        return { success: true };
+    } catch (err) {
+        console.error("sendSignedProposalEmail error:", err);
+        return { success: false, error: err };
+    }
+}
