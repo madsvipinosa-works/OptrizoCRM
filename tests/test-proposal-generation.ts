@@ -56,7 +56,7 @@ async function runProposalTest() {
             total: estValue,
             terms: "Payment Milestone Schedule: 50% initial commitment upon agreement signing, 50% upon final acceptance and handover.",
             validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            status: "Draft",
+            status: "draft",
         }).returning();
         testProposalId = created.id;
 

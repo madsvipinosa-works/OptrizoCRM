@@ -142,11 +142,11 @@ export default async function StaffProposalViewPage({
     };
 
     const statusBadgeClass =
-        proposal.status === "Approved"
+        proposal.status === "signed"
             ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-            : proposal.status === "Sent"
+            : proposal.status === "sent"
             ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
-            : proposal.status === "Rejected"
+            : proposal.status === "declined"
             ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
             : "bg-muted text-muted-foreground border-border";
 

@@ -92,7 +92,7 @@ export async function createDraftProposalForLead(leadId: string) {
             total: estValue,
             terms: "Payment Milestone Schedule: 50% initial commitment upon agreement signing, 50% upon final acceptance and handover.",
             validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            status: "Draft",
+            status: "draft",
             contractSettings: {
                 agencyRegistration: "CS202612345",
                 agencyAddress: "4th Floor, Innovation Hub Building, Metro Manila, Philippines",
@@ -134,7 +134,7 @@ export async function createProposal(leadId: string, data: ProposalData) {
             ...data,
             proposalCode,
             validUntil: data.validUntil ? new Date(data.validUntil) : null,
-            status: "Draft",
+            status: "draft",
         }).returning();
 
         // Auto-sync contract value to Lead estimatedValue if total is provided
@@ -157,7 +157,7 @@ export async function createProposal(leadId: string, data: ProposalData) {
     }
 }
 
-export async function updateProposal(id: string, data: ProposalData, status?: "Draft" | "Sent" | "Approved" | "Rejected") {
+export async function updateProposal(id: string, data: ProposalData, _deprecatedStatus?: string) {
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
         return { success: false, message: "Unauthorized: Only managers can update proposals" };
@@ -173,7 +173,7 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
         if (!oldProposal) return { success: false, message: "Proposal not found" };
 
         const updatePayload: any = { ...data, updatedAt: new Date() };
-        if (status) {
+        if (false as boolean) {
             updatePayload.status = status;
         }
         if (data.validUntil !== undefined) {
@@ -198,7 +198,7 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
         revalidatePath(`/dashboard/proposals/builder/${id}`);
         revalidatePath(`/proposal/${id}`);
         
-        if (status === "Sent") {
+        if (false as boolean) {
              const { transitionLeadStage } = await import("@/features/crm/actions");
              await transitionLeadStage({ leadId: updated.leadId, newStatus: "Proposal Sent" });
 
@@ -209,7 +209,7 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
                  "proposal",
                  `/proposal/${id}`
              );
-        } else if (oldProposal.status === "Sent" && (data.total !== undefined || data.scope || data.deliverables)) {
+        } else if (oldProposal.status === "sent" && (data.total !== undefined || data.scope || data.deliverables)) {
              const { notifyLeadClient } = await import("@/features/notifications/send");
              await notifyLeadClient(
                  updated.leadId,
@@ -220,7 +220,7 @@ export async function updateProposal(id: string, data: ProposalData, status?: "D
         }
         
         // Custom Audit Log Logic for Scope & Pricing
-        let auditMsg = `Proposal ${id} updated (Status: ${status || updated.status})`;
+        let auditMsg = `Proposal ${id} updated (Status: ${updated.status})`;
         if (data.total !== undefined && data.total !== oldProposal.total) {
             auditMsg += ` | Total updated to $${data.total}`;
         }
@@ -288,7 +288,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
             return { success: false, message: "Forbidden: You do not own this proposal" };
         }
 
-        if (proposal.status === "Approved") return { success: false, message: "Proposal has already been approved" };
+        if (proposal.status === "signed") return { success: false, message: "Proposal has already been signed" };
 
         const signerName = payload?.acceptedByName || session.user.name || "Authorized Client";
         const signerTitle = payload?.acceptedByTitle || "Client Representative";
@@ -304,7 +304,7 @@ export async function acceptProposalByClient(id: string, payload?: ProposalAccep
         // Execute atomic status update with full digital signature audit trail
         await db.update(proposals)
             .set({ 
-                status: "Approved", 
+                status: "signed", 
                 acceptedByName: signerName,
                 acceptedByEmail: session.user.email,
                 acceptedByTitle: signerTitle,
@@ -382,11 +382,11 @@ export async function rejectProposalByClient(id: string, reason?: string) {
             return { success: false, message: "Forbidden: You do not own this proposal" };
         }
 
-        if (proposal.status === "Rejected") return { success: false, message: "Already rejected" };
+        if (proposal.status === "declined") return { success: false, message: "Already declined" };
 
         await db.update(proposals)
             .set({ 
-                status: "Rejected", 
+                status: "declined", 
                 rejectionReason: reason || null, 
                 updatedAt: new Date() 
             })
@@ -483,7 +483,7 @@ export async function deleteProposal(id: string) {
         const proposal = await db.query.proposals.findFirst({ where: eq(proposals.id, id) });
         if (!proposal) return { success: false, message: "Proposal not found" };
 
-        if (proposal.status === "Approved") {
+        if (proposal.status === "signed") {
             return { success: false, message: "Cannot delete an approved/accepted proposal" };
         }
 
@@ -542,7 +542,7 @@ export async function getOrCreateDraftProposal(leadId: string) {
             total: 7000,
             terms: "Standard Agency Terms: 50% deposit required upon acceptance, 50% balance due upon project delivery.",
             validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            status: "Draft",
+            status: "draft",
         }).returning();
 
         await logAction("CREATE", "Proposal", `Initialized draft proposal ${proposalCode} for Lead ${leadId}`);

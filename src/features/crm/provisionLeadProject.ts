@@ -54,7 +54,7 @@ export async function provisionLeadProject(leadId: string) {
         }
 
         const proposal = await tx.query.proposals.findFirst({
-            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "Approved")),
+            where: and(eq(proposals.leadId, leadId), eq(proposals.status, "signed")),
             orderBy: (proposal, { desc }) => [desc(proposal.updatedAt)],
         });
         const proposalDeliverables = Array.isArray(proposal?.deliverables)

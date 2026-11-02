@@ -88,7 +88,7 @@ export default async function ProposalBuilderPage({
                 total: estValue,
                 terms: "Payment Milestone Schedule: 50% initial commitment upon agreement signing, 50% upon final acceptance and handover.",
                 validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                status: "Draft",
+                status: "draft",
                 contractSettings: {
                     agencyRegistration: "CS202612345",
                     agencyAddress: "4th Floor, Innovation Hub Building, Metro Manila, Philippines",

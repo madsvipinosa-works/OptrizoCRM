@@ -8,6 +8,7 @@ import {
     pgEnum,
     foreignKey,
     index,
+    uniqueIndex,
     jsonb,
     check
 } from "drizzle-orm/pg-core";
@@ -426,7 +427,15 @@ export const discoveryForms = pgTable("discovery_form", {
 ]);
 
 // 14. Proposals
-export const proposalStatusEnum = pgEnum("proposal_status", ["Draft", "Sent", "Approved", "Rejected"]);
+export const proposalStatusEnum = pgEnum("proposal_status", [
+    "draft",
+    "sent",
+    "pricing_meeting_requested",
+    "changes_requested",
+    "signed",
+    "declined",
+    "replaced",
+]);
 
 export const proposals = pgTable("proposal", {
     id: text("id")
@@ -447,7 +456,8 @@ export const proposals = pgTable("proposal", {
     total: integer("total").default(0),
     terms: text("terms"),
     validUntil: timestamp("valid_until"),
-    status: proposalStatusEnum("status").default("Draft").notNull(),
+    version: integer("version").notNull().default(1),
+    status: proposalStatusEnum("status").default("draft").notNull(),
     fileUrl: text("fileUrl"),
     rejectionReason: text("rejection_reason"),
     // Hybrid Digital Signature Metadata
@@ -481,6 +491,7 @@ export const proposals = pgTable("proposal", {
 }, (t) => [
     index("idx_proposal_lead").on(t.leadId),
     index("idx_proposal_code").on(t.proposalCode),
+    uniqueIndex("idx_proposal_lead_version").on(t.leadId, t.version),
 ]);
 
 // 15. Audit Logs

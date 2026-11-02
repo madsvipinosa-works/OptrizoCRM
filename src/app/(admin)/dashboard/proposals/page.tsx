@@ -71,9 +71,9 @@ export default async function ProposalsPage() {
     const queueItems = isManager ? await getProposalRequestsQueue() : [];
 
     const totalValue = allProposals.reduce((sum, p) => sum + (Number((p as unknown as ProposalRowWithExtras).totalPrice ?? p.total) || 0), 0);
-    const approvedCount = allProposals.filter(p => (p.status as string) === "Approved" || (p.status as string) === "signed").length;
-    const sentCount = allProposals.filter(p => (p.status as string) === "Sent" || (p.status as string) === "sent").length;
-    const draftCount = allProposals.filter(p => (p.status as string) === "Draft" || (p.status as string) === "draft").length;
+    const approvedCount = allProposals.filter(p => p.status === "signed").length;
+    const sentCount = allProposals.filter(p => p.status === "sent").length;
+    const draftCount = allProposals.filter(p => p.status === "draft").length;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">

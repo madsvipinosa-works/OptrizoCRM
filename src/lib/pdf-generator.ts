@@ -781,12 +781,12 @@ export function generateSOWHtml(data: {
                 IN WITNESS WHEREOF, the parties hereto have caused this Statement of Work to be executed by their duly authorized representatives.
             </p>
 
-            ${data.status === "Approved" ? `
+            ${data.status === "signed" ? `
                 <div class="verified-badge">
                     <div>
                         <div class="verified-text">&#10003; Digital Portal Sign-Off &amp; Verification Timestamp</div>
                         <div style="font-size: 7.5pt; color: #16a34a; margin-top: 2px;">
-                            Approved via Client Portal by <strong>${safeAcceptedByName}</strong> ${safeAcceptedByTitle ? `(${safeAcceptedByTitle})` : ""} on ${formattedSignedDate}.
+                            Signed via Client Portal by <strong>${safeAcceptedByName}</strong> ${safeAcceptedByTitle ? `(${safeAcceptedByTitle})` : ""} on ${formattedSignedDate}.
                         </div>
                     </div>
                     <div style="margin-top: 2px;">

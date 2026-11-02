@@ -29,7 +29,7 @@ export interface ProposalDocumentData {
     total?: number | null;
     terms?: string | null;
     validUntil?: string | Date | null;
-    status?: "Draft" | "Sent" | "Approved" | "Rejected";
+    status?: string;
     // Signature Audit
     acceptedByName?: string | null;
     acceptedByTitle?: string | null;
@@ -208,9 +208,9 @@ export function ProposalDocumentSheet({
                         <div>
                             STATUS: <span className={cn(
                                 "font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded",
-                                data.status === "Approved" ? "bg-emerald-500/10 text-emerald-500 font-bold" :
-                                data.status === "Sent" ? "bg-blue-500/10 text-blue-500 font-bold" :
-                                data.status === "Rejected" ? "bg-rose-500/10 text-rose-500 font-bold" :
+                                data.status === "signed" ? "bg-emerald-500/10 text-emerald-500 font-bold" :
+                                data.status === "sent" ? "bg-blue-500/10 text-blue-500 font-bold" :
+                                data.status === "declined" ? "bg-rose-500/10 text-rose-500 font-bold" :
                                 "bg-muted text-muted-foreground"
                             )}>{data.status || "DRAFT"}</span>
                         </div>
@@ -541,14 +541,14 @@ export function ProposalDocumentSheet({
                     IN WITNESS WHEREOF, the parties hereto have caused this Statement of Work to be executed by their duly authorized representatives.
                 </p>
 
-                {data.status === "Approved" ? (
+                {data.status === "signed" ? (
                     <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full min-w-0 overflow-hidden">
                         <div className="space-y-1 min-w-0 break-words">
                             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                                 <ShieldCheck className="w-4 h-4 shrink-0" /> Digital Portal Sign-Off &amp; Verification Timestamp
                             </div>
                             <p className="text-xs text-muted-foreground break-words">
-                                Approved via Client Portal by <strong className="text-foreground">{data.acceptedByName || "Client Signatory"}</strong>
+                                Signed via Client Portal by <strong className="text-foreground">{data.acceptedByName || "Client Signatory"}</strong>
                                 {data.acceptedByTitle ? ` (${data.acceptedByTitle})` : ""} on{" "}
                                 {data.acceptedAt ? safeFormatDate(data.acceptedAt, undefined, formattedCreatedDate) : formattedCreatedDate}.
                             </p>

@@ -36,7 +36,7 @@ interface Props {
     proposal: {
         id: string;
         proposalCode?: string | null;
-        status: "Draft" | "Sent" | "Approved" | "Rejected";
+        status: "draft" | "sent" | "pricing_meeting_requested" | "changes_requested" | "signed" | "declined" | "replaced";
         fileUrl?: string | null;
         scope?: string | null;
         timeline?: string | null;
@@ -94,8 +94,8 @@ export function ProposalClientView({
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
 
-    const isApproved = proposal.status === "Approved";
-    const isRejected = proposal.status === "Rejected";
+    const isApproved = proposal.status === "signed";
+    const isRejected = proposal.status === "declined";
 
     const grandTotal = proposal.total || parsedPricing.total || 0;
 

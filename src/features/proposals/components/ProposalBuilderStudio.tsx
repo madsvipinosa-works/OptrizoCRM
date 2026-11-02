@@ -71,7 +71,7 @@ interface ProposalBuilderStudioProps {
         total?: number | null;
         terms?: string | null;
         validUntil?: Date | string | null;
-        status: "Draft" | "Sent" | "Approved" | "Rejected";
+        status: "draft" | "sent" | "pricing_meeting_requested" | "changes_requested" | "signed" | "declined" | "replaced";
         fileUrl?: string | null;
         acceptedByName?: string | null;
         acceptedByTitle?: string | null;
@@ -159,7 +159,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
-    const [currentStatus, setCurrentStatus] = useState<"Draft" | "Sent" | "Approved" | "Rejected">(proposal.status);
+    const [currentStatus, setCurrentStatus] = useState<string>(proposal.status);
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(() => {
         if (!proposal.createdAt) return null;
         const d = new Date(proposal.createdAt);
@@ -323,8 +323,8 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     };
 
     // Save handler
-    const handleSave = async (statusOverride?: "Draft" | "Sent") => {
-        const isSentAction = statusOverride === "Sent";
+    const handleSave = async (statusOverride?: string) => {
+        const isSentAction = statusOverride === "sent";
         if (isSentAction) setIsPublishing(true);
         else setIsSaving(true);
 
@@ -491,21 +491,21 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                             <span className="font-serif font-bold text-base tracking-tight">Proposal Studio</span>
                             <Badge
                                 variant={
-                                    currentStatus === "Approved"
+                                    currentStatus === "signed"
                                         ? "default"
-                                        : currentStatus === "Sent"
+                                        : currentStatus === "sent"
                                         ? "secondary"
                                         : "outline"
                                 }
                                 className={`text-xs capitalize font-medium ${
-                                    currentStatus === "Sent" 
+                                    currentStatus === "sent" 
                                         ? "border-sky-500/40 text-sky-400 bg-sky-500/10" 
-                                        : currentStatus === "Approved"
+                                        : currentStatus === "signed"
                                         ? "bg-primary text-black font-semibold"
                                         : ""
                                 }`}
                             >
-                                {currentStatus === "Sent" ? "Sent to Client" : currentStatus === "Approved" ? "Executed Contract" : currentStatus}
+                                {currentStatus === "sent" ? "Sent to Client" : currentStatus === "signed" ? "Executed Contract" : currentStatus}
                             </Badge>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 hidden sm:flex">
@@ -572,7 +572,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     </div>
 
                     {/* Share Client Link Trigger */}
-                    {currentStatus !== "Draft" && (
+                    {currentStatus !== "draft" && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -590,7 +590,7 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                         variant="secondary"
                         size="sm"
                         disabled={isSaving || isPublishing}
-                        onClick={() => handleSave("Draft")}
+                        onClick={() => handleSave("draft")}
                         className="items-center gap-1.5"
                     >
                         {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -601,11 +601,11 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     <Button
                         size="sm"
                         disabled={isSaving || isPublishing}
-                        onClick={() => handleSave("Sent")}
+                        onClick={() => handleSave("sent")}
                         className="bg-primary text-black font-semibold hover:bg-primary/90 items-center gap-1.5 shadow-sm"
                     >
                         {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                        {currentStatus === "Sent" ? "Update & Re-send" : "Publish & Send"}
+                        {currentStatus === "sent" ? "Update & Re-send" : "Publish & Send"}
                     </Button>
                 </div>
             </header>
