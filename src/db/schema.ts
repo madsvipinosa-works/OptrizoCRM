@@ -661,7 +661,6 @@ export const crmTasks = pgTable("crm_task", {
     priority: crmTaskPriorityEnum("priority").default("Medium").notNull(),
     dueDate: timestamp("due_date", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    doneReason: text("done_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
@@ -924,7 +923,6 @@ export const tasks = pgTable("task", {
     overdueNotified: boolean("overdue_notified").default(false).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     reviewNote: text("review_note"),
-    doneReason: text("done_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),

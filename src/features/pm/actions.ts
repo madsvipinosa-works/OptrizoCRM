@@ -1,14 +1,15 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks, projectStakeholders, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
+import { agencyProjects, milestones, tasks, projectStakeholders, projectTeamMembers, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { notifyAllAdmins } from "@/features/notifications/send";
+import { createSystemNotification } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { logSystemError } from "@/features/audit/error-logger";
-import { authorizeProject, authorizeTask, requireRoles } from "@/lib/authz";
+import { authorizeProject, authorizeTask, requireRole, requireRoles } from "@/lib/authz";
+import { closeMilestoneAndAdvance } from "@/features/pm/milestone-flow";
 import { z } from "zod";
 
 export type ActionState = {
@@ -455,7 +456,27 @@ export async function createTask(
     if (!title.trim()) return { success: false, message: "Title is required" };
 
     try {
+        const milestone = await db.query.milestones.findFirst({
+            where: and(eq(milestones.id, milestoneId), isNull(milestones.deletedAt)),
+        });
+        if (!milestone) {
+            return { success: false, message: "Milestone not found" };
+        }
+        if (milestone.status === "Completed") {
+            return { success: false, message: "Cannot add task to a completed milestone" };
+        }
+
         const cleanAssigneeIds = Array.from(new Set((assigneeIds || []).filter(Boolean)));
+        if (cleanAssigneeIds.length > 0) {
+            for (const uid of cleanAssigneeIds) {
+                const isMember = await db.query.projectTeamMembers.findFirst({
+                    where: and(eq(projectTeamMembers.projectId, projectId), eq(projectTeamMembers.userId, uid)),
+                });
+                if (!isMember) {
+                    return { success: false, message: "Assigned user is not a member of the project team" };
+                }
+            }
+        }
 
         const [newTask] = await db.insert(tasks).values({
             projectId,
@@ -764,6 +785,7 @@ export async function submitTask(input: {
                 status: "in_review",
                 proofLinks: combinedProofLinks,
                 proofNotes: input.note?.trim() || null,
+                reviewNote: null,
                 updatedAt: new Date(),
             })
             .where(eq(tasks.id, input.taskId));
@@ -806,23 +828,11 @@ export async function updateTaskDetails(
     }
 ): Promise<ActionState> {
     const session = await auth();
-    if (!hasRole(session, ["manager", "developer"])) {
-        return { success: false, message: "Unauthorized" };
+    if (!hasRole(session, ["manager"])) {
+        return { success: false, message: "Unauthorized: Only managers can update task details" };
     }
 
     try {
-        // Editor can only update tasks that are explicitly assigned to them.
-        if (session.user.role === "developer") {
-            const editorId = session.user.id;
-            if (!editorId) return { success: false, message: "Unauthorized" };
-            const assignment = await db.query.taskAssignees.findFirst({
-                where: and(eq(taskAssignees.taskId, taskId), eq(taskAssignees.userId, editorId)),
-            });
-            if (!assignment) {
-                return { success: false, message: "Unauthorized: Task not assigned to you" };
-            }
-        }
-
         const existingTask = await db.query.tasks.findFirst({
             where: eq(tasks.id, taskId),
             columns: { projectId: true },
@@ -832,6 +842,17 @@ export async function updateTaskDetails(
         const cleanAssigneeIds = data.assigneeIds !== undefined
             ? Array.from(new Set((data.assigneeIds || []).filter(Boolean)))
             : undefined;
+
+        if (cleanAssigneeIds && cleanAssigneeIds.length > 0) {
+            for (const uid of cleanAssigneeIds) {
+                const isMember = await db.query.projectTeamMembers.findFirst({
+                    where: and(eq(projectTeamMembers.projectId, existingTask.projectId), eq(projectTeamMembers.userId, uid)),
+                });
+                if (!isMember) {
+                    return { success: false, message: "Assigned user is not a member of the project team" };
+                }
+            }
+        }
 
         const updateData: Record<string, unknown> = {
             updatedAt: new Date(),
@@ -1167,4 +1188,421 @@ export async function getClientUsers(): Promise<{ id: string; name: string | nul
         columns: { id: true, name: true, email: true, image: true },
         orderBy: (u, { asc }) => [asc(u.name)],
     });
+}
+
+
+/**
+ * Step 25: A developer starts a task from to_do -> in_progress.
+ * Requires:
+ * - Developer assigned to task (or manager)
+ * - Task in status 'to_do'
+ * - Parent milestone in status 'In Progress'
+ * - Prerequisite task (dependsOnTaskId) is 'done'
+ */
+export async function startTask(
+    taskId: string
+): Promise<{ success: boolean; message?: string }> {
+    const authz = await authorizeTask(taskId);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: You cannot start this task" };
+    }
+
+    try {
+        const result = await db.transaction(async (tx) => {
+            const [task] = await tx
+                .select()
+                .from(tasks)
+                .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+                .for("update");
+
+            if (!task) {
+                return { success: false, message: "Task not found" };
+            }
+
+            if (task.status !== "to_do" && (task.status as string) !== "To Do") {
+                return { success: false, message: "Only tasks in To Do status can be started" };
+            }
+
+            if (task.milestoneId) {
+                const [milestone] = await tx
+                    .select()
+                    .from(milestones)
+                    .where(and(eq(milestones.id, task.milestoneId), isNull(milestones.deletedAt)));
+
+                if (!milestone || milestone.status !== "In Progress") {
+                    return { success: false, message: "Cannot start task: Milestone is not In Progress" };
+                }
+            }
+
+            if (task.dependsOnTaskId) {
+                const [prereq] = await tx
+                    .select()
+                    .from(tasks)
+                    .where(and(eq(tasks.id, task.dependsOnTaskId), isNull(tasks.deletedAt)));
+
+                if (!prereq || (prereq.status !== "done" && (prereq.status as string) !== "Done")) {
+                    return {
+                        success: false,
+                        message: `Prerequisite task "${prereq?.title || "Prerequisite"}" must be completed first`,
+                    };
+                }
+            }
+
+            await tx
+                .update(tasks)
+                .set({
+                    status: "in_progress",
+                    updatedAt: new Date(),
+                })
+                .where(eq(tasks.id, taskId));
+
+            return { success: true, task };
+        });
+
+        if (!result.success) {
+            return { success: false, message: result.message };
+        }
+
+        try {
+            await logAction("UPDATE", "Task", `Started task "${result.task?.title || taskId}"`);
+        } catch (logErr) {
+            console.error("Post-commit log error in startTask:", logErr);
+        }
+
+        if (result.task?.projectId) {
+            revalidatePath(`/dashboard/pm/${result.task.projectId}`);
+        }
+        revalidatePath("/dashboard/dev");
+        return { success: true };
+    } catch (error: unknown) {
+        console.error("startTask error:", error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to start task",
+        };
+    }
+}
+
+/**
+ * Step 27: Manager approves a task in review -> done.
+ * If all tasks in the milestone are now done, calls closeMilestoneAndAdvance
+ * inside the SAME transaction, which advances to the next milestone and sets
+ * matching payments to due.
+ */
+export async function approveTask(
+    taskId: string
+): Promise<{ success: boolean; message?: string }> {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can approve tasks" };
+    }
+
+    try {
+        const txResult = await db.transaction(async (tx) => {
+            const [task] = await tx
+                .select()
+                .from(tasks)
+                .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+                .for("update");
+
+            if (!task) {
+                return { success: false, message: "Task not found" };
+            }
+
+            if (task.status !== "in_review" && (task.status as string) !== "In Review") {
+                return { success: false, message: "Task must be in review to be approved" };
+            }
+
+            await tx
+                .update(tasks)
+                .set({
+                    status: "done",
+                    completedAt: new Date(),
+                    updatedAt: new Date(),
+                })
+                .where(eq(tasks.id, taskId));
+
+            let closeResult = null;
+            if (task.milestoneId) {
+                const remainingTasks = await tx
+                    .select({ id: tasks.id, status: tasks.status })
+                    .from(tasks)
+                    .where(and(
+                        eq(tasks.milestoneId, task.milestoneId),
+                        isNull(tasks.deletedAt),
+                        ne(tasks.id, taskId)
+                    ));
+
+                const allOthersDone = remainingTasks.every((t) => t.status === "done" || (t.status as string) === "Done");
+                if (allOthersDone) {
+                    closeResult = await closeMilestoneAndAdvance(tx, task.milestoneId);
+                }
+            }
+
+            const assignees = await tx
+                .select({ userId: taskAssignees.userId })
+                .from(taskAssignees)
+                .where(eq(taskAssignees.taskId, taskId));
+
+            return {
+                success: true,
+                task,
+                assignees: assignees.map((a) => a.userId),
+                closeResult,
+            };
+        });
+
+        if (!txResult.success || !txResult.task) {
+            return { success: false, message: txResult.message || "Failed to approve task" };
+        }
+
+        const { task, assignees, closeResult } = txResult;
+
+        try {
+            for (const uid of assignees || []) {
+                await createSystemNotification(
+                    uid,
+                    `Your task "${task?.title}" has been approved!`,
+                    "task",
+                    task?.projectId ? `/dashboard/pm/${task.projectId}` : "/dashboard/dev"
+                );
+            }
+
+            if (closeResult?.nextMilestone && task?.projectId) {
+                const { notifyAllAdmins: notifyAdmins } = await import("@/features/notifications/send");
+                await notifyAdmins(
+                    `Milestone "${closeResult.closedMilestone.title}" completed. Next milestone "${closeResult.nextMilestone.title}" is now In Progress.`,
+                    "milestone",
+                    `/dashboard/pm/${task.projectId}`
+                );
+            }
+
+            if (closeResult && closeResult.duePaymentIds.length > 0 && task?.projectId) {
+                const { notifyProjectClients } = await import("@/features/notifications/send");
+                await notifyProjectClients(
+                    task.projectId,
+                    `Payment is now due for completed milestone "${closeResult.closedMilestone.title}".`,
+                    "milestone",
+                    "/portal"
+                );
+            }
+
+            await logAction("UPDATE", "Task", `Approved task "${task?.title}" (${taskId}) to Done`);
+            if (closeResult) {
+                await logAction("UPDATE", "Milestone", `Milestone "${closeResult.closedMilestone.title}" completed automatically upon task completion`);
+            }
+        } catch (postCommitErr) {
+            console.error("Post-commit error in approveTask:", postCommitErr);
+        }
+
+        if (task?.projectId) {
+            revalidatePath(`/dashboard/pm/${task.projectId}`);
+        }
+        revalidatePath("/dashboard/dev");
+        return { success: true };
+    } catch (error: unknown) {
+        console.error("approveTask error:", error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to approve task",
+        };
+    }
+}
+
+/**
+ * Step 27: Manager requests changes on a task in review -> changes_requested.
+ * Comment is stored in task.reviewNote and assignees are notified.
+ */
+export async function requestTaskChanges(
+    taskId: string,
+    comment: string
+): Promise<{ success: boolean; message?: string }> {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can request changes" };
+    }
+
+    const trimmedComment = (comment || "").trim();
+    if (!trimmedComment) {
+        return { success: false, message: "A comment explaining requested changes is required" };
+    }
+    const safeComment = trimmedComment.slice(0, 2000);
+
+    try {
+        const txResult = await db.transaction(async (tx) => {
+            const [task] = await tx
+                .select()
+                .from(tasks)
+                .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+                .for("update");
+
+            if (!task) {
+                return { success: false, message: "Task not found" };
+            }
+
+            if (task.status !== "in_review" && (task.status as string) !== "In Review") {
+                return { success: false, message: "Task must be in review to request changes" };
+            }
+
+            await tx
+                .update(tasks)
+                .set({
+                    status: "changes_requested",
+                    reviewNote: safeComment,
+                    updatedAt: new Date(),
+                })
+                .where(eq(tasks.id, taskId));
+
+            const assignees = await tx
+                .select({ userId: taskAssignees.userId })
+                .from(taskAssignees)
+                .where(eq(taskAssignees.taskId, taskId));
+
+            return {
+                success: true,
+                task,
+                assignees: assignees.map((a) => a.userId),
+            };
+        });
+
+        if (!txResult.success || !txResult.task) {
+            return { success: false, message: txResult.message || "Failed to request task changes" };
+        }
+
+        const { task, assignees } = txResult;
+
+        try {
+            for (const uid of assignees || []) {
+                await createSystemNotification(
+                    uid,
+                    `Changes requested on "${task?.title}": ${safeComment}`,
+                    "task",
+                    task?.projectId ? `/dashboard/pm/${task.projectId}` : "/dashboard/dev"
+                );
+            }
+            await logAction(
+                "UPDATE",
+                "Task",
+                `Requested changes on task "${task?.title}" (${taskId}): ${safeComment}`
+            );
+        } catch (postCommitErr) {
+            console.error("Post-commit error in requestTaskChanges:", postCommitErr);
+        }
+
+        if (task?.projectId) {
+            revalidatePath(`/dashboard/pm/${task.projectId}`);
+        }
+        revalidatePath("/dashboard/dev");
+        return { success: true };
+    } catch (error: unknown) {
+        console.error("requestTaskChanges error:", error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to request task changes",
+        };
+    }
+}
+
+/**
+ * Step 28: Manager completes a milestone that has no tasks (e.g. handover).
+ * Requires non-empty reason, saved to milestone.doneReason.
+ * Advances to next milestone via closeMilestoneAndAdvance in transaction.
+ */
+export async function markEmptyMilestoneDone(input: {
+    milestoneId: string;
+    reason: string;
+}): Promise<{ success: boolean; message?: string }> {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can complete empty milestones" };
+    }
+
+    if (!input.milestoneId) {
+        return { success: false, message: "Milestone ID is required" };
+    }
+
+    const trimmedReason = (input.reason || "").trim();
+    if (!trimmedReason) {
+        return { success: false, message: "Reason is required to mark an empty milestone as done" };
+    }
+    const safeReason = trimmedReason.slice(0, 2000);
+
+    try {
+        const txResult = await db.transaction(async (tx) => {
+            const [milestone] = await tx
+                .select()
+                .from(milestones)
+                .where(and(eq(milestones.id, input.milestoneId), isNull(milestones.deletedAt)))
+                .for("update");
+
+            if (!milestone) {
+                return { success: false, message: "Milestone not found" };
+            }
+
+            if (milestone.status !== "In Progress") {
+                return { success: false, message: "Only In Progress milestones can be completed" };
+            }
+
+            const existingTasks = await tx
+                .select({ id: tasks.id })
+                .from(tasks)
+                .where(and(eq(tasks.milestoneId, input.milestoneId), isNull(tasks.deletedAt)));
+
+            if (existingTasks.length > 0) {
+                return { success: false, message: "Milestone has tasks and cannot be marked empty" };
+            }
+
+            const closeResult = await closeMilestoneAndAdvance(tx, input.milestoneId, {
+                doneReason: safeReason,
+            });
+
+            return { success: true, milestone, closeResult };
+        });
+
+        if (!txResult.success || !txResult.milestone || !txResult.closeResult) {
+            return { success: false, message: txResult.message || "Failed to mark empty milestone done" };
+        }
+
+        const { milestone, closeResult } = txResult;
+
+        try {
+            if (closeResult?.nextMilestone && milestone.projectId) {
+                const { notifyAllAdmins: notifyAdmins } = await import("@/features/notifications/send");
+                await notifyAdmins(
+                    `Empty milestone "${milestone.title}" completed (${safeReason}). Next milestone "${closeResult.nextMilestone.title}" is now In Progress.`,
+                    "milestone",
+                    `/dashboard/pm/${milestone.projectId}`
+                );
+            }
+
+            if (closeResult && closeResult.duePaymentIds.length > 0 && milestone.projectId) {
+                const { notifyProjectClients } = await import("@/features/notifications/send");
+                await notifyProjectClients(
+                    milestone.projectId,
+                    `Payment is now due for milestone "${milestone.title}".`,
+                    "milestone",
+                    "/portal"
+                );
+            }
+
+            await logAction(
+                "UPDATE",
+                "Milestone",
+                `Manager marked empty milestone "${milestone.title}" as done (reason: ${safeReason})`
+            );
+        } catch (postCommitErr) {
+            console.error("Post-commit error in markEmptyMilestoneDone:", postCommitErr);
+        }
+
+        if (milestone.projectId) {
+            revalidatePath(`/dashboard/pm/${milestone.projectId}`);
+        }
+        return { success: true };
+    } catch (error: unknown) {
+        console.error("markEmptyMilestoneDone error:", error);
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to mark empty milestone done",
+        };
+    }
 }
