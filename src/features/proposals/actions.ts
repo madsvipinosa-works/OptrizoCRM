@@ -10,13 +10,13 @@ import {
     discoveryForms,
 } from "@/db/schema";
 import { eq, and, isNull, isNotNull, ne, inArray } from "drizzle-orm";
-import { moveLeadToProposalSent } from "@/features/crm/stage-rules";
+import { moveLeadToProposalSent, moveLeadToClosedLost } from "@/features/crm/stage-rules";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
-import { notifyAllAdmins } from "@/features/notifications/send";
-import { provisionLeadProject } from "@/features/crm/provisionLeadProject";
+import { notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
+import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
 import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
 
 export interface ContractSettings {
@@ -341,117 +341,6 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
     }
 }
 
-export interface ProposalAcceptancePayload {
-    acceptedByName: string;
-    acceptedByTitle?: string;
-    signatureData?: string;
-    clientAddress?: string;
-    clientPhone?: string;
-    clientTaxId?: string;
-}
-
-export async function acceptProposalByClient(id: string, payload?: ProposalAcceptancePayload) {
-    try {
-
-        const session = await auth();
-        if (!session?.user?.id) {
-            return { success: false, message: "Unauthorized: Please log in to accept proposal" };
-        }
-
-        const proposal = await db.query.proposals.findFirst({
-            where: eq(proposals.id, id),
-            with: {
-                lead: {
-                    with: {
-                        client: true,
-                    },
-                },
-            },
-        });
-
-        if (!proposal) return { success: false, message: "Proposal not found" };
-        if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
-
-        const userRole = (session.user as any)?.role;
-        const isLeadOwner =
-            proposal.lead &&
-            (session.user.id === proposal.lead.clientId ||
-                session.user.email === proposal.lead.client?.email ||
-                session.user.email === proposal.lead.contactEmail);
-
-        // Strict RBAC: Administrators and internal staff are blocked from signing on behalf of clients.
-        if (userRole !== "client") {
-            return {
-                success: false,
-                message: "Forbidden: Administrators and internal staff cannot sign proposals on behalf of clients. Proposal acceptance must be completed by the authorized client organization.",
-            };
-        }
-
-        // Ownership check: client can only accept proposals linked to their lead
-        if (!isLeadOwner) {
-            return { success: false, message: "Forbidden: You do not own this proposal" };
-        }
-
-        if (proposal.status === "signed") return { success: false, message: "Proposal has already been signed" };
-
-        const signerName = payload?.acceptedByName || session.user.name || "Authorized Client";
-        const signerTitle = payload?.acceptedByTitle || "Client Representative";
-        const signature = payload?.signatureData || signerName;
-        const acceptedAt = new Date();
-
-        const oldContractSettings = (proposal.contractSettings as ContractSettings) || {};
-        const updatedContractSettings = { ...oldContractSettings };
-        if (payload?.clientAddress) updatedContractSettings.clientAddress = payload.clientAddress;
-        if (payload?.clientPhone) updatedContractSettings.clientPhone = payload.clientPhone;
-        if (payload?.clientTaxId) updatedContractSettings.clientTaxId = payload.clientTaxId;
-
-        // Execute atomic status update with full digital signature audit trail
-        await db.update(proposals)
-            .set({
-                status: "signed",
-                acceptedByName: signerName,
-                acceptedByEmail: session.user.email,
-                acceptedByTitle: signerTitle,
-                signatureData: signature,
-                contractSettings: updatedContractSettings,
-                acceptedAt,
-                updatedAt: new Date()
-            })
-            .where(eq(proposals.id, id));
-
-        // Ensure lead's estimatedValue matches final accepted proposal total
-        if (proposal.total !== null && proposal.total !== undefined && proposal.total > 0) {
-            await db.update(leads)
-                .set({ estimatedValue: proposal.total, updatedAt: new Date() })
-                .where(eq(leads.id, proposal.leadId));
-        }
-
-        // Trigger Won Automation internally (provisions Project, Stakeholder, Milestones, Client Welcome Email)
-        const wonResult = await provisionLeadProject(proposal.leadId);
-        if (!wonResult.success) {
-            console.error("markLeadAsWon failed during proposal acceptance:", wonResult.message);
-        }
-
-        if (proposal.lead) {
-            await notifyAllAdmins(`Proposal accepted and signed by ${signerName} (${proposal.lead.businessName || "Client"})!`, "proposal", `/dashboard/leads`);
-        }
-
-        await logAction("UPDATE", "Proposal", `Proposal ${proposal.proposalCode || id} executed and signed by ${signerName} (${signerTitle})`);
-
-        // Instant UI cache updates across all client & staff views
-        revalidatePath(`/proposal/${id}`);
-        revalidatePath("/dashboard/leads");
-        revalidatePath(`/dashboard/leads/${proposal.leadId}`);
-        revalidatePath("/dashboard/analytics");
-        revalidatePath("/portal/projects");
-        revalidatePath("/dashboard/pm");
-
-        return { success: true, message: "Proposal accepted and authorized! Project board has been provisioned." };
-    } catch (error) {
-        console.error("Failed to accept proposal:", error);
-        return { success: false, message: "System error while accepting proposal." };
-    }
-}
 
 export async function rejectProposalByClient(id: string, reason?: string) {
     try {
@@ -460,56 +349,86 @@ export async function rejectProposalByClient(id: string, reason?: string) {
             return { success: false, message: "Unauthorized" };
         }
 
-        const proposal = await db.query.proposals.findFirst({
-            where: eq(proposals.id, id),
-            with: {
-                lead: {
-                    with: {
-                        client: true,
-                    },
-                },
-            },
+        const result = await db.transaction(async (tx) => {
+            // Lock proposal then lead
+            const [proposal] = await tx
+                .select()
+                .from(proposals)
+                .where(eq(proposals.id, id))
+                .for("update");
+
+            if (!proposal) {
+                return { success: false, message: "Proposal not found" };
+            }
+
+            const [lead] = await tx
+                .select()
+                .from(leads)
+                .where(eq(leads.id, proposal.leadId))
+                .for("update");
+
+            if (!lead) {
+                return { success: false, message: "Proposal lead missing" };
+            }
+
+            // Ownership: client who owns the lead
+            const isClientOwner = session.user.role === "client" && lead.clientId === session.user.id;
+            if (!isClientOwner) {
+                return { success: false, message: "Forbidden: You do not own this proposal" };
+            }
+
+            // Allowed from sent | pricing_meeting_requested | changes_requested
+            const allowedStatuses = ["sent", "pricing_meeting_requested", "changes_requested"];
+            if (!allowedStatuses.includes(proposal.status)) {
+                return {
+                    success: false,
+                    message: `Cannot decline proposal. Current status is "${proposal.status}".`,
+                };
+            }
+
+            const now = new Date();
+            await tx
+                .update(proposals)
+                .set({
+                    status: "declined",
+                    rejectionReason: reason || null,
+                    updatedAt: now,
+                })
+                .where(eq(proposals.id, id));
+
+            // Lead -> Closed Lost via moveLeadToClosedLost
+            const lostRes = await moveLeadToClosedLost(tx, proposal.leadId, "other", reason || null);
+            if (!lostRes.success) {
+                throw new Error(lostRes.message || "Failed to move lead to Closed Lost");
+            }
+
+            return {
+                success: true,
+                leadId: proposal.leadId,
+                proposalCode: proposal.proposalCode,
+            };
         });
 
-        if (!proposal) return { success: false, message: "Proposal not found" };
-        if (!proposal.lead) return { success: false, message: "Proposal lead missing" };
-
-        const userRole = (session.user as any)?.role;
-        const isLeadOwner =
-            proposal.lead &&
-            (session.user.id === proposal.lead.clientId ||
-                session.user.email === proposal.lead.client?.email ||
-                session.user.email === proposal.lead.contactEmail);
-
-        // Ownership: client can only reject proposals linked to their lead
-        if (userRole !== "client" || !isLeadOwner) {
-            return { success: false, message: "Forbidden: You do not own this proposal" };
+        if (!result.success) {
+            return result;
         }
 
-        if (proposal.status === "declined") return { success: false, message: "Already declined" };
-
-        await db.update(proposals)
-            .set({
-                status: "declined",
-                rejectionReason: reason || null,
-                updatedAt: new Date()
-            })
-            .where(eq(proposals.id, id));
-
-        // Sync proposal rejection back to the Lead status ("In Negotiation")
-        await db.update(leads).set({ status: "In Negotiation", updatedAt: new Date() }).where(eq(leads.id, proposal.leadId));
-
-        if (proposal.lead) {
-            await notifyAllAdmins(`Proposal rejected by ${proposal.lead.businessName || "Client"}! ${reason ? 'Reason: ' + reason : ''}`, "proposal", `/dashboard/leads`);
+        // Post-commit: notify PM and Sales (never Super Admin)
+        try {
+            const declineMsg = `Proposal #${result.proposalCode || id} declined by client${reason ? `: ${reason}` : ""}`;
+            await notifyLeadPms(result.leadId!, declineMsg, "proposal", `/dashboard/proposals/${id}`);
+            await notifyLeadSales(result.leadId!, declineMsg, "proposal", `/dashboard/proposals/${id}`);
+            await logAction("UPDATE", "Proposal", `Proposal ${id} declined by client. Reason: ${reason || "N/A"}`);
+        } catch (postCommitErr) {
+            console.error("Post-commit notification error in rejectProposalByClient:", postCommitErr);
         }
-
-        await logAction("UPDATE", "Proposal", `Proposal ${id} rejected by client. Reason: ${reason || 'N/A'}`);
 
         revalidatePath(`/proposal/${id}`);
-        revalidatePath("/dashboard/leads");
-        revalidatePath(`/dashboard/leads/${proposal.leadId}`);
+        revalidatePath("/dashboard/proposals");
+        revalidatePath(`/dashboard/proposals/${id}`);
+        revalidatePath("/portal");
 
-        return { success: true, message: "Proposal rejected." };
+        return { success: true, message: "Proposal declined." };
     } catch (error) {
         console.error("Failed to reject proposal:", error);
         return { success: false, message: "System error while rejecting proposal." };
@@ -735,13 +654,6 @@ export async function resetProposalNeedsGoals(proposalId: string) {
 }
 
 
-const DEFAULT_PROPOSAL_MILESTONES = [
-    { name: "requirements" as const, key: "requirements", title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
-    { name: "design" as const, key: "design", title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
-    { name: "development" as const, key: "development", title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
-    { name: "uat_testing" as const, key: "uat_testing", title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
-    { name: "handover" as const, key: "handover", title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
-] as const;
 
 export async function seedDefaultProposalMilestones(proposalId: string) {
     for (const m of DEFAULT_PROPOSAL_MILESTONES) {

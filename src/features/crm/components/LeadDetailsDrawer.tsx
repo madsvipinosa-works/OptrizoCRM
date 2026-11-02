@@ -69,7 +69,7 @@ import {
     Globe,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
-import { logLeadActivity, archiveLead, convertLeadToProject, getProjectForLead, claimLead } from "@/features/crm/actions";
+import { logLeadActivity, archiveLead, getProjectForLead, claimLead } from "@/features/crm/actions";
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { completeCrmTask, createCrmTask, deleteCrmTask } from "@/actions/crm-tasks";
 import { toast } from "sonner";
@@ -123,7 +123,6 @@ export function LeadDetailsDrawer({
 
     // Linked project state for Closed Won handover
     const [linkedProject, setLinkedProject] = useState<{ id: string | null; title: string; status: string } | null>(null);
-    const [isConvertingProject, setIsConvertingProject] = useState(false);
 
     // Local state for tasks and activity logs to enable instant reactivity
     const [localTasks, setLocalTasks] = useState<any[]>(lead?.crmTasks || []);
@@ -139,26 +138,6 @@ export function LeadDetailsDrawer({
             });
         }
     }, [lead?.id, lead?.crmTasks, lead?.activityLogs]);
-
-    const handleConvertLead = async () => {
-        if (!lead) return;
-        setIsConvertingProject(true);
-        try {
-            const res = await convertLeadToProject(lead.id);
-            if (res.success && res.projectId) {
-                toast.success(res.message || "Project workspace active!");
-                setLinkedProject({ id: res.projectId, title: lead.businessName || "Project", status: "Kickoff" });
-                router.push(`/dashboard/pm/${res.projectId}`);
-            } else {
-                toast.error(res.message || "Failed to convert deal to project");
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("Failed to convert lead to project");
-        } finally {
-            setIsConvertingProject(false);
-        }
-    };
 
     const [isScheduleMeetingModalOpen, setIsScheduleMeetingModalOpen] = useState(false);
     const [isDiscoveryFormModalOpen, setIsDiscoveryFormModalOpen] = useState(false);
@@ -723,12 +702,12 @@ export function LeadDetailsDrawer({
                                     <p className="text-[11px] text-muted-foreground mt-0.5">
                                         {linkedProject
                                             ? `Project workspace: ${linkedProject.title}`
-                                            : "Ready to provision client delivery workspace and agile milestones."}
+                                            : "Client delivery workspace provisioned on proposal signing."}
                                     </p>
                                 </div>
                             </div>
 
-                            {linkedProject ? (
+                            {linkedProject && (
                                 linkedProject.id ? (
                                     <Button
                                         size="sm"
@@ -745,20 +724,6 @@ export function LeadDetailsDrawer({
                                         Project created
                                     </span>
                                 )
-                            ) : (
-                                <Button
-                                    size="sm"
-                                    onClick={handleConvertLead}
-                                    disabled={isConvertingProject}
-                                    className="h-8 text-xs bg-primary text-black hover:bg-primary/90 font-semibold gap-1.5 shrink-0 shadow-xs"
-                                >
-                                    {isConvertingProject ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                        <Rocket className="h-3.5 w-3.5" />
-                                    )}
-                                    <span>Convert to PM Project</span>
-                                </Button>
                             )}
                         </div>
                     )}

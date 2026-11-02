@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-    Calendar,
     Clock,
     Video,
     Phone,
@@ -86,7 +85,7 @@ export function MeetingDetailDrawer({
                 notes,
             });
             if (res.success) {
-                toast.success("Meeting marked as done (Discovery form unlocked)");
+                toast.success(meeting.type === "budget_pricing" ? "Budget & pricing meeting marked as done" : "Meeting marked as done (Discovery form unlocked)");
                 onUpdate?.();
                 onClose();
             } else {
@@ -201,7 +200,11 @@ export function MeetingDetailDrawer({
                         </div>
                         <div className="flex items-center justify-between gap-2">
                             <SheetTitle className="text-xl font-bold capitalize">
-                                {meeting.type === "discovery" ? "Discovery meeting" : `${meeting.type.replace("_", " ")} meeting`}
+                                {meeting.type === "discovery"
+                                    ? "Discovery meeting"
+                                    : meeting.type === "budget_pricing"
+                                    ? "Budget & Pricing meeting"
+                                    : `${meeting.type.replace("_", " ")} meeting`}
                             </SheetTitle>
                             {getStatusBadge(meeting.status)}
                         </div>

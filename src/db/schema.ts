@@ -1,7 +1,6 @@
 import {
     boolean,
     timestamp,
-    date,
     pgTable,
     text,
     primaryKey,
@@ -197,7 +196,7 @@ export const siteSettings = pgTable("site_settings", {
     contactEmail: text("contactEmail"),
     notificationEmails: jsonb("notificationEmails").$type<string[]>().default([]).notNull(),
     demoVideoUrl: text("demoVideoUrl"), // URL for the homepage demo video (YouTube/Vimeo embed or direct)
-    faqs: jsonb("faqs").$type<{question: string, answer: string}[]>().default([]).notNull(),
+    faqs: jsonb("faqs").$type<{ question: string, answer: string }[]>().default([]).notNull(),
 
     // About Page Content
     aboutHeroTitle: text("about_hero_title").default("About Our Agency"),
@@ -268,9 +267,9 @@ export const leads = pgTable("lead", {
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
     clientId: text("clientId")
-        .references(() => users.id, { onDelete: "set null" }), 
+        .references(() => users.id, { onDelete: "set null" }),
     serviceId: text("serviceId")
-        .references(() => services.id, { onDelete: "set null" }), 
+        .references(() => services.id, { onDelete: "set null" }),
     businessName: text("business_name"),
     contactName: text("contact_name"),
     contactPhone: text("contact_phone"),
@@ -493,6 +492,11 @@ export const proposals = pgTable("proposal", {
     acceptedAt: timestamp("accepted_at"),
     acceptedIp: text("accepted_ip"),
     acceptedUserAgent: text("accepted_user_agent"),
+    signerName: text("signer_name"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    signerIp: text("signer_ip"),
+    signatureType: text("signature_type"),
+    signedFileUrl: text("signed_file_url"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
@@ -517,6 +521,8 @@ export const proposals = pgTable("proposal", {
     index("idx_proposal_lead").on(t.leadId),
     index("idx_proposal_code").on(t.proposalCode),
     uniqueIndex("idx_proposal_lead_version").on(t.leadId, t.version),
+    uniqueIndex("idx_proposal_one_signed_per_lead").on(t.leadId).where(sql`"status" = 'signed'`),
+    check("proposal_signature_type_check", sql`${t.signatureType} IN ('online', 'paper')`),
 ]);
 
 export const proposalMilestones = pgTable("proposal_milestone", {
@@ -550,6 +556,30 @@ export const paymentScheduleItems = pgTable("payment_schedule_item", {
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
     index("idx_payment_schedule_item_proposal_id").on(t.proposalId),
+]);
+
+export const proposalMessages = pgTable("proposal_message", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    proposalId: text("proposal_id")
+        .notNull()
+        .references(() => proposals.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+        .references(() => users.id, { onDelete: "set null" }),
+    kind: text("kind").notNull(),
+    topics: jsonb("topics")
+        .$type<string[]>()
+        .default([])
+        .notNull(),
+    body: text("body").notNull(),
+    outsideType: text("outside_type"),
+    heldAt: timestamp("held_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index("idx_proposal_message_proposal").on(t.proposalId),
+    check("proposal_message_kind_check", sql`${t.kind} IN ('change_request', 'message', 'reply', 'outside_discussion')`),
+    check("proposal_message_outside_type_check", sql`${t.outsideType} IN ('call', 'email', 'in_person')`),
 ]);
 
 
@@ -598,45 +628,45 @@ export const systemErrorLogs = pgTable("system_error_log", {
 
 // 15b. CRM Tasks
 export const crmTaskStatusEnum = pgEnum("crm_task_status", [
-  "Pending",
-  "In Progress",
-  "Completed",
-  "Canceled",
+    "Pending",
+    "In Progress",
+    "Completed",
+    "Canceled",
 ]);
 export const crmTaskTypeEnum = pgEnum("crm_task_type", [
-  "Call",
-  "Email",
-  "Meeting",
-  "To-do",
+    "Call",
+    "Email",
+    "Meeting",
+    "To-do",
 ]);
 export const crmTaskPriorityEnum = pgEnum("crm_task_priority", [
-  "Low",
-  "Medium",
-  "High",
+    "Low",
+    "Medium",
+    "High",
 ]);
 
 export const crmTasks = pgTable("crm_task", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  leadId: text("leadId")
-    .notNull()
-    .references(() => leads.id, { onDelete: "cascade" }),
-  assignedTo: text("assignedTo")
-    .references(() => users.id, { onDelete: "set null" }), // Sales Rep
-  title: text("title").notNull(),
-  description: text("description"),
-  taskType: crmTaskTypeEnum("task_type").default("To-do").notNull(),
-  status: crmTaskStatusEnum("status").default("Pending").notNull(),
-  priority: crmTaskPriorityEnum("priority").default("Medium").notNull(),
-  dueDate: timestamp("due_date", { withTimezone: true }),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    leadId: text("leadId")
+        .notNull()
+        .references(() => leads.id, { onDelete: "cascade" }),
+    assignedTo: text("assignedTo")
+        .references(() => users.id, { onDelete: "set null" }), // Sales Rep
+    title: text("title").notNull(),
+    description: text("description"),
+    taskType: crmTaskTypeEnum("task_type").default("To-do").notNull(),
+    status: crmTaskStatusEnum("status").default("Pending").notNull(),
+    priority: crmTaskPriorityEnum("priority").default("Medium").notNull(),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
-  index("idx_crm_task_lead").on(t.leadId),
-  index("idx_crm_task_assignee_status").on(t.assignedTo, t.status),
-  index("idx_crm_task_due_status").on(t.dueDate, t.status),
+    index("idx_crm_task_lead").on(t.leadId),
+    index("idx_crm_task_assignee_status").on(t.assignedTo, t.status),
+    index("idx_crm_task_due_status").on(t.dueDate, t.status),
 ]);
 
 // --- RELATIONS ---
@@ -713,14 +743,26 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
     }),
     milestones: many(proposalMilestones),
     paymentScheduleItems: many(paymentScheduleItems),
+    messages: many(proposalMessages),
 }));
 
+export const proposalMessagesRelations = relations(proposalMessages, ({ one }) => ({
+    proposal: one(proposals, {
+        fields: [proposalMessages.proposalId],
+        references: [proposals.id],
+    }),
+    author: one(users, {
+        fields: [proposalMessages.authorId],
+        references: [users.id],
+    }),
+}));
 
-export const paymentScheduleItemsRelations = relations(paymentScheduleItems, ({ one }) => ({
+export const paymentScheduleItemsRelations = relations(paymentScheduleItems, ({ one, many }) => ({
     proposal: one(proposals, {
         fields: [paymentScheduleItems.proposalId],
         references: [proposals.id],
     }),
+    payments: many(payments),
 }));
 
 export const proposalMilestonesRelations = relations(proposalMilestones, ({ one }) => ({
@@ -840,6 +882,9 @@ export const milestones = pgTable("milestone", {
     projectId: text("projectId")
         .notNull()
         .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    name: milestoneNameEnum("name"),
+    startDate: timestamp("start_date", { withTimezone: true }),
+    endDate: timestamp("end_date", { withTimezone: true }),
     title: text("title").notNull(),
     status: milestoneStatusEnum("status").default("Pending").notNull(),
     order: integer("order").default(0).notNull(),
@@ -848,7 +893,8 @@ export const milestones = pgTable("milestone", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { mode: "date" }),
 }, (t) => [
-    index("idx_milestone_project").on(t.projectId)
+    index("idx_milestone_project").on(t.projectId),
+    uniqueIndex("idx_milestone_project_name").on(t.projectId, t.name).where(sql`"name" IS NOT NULL`),
 ]);
 
 export const tasks = pgTable("task", {
@@ -940,6 +986,37 @@ export const clientFeedback = pgTable("client_feedback", {
     }).onDelete("cascade")
 }));
 
+// 15. Payments
+export const paymentStatusEnum = pgEnum("payment_status", [
+    "not_yet_due",
+    "due",
+    "proof_uploaded",
+    "paid",
+]);
+
+export const payments = pgTable("payment", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("project_id")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    scheduleItemId: text("schedule_item_id")
+        .references(() => paymentScheduleItems.id, { onDelete: "set null" }),
+    label: text("label").notNull(),
+    percent: integer("percent").notNull(),
+    amount: integer("amount").notNull(),
+    currency: currencyEnum("currency").notNull(),
+    status: paymentStatusEnum("status").default("not_yet_due").notNull(),
+    becameDueAt: timestamp("became_due_at", { withTimezone: true }),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index("idx_payment_project").on(t.projectId),
+    uniqueIndex("idx_payment_project_item").on(t.projectId, t.scheduleItemId).where(sql`"schedule_item_id" IS NOT NULL`),
+]);
+
 // PM Relations
 
 
@@ -982,6 +1059,18 @@ export const agencyProjectsRelations = relations(agencyProjects, ({ one, many })
     }),
     milestones: many(milestones),
     tasks: many(tasks),
+    payments: many(payments),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+    project: one(agencyProjects, {
+        fields: [payments.projectId],
+        references: [agencyProjects.id],
+    }),
+    scheduleItem: one(paymentScheduleItems, {
+        fields: [payments.scheduleItemId],
+        references: [paymentScheduleItems.id],
+    }),
 }));
 
 export const projectTeamMembersRelations = relations(projectTeamMembers, ({ one }) => ({

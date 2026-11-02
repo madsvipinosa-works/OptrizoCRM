@@ -1,12 +1,12 @@
 "use server";
 
 import { db } from "@/db";
-import { meetings, leads, leadActivityLogs, users } from "@/db/schema";
+import { meetings, leads, leadActivityLogs, proposals } from "@/db/schema";
 import { eq, desc, and, gte, lte, or, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
-import { createSystemNotification, notifyAllSales } from "@/features/notifications/send";
+import { createSystemNotification, notifyLeadPms } from "@/features/notifications/send";
 import { sendMeetingInviteEmail, sendMeetingReminderEmail } from "@/lib/notifications";
 import { advanceToDiscoveryIfNew } from "@/features/crm/actions";
 
@@ -131,6 +131,104 @@ export async function scheduleDiscoveryMeeting(data: {
     }
 }
 
+export async function scheduleBudgetPricingMeeting(data: {
+    proposalId: string;
+    format: "video" | "phone" | "in_person" | "on_site";
+    startsAt: string | Date;
+    agenda?: string;
+}) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Only managers can schedule budget & pricing meetings" };
+    }
+
+    const { session } = authz;
+    const meetingDate = new Date(data.startsAt);
+    if (isNaN(meetingDate.getTime())) {
+        return { success: false, message: "Invalid meeting date and time" };
+    }
+    if (meetingDate < new Date()) {
+        return { success: false, message: "Cannot schedule a meeting in the past" };
+    }
+
+    const proposal = await db.query.proposals.findFirst({
+        where: eq(proposals.id, data.proposalId),
+        with: { lead: true },
+    });
+
+    if (!proposal) {
+        return { success: false, message: "Proposal not found" };
+    }
+
+    if (proposal.status !== "pricing_meeting_requested") {
+        return { success: false, message: `Cannot schedule pricing meeting. Proposal is "${proposal.status}", must be "pricing_meeting_requested".` };
+    }
+
+    const defaultAttendees = ["Project Manager (required)", "Client (required)"];
+    const defaultAgenda = data.agenda || "Review proposed scope, deliverables, timeline, and discuss budget and pricing options.";
+
+    try {
+        const [meeting] = await db.insert(meetings).values({
+            leadId: proposal.leadId,
+            proposalId: proposal.id,
+            type: "budget_pricing",
+            format: data.format,
+            startsAt: meetingDate,
+            attendees: defaultAttendees,
+            agenda: defaultAgenda,
+            status: "awaiting_client",
+            createdBy: session.user.id,
+        }).returning();
+
+        if (proposal.leadId) {
+            await db.insert(leadActivityLogs).values({
+                leadId: proposal.leadId,
+                authorId: session.user.id,
+                activityType: "Meeting",
+                content: `Budget & pricing meeting scheduled for ${meetingDate.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                })}`,
+            });
+        }
+
+        if (proposal.lead?.clientId) {
+            await createSystemNotification(
+                proposal.lead.clientId,
+                `A budget & pricing meeting has been scheduled for ${meetingDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}. Please confirm or suggest a new time.`,
+                "meeting",
+                "/portal/appointments"
+            );
+        }
+
+        if (proposal.lead?.contactEmail) {
+            await sendMeetingInviteEmail({
+                clientName: proposal.lead.contactName || proposal.lead.businessName || "Client",
+                email: proposal.lead.contactEmail,
+                meetingType: "Budget & Pricing",
+                format: data.format === "video" ? "Video call" : data.format === "phone" ? "Phone call" : "In person",
+                startsAt: meetingDate,
+                agenda: defaultAgenda,
+            });
+        }
+
+        await logAction("CREATE", "Meeting", `Scheduled budget & pricing meeting ${meeting.id} for proposal ${proposal.id}`);
+
+        revalidatePath("/dashboard/meetings");
+        revalidatePath("/dashboard/proposals");
+        revalidatePath(`/dashboard/proposals/${proposal.id}`);
+        revalidatePath("/portal/appointments");
+
+        return { success: true, meetingId: meeting.id };
+    } catch (err) {
+        console.error("Failed to schedule budget & pricing meeting:", err);
+        return { success: false, message: "Failed to schedule meeting" };
+    }
+}
+
 export async function respondToMeeting(data: {
     meetingId: string;
     response: "confirm" | "suggest_time" | "decline";
@@ -233,7 +331,14 @@ export async function respondToMeeting(data: {
                 });
             }
 
-            if (meeting.createdBy) {
+            if (meeting.type === "budget_pricing" && meeting.leadId) {
+                await notifyLeadPms(
+                    meeting.leadId,
+                    `Client declined budget & pricing meeting for ${meeting.lead?.businessName || "lead"}: ${data.declineReason || "No reason given"}`,
+                    "meeting",
+                    meeting.proposalId ? `/dashboard/proposals/${meeting.proposalId}` : "/dashboard/meetings"
+                );
+            } else if (meeting.createdBy) {
                 await createSystemNotification(
                     meeting.createdBy,
                     `Client declined meeting invitation for ${meeting.lead?.businessName || "lead"}`,
@@ -280,6 +385,13 @@ export async function rescheduleMeeting(data: {
 
     if (!meeting) {
         return { success: false, message: "Meeting not found" };
+    }
+
+    if (meeting.type === "discovery" && authz.session.user.role !== "sales") {
+        return { success: false, message: "Only sales can manage discovery meetings" };
+    }
+    if (meeting.type === "budget_pricing" && authz.session.user.role !== "manager") {
+        return { success: false, message: "Only managers can manage budget & pricing meetings" };
     }
 
     try {
@@ -345,6 +457,13 @@ export async function cancelMeeting(data: {
         return { success: false, message: "Meeting not found" };
     }
 
+    if (meeting.type === "discovery" && authz.session.user.role !== "sales") {
+        return { success: false, message: "Only sales can manage discovery meetings" };
+    }
+    if (meeting.type === "budget_pricing" && authz.session.user.role !== "manager") {
+        return { success: false, message: "Only managers can manage budget & pricing meetings" };
+    }
+
     try {
         await db.update(meetings).set({
             status: "cancelled",
@@ -389,6 +508,13 @@ export async function markMeetingDone(data: {
         return { success: false, message: "Meeting not found" };
     }
 
+    if (meeting.type === "discovery" && authz.session.user.role !== "sales") {
+        return { success: false, message: "Only sales can manage discovery meetings" };
+    }
+    if (meeting.type === "budget_pricing" && authz.session.user.role !== "manager") {
+        return { success: false, message: "Only managers can manage budget & pricing meetings" };
+    }
+
     try {
         await db.update(meetings).set({
             status: "done",
@@ -402,7 +528,7 @@ export async function markMeetingDone(data: {
                 leadId: meeting.leadId,
                 authorId: authz.session.user.id,
                 activityType: "Meeting",
-                content: `Discovery meeting marked as done${data.notes ? ` · Outcome notes: ${data.notes}` : ""}`,
+                content: `${meeting.type === "budget_pricing" ? "Budget & pricing" : "Discovery"} meeting marked as done${data.notes ? ` · Outcome notes: ${data.notes}` : ""}`,
             });
         }
 
@@ -410,6 +536,10 @@ export async function markMeetingDone(data: {
 
         revalidatePath("/dashboard/meetings");
         revalidatePath("/dashboard/leads");
+        revalidatePath("/dashboard/proposals");
+        if (meeting.proposalId) {
+            revalidatePath(`/dashboard/proposals/${meeting.proposalId}`);
+        }
         revalidatePath("/portal/appointments");
         return { success: true };
     } catch (err) {
@@ -425,6 +555,21 @@ export async function updateMeetingNotes(data: {
     const authz = await requireRole(["sales", "manager"]);
     if (!authz.ok) {
         return { success: false, message: "Unauthorized" };
+    }
+
+    const meeting = await db.query.meetings.findFirst({
+        where: eq(meetings.id, data.meetingId),
+    });
+
+    if (!meeting) {
+        return { success: false, message: "Meeting not found" };
+    }
+
+    if (meeting.type === "discovery" && authz.session.user.role !== "sales") {
+        return { success: false, message: "Only sales can manage discovery meetings" };
+    }
+    if (meeting.type === "budget_pricing" && authz.session.user.role !== "manager") {
+        return { success: false, message: "Only managers can manage budget & pricing meetings" };
     }
 
     try {

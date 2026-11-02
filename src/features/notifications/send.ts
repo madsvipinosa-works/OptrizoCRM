@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/db";
-import { notifications, users, projectStakeholders, agencyProjects, leads } from "@/db/schema";
+import { notifications, users, projectStakeholders, agencyProjects, leads, leadAssignees } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 
 /*
@@ -123,6 +123,45 @@ export async function notifyLeadClient(
     }
 }
 
+/**
+ * Notifies the PM(s) responsible for a lead: assignedPmId if set, else all managers.
+ */
+export async function notifyLeadPms(
+    leadId: string,
+    message: string,
+    type: string,
+    link?: string
+) {
+    try {
+        const lead = await db.query.leads.findFirst({
+            where: eq(leads.id, leadId),
+            columns: { id: true, assignedPmId: true },
+        });
+
+        if (lead?.assignedPmId) {
+            await createSystemNotification(lead.assignedPmId, message, type, link);
+            return;
+        }
+
+        const managers = await db.query.users.findMany({
+            where: eq(users.role, "manager"),
+        });
+
+        if (managers.length === 0) return;
+
+        const payloads = managers.map(pm => ({
+            userId: pm.id,
+            message,
+            type,
+            link: link || null,
+        }));
+
+        await db.insert(notifications).values(payloads);
+    } catch (error) {
+        console.error("Failed to notify lead PMs:", error);
+    }
+}
+
 
 /**
  * Broadcasts a notification to all sales users
@@ -145,5 +184,31 @@ export async function notifyAllSales(message: string, type: string, link?: strin
         await db.insert(notifications).values(payloads);
     } catch (error) {
         console.error("Failed to notify sales:", error);
+    }
+}
+
+/**
+ * Notifies the lead's assigned sales rep(s), falling back to all sales users if unassigned.
+ */
+export async function notifyLeadSales(leadId: string, message: string, type: string, link?: string) {
+    try {
+        const assignees = await db.query.leadAssignees.findMany({
+            where: eq(leadAssignees.leadId, leadId),
+        });
+
+        if (assignees.length > 0) {
+            const payloads = assignees.map(a => ({
+                userId: a.userId,
+                message,
+                type,
+                link: link || null,
+            }));
+            await db.insert(notifications).values(payloads);
+            return;
+        }
+
+        await notifyAllSales(message, type, link);
+    } catch (error) {
+        console.error("Failed to notify lead sales:", error);
     }
 }

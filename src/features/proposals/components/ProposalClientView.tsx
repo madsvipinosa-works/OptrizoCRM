@@ -10,9 +10,13 @@ import {
     XCircle,
     Printer,
     CheckSquare,
+    Calendar,
+    AlertCircle,
 } from "lucide-react";
 import { rejectProposalByClient } from "@/features/proposals/actions";
+import { requestPricingMeeting } from "@/features/proposals/signing";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -31,11 +35,14 @@ import {
     PricingLineItem,
 } from "@/features/proposals/components/ProposalDocumentSheet";
 import { AcceptProposalDialog } from "@/features/proposals/components/AcceptProposalDialog";
+import { RequestChangesDialog } from "@/features/proposals/components/RequestChangesDialog";
+import { ProposalThread, type ProposalMessageItem } from "@/features/proposals/components/ProposalThread";
 
 interface Props {
     proposal: {
         id: string;
         proposalCode?: string | null;
+        version?: number;
         status: "draft" | "sent" | "pricing_meeting_requested" | "changes_requested" | "signed" | "declined" | "replaced";
         priceMode?: "to_be_discussed" | "priced" | null;
         currency?: "PHP" | "USD" | null;
@@ -89,6 +96,10 @@ interface Props {
     };
     isPreview?: boolean;
     canEditInStudio?: boolean;
+    isCurrent?: boolean;
+    isExpired?: boolean;
+    whatChanged?: string[];
+    messages?: ProposalMessageItem[];
     settings?: {
         logoUrl?: string | null;
         logoDarkUrl?: string | null;
@@ -103,6 +114,10 @@ export function ProposalClientView({
     parsedPricing,
     isPreview = false,
     canEditInStudio = false,
+    isCurrent = true,
+    isExpired = false,
+    whatChanged = [],
+    messages = [],
     settings,
 }: Props) {
     const router = useRouter();
@@ -111,11 +126,30 @@ export function ProposalClientView({
     const [rejectReason, setRejectReason] = useState("");
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+    const [isRequestChangesOpen, setIsRequestChangesOpen] = useState(false);
+    const [isRequestingPricing, setIsRequestingPricing] = useState(false);
 
     const isApproved = proposal.status === "signed";
     const isRejected = proposal.status === "declined";
 
     const grandTotal = proposal.total || parsedPricing.total || 0;
+
+    const handleRequestPricingMeeting = async () => {
+        setIsRequestingPricing(true);
+        try {
+            const res = await requestPricingMeeting(proposal.id);
+            if (res.success) {
+                toast.success("Pricing meeting requested. Your Project Manager has been notified.");
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to request pricing meeting");
+            }
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed to request pricing meeting");
+        } finally {
+            setIsRequestingPricing(false);
+        }
+    };
 
     const handleDownloadPdf = async () => {
         try {
@@ -250,6 +284,39 @@ export function ProposalClientView({
                 </div>
             )}
 
+            {/* Expired Banner */}
+            {isExpired && !isApproved && !isRejected && (
+                <div className="max-w-[850px] mx-auto bg-destructive/10 border border-destructive/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                        <h4 className="font-bold text-destructive text-sm">Proposal Expired</h4>
+                        <p className="text-muted-foreground">
+                            The validity period for this proposal has lapsed. Please reach out to your Project Manager for an updated proposal.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* What Changed Banner for Revised Versions */}
+            {whatChanged && whatChanged.length > 0 && (
+                <div className="max-w-[850px] mx-auto bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print space-y-2">
+                    <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>Updates in this Revised Version (v{proposal.version || 2})</span>
+                    </div>
+                    <p className="text-muted-foreground">
+                        The Project Manager revised this proposal based on discussions. The following sections were updated:
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                        {whatChanged.map((section) => (
+                            <Badge key={section} variant="secondary" className="bg-amber-500/20 text-foreground border-amber-500/30 font-medium">
+                                {section}
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Main Shared Document Sheet */}
             <ProposalDocumentSheet
                 data={documentData}
@@ -257,6 +324,17 @@ export function ProposalClientView({
                 agencyLogoUrl={settings?.logoUrl || null}
                 agencyFaviconUrl={settings?.faviconUrl || null}
             />
+
+            {/* Discussion & Negotiation Thread */}
+            {!isPreview && (
+                <div className="max-w-[850px] mx-auto bg-card border border-border rounded-2xl shadow-sm p-4 sm:p-6 no-print">
+                    <ProposalThread
+                        proposalId={proposal.id}
+                        messages={messages || []}
+                        userRole="client"
+                    />
+                </div>
+            )}
 
             {/* Status Callout (Approved / Rejected) */}
             {isApproved && (
@@ -367,16 +445,62 @@ export function ProposalClientView({
                             </Dialog>
                         )}
 
-                        {/* Accept & Sign Button */}
-                        {!isPreview ? (
+                        {/* Request Changes Trigger (Only for Client) */}
+                        {!isPreview && isCurrent !== false && !isExpired && (
                             <Button
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setIsAcceptDialogOpen(true)}
-                                className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
+                                onClick={() => setIsRequestChangesOpen(true)}
+                                className="h-9 px-3 text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
                             >
-                                <CheckSquare className="h-4 w-4" />
-                                Accept & Sign
+                                Request Changes
                             </Button>
+                        )}
+
+                        {/* Accept & Sign or Request Pricing Meeting Button */}
+                        {!isPreview ? (
+                            isExpired ? (
+                                <Badge
+                                    variant="outline"
+                                    className="h-9 px-3 text-xs bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-1.5 font-semibold"
+                                >
+                                    <AlertCircle className="h-3.5 w-3.5" />
+                                    Proposal Expired
+                                </Badge>
+                            ) : proposal.priceMode === "to_be_discussed" ? (
+                                proposal.status === "pricing_meeting_requested" ? (
+                                    <Badge
+                                        variant="outline"
+                                        className="h-9 px-3 text-xs bg-amber-500/10 text-amber-500 border-amber-500/20 flex items-center gap-1.5"
+                                    >
+                                        <Calendar className="h-3.5 w-3.5" />
+                                        Meeting Requested
+                                    </Badge>
+                                ) : (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleRequestPricingMeeting}
+                                        disabled={isRequestingPricing}
+                                        className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
+                                    >
+                                        {isRequestingPricing ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Calendar className="h-4 w-4" />
+                                        )}
+                                        Request Pricing Meeting
+                                    </Button>
+                                )
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    onClick={() => setIsAcceptDialogOpen(true)}
+                                    className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
+                                >
+                                    <CheckSquare className="h-4 w-4" />
+                                    Accept & Sign
+                                </Button>
+                            )
                         ) : canEditInStudio ? (
                             <Button
                                 size="sm"
@@ -399,6 +523,14 @@ export function ProposalClientView({
                 totalAmount={grandTotal}
                 defaultName={proposal.lead?.client?.name || ""}
                 contractSettings={proposal.contractSettings}
+            />
+
+            {/* Request Changes Dialog */}
+            <RequestChangesDialog
+                open={isRequestChangesOpen}
+                onOpenChange={setIsRequestChangesOpen}
+                proposalId={proposal.id}
+                onSuccess={() => router.refresh()}
             />
         </div>
     );

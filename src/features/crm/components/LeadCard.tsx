@@ -21,7 +21,6 @@ import {
     Archive,
     Loader2,
     CheckCircle2,
-    Rocket,
     Globe,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -37,12 +36,11 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { archiveLead, convertLeadToProject } from "@/features/crm/actions";
+import { archiveLead } from "@/features/crm/actions";
 import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 import { toast } from "sonner";
 import type { LeadItem } from "./LeadsDataTable";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getLeadSubStatus, getDaysInStage, formatDaysInStage } from "@/features/crm/utils/stageUtils";
 
@@ -65,9 +63,7 @@ export function LeadCard({
     onAssignStaff,
     onArchive,
 }: LeadCardProps) {
-    const router = useRouter();
     const [isArchiving, setIsArchiving] = useState(false);
-    const [isConverting, setIsConverting] = useState(false);
 
     const leadTitle = lead.businessName || lead.contactName || lead.client?.name || "Unnamed Opportunity";
         const priority = lead.priority || "Warm";
@@ -235,33 +231,6 @@ export function LeadCard({
                                 </DropdownMenuSub>
                             )}
 
-                            {lead.status === "Closed Won" && (
-                                <DropdownMenuItem
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setIsConverting(true);
-                                        try {
-                                            const res = await convertLeadToProject(lead.id);
-                                            if (res.success && res.projectId) {
-                                                toast.success(res.message || "Opening PM workspace");
-                                                router.push(`/dashboard/pm/${res.projectId}`);
-                                            } else {
-                                                toast.error(res.message || "Failed to open PM workspace");
-                                            }
-                                        } catch (err) {
-                                            toast.error("Failed to open PM project");
-                                        } finally {
-                                            setIsConverting(false);
-                                        }
-                                    }}
-                                    disabled={isConverting}
-                                    className="cursor-pointer gap-2 text-emerald-500 dark:text-emerald-400 focus:bg-emerald-500/10 focus:text-emerald-400 font-medium"
-                                >
-                                    <Rocket className="h-3.5 w-3.5" />
-                                    <span>{isConverting ? "Opening PM..." : "Delivery Project"}</span>
-                                </DropdownMenuItem>
-                            )}
-
                             <DropdownMenuSeparator className="bg-border" />
 
                             <DropdownMenuItem
@@ -406,31 +375,9 @@ export function LeadCard({
                     )}
 
                     {lead.status === "Closed Won" && (
-                        <button
-                            type="button"
-                            onClick={async (e) => {
-                                e.stopPropagation();
-                                setIsConverting(true);
-                                try {
-                                    const res = await convertLeadToProject(lead.id);
-                                    if (res.success && res.projectId) {
-                                        toast.success(res.message || "Opening PM workspace");
-                                        router.push(`/dashboard/pm/${res.projectId}`);
-                                    } else {
-                                        toast.error(res.message || "Failed to open project");
-                                    }
-                                } catch (err) {
-                                    toast.error("Failed to open project");
-                                } finally {
-                                    setIsConverting(false);
-                                }
-                            }}
-                            disabled={isConverting}
-                            className="p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400 transition-colors shrink-0"
-                            title="Open PM Project Delivery Workspace"
-                        >
-                            <Rocket className="h-3.5 w-3.5" />
-                        </button>
+                        <span className="text-[10px] font-medium text-emerald-500/80 dark:text-emerald-400/80 shrink-0" title="Project provisioned">
+                            Project created
+                        </span>
                     )}
                 </div>
             </div>

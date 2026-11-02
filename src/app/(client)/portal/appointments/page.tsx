@@ -181,6 +181,8 @@ export default function ClientAppointmentsPage() {
                             <div className="font-bold text-foreground">
                                 {pendingInvite.type === "discovery"
                                     ? "Discovery meeting"
+                                    : pendingInvite.type === "budget_pricing"
+                                    ? "Budget & Pricing meeting"
                                     : `${pendingInvite.type.replace("_", " ")} meeting`}
                             </div>
                             <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
@@ -195,7 +197,11 @@ export default function ClientAppointmentsPage() {
                                     {pendingInvite.format === "video" ? "Video call" : pendingInvite.format}
                                 </span>
                                 <span>•</span>
-                                <span>with your Sales Consultant</span>
+                                <span>
+                                    {pendingInvite.type === "budget_pricing"
+                                        ? "with your Project Manager"
+                                        : "with your Sales Consultant"}
+                                </span>
                             </div>
                         </div>
 
