@@ -1123,6 +1123,10 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
         fields: [payments.scheduleItemId],
         references: [paymentScheduleItems.id],
     }),
+    confirmedByUser: one(users, {
+        fields: [payments.confirmedBy],
+        references: [users.id],
+    }),
 }));
 
 export const projectTeamMembersRelations = relations(projectTeamMembers, ({ one }) => ({
