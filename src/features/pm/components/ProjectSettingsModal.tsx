@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Settings,
     Archive,
@@ -29,8 +29,6 @@ import {
     Loader2,
     Sparkles,
     Clock,
-    FileText,
-    DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateProjectDetails, archiveProject, unarchiveProject, getClientUsers } from "@/features/pm/actions";
@@ -302,9 +300,6 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                             </SelectItem>
                                             <SelectItem value="In Review" className="text-xs">
                                                 🟡 In Review (Client QA & Quality Gate Inspection)
-                                            </SelectItem>
-                                            <SelectItem value="Completed" className="text-xs">
-                                                🏆 Completed (Final Sign-off & Production Delivery)
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>

@@ -82,8 +82,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     return null;
                 }
                 
-                if (!user.isActive) {
+                if (!user.isActive || user.status === "deactivated") {
                     throw new Error("Account deactivated. Please contact an administrator.");
+                }
+
+                if (user.status === "invited") {
+                    throw new Error("Please verify your email address before signing in.");
+                }
+
+                if (user.status === "locked") {
+                    throw new Error("Account is locked. Please reset your password or contact support.");
                 }
 
                 const isValid = await bcrypt.compare(password, user.password);
