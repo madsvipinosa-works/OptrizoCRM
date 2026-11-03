@@ -44,11 +44,6 @@ export default async function KanbanBoardPage(props: {
             stakeholders: { with: { user: true } },
             milestones: {
                 orderBy: (m, { asc }) => [asc(m.order)],
-                with: {
-                    feedback: {
-                        orderBy: (f, { desc }) => [desc(f.createdAt)],
-                    },
-                },
             },
             tasks: {
                 where: (tasks, { isNull }) => isNull(tasks.deletedAt),

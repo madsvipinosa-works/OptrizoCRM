@@ -17,6 +17,8 @@ import type { AdapterAccount } from "next-auth/adapters";
 
 // 1. Enums (Single Source of Truth)
 export const roleEnum = pgEnum("role", ["superadmin", "sales", "manager", "developer", "content_editor", "client"]);
+export const paymentMethodEnum = pgEnum("payment_method", ["bank_transfer", "gcash", "cheque", "cash"]);
+export const accountStatusEnum = pgEnum("account_status", ["invited", "active", "locked", "deactivated"]);
 
 // 2. Users Table (Extended for RBAC)
 export const users = pgTable("user", {
@@ -29,6 +31,7 @@ export const users = pgTable("user", {
     password: text("password"),
     image: text("image"),
     role: roleEnum("role").default("client").notNull(),
+    status: accountStatusEnum("status").default("active").notNull(),
     jobTitle: text("job_title"),
     companyName: text("company_name"),
     industry: text("industry"),
@@ -724,7 +727,8 @@ export const usersRelations = relations(users, ({ many }) => ({
     taskAssignments: many(taskAssignees),
     crmTaskAssignments: many(crmTasks),
     notifications: many(notifications),
-    clientFeedback: many(clientFeedback),
+    documents: many(document, { relationName: "documentUploader" }),
+    projectFeedback: many(projectFeedback),
     auditLogs: many(auditLogs),
     inquiries: many(inquiries),
 }));
@@ -840,6 +844,11 @@ export const agencyProjects = pgTable("agency_project", {
     targetDate: timestamp("target_date", { mode: "date" }),
     stagingUrls: text("staging_urls").array(), // For Figma/Live links
     documents: jsonb("documents").$type<ProjectDocumentItem[]>(), // For PDFs, Docs, Figma, Sheets
+    signedOffBy: text("signed_off_by").references(() => users.id, { onDelete: "set null" }),
+    signedOffAt: timestamp("signed_off_at", { withTimezone: true }),
+    signOffFileUrl: text("sign_off_file_url"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    warrantyEndsAt: timestamp("warranty_ends_at", { withTimezone: true }),
     isArchived: boolean("is_archived").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -962,9 +971,43 @@ export const taskSubmissions = pgTable("task_submission", {
     idxTaskSubmissionTaskCreated: index("idx_task_submission_task_created").on(t.taskId, t.createdAt),
 }));
 
-// 14. Client Feedback
-export const feedbackStatusEnum = pgEnum("feedback_status", ["APPROVED", "REVISION_REQUESTED"]);
+// 14. Documents (Handover Files)
+export const document = pgTable("document", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("project_id")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    fileUrl: text("file_url").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSize: integer("file_size"),
+    uploadedBy: text("uploaded_by")
+        .references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
+// 14b. Project Feedback
+export const projectFeedback = pgTable("project_feedback", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("project_id")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+        .references(() => users.id, { onDelete: "set null" }),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex("idx_project_feedback_one").on(t.projectId, t.clientId),
+    check("project_feedback_rating_range", sql`"rating" >= 1 AND "rating" <= 5`),
+]);
+
+/** @deprecated Legacy client feedback retained solely for scripts/seed-demo-accounts.ts */
+export const feedbackStatusEnum = pgEnum("feedback_status", ["APPROVED", "REVISION_REQUESTED"]);
 export const clientFeedback = pgTable("client_feedback", {
     id: text("id")
         .primaryKey()
@@ -980,13 +1023,7 @@ export const clientFeedback = pgTable("client_feedback", {
     attachmentName: text("attachment_name"),
     parentFeedbackId: text("parentFeedbackId"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (t) => ({
-    parentFeedbackFk: foreignKey({
-        columns: [t.parentFeedbackId],
-        foreignColumns: [t.id],
-        name: "parent_feedback_fk"
-    }).onDelete("cascade")
-}));
+});
 
 // 15. Payments
 export const paymentStatusEnum = pgEnum("payment_status", [
@@ -1011,12 +1048,23 @@ export const payments = pgTable("payment", {
     currency: currencyEnum("currency").notNull(),
     status: paymentStatusEnum("status").default("not_yet_due").notNull(),
     becameDueAt: timestamp("became_due_at", { withTimezone: true }),
+    method: paymentMethodEnum("method"),
+    referenceNo: text("reference_no"),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    orNumber: text("or_number"),
+    proofFileUrl: text("proof_file_url"),
+    proofUploadedAt: timestamp("proof_uploaded_at", { withTimezone: true }),
+    proofRejectedReason: text("proof_rejected_reason"),
+    confirmedBy: text("confirmed_by").references(() => users.id, { onDelete: "set null" }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
     index("idx_payment_project").on(t.projectId),
     uniqueIndex("idx_payment_project_item").on(t.projectId, t.scheduleItemId).where(sql`"schedule_item_id" IS NOT NULL`),
+    uniqueIndex("idx_payment_or_number").on(t.orNumber).where(sql`"or_number" IS NOT NULL`),
+    check("payment_paid_fields_check", sql`"status" <> 'paid' OR ("method" IS NOT NULL AND "received_at" IS NOT NULL AND "or_number" IS NOT NULL AND ("method" = 'cash' OR "reference_no" IS NOT NULL))`),
 ]);
 
 // PM Relations
@@ -1062,6 +1110,8 @@ export const agencyProjectsRelations = relations(agencyProjects, ({ one, many })
     milestones: many(milestones),
     tasks: many(tasks),
     payments: many(payments),
+    documents: many(document),
+    feedback: many(projectFeedback),
 }));
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
@@ -1105,24 +1155,30 @@ export const milestonesRelations = relations(milestones, ({ one, many }) => ({
         references: [agencyProjects.id],
     }),
     tasks: many(tasks),
-    feedback: many(clientFeedback),
+
 }));
 
-export const clientFeedbackRelations = relations(clientFeedback, ({ one, many }) => ({
-    milestone: one(milestones, {
-        fields: [clientFeedback.milestoneId],
-        references: [milestones.id],
+export const documentRelations = relations(document, ({ one }) => ({
+    project: one(agencyProjects, {
+        fields: [document.projectId],
+        references: [agencyProjects.id],
+    }),
+    uploader: one(users, {
+        fields: [document.uploadedBy],
+        references: [users.id],
+        relationName: "documentUploader",
+    }),
+}));
+
+export const projectFeedbackRelations = relations(projectFeedback, ({ one }) => ({
+    project: one(agencyProjects, {
+        fields: [projectFeedback.projectId],
+        references: [agencyProjects.id],
     }),
     client: one(users, {
-        fields: [clientFeedback.clientId],
+        fields: [projectFeedback.clientId],
         references: [users.id],
     }),
-    parent: one(clientFeedback, {
-        fields: [clientFeedback.parentFeedbackId],
-        references: [clientFeedback.id],
-        relationName: "feedbackReplies",
-    }),
-    replies: many(clientFeedback, { relationName: "feedbackReplies" }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({

@@ -26,11 +26,6 @@ export default async function ClientPortalPage() {
                 with: {
                     milestones: {
                         orderBy: (milestones, { asc }) => [asc(milestones.order)],
-                        with: {
-                            feedback: {
-                                orderBy: (clientFeedback, { desc }) => [desc(clientFeedback.createdAt)]
-                            }
-                        }
                     },
                     tasks: {
                         where: (tasks, { isNull }) => isNull(tasks.deletedAt),
@@ -62,12 +57,6 @@ export default async function ClientPortalPage() {
             title: m.title,
             status: m.status,
             order: m.order,
-            feedback: m.feedback.map(f => ({
-                id: f.id,
-                status: f.status,
-                commentText: f.commentText,
-                createdAt: f.createdAt
-            }))
         })),
         tasks: project.tasks.map(t => ({
             id: t.id,
