@@ -52,7 +52,7 @@ export async function consumeVerificationToken(
 
     const record = deleted[0];
     if (new Date() > new Date(record.expires)) {
-        return { ok: false, error: "Verification link has expired. Please request a new one." };
+        return { ok: false, error: "Verification link has expired. Sign up again with the same email to get a new verification link." };
     }
 
     return { ok: true, email: record.identifier };

@@ -23,7 +23,7 @@ export default async function VerifyEmailPage({
                         Missing Verification Token
                     </h1>
                     <p className="text-sm text-muted-foreground">
-                        The verification link is invalid or incomplete. Please check the email you received or request a new activation link.
+                        The verification link is invalid or incomplete. Sign up again with the same email to get a new verification link.
                     </p>
                     <div className="pt-2">
                         <Button asChild className="w-full">
@@ -71,7 +71,7 @@ export default async function VerifyEmailPage({
                                 Verification Failed
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                {result.message || "This verification link is invalid or has already expired."}
+                                {result.message || "This verification link is invalid or has already expired. Sign up again with the same email to get a new verification link."}
                             </p>
                         </div>
                         <div className="pt-3 space-y-2">

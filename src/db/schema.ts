@@ -1006,25 +1006,6 @@ export const projectFeedback = pgTable("project_feedback", {
     check("project_feedback_rating_range", sql`"rating" >= 1 AND "rating" <= 5`),
 ]);
 
-/** @deprecated Legacy client feedback retained solely for scripts/seed-demo-accounts.ts */
-export const feedbackStatusEnum = pgEnum("feedback_status", ["APPROVED", "REVISION_REQUESTED"]);
-export const clientFeedback = pgTable("client_feedback", {
-    id: text("id")
-        .primaryKey()
-        .$defaultFn(() => crypto.randomUUID()),
-    milestoneId: text("milestoneId")
-        .notNull()
-        .references(() => milestones.id, { onDelete: "cascade" }),
-    clientId: text("clientId")
-        .references(() => users.id, { onDelete: "set null" }),
-    status: feedbackStatusEnum("status").notNull(),
-    commentText: text("comment_text"),
-    attachmentUrl: text("attachment_url"),
-    attachmentName: text("attachment_name"),
-    parentFeedbackId: text("parentFeedbackId"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 // 15. Payments
 export const paymentStatusEnum = pgEnum("payment_status", [
     "not_yet_due",

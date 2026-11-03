@@ -153,7 +153,7 @@ export async function signInWithEmail(prevState: unknown, formData: FormData): P
                 return { success: false, message: cause.message };
             }
             const customMessage = cause?.message;
-            if (customMessage === "Account deactivated. Please contact an administrator.") {
+            if (customMessage) {
                 return { success: false, message: customMessage };
             }
             switch (error.type) {
@@ -244,7 +244,7 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
                     console.error("Failed to resend verification email for existing invited user:", emailErr);
                     return {
                         success: true,
-                        message: "Account registered, but we could not send the verification email. You can use 'Resend verification' to try again.",
+                        message: "Account registered, but we could not send the verification email. Sign up again with the same email to get a new verification link.",
                     };
                 }
                 return {
@@ -292,7 +292,7 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
             console.error("Failed to send verification email for newly registered user:", emailErr);
             return {
                 success: true,
-                message: "Account registered, but we could not send the verification email. You can use 'Resend verification' to try again.",
+                message: "Account registered, but we could not send the verification email. Sign up again with the same email to get a new verification link.",
             };
         }
     } catch (error) {
@@ -515,8 +515,11 @@ export async function requestPasswordReset(prevState: unknown, formData: FormDat
 export async function resetPassword(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
     const token = formData.get("token") as string;
     const password = formData.get("password") as string;
+    const confirmPassword = (formData.get("confirmPassword") as string) || "";
 
     if (!token || !password) return { success: false, message: "Invalid request" };
+    if (!confirmPassword) return { success: false, message: "Please confirm your password." };
+    if (password !== confirmPassword) return { success: false, message: "Passwords do not match." };
     if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
     if (!/[A-Z]/.test(password)) return { success: false, message: "Password must contain at least one uppercase letter" };
     if (!/[^a-zA-Z]/.test(password)) return { success: false, message: "Password must contain at least one number or symbol" };
