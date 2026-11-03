@@ -22,6 +22,7 @@ export type RateLimitPolicy =
   | "loginIp"
   | "loginEmail"
   | "signupIp"
+  | "signupEmail"
   | "passwordResetRequestIp"
   | "passwordResetRequestEmail"
   | "passwordResetSubmitIp"
@@ -44,6 +45,7 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicy, PolicyConfig> = {
   loginEmail: { limit: 5, windowMs: 15 * MINUTE },
   // Account creation (bcrypt.hash + DB insert per request).
   signupIp: { limit: 5, windowMs: 60 * MINUTE },
+  signupEmail: { limit: 3, windowMs: 60 * MINUTE },
   // Password reset emails: protects inbox flooding and the email provider quota.
   passwordResetRequestIp: { limit: 5, windowMs: 15 * MINUTE },
   passwordResetRequestEmail: { limit: 3, windowMs: 15 * MINUTE },

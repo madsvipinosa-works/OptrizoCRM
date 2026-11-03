@@ -143,6 +143,17 @@ describe("addHandoverFile and recordSignOff", () => {
     expect(res.success).toBe(false);
     expect(res.error).toMatch(/unauthorized/i);
   });
+
+  it("recordSignOff rejects future sign-off date", async () => {
+    signInAs(auth, "manager", "pm-1");
+    const futureDate = new Date(Date.now() + 86400000 * 2);
+    const res = await recordSignOff("proj-1", {
+      signOffFileUrl: "/uploads/signoff.pdf",
+      signedOffAt: futureDate,
+    });
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/sign-off date cannot be in the future/i);
+  });
 });
 
 describe("completeProject", () => {
@@ -162,7 +173,7 @@ describe("submitProjectFeedback", () => {
     expect(res.error).toMatch(/unauthorized/i);
   });
 
-  it("rejects invalid rating values (< 1 or > 5)", async () => {
+  it("rejects invalid rating values (< 1 or > 5 or non-integer)", async () => {
     signInAs(auth, "client", "client-1");
     const resTooLow = await submitProjectFeedback("proj-1", { rating: 0 });
     expect(resTooLow.success).toBe(false);
@@ -171,6 +182,18 @@ describe("submitProjectFeedback", () => {
     const resTooHigh = await submitProjectFeedback("proj-1", { rating: 6 });
     expect(resTooHigh.success).toBe(false);
     expect(resTooHigh.error).toMatch(/rating must be an integer between 1 and 5/i);
+
+    const resDecimal = await submitProjectFeedback("proj-1", { rating: 4.5 });
+    expect(resDecimal.success).toBe(false);
+    expect(resDecimal.error).toMatch(/rating must be an integer between 1 and 5/i);
+  });
+
+  it("rejects feedback comment exceeding 2000 characters", async () => {
+    signInAs(auth, "client", "client-1");
+    const longComment = "a".repeat(2001);
+    const res = await submitProjectFeedback("proj-1", { rating: 5, comment: longComment });
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/comment cannot exceed 2000 characters/i);
   });
 });
 

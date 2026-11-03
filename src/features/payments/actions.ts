@@ -269,7 +269,7 @@ export async function confirmPayment(
         try {
             await notifyProjectClients(
                 projectId,
-                `Payment of ${paymentCurrency} ${(paymentAmount / 100).toLocaleString()} for "${paymentLabel}" has been confirmed (OR #${orNumber}).`,
+                `Payment of ${paymentCurrency} ${paymentAmount.toLocaleString()} for "${paymentLabel}" has been confirmed (OR #${orNumber}).`,
                 "payment",
                 `/portal/projects/${projectId}/payments`
             );
@@ -292,6 +292,14 @@ export async function confirmPayment(
 
         return { success: true, message: "Payment confirmed successfully." };
     } catch (error: unknown) {
+        const errObj = error as { code?: string; cause?: { code?: string } } | null;
+        const isUniqueViolation = errObj?.code === "23505" || errObj?.cause?.code === "23505";
+        if (isUniqueViolation) {
+            return {
+                success: false,
+                error: `OR number "${orNumber}" is already in use by another payment.`,
+            };
+        }
         console.error("confirmPayment error:", error);
         return {
             success: false,

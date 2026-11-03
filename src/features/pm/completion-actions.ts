@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { agencyProjects, document, milestones, payments } from "@/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth, hasRole } from "@/auth";
 import { validateFileUrlForProject } from "@/lib/authz";
@@ -110,6 +110,10 @@ export async function recordSignOff(
 
     if (isNaN(signedOffDate.getTime())) {
         return { success: false, error: "Invalid sign-off date." };
+    }
+
+    if (signedOffDate > new Date()) {
+        return { success: false, error: "Sign-off date cannot be in the future." };
     }
 
     try {
@@ -271,21 +275,22 @@ export async function completeProject(
                 };
             }
 
-            // 5. Compute timestamps and execute completion
-            const completionNow = new Date();
-            const warrantyEnd = new Date(completionNow.getTime());
-            warrantyEnd.setMonth(warrantyEnd.getMonth() + 3); // 3 months warranty
-            finalWarrantyEnd = warrantyEnd;
-
-            await tx
+            // 5. Execute completion with SQL computed timestamps
+            const updatedRows = await tx
                 .update(agencyProjects)
                 .set({
                     status: "Completed",
-                    completedAt: completionNow,
-                    warrantyEndsAt: warrantyEnd,
-                    updatedAt: completionNow,
+                    completedAt: sql`now()`,
+                    warrantyEndsAt: sql`now() + interval '3 months'`,
+                    updatedAt: sql`now()`,
                 })
-                .where(eq(agencyProjects.id, projectId));
+                .where(eq(agencyProjects.id, projectId))
+                .returning({
+                    completedAt: agencyProjects.completedAt,
+                    warrantyEndsAt: agencyProjects.warrantyEndsAt,
+                });
+
+            finalWarrantyEnd = updatedRows[0]?.warrantyEndsAt ?? null;
 
             return { success: true };
         });

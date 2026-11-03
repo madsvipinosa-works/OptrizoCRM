@@ -29,11 +29,15 @@ export async function submitProjectFeedback(
         return { success: false, error: "Project ID and feedback data are required." };
     }
 
-    const rating = Math.floor(data.rating);
-    if (isNaN(rating) || rating < 1 || rating > 5) {
+    if (typeof data?.rating !== "number" || !Number.isInteger(data.rating) || data.rating < 1 || data.rating > 5) {
         return { success: false, error: "Rating must be an integer between 1 and 5." };
     }
 
+    if (data.comment && data.comment.length > 2000) {
+        return { success: false, error: "Comment cannot exceed 2000 characters." };
+    }
+
+    const rating = data.rating;
     const comment = data.comment ? data.comment.trim() : null;
 
     try {
@@ -131,6 +135,14 @@ export async function submitProjectFeedback(
 
         return { success: true, message: "Thank you for your feedback!" };
     } catch (error: unknown) {
+        const errObj = error as { code?: string; cause?: { code?: string } } | null;
+        const isUniqueViolation = errObj?.code === "23505" || errObj?.cause?.code === "23505";
+        if (isUniqueViolation) {
+            return {
+                success: false,
+                error: "You have already submitted feedback for this project.",
+            };
+        }
         console.error("submitProjectFeedback error:", error);
         return {
             success: false,

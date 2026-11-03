@@ -198,7 +198,9 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
         fieldErrors.password = "Password must contain at least one number or symbol.";
     }
 
-    if (confirmPassword && password !== confirmPassword) {
+    if (!confirmPassword) {
+        fieldErrors.confirmPassword = "Please confirm your password.";
+    } else if (password !== confirmPassword) {
         fieldErrors.confirmPassword = "Passwords do not match.";
     }
 
@@ -218,10 +220,39 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
             return tooManyAttempts(limit.retryAfterSeconds);
         }
     }
+    const emailLimit = await checkRateLimit("signupEmail", email);
+    if (!emailLimit.success) {
+        console.warn(`[Security] Signup rate limit hit: email=${email}`);
+        return tooManyAttempts(emailLimit.retryAfterSeconds);
+    }
 
     try {
         const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
         if (existing) {
+            if (existing.status === "invited") {
+                // If account exists with 'invited' status, create fresh token and resend with generic success message
+                try {
+                    const token = await createVerificationToken(email);
+                    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+                    const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
+                    await sendEmailVerificationEmail({
+                        email,
+                        name: existing.name || name || "Client",
+                        verifyUrl,
+                    });
+                } catch (emailErr) {
+                    console.error("Failed to resend verification email for existing invited user:", emailErr);
+                    return {
+                        success: true,
+                        message: "Account registered, but we could not send the verification email. You can use 'Resend verification' to try again.",
+                    };
+                }
+                return {
+                    success: true,
+                    message: "Verification email sent. Please check your inbox to activate your account.",
+                };
+            }
+
             return {
                 success: false,
                 message: "Email is already in use.",
@@ -241,21 +272,29 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
 
         await logAction("CREATE", "User", `New client account registered (awaiting verification): ${email}`);
 
-        // Create verification token and dispatch activation email
-        const token = await createVerificationToken(email);
-        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-        const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
+        // Create verification token and dispatch activation email in try/catch
+        try {
+            const token = await createVerificationToken(email);
+            const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+            const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
-        await sendEmailVerificationEmail({
-            email,
-            name: name || "Client",
-            verifyUrl,
-        });
+            await sendEmailVerificationEmail({
+                email,
+                name: name || "Client",
+                verifyUrl,
+            });
 
-        return {
-            success: true,
-            message: "Verification email sent. Please check your inbox to activate your account.",
-        };
+            return {
+                success: true,
+                message: "Verification email sent. Please check your inbox to activate your account.",
+            };
+        } catch (emailErr) {
+            console.error("Failed to send verification email for newly registered user:", emailErr);
+            return {
+                success: true,
+                message: "Account registered, but we could not send the verification email. You can use 'Resend verification' to try again.",
+            };
+        }
     } catch (error) {
         console.error("Signup error:", error);
         return { success: false, message: "Server error during registration" };
@@ -264,40 +303,82 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
 
 /**
  * Validates a single-use verification token and activates the account.
- * Links pre-existing leads and projects by email.
+ * Single transaction consumes token, activates invited user, and links leads/projects.
+ * Rate-limited by IP.
  */
 export async function verifyEmail(token: string): Promise<AuthActionResult> {
     if (!token || typeof token !== "string") {
         return { success: false, message: "Invalid verification link." };
     }
 
-    try {
-        const consumeResult = await consumeVerificationToken(token);
-        if (!consumeResult.ok) {
-            return { success: false, message: consumeResult.error };
+    const ip = await getRequestIp();
+    if (ip) {
+        const ipLimit = await checkRateLimit("verifyResendIp", ip);
+        if (!ipLimit.success) {
+            return tooManyAttempts(ipLimit.retryAfterSeconds);
         }
+    }
 
-        const email = consumeResult.email;
-        const user = await db.query.users.findFirst({
-            where: eq(users.email, email),
+    try {
+        const result = await db.transaction(async (tx) => {
+            const consumeResult = await consumeVerificationToken(token, tx);
+            if (!consumeResult.ok) {
+                return { success: false, message: consumeResult.error };
+            }
+
+            const email = consumeResult.email;
+            const user = await tx.query.users.findFirst({
+                where: eq(users.email, email),
+            });
+
+            if (!user) {
+                return { success: false, message: "Account not found." };
+            }
+
+            // Only set active when status = 'invited' (never reactivate deactivated or locked)
+            if (user.status !== "invited") {
+                if (user.status === "active") {
+                    return {
+                        success: true,
+                        message: "Your account is already active. You may sign in.",
+                        redirect: "/login",
+                    };
+                }
+                return {
+                    success: false,
+                    message: "Account is not eligible for verification. Please contact support.",
+                };
+            }
+
+            await tx
+                .update(users)
+                .set({
+                    status: "active",
+                    emailVerified: new Date(),
+                })
+                .where(eq(users.id, user.id));
+
+            // Link existing leads and projects
+            await linkLeadsByEmail(user.id, email, tx);
+
+            return {
+                success: true,
+                userId: user.id,
+                email,
+            };
         });
 
-        if (!user) {
-            return { success: false, message: "Account not found." };
+        if (!result.success) {
+            return { success: false, message: result.message };
         }
 
-        await db
-            .update(users)
-            .set({
-                status: "active",
-                emailVerified: new Date(),
-            })
-            .where(eq(users.id, user.id));
-
-        // Link existing leads and projects
-        await linkLeadsByEmail(user.id, email);
-
-        await logAction("UPDATE", "User", `Email verified for account: ${email}`, user.id);
+        if (result.userId && result.email) {
+            try {
+                await logAction("UPDATE", "User", `Email verified for account: ${result.email}`, result.userId);
+            } catch (logErr) {
+                console.error("Audit log error in verifyEmail:", logErr);
+            }
+        }
 
         return {
             success: true,

@@ -282,7 +282,7 @@ export async function executeProposalSignature(
                 if (onSigningPayment) {
                     await notifyProjectClients(
                         provisionedProjectId,
-                        `Payment of ${onSigningPayment.currency} ${(onSigningPayment.amount / 100).toLocaleString()} is now due upon contract signing.`,
+                        `Payment of ${onSigningPayment.currency} ${onSigningPayment.amount.toLocaleString()} is now due upon contract signing.`,
                         "payment",
                         `/portal/projects/${provisionedProjectId}/payments`
                     );
@@ -291,7 +291,7 @@ export async function executeProposalSignature(
                             clientEmail,
                             clientName: signerName.trim(),
                             projectTitle: lead.businessName || code || "Your Project",
-                            amount: (onSigningPayment.amount / 100).toLocaleString(),
+                            amount: onSigningPayment.amount.toLocaleString(),
                             currency: onSigningPayment.currency,
                             dueDate: onSigningPayment.dueDate,
                             paymentsUrl: `${process.env.NEXTAUTH_URL || ""}/portal/projects/${provisionedProjectId}/payments`,
