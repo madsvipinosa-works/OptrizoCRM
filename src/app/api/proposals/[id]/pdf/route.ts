@@ -66,11 +66,7 @@ export async function GET(
         const lead = proposal.lead;
 
         if (userRole === "client") {
-            const isOwner =
-                lead &&
-                (session.user.id === lead.clientId ||
-                 session.user.email === lead.client?.email ||
-                 session.user.email === lead.contactEmail);
+            const isOwner = lead && session.user.id === lead.clientId;
 
             if (!isOwner || proposal.status === "draft" || proposal.status === "replaced") {
                 return NextResponse.json({ error: "Forbidden: You do not own this proposal" }, { status: 403 });

@@ -179,6 +179,16 @@ export default async function KanbanBoardPage(props: {
                 {/* Hide resources sidebar and settings modal for developer */}
                 {isManager && (
                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/pm/${project.id}/payments`}>
+                                Payments
+                            </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/pm/${project.id}/complete`}>
+                                Completion
+                            </Link>
+                        </Button>
                         <ProjectResourcesSidebar project={project} />
                         <ProjectSettingsModal project={project} />
                     </div>
