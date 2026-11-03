@@ -69,11 +69,7 @@ export default async function ProposalPage({
         );
     }
 
-    const isOwner =
-        proposal.lead &&
-        (session.user.id === proposal.lead.clientId ||
-         session.user.email === proposal.lead.client?.email ||
-         session.user.email === proposal.lead.contactEmail);
+    const isOwner = proposal.lead && session.user.id === proposal.lead.clientId;
 
     if (!isOwner) {
         notFound();

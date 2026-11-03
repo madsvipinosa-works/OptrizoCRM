@@ -1,14 +1,14 @@
 import "server-only";
 
 import { db } from "@/db";
-import { proposals, leads } from "@/db/schema";
+import { proposals, leads, payments } from "@/db/schema";
 import { eq, and, gt, ne, sql } from "drizzle-orm";
-import { notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
+import { notifyLeadPms, notifyLeadSales, notifyProjectClients } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { moveLeadToClosedWon } from "@/features/crm/stage-rules";
 import { provisionProjectFromProposal } from "@/features/crm/provisionLeadProject";
 import { isProposalExpired } from "@/features/proposals/utils/expiry";
-import { sendSignedProposalEmail } from "@/lib/notifications";
+import { sendSignedProposalEmail, sendPaymentDueEmail } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 
 export interface ProposalSignatureParams {
@@ -272,6 +272,32 @@ export async function executeProposalSignature(
                     proposalCode: code,
                     pdfUrl: `${process.env.NEXTAUTH_URL || ""}/api/proposals/${proposalId}/pdf`,
                 });
+            }
+
+            // On-signing payment notification & email
+            if (provisionedProjectId) {
+                const onSigningPayment = await db.query.payments.findFirst({
+                    where: and(eq(payments.projectId, provisionedProjectId), eq(payments.status, "due")),
+                });
+                if (onSigningPayment) {
+                    await notifyProjectClients(
+                        provisionedProjectId,
+                        `Payment of ${onSigningPayment.currency} ${onSigningPayment.amount.toLocaleString()} is now due upon contract signing.`,
+                        "payment",
+                        `/portal/projects/${provisionedProjectId}/payments`
+                    );
+                    if (clientEmail) {
+                        await sendPaymentDueEmail({
+                            clientEmail,
+                            clientName: signerName.trim(),
+                            projectTitle: lead.businessName || code || "Your Project",
+                            amount: onSigningPayment.amount.toLocaleString(),
+                            currency: onSigningPayment.currency,
+                            dueDate: onSigningPayment.dueDate,
+                            paymentsUrl: `${process.env.NEXTAUTH_URL || ""}/portal/projects/${provisionedProjectId}/payments`,
+                        });
+                    }
+                }
             }
 
             await logAction(

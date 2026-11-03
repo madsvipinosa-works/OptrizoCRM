@@ -1,14 +1,15 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks, projectStakeholders, projectTeamMembers, taskAssignees, users, type ProjectDocumentItem } from "@/db/schema";
+import { agencyProjects, milestones, tasks, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
-import { eq, and, isNull, ne } from "drizzle-orm";
+import { eq, and, isNull, ne, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createSystemNotification } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { authorizeProject, requireRole, requireRoles } from "@/lib/authz";
 import { closeMilestoneAndAdvance } from "@/features/pm/milestone-flow";
+import { sendPaymentDueEmail } from "@/lib/notifications";
 import { z } from "zod";
 
 export type ActionState = {
@@ -36,7 +37,24 @@ export async function updateProjectDetails(
         return { success: false, message: "Unauthorized: Admins & Managers only." };
     }
 
+    if (data.status === "Completed") {
+        return { success: false, message: "Projects can only be marked Completed via the project completion flow." };
+    }
+
     try {
+        const currentProject = await db.query.agencyProjects.findFirst({
+            where: eq(agencyProjects.id, projectId),
+            columns: { status: true },
+        });
+
+        if (!currentProject) {
+            return { success: false, message: "Project not found." };
+        }
+
+        if (currentProject.status === "Completed") {
+            return { success: false, message: "Completed projects cannot be modified." };
+        }
+
         await db.transaction(async (tx) => {
             // 1. Update agency project core fields
             const updatePayload: Record<string, unknown> = {
@@ -114,8 +132,19 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
         return { success: false, message: "Unauthorized" };
     }
 
+    if (status === "Completed") {
+        return { success: false, message: "Projects can only be marked Completed via the project completion flow." };
+    }
+
     try {
         const oldProject = await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.id, projectId) });
+        if (!oldProject) {
+            return { success: false, message: "Project not found" };
+        }
+
+        if (oldProject.status === "Completed") {
+            return { success: false, message: "Completed projects cannot be reopened." };
+        }
 
         await db.update(agencyProjects)
             .set({ status, updatedAt: new Date() })
@@ -924,8 +953,42 @@ export async function approveTask(
                     task.projectId,
                     `Payment is now due for completed milestone "${closeResult.closedMilestone.title}".`,
                     "milestone",
-                    "/portal"
+                    `/portal/projects/${task.projectId}/payments`
                 );
+
+                const duePayments = await db.query.payments.findMany({
+                    where: inArray(payments.id, closeResult.duePaymentIds),
+                    with: {
+                        project: {
+                            with: {
+                                lead: {
+                                    with: { client: true },
+                                },
+                                stakeholders: {
+                                    with: { user: true },
+                                },
+                            },
+                        },
+                    },
+                });
+
+                for (const dp of duePayments) {
+                    const clientUser =
+                        dp.project?.lead?.client ||
+                        dp.project?.stakeholders?.find((s) => s.user?.role === "client")?.user;
+                    const clientEmail = clientUser?.email || dp.project?.lead?.contactEmail;
+                    if (clientEmail) {
+                        await sendPaymentDueEmail({
+                            clientEmail,
+                            clientName: clientUser?.name || dp.project?.lead?.contactName || "Client",
+                            projectTitle: dp.project?.title || "Your Project",
+                            amount: dp.amount.toLocaleString(),
+                            currency: dp.currency,
+                            dueDate: dp.dueDate,
+                            paymentsUrl: `${process.env.NEXTAUTH_URL || ""}/portal/projects/${dp.projectId}/payments`,
+                        });
+                    }
+                }
             }
 
             await logAction("UPDATE", "Task", `Approved task "${task?.title}" (${taskId}) to Done`);
@@ -1122,8 +1185,42 @@ export async function markEmptyMilestoneDone(input: {
                     milestone.projectId,
                     `Payment is now due for milestone "${milestone.title}".`,
                     "milestone",
-                    "/portal"
+                    `/portal/projects/${milestone.projectId}/payments`
                 );
+
+                const duePayments = await db.query.payments.findMany({
+                    where: inArray(payments.id, closeResult.duePaymentIds),
+                    with: {
+                        project: {
+                            with: {
+                                lead: {
+                                    with: { client: true },
+                                },
+                                stakeholders: {
+                                    with: { user: true },
+                                },
+                            },
+                        },
+                    },
+                });
+
+                for (const dp of duePayments) {
+                    const clientUser =
+                        dp.project?.lead?.client ||
+                        dp.project?.stakeholders?.find((s) => s.user?.role === "client")?.user;
+                    const clientEmail = clientUser?.email || dp.project?.lead?.contactEmail;
+                    if (clientEmail) {
+                        await sendPaymentDueEmail({
+                            clientEmail,
+                            clientName: clientUser?.name || dp.project?.lead?.contactName || "Client",
+                            projectTitle: dp.project?.title || "Your Project",
+                            amount: dp.amount.toLocaleString(),
+                            currency: dp.currency,
+                            dueDate: dp.dueDate,
+                            paymentsUrl: `${process.env.NEXTAUTH_URL || ""}/portal/projects/${dp.projectId}/payments`,
+                        });
+                    }
+                }
             }
 
             await logAction(

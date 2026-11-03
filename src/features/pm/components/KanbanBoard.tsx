@@ -37,7 +37,6 @@ interface KanbanMilestone {
     title: string;
     status: "Pending" | "In Progress" | "Completed";
     doneReason?: string | null;
-    feedback?: { id: string; status: "APPROVED" | "REVISION_REQUESTED"; commentText: string | null; createdAt: Date }[];
 }
 
 interface KanbanProject {

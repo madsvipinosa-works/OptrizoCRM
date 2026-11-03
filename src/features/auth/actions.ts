@@ -8,7 +8,8 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { logAction } from "@/features/audit/log"; // Optional audit
 import crypto from "crypto";
-import { sendPasswordResetEmail } from "@/lib/notifications";
+import { sendPasswordResetEmail, sendEmailVerificationEmail } from "@/lib/notifications";
+import { createVerificationToken, consumeVerificationToken, linkLeadsByEmail } from "@/features/auth/verification";
 import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
@@ -32,6 +33,7 @@ export type AuthActionResult = {
     success: boolean;
     message?: string;
     redirect?: string;
+    fieldErrors?: Record<string, string>;
 };
 
 export async function updateAccountName(nameValue: string): Promise<AuthActionResult> {
@@ -151,7 +153,7 @@ export async function signInWithEmail(prevState: unknown, formData: FormData): P
                 return { success: false, message: cause.message };
             }
             const customMessage = cause?.message;
-            if (customMessage === "Account deactivated. Please contact an administrator.") {
+            if (customMessage) {
                 return { success: false, message: customMessage };
             }
             switch (error.type) {
@@ -167,16 +169,48 @@ export async function signInWithEmail(prevState: unknown, formData: FormData): P
 }
 
 export async function signUpWithEmail(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const name = formData.get("name") as string;
-    const callbackUrl = (formData.get("callbackUrl") as string) || "/portal";
-    const targetRedirect = callbackUrl.startsWith("/") && callbackUrl !== "/dashboard" ? callbackUrl : "/portal";
+    const rawEmail = (formData.get("email") as string) || "";
+    const rawPassword = (formData.get("password") as string) || "";
+    const rawName = (formData.get("name") as string) || "";
+    const rawConfirm = (formData.get("confirmPassword") as string) || "";
 
-    if (!email || !password) return { success: false, message: "Email and password are required" };
-    if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
-    if (!/[A-Z]/.test(password)) return { success: false, message: "Password must contain at least one uppercase letter" };
-    if (!/[^a-zA-Z]/.test(password)) return { success: false, message: "Password must contain at least one number or symbol" };
+    const name = rawName.trim();
+    const email = rawEmail.trim().toLowerCase();
+    const password = rawPassword;
+    const confirmPassword = rawConfirm;
+
+    const fieldErrors: Record<string, string> = {};
+
+    if (!name || name.length < 2 || name.length > 80) {
+        fieldErrors.name = "Name must be between 2 and 80 characters.";
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+        fieldErrors.email = "Please enter a valid email address.";
+    }
+
+    if (!password || password.length < 8) {
+        fieldErrors.password = "Password must be at least 8 characters long.";
+    } else if (!/[A-Z]/.test(password)) {
+        fieldErrors.password = "Password must contain at least one uppercase letter.";
+    } else if (!/[^a-zA-Z]/.test(password)) {
+        fieldErrors.password = "Password must contain at least one number or symbol.";
+    }
+
+    if (!confirmPassword) {
+        fieldErrors.confirmPassword = "Please confirm your password.";
+    } else if (password !== confirmPassword) {
+        fieldErrors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+        return {
+            success: false,
+            message: "Please correct the errors below.",
+            fieldErrors,
+        };
+    }
 
     const ip = await getRequestIp();
     if (ip) {
@@ -186,10 +220,45 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
             return tooManyAttempts(limit.retryAfterSeconds);
         }
     }
+    const emailLimit = await checkRateLimit("signupEmail", email);
+    if (!emailLimit.success) {
+        console.warn(`[Security] Signup rate limit hit: email=${email}`);
+        return tooManyAttempts(emailLimit.retryAfterSeconds);
+    }
 
     try {
         const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
-        if (existing) return { success: false, message: "Email is already in use" };
+        if (existing) {
+            if (existing.status === "invited") {
+                // If account exists with 'invited' status, create fresh token and resend with generic success message
+                try {
+                    const token = await createVerificationToken(email);
+                    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+                    const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
+                    await sendEmailVerificationEmail({
+                        email,
+                        name: existing.name || name || "Client",
+                        verifyUrl,
+                    });
+                } catch (emailErr) {
+                    console.error("Failed to resend verification email for existing invited user:", emailErr);
+                    return {
+                        success: true,
+                        message: "Account registered, but we could not send the verification email. Sign up again with the same email to get a new verification link.",
+                    };
+                }
+                return {
+                    success: true,
+                    message: "Verification email sent. Please check your inbox to activate your account.",
+                };
+            }
+
+            return {
+                success: false,
+                message: "Email is already in use.",
+                fieldErrors: { email: "Email is already in use." },
+            };
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -198,24 +267,194 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
             password: hashedPassword,
             name: name || null,
             role: "client",
+            status: "invited",
         });
 
-        await logAction("CREATE", "User", `New email account registered: ${email}`);
+        await logAction("CREATE", "User", `New client account registered (awaiting verification): ${email}`);
 
-        await signIn("credentials", {
-            email,
-            password,
-            redirect: false,
-        });
+        // Create verification token and dispatch activation email in try/catch
+        try {
+            const token = await createVerificationToken(email);
+            const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+            const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
-        return { success: true, redirect: targetRedirect };
-    } catch (error) {
-        if (error instanceof AuthError) {
-            return { success: false, message: "Failed to automatically sign in after registration" };
+            await sendEmailVerificationEmail({
+                email,
+                name: name || "Client",
+                verifyUrl,
+            });
+
+            return {
+                success: true,
+                message: "Verification email sent. Please check your inbox to activate your account.",
+            };
+        } catch (emailErr) {
+            console.error("Failed to send verification email for newly registered user:", emailErr);
+            return {
+                success: true,
+                message: "Account registered, but we could not send the verification email. Sign up again with the same email to get a new verification link.",
+            };
         }
-        if (error instanceof Error && error.message === "NEXT_REDIRECT") throw error;
+    } catch (error) {
         console.error("Signup error:", error);
         return { success: false, message: "Server error during registration" };
+    }
+}
+
+/**
+ * Validates a single-use verification token and activates the account.
+ * Single transaction consumes token, activates invited user, and links leads/projects.
+ * Rate-limited by IP.
+ */
+export async function verifyEmail(token: string): Promise<AuthActionResult> {
+    if (!token || typeof token !== "string") {
+        return { success: false, message: "Invalid verification link." };
+    }
+
+    const ip = await getRequestIp();
+    if (ip) {
+        const ipLimit = await checkRateLimit("verifyResendIp", ip);
+        if (!ipLimit.success) {
+            return tooManyAttempts(ipLimit.retryAfterSeconds);
+        }
+    }
+
+    try {
+        const result = await db.transaction(async (tx) => {
+            const consumeResult = await consumeVerificationToken(token, tx);
+            if (!consumeResult.ok) {
+                return { success: false, message: consumeResult.error };
+            }
+
+            const email = consumeResult.email;
+            const user = await tx.query.users.findFirst({
+                where: eq(users.email, email),
+            });
+
+            if (!user) {
+                return { success: false, message: "Account not found." };
+            }
+
+            // Only set active when status = 'invited' (never reactivate deactivated or locked)
+            if (user.status !== "invited") {
+                if (user.status === "active") {
+                    return {
+                        success: true,
+                        message: "Your account is already active. You may sign in.",
+                        redirect: "/login",
+                    };
+                }
+                return {
+                    success: false,
+                    message: "Account is not eligible for verification. Please contact support.",
+                };
+            }
+
+            await tx
+                .update(users)
+                .set({
+                    status: "active",
+                    emailVerified: new Date(),
+                })
+                .where(eq(users.id, user.id));
+
+            // Link existing leads and projects
+            await linkLeadsByEmail(user.id, email, tx);
+
+            return {
+                success: true,
+                userId: user.id,
+                email,
+            };
+        });
+
+        if (!result.success) {
+            return { success: false, message: result.message };
+        }
+
+        if (result.userId && result.email) {
+            try {
+                await logAction("UPDATE", "User", `Email verified for account: ${result.email}`, result.userId);
+            } catch (logErr) {
+                console.error("Audit log error in verifyEmail:", logErr);
+            }
+        }
+
+        return {
+            success: true,
+            message: "Your email has been verified. You may now sign in to your client portal.",
+            redirect: "/login?verified=true",
+        };
+    } catch (error) {
+        console.error("verifyEmail error:", error);
+        return { success: false, message: "Server error during email verification." };
+    }
+}
+
+/**
+ * Resends a verification email for an unverified ('invited') account.
+ * Rate-limited by IP and email.
+ */
+export async function resendVerificationEmail(email: string): Promise<AuthActionResult> {
+    if (!email || typeof email !== "string") {
+        return { success: false, message: "Email is required." };
+    }
+
+    const normalized = normalizeEmail(email);
+
+    const ip = await getRequestIp();
+    if (ip) {
+        const ipLimit = await checkRateLimit("verifyResendIp", ip);
+        if (!ipLimit.success) {
+            return tooManyAttempts(ipLimit.retryAfterSeconds);
+        }
+    }
+    const emailLimit = await checkRateLimit("verifyResendEmail", normalized);
+    if (!emailLimit.success) {
+        return tooManyAttempts(emailLimit.retryAfterSeconds);
+    }
+
+    try {
+        const user = await db.query.users.findFirst({
+            where: eq(users.email, normalized),
+        });
+
+        // Anti-enumeration: return generic success if user does not exist
+        if (!user) {
+            return {
+                success: true,
+                message: "If an account exists with this email, a verification link has been sent.",
+            };
+        }
+
+        if (user.status === "active") {
+            return {
+                success: false,
+                message: "This account is already verified. Please sign in.",
+            };
+        }
+
+        if (user.status === "invited") {
+            const token = await createVerificationToken(normalized);
+            const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+            const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
+
+            await sendEmailVerificationEmail({
+                email: normalized,
+                name: user.name || "Client",
+                verifyUrl,
+            });
+
+            await logAction("OTHER", "User", `Resent verification email for: ${normalized}`);
+        }
+
+        return {
+            success: true,
+            message: "If an account exists with this email, a verification link has been sent.",
+        };
+    } catch (error) {
+        console.error("resendVerificationEmail error:", error);
+        return { success: false, message: "Server error resending verification email." };
     }
 }
 
@@ -239,19 +478,23 @@ export async function requestPasswordReset(prevState: unknown, formData: FormDat
     }
 
     try {
-        const existingUser = await db.query.users.findFirst({ where: eq(users.email, email) });
+        const normalizedEmail = normalizeEmail(email);
+        const existingUser = await db.query.users.findFirst({ where: eq(users.email, normalizedEmail) });
 
         // We always return generic success message to prevent email enumeration attacks
         if (!existingUser) {
             return { success: true, message: "If that email exists, we sent a password reset link to it." };
         }
 
+        // Delete any existing password reset tokens for this email
+        await db.delete(passwordResetTokens).where(eq(passwordResetTokens.email, normalizedEmail));
+
         // Generate cryptographically secure token
         const token = crypto.randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour from now
 
         await db.insert(passwordResetTokens).values({
-            email,
+            email: normalizedEmail,
             token,
             expiresAt,
         });
@@ -259,8 +502,8 @@ export async function requestPasswordReset(prevState: unknown, formData: FormDat
         const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-        await sendPasswordResetEmail(email, resetUrl);
-        await logAction("OTHER", "User", `Requested password reset: ${email}`);
+        await sendPasswordResetEmail(normalizedEmail, resetUrl);
+        await logAction("OTHER", "User", `Requested password reset: ${normalizedEmail}`);
 
         return { success: true, message: "If that email exists, we sent a password reset link to it." };
     } catch (error) {
@@ -272,8 +515,11 @@ export async function requestPasswordReset(prevState: unknown, formData: FormDat
 export async function resetPassword(prevState: unknown, formData: FormData): Promise<AuthActionResult> {
     const token = formData.get("token") as string;
     const password = formData.get("password") as string;
+    const confirmPassword = (formData.get("confirmPassword") as string) || "";
 
     if (!token || !password) return { success: false, message: "Invalid request" };
+    if (!confirmPassword) return { success: false, message: "Please confirm your password." };
+    if (password !== confirmPassword) return { success: false, message: "Passwords do not match." };
     if (password.length < 8) return { success: false, message: "Password must be at least 8 characters long" };
     if (!/[A-Z]/.test(password)) return { success: false, message: "Password must contain at least one uppercase letter" };
     if (!/[^a-zA-Z]/.test(password)) return { success: false, message: "Password must contain at least one number or symbol" };

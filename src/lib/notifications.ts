@@ -532,3 +532,182 @@ export async function sendSignedProposalEmail(data: {
         return { success: false, error: err };
     }
 }
+
+/**
+ * Sends a notification email when a payment becomes due.
+ */
+export async function sendPaymentDueEmail(data: {
+    clientEmail: string;
+    clientName: string;
+    projectTitle: string;
+    amount: string;
+    currency: string;
+    dueDate?: Date | null;
+    paymentsUrl: string;
+}) {
+    try {
+        if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes("mock")) {
+            console.log(`[MOCK EMAIL] Payment Due To: ${data.clientEmail} | Amount: ${data.currency} ${data.amount} for ${data.projectTitle}`);
+            return { success: true, mock: true };
+        }
+
+        const formattedDate = data.dueDate
+            ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(data.dueDate))
+            : "Due Upon Receipt";
+
+        const { error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: data.clientEmail,
+            subject: `Payment Due: ${data.projectTitle} - ${data.currency} ${data.amount}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px 20px; color: #14202b;">
+                    <div style="margin-bottom: 24px;">
+                        <span style="font-size: 18px; font-weight: 700; color: #0e6b7e; letter-spacing: -0.02em;">OPTRIZO</span>
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
+                        Payment Due Notice
+                    </h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Hello ${data.clientName}, a milestone payment for <strong>${data.projectTitle}</strong> has reached its due status.
+                    </p>
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                        <p style="margin: 0 0 8px; font-size: 14px; color: #64748b;">Amount Due:</p>
+                        <p style="margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #0f172a;">${data.currency} ${data.amount}</p>
+                        <p style="margin: 0; font-size: 13px; color: #64748b;">Due Date: <strong>${formattedDate}</strong></p>
+                    </div>
+                    <p style="margin: 0 0 20px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Please review payment instructions and upload your payment proof via your client portal:
+                    </p>
+                    <div style="margin: 24px 0;">
+                        <a href="${data.paymentsUrl}" style="background-color: #0e6b7e; color: #ffffff; padding: 12px 22px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 14px;">
+                            View Payment & Upload Proof &rarr;
+                        </a>
+                    </div>
+                    <p style="font-size: 12px; color: #7a8b98; margin: 24px 0 0;">
+                        Optrizo Digital Solutions &bull; Financial Notification
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending payment due email:", error);
+            return { success: false, error };
+        }
+        return { success: true };
+    } catch (err) {
+        console.error("sendPaymentDueEmail error:", err);
+        return { success: false, error: err };
+    }
+}
+
+/**
+ * Sends a notification email when a project is completed.
+ */
+export async function sendProjectCompleteEmail(data: {
+    clientEmail: string;
+    clientName: string;
+    projectTitle: string;
+    portalUrl: string;
+}) {
+    try {
+        if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes("mock")) {
+            console.log(`[MOCK EMAIL] Project Complete To: ${data.clientEmail} | Project: ${data.projectTitle}`);
+            return { success: true, mock: true };
+        }
+
+        const { error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: data.clientEmail,
+            subject: `Project Completed: ${data.projectTitle}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px 20px; color: #14202b;">
+                    <div style="margin-bottom: 24px;">
+                        <span style="font-size: 18px; font-weight: 700; color: #0e6b7e; letter-spacing: -0.02em;">OPTRIZO</span>
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
+                        Your Project is Complete! 🎉
+                    </h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Hello ${data.clientName}, all milestones and deliverables for <strong>${data.projectTitle}</strong> have been completed and officially signed off.
+                    </p>
+                    <p style="margin: 0 0 20px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        You can access all handover files, review warranty details, and share your project feedback through your portal:
+                    </p>
+                    <div style="margin: 24px 0;">
+                        <a href="${data.portalUrl}" style="background-color: #0e6b7e; color: #ffffff; padding: 12px 22px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 14px;">
+                            Access Handover Files & Portal &rarr;
+                        </a>
+                    </div>
+                    <p style="font-size: 12px; color: #7a8b98; margin: 24px 0 0;">
+                        Optrizo Digital Solutions &bull; Official Project Delivery Record
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending project complete email:", error);
+            return { success: false, error };
+        }
+        return { success: true };
+    } catch (err) {
+        console.error("sendProjectCompleteEmail error:", err);
+        return { success: false, error: err };
+    }
+}
+
+/**
+ * Sends an email verification link during client registration.
+ */
+export async function sendEmailVerificationEmail(data: {
+    email: string;
+    name: string;
+    verifyUrl: string;
+}) {
+    try {
+        if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes("mock")) {
+            console.log(`[MOCK EMAIL] Verify Email To: ${data.email} | URL: ${data.verifyUrl}`);
+            return { success: true, mock: true };
+        }
+
+        const { error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+            to: data.email,
+            subject: `Verify Your Optrizo Account`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px 20px; color: #14202b;">
+                    <div style="margin-bottom: 24px;">
+                        <span style="font-size: 18px; font-weight: 700; color: #0e6b7e; letter-spacing: -0.02em;">OPTRIZO</span>
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
+                        Verify Your Email Address
+                    </h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Hello ${data.name}, thank you for registering with Optrizo. Please verify your email address to activate your account and access your client portal.
+                    </p>
+                    <div style="margin: 24px 0;">
+                        <a href="${data.verifyUrl}" style="background-color: #0e6b7e; color: #ffffff; padding: 12px 22px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 14px;">
+                            Verify Email Address &rarr;
+                        </a>
+                    </div>
+                    <p style="margin: 16px 0 0; font-size: 13px; color: #64748b;">
+                        This verification link will expire in 24 hours. If you did not create an account, you can safely ignore this email.
+                    </p>
+                    <p style="font-size: 12px; color: #7a8b98; margin: 24px 0 0;">
+                        Optrizo Digital Solutions &bull; Account Security
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error("Resend Error sending email verification:", error);
+            return { success: false, error };
+        }
+        return { success: true };
+    } catch (err) {
+        console.error("sendEmailVerificationEmail error:", err);
+        return { success: false, error: err };
+    }
+}

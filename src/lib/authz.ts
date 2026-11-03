@@ -1,10 +1,10 @@
 import "server-only";
 
 import type { Session } from "next-auth";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { agencyProjects, leads, projectStakeholders, projectTeamMembers, taskAssignees, tasks } from "@/db/schema";
+import { agencyProjects, leads, projectStakeholders, projectTeamMembers, taskAssignees, tasks, payments, document, proposals } from "@/db/schema";
 
 /**
  * Shared access checks for server actions and route handlers (spec §1).
@@ -138,18 +138,198 @@ function referencesFile(stored: string | null | undefined, fileRef: string): boo
 
 /**
  * Ties a file to a project, so access to one project does not unlock files from another.
- * The file must be one of the project's documents or one of its tasks' proof links.
+ * Accepts:
+ * - project.documents (JSON array items)
+ * - tasks.proofLinks
+ * - agency_project.signOffFileUrl
+ * - payment.proofFileUrl
+ * - document.fileUrl (handover files)
+ * - proposals.signedFileUrl (for the project's lead)
  */
 export async function fileBelongsToProject(projectId: string, fileRef: string): Promise<boolean> {
     const project = await db.query.agencyProjects.findFirst({
         where: eq(agencyProjects.id, projectId),
-        columns: { documents: true },
+        columns: { documents: true, signOffFileUrl: true, leadId: true },
+        with: {
+            lead: {
+                with: {
+                    proposals: {
+                        columns: { signedFileUrl: true },
+                    },
+                },
+            },
+        },
     });
     if ((project?.documents ?? []).some((doc) => referencesFile(doc.url, fileRef))) return true;
+    if (referencesFile(project?.signOffFileUrl, fileRef)) return true;
+    if (project?.lead?.proposals?.some((p) => referencesFile(p.signedFileUrl, fileRef))) return true;
 
     const taskRows = await db.query.tasks.findMany({
         where: and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)),
         columns: { proofLinks: true },
     });
-    return taskRows.some((task) => (task.proofLinks ?? []).some((link) => referencesFile(link.url, fileRef)));
+    if (taskRows.some((task) => (task.proofLinks ?? []).some((link) => referencesFile(link.url, fileRef)))) return true;
+
+    const paymentRows = await db.query.payments.findMany({
+        where: eq(payments.projectId, projectId),
+        columns: { proofFileUrl: true },
+    });
+    if (paymentRows.some((p) => referencesFile(p.proofFileUrl, fileRef))) return true;
+
+    const documentRows = await db.query.document.findMany({
+        where: eq(document.projectId, projectId),
+        columns: { fileUrl: true },
+    });
+    if (documentRows.some((d) => referencesFile(d.fileUrl, fileRef))) return true;
+
+    return false;
+}
+
+/** Extracts the raw fileRef from a proxy URL or returns the URL directly. */
+export function extractFileRef(fileUrl: string): string {
+    if (fileUrl.startsWith("/api/private-file")) {
+        try {
+            const parsed = new URL(fileUrl, "http://localhost");
+            return parsed.searchParams.get("blobUrl") || parsed.searchParams.get("local") || fileUrl;
+        } catch {
+            return fileUrl;
+        }
+    }
+    return fileUrl;
+}
+
+/**
+ * Validates that a fileUrl is safe to attach to a project:
+ * 1. Accepts only:
+ *    (a) /api/private-file proxy URLs
+ *    (b) /uploads/ paths
+ *    (c) https URLs whose hostname ends with ".blob.vercel-storage.com"
+ * 2. If it is a /api/private-file proxy URL containing a projectId param, that projectId must match.
+ * 3. Cannot already belong to a different project in the system across ALL sources:
+ *    document, payments.proofFileUrl, agency_project.signOffFileUrl, tasks.proofLinks,
+ *    agency_project.documents, and proposals.signedFileUrl of other leads.
+ */
+export async function validateFileUrlForProject(
+    projectId: string,
+    fileUrl: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!fileUrl || typeof fileUrl !== "string") {
+        return { ok: false, error: "Invalid file URL." };
+    }
+
+    const trimmed = fileUrl.trim();
+    let isAllowed = false;
+    let urlProjectId: string | null = null;
+
+    if (trimmed.startsWith("/uploads/")) {
+        // (b) /uploads/ paths
+        if (!trimmed.includes("..") && /^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed)) {
+            isAllowed = true;
+        }
+    } else if (trimmed.startsWith("/api/private-file")) {
+        // (a) /api/private-file proxy URLs
+        try {
+            const parsed = new URL(trimmed, "http://localhost");
+            if (parsed.pathname === "/api/private-file") {
+                isAllowed = true;
+                urlProjectId = parsed.searchParams.get("projectId");
+            }
+        } catch {
+            return { ok: false, error: "Malformed private-file URL." };
+        }
+    } else {
+        // (c) https URLs whose hostname ends with ".blob.vercel-storage.com"
+        try {
+            const parsed = new URL(trimmed);
+            if (parsed.protocol === "https:" && parsed.hostname.endsWith(".blob.vercel-storage.com")) {
+                isAllowed = true;
+            }
+        } catch {
+            return { ok: false, error: "Invalid file URL." };
+        }
+    }
+
+    if (!isAllowed) {
+        return {
+            ok: false,
+            error: "Invalid file storage location. Only /api/private-file, /uploads/, or .blob.vercel-storage.com URLs are accepted.",
+        };
+    }
+
+    if (urlProjectId && urlProjectId !== projectId) {
+        return { ok: false, error: "File does not belong to this project." };
+    }
+
+    const fileRef = extractFileRef(trimmed);
+
+    // Cross-project check across ALL sources belonging to other projects:
+    // 1. Handover document table
+    const otherDoc = await db.query.document.findFirst({
+        where: and(ne(document.projectId, projectId), or(eq(document.fileUrl, trimmed), eq(document.fileUrl, fileRef))),
+        columns: { id: true },
+    });
+    if (otherDoc) return { ok: false, error: "File belongs to another project." };
+
+    // 2. Payments table proofFileUrl
+    const otherPayment = await db.query.payments.findFirst({
+        where: and(ne(payments.projectId, projectId), or(eq(payments.proofFileUrl, trimmed), eq(payments.proofFileUrl, fileRef))),
+        columns: { id: true },
+    });
+    if (otherPayment) return { ok: false, error: "File belongs to another project." };
+
+    // 3. Agency project signOffFileUrl
+    const otherProjectSignOff = await db.query.agencyProjects.findFirst({
+        where: and(ne(agencyProjects.id, projectId), or(eq(agencyProjects.signOffFileUrl, trimmed), eq(agencyProjects.signOffFileUrl, fileRef))),
+        columns: { id: true },
+    });
+    if (otherProjectSignOff) return { ok: false, error: "File belongs to another project." };
+
+    // 4. Tasks proofLinks of other projects
+    const otherTask = await db.query.tasks.findFirst({
+        where: and(
+            ne(tasks.projectId, projectId),
+            isNull(tasks.deletedAt),
+            or(
+                sql`${tasks.proofLinks}::text LIKE ${`%${fileRef}%`}`,
+                sql`${tasks.proofLinks}::text LIKE ${`%${trimmed}%`}`
+            )
+        ),
+        columns: { id: true },
+    });
+    if (otherTask) return { ok: false, error: "File belongs to another project." };
+
+    // 5. Agency project documents (JSON column) of other projects
+    const otherProjectDoc = await db.query.agencyProjects.findFirst({
+        where: and(
+            ne(agencyProjects.id, projectId),
+            or(
+                sql`${agencyProjects.documents}::text LIKE ${`%${fileRef}%`}`,
+                sql`${agencyProjects.documents}::text LIKE ${`%${trimmed}%`}`
+            )
+        ),
+        columns: { id: true },
+    });
+    if (otherProjectDoc) return { ok: false, error: "File belongs to another project." };
+
+    // 6. Signed proposals of other leads
+    const currentProj = await db.query.agencyProjects.findFirst({
+        where: eq(agencyProjects.id, projectId),
+        columns: { leadId: true },
+    });
+
+    if (currentProj?.leadId) {
+        const otherProposal = await db.query.proposals.findFirst({
+            where: and(
+                ne(proposals.leadId, currentProj.leadId),
+                or(
+                    eq(proposals.signedFileUrl, trimmed),
+                    eq(proposals.signedFileUrl, fileRef)
+                )
+            ),
+            columns: { id: true },
+        });
+        if (otherProposal) return { ok: false, error: "File belongs to another project." };
+    }
+
+    return { ok: true };
 }

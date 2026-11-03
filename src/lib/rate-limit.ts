@@ -22,11 +22,14 @@ export type RateLimitPolicy =
   | "loginIp"
   | "loginEmail"
   | "signupIp"
+  | "signupEmail"
   | "passwordResetRequestIp"
   | "passwordResetRequestEmail"
   | "passwordResetSubmitIp"
   | "contact"
-  | "intake";
+  | "intake"
+  | "verifyResendIp"
+  | "verifyResendEmail";
 
 interface PolicyConfig {
   limit: number;
@@ -42,6 +45,7 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicy, PolicyConfig> = {
   loginEmail: { limit: 5, windowMs: 15 * MINUTE },
   // Account creation (bcrypt.hash + DB insert per request).
   signupIp: { limit: 5, windowMs: 60 * MINUTE },
+  signupEmail: { limit: 3, windowMs: 60 * MINUTE },
   // Password reset emails: protects inbox flooding and the email provider quota.
   passwordResetRequestIp: { limit: 5, windowMs: 15 * MINUTE },
   passwordResetRequestEmail: { limit: 3, windowMs: 15 * MINUTE },
@@ -51,6 +55,9 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicy, PolicyConfig> = {
   contact: { limit: 3, windowMs: 10 * MINUTE },
   // Authenticated service intake form, keyed by user id.
   intake: { limit: 5, windowMs: 10 * MINUTE },
+  // Email verification resend: rate-limited by IP and email
+  verifyResendIp: { limit: 5, windowMs: 15 * MINUTE },
+  verifyResendEmail: { limit: 3, windowMs: 15 * MINUTE },
 };
 
 export interface RateLimitResult {

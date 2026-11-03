@@ -1,0 +1,263 @@
+import { auth, hasRole } from "@/auth";
+import { notFound, redirect } from "next/navigation";
+import { getClientProject } from "@/features/client-portal/queries";
+import Link from "next/link";
+import {
+    ArrowLeft,
+    CreditCard,
+    CheckCircle2,
+    Clock,
+    Circle,
+    ShieldCheck,
+    Award,
+    ExternalLink,
+    FileText,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ProjectFeedbackForm } from "@/features/client-portal/components/ProjectFeedbackForm";
+
+export const dynamic = "force-dynamic";
+
+export default async function ClientProjectDetailPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
+    const { id } = await params;
+    const session = await auth();
+
+    if (!session?.user?.id) {
+        redirect(`/login?callbackUrl=/portal/projects/${id}`);
+    }
+
+    if (!hasRole(session, ["client"])) {
+        redirect("/dashboard");
+    }
+
+    const project = await getClientProject(id, session.user.id);
+    if (!project) notFound();
+
+    const isCompleted = project.status === "Completed";
+    const completedPercent = project.stats.total > 0
+        ? Math.round((project.stats.completed / project.stats.total) * 100)
+        : project.progressPercentage ?? 0;
+
+    const duePaymentCount = project.payments.filter((p) => p.status === "due").length;
+
+    return (
+        <div className="space-y-6 max-w-5xl mx-auto py-2 animate-in fade-in duration-500">
+            {/* Top Bar Navigation */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link href="/portal/projects">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                                {project.title}
+                            </h1>
+                            <Badge
+                                variant="outline"
+                                className={
+                                    isCompleted
+                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px]"
+                                        : "text-foreground text-[10px]"
+                                }
+                            >
+                                {project.status}
+                            </Badge>
+                        </div>
+                        {project.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                                {project.description}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <Button variant="outline" size="sm" asChild className="h-9 text-xs font-semibold">
+                        <Link href={`/portal/projects/${project.id}/payments`}>
+                            <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                            Payments & Invoices
+                            {duePaymentCount > 0 && (
+                                <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-mono text-[10px]">
+                                    {duePaymentCount} due
+                                </span>
+                            )}
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+
+            {/* Post-Completion Banner */}
+            {isCompleted && (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 space-y-3">
+                    <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                            <Award className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-foreground">Project Successfully Delivered</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                This project has completed all delivery milestones, final payment, and formal handover.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="glass-card rounded-xl border border-border p-3 text-xs space-y-0.5">
+                            <span className="text-muted-foreground uppercase font-mono text-[10px]">Completion Date</span>
+                            <div className="font-semibold text-foreground">
+                                {project.completedAt ? new Date(project.completedAt).toLocaleDateString() : "N/A"}
+                            </div>
+                        </div>
+                        <div className="glass-card rounded-xl border border-border p-3 text-xs space-y-0.5">
+                            <span className="text-muted-foreground uppercase font-mono text-[10px] flex items-center gap-1">
+                                <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Active Warranty Until
+                            </span>
+                            <div className="font-semibold text-foreground font-mono">
+                                {project.warrantyEndsAt ? new Date(project.warrantyEndsAt).toLocaleDateString() : "N/A"}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Milestone Progress Bar Card */}
+            <div className="glass-card rounded-2xl border border-border p-5 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                        <div className="font-bold text-foreground text-sm">Delivery Milestones</div>
+                        <div className="text-muted-foreground">
+                            {project.stats.completed} of {project.stats.total} milestones completed
+                        </div>
+                    </div>
+                    <span className="text-lg font-mono font-bold text-primary">
+                        {completedPercent}%
+                    </span>
+                </div>
+
+                <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                        className="h-full bg-primary rounded-full transition-all duration-500"
+                        style={{ width: `${completedPercent}%` }}
+                    />
+                </div>
+            </div>
+
+            {/* Milestone Breakdown List */}
+            <div className="glass-card rounded-2xl border border-border p-5 space-y-4">
+                <h3 className="text-base font-bold text-foreground">Milestone Breakdown</h3>
+                <div className="space-y-3">
+                    {project.milestones.length === 0 ? (
+                        <div className="text-xs text-muted-foreground py-4 text-center">
+                            No milestones configured for this project.
+                        </div>
+                    ) : (
+                        project.milestones.map((m: { id: string; title: string; status: string; endDate?: Date | string | null; completedAt?: Date | string | null }, idx: number) => {
+                            const isDone = m.status === "Completed";
+                            const isInProgress = m.status === "In Progress";
+
+                            return (
+                                <div
+                                    key={m.id}
+                                    className="p-3.5 rounded-xl border border-border/80 bg-background/50 flex items-start gap-3.5"
+                                >
+                                    <div className="mt-0.5 shrink-0">
+                                        {isDone ? (
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                        ) : isInProgress ? (
+                                            <Clock className="w-5 h-5 text-primary" />
+                                        ) : (
+                                            <Circle className="w-5 h-5 text-muted-foreground/40" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="text-sm font-semibold text-foreground">
+                                                {idx + 1}. {m.title}
+                                            </div>
+                                            <Badge
+                                                variant="outline"
+                                                className={
+                                                    isDone
+                                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px]"
+                                                        : isInProgress
+                                                        ? "border-primary/30 text-primary bg-primary/10 text-[10px]"
+                                                        : "text-muted-foreground text-[10px]"
+                                                }
+                                            >
+                                                {m.status}
+                                            </Badge>
+                                        </div>
+
+                                        <div className="text-[11px] text-muted-foreground pt-1 flex items-center gap-3">
+                                            {m.endDate && (
+                                                <span>Target: {new Date(m.endDate).toLocaleDateString()}</span>
+                                            )}
+                                            {isDone && m.completedAt && (
+                                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                                    Completed on {new Date(m.completedAt).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+
+            {/* Handover Documents (Unlocked on Completion) */}
+            {isCompleted && (
+                <div className="glass-card rounded-2xl border border-border p-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <h3 className="text-base font-bold text-foreground">Handover Documents & Deliverables</h3>
+                    </div>
+                    {project.handoverDocuments.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No handover documents attached.</p>
+                    ) : (
+                        <div className="divide-y divide-border/60">
+                            {project.handoverDocuments.map((doc: { id: string; title: string; fileName: string; fileUrl: string }) => (
+                                <div
+                                    key={doc.id}
+                                    className="py-2.5 flex items-center justify-between gap-3 text-xs"
+                                >
+                                    <div className="space-y-0.5">
+                                        <div className="font-semibold text-foreground">{doc.title}</div>
+                                        <div className="text-muted-foreground text-[11px]">{doc.fileName}</div>
+                                    </div>
+                                    <Button variant="outline" size="sm" asChild className="h-7 text-xs">
+                                        <a
+                                            href={doc.fileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1"
+                                        >
+                                            Download <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Project Feedback Section (Post-Completion) */}
+            {isCompleted && (
+                <ProjectFeedbackForm
+                    projectId={project.id}
+                    existingFeedback={project.userFeedback}
+                />
+            )}
+        </div>
+    );
+}

@@ -28,6 +28,71 @@ async function resolveClientIp(request: Request | undefined): Promise<string | n
     }
 }
 
+export async function authorizeUser(credentials: Record<string, unknown> | undefined, request?: Request) {
+    if (!credentials?.email || !credentials?.password) return null;
+
+    const email = credentials.email as string;
+    const password = credentials.password as string;
+    const emailKey = normalizeEmail(email);
+
+    // --- Brute-force / DoS guard: runs BEFORE the DB query and bcrypt.compare ---
+    const ip = await resolveClientIp(request);
+    if (ip) {
+        const ipCheck = await checkRateLimit("loginIp", ip);
+        if (!ipCheck.success) {
+            console.warn(`[Security] Login rate limit (IP) hit: ip=${ip}`);
+            throw new RateLimitError(
+                `Too many login attempts from your network. Please try again in ${formatRetryAfter(ipCheck.retryAfterSeconds)}.`,
+                ipCheck.retryAfterSeconds,
+            );
+        }
+    }
+    const emailCheck = await checkRateLimit("loginEmail", emailKey);
+    if (!emailCheck.success) {
+        console.warn(`[Security] Login rate limit (account) hit: email=${emailKey} ip=${ip ?? "unknown"}`);
+        throw new RateLimitError(
+            `Too many login attempts for this account. Please try again in ${formatRetryAfter(emailCheck.retryAfterSeconds)}.`,
+            emailCheck.retryAfterSeconds,
+        );
+    }
+
+    // Fetch user from DB
+    const user = await db.query.users.findFirst({
+        where: eq(users.email, email)
+    });
+
+    // Fail if user missing, soft-deleted, or doesn't have a hashed password (e.g. Google-only account)
+    if (!user || user.deletedAt || !user.password) {
+        return null;
+    }
+
+    // Run bcrypt.compare FIRST: wrong password returns null immediately without revealing account status
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) return null;
+
+    if (!user.isActive || user.status === "deactivated") {
+        throw new Error("Account deactivated. Please contact an administrator.");
+    }
+
+    if (user.status === "invited") {
+        throw new Error("Please verify your email address before signing in.");
+    }
+
+    if (user.status === "locked") {
+        throw new Error("Account is locked. Please reset your password or contact support.");
+    }
+
+    // Successful login clears the per-account counter (the IP counter keeps running).
+    await resetRateLimit("loginEmail", emailKey);
+
+    return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+    };
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
     trustHost: true,
@@ -44,61 +109,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" }
             },
-            async authorize(credentials, request) {
-                if (!credentials?.email || !credentials?.password) return null;
-
-                const email = credentials.email as string;
-                const password = credentials.password as string;
-                const emailKey = normalizeEmail(email);
-
-                // --- Brute-force / DoS guard: runs BEFORE the DB query and bcrypt.compare ---
-                const ip = await resolveClientIp(request);
-                if (ip) {
-                    const ipCheck = await checkRateLimit("loginIp", ip);
-                    if (!ipCheck.success) {
-                        console.warn(`[Security] Login rate limit (IP) hit: ip=${ip}`);
-                        throw new RateLimitError(
-                            `Too many login attempts from your network. Please try again in ${formatRetryAfter(ipCheck.retryAfterSeconds)}.`,
-                            ipCheck.retryAfterSeconds,
-                        );
-                    }
-                }
-                const emailCheck = await checkRateLimit("loginEmail", emailKey);
-                if (!emailCheck.success) {
-                    console.warn(`[Security] Login rate limit (account) hit: email=${emailKey} ip=${ip ?? "unknown"}`);
-                    throw new RateLimitError(
-                        `Too many login attempts for this account. Please try again in ${formatRetryAfter(emailCheck.retryAfterSeconds)}.`,
-                        emailCheck.retryAfterSeconds,
-                    );
-                }
-
-                // Fetch user from DB
-                const user = await db.query.users.findFirst({
-                    where: eq(users.email, email)
-                });
-
-                // Fail if user missing, soft-deleted, or doesn't have a hashed password (e.g. Google-only account)
-                if (!user || user.deletedAt || !user.password) {
-                    return null;
-                }
-                
-                if (!user.isActive) {
-                    throw new Error("Account deactivated. Please contact an administrator.");
-                }
-
-                const isValid = await bcrypt.compare(password, user.password);
-                if (!isValid) return null;
-
-                // Successful login clears the per-account counter (the IP counter keeps running).
-                await resetRateLimit("loginEmail", emailKey);
-
-                return {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
-                };
-            }
+            authorize: authorizeUser,
         })
     ],
     callbacks: {

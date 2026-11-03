@@ -16,7 +16,9 @@ function ResetPasswordForm() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
+    const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const router = useRouter();
 
     if (!token) {
@@ -35,8 +37,14 @@ function ResetPasswordForm() {
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        setIsLoading(true);
         setError(null);
+
+        if (passwordInput !== confirmPasswordInput) {
+            setError("Passwords do not match.");
+            return;
+        }
+
+        setIsLoading(true);
         
         const formData = new FormData(e.currentTarget);
         formData.append("token", token as string);
@@ -127,9 +135,35 @@ function ResetPasswordForm() {
                             </p>
                         </div>
                     </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
+                        <div className="relative">
+                            <Input 
+                                id="confirmPassword" 
+                                name="confirmPassword" 
+                                type={showConfirmPassword ? "text" : "password"}
+                                required 
+                                value={confirmPasswordInput}
+                                onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                                className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus-visible:ring-primary/50 h-12 pr-10" 
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                aria-label="Toggle confirm password visibility"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                            >
+                                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
+                        {confirmPasswordInput.length > 0 && passwordInput !== confirmPasswordInput && (
+                            <p className="text-xs text-red-500">Passwords do not match.</p>
+                        )}
+                    </div>
                     <Button 
                         type="submit" 
-                        disabled={isLoading || passwordInput.length < 8 || !/[A-Z]/.test(passwordInput) || !/[^a-zA-Z]/.test(passwordInput)} 
+                        disabled={isLoading || passwordInput.length < 8 || !/[A-Z]/.test(passwordInput) || !/[^a-zA-Z]/.test(passwordInput) || passwordInput !== confirmPasswordInput} 
                         className="w-full h-12 text-base font-semibold transition-all hover:scale-[1.02]"
                     >
                         {isLoading ? (

@@ -385,4 +385,98 @@ Side effects: locks milestone for update; sets status → `Completed`, `complete
 - `updateTaskStatus`, `submitTaskProofAndMove`: Removed. Replaced by state-specific actions `startTask`, `submitTask`, `approveTask`, `requestTaskChanges`.
 - `DndContext` in `PmKanbanBoard`: Removed. Board is non-draggable; state transitions occur via buttons.
 
+### uploadPaymentProof  (step 29a)
+Who can call: client (own project only)
+Input:  `{ paymentId: string, proofFileUrl: string }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not client or does not own project.
+- `INVALID_STATUS`: payment is not in status `due`.
+- `INVALID_FILE`: file belongs to another project or has invalid storage scheme.
+Side effects: sets payment status → `proof_uploaded`, `proofFileUrl`, `proofUploadedAt = now()`; notifies project PMs; audit log row.
+
+### confirmPayment  (step 29b)
+Who can call: manager
+Input:  `{ paymentId: string, data: { method: 'bank_transfer' | 'gcash' | 'cheque' | 'cash', referenceNo?: string, bankName?: string, chequeNumber?: string, orNumber: string, receivedAt: Date | string } }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `INVALID_STATUS`: payment is not in status `due` or `proof_uploaded`.
+- `OR_REQUIRED`: OR number is missing or empty.
+- `OR_DUPLICATE`: OR number is already used by another payment.
+- `CHEQUE_INVALID`: cheque payment missing either bank name or cheque number.
+Side effects: sets payment status → `paid`, `method`, `referenceNo`, `receivedAt`, `orNumber`, `confirmedBy`, `confirmedAt = now()`; notifies client; audit log row.
+
+### rejectPaymentProof  (step 29b)
+Who can call: manager
+Input:  `{ paymentId: string, reason: string }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `INVALID_STATUS`: payment is not in status `proof_uploaded`.
+- `REASON_REQUIRED`: reason must be at least 3 characters.
+Side effects: sets payment status → `due`, clears `proofFileUrl` and `proofUploadedAt`, sets `proofRejectedReason` (dueDate unchanged); notifies client; audit log row.
+
+### addHandoverFile  (step 30)
+Who can call: manager
+Input:  `{ projectId: string, data: { title: string, fileUrl: string, fileName: string, fileSize?: number } }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `PROJECT_COMPLETED`: project is already Completed.
+- `INVALID_FILE`: file belongs to another project or invalid scheme.
+Side effects: inserts record into `document` table; audit log row.
+
+### recordSignOff  (step 30)
+Who can call: manager
+Input:  `{ projectId: string, data: { signOffFileUrl: string, signedOffAt?: Date | string } }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `PROJECT_COMPLETED`: project is already Completed.
+- `INVALID_FILE`: file belongs to another project or invalid scheme.
+Side effects: updates `agencyProjects.signOffFileUrl`, `signedOffBy`, `signedOffAt`; audit log row.
+
+### completeProject  (step 30a)
+Who can call: manager
+Input:  `{ projectId: string }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not Manager.
+- `PROJECT_COMPLETED`: project is already Completed.
+- `MILESTONES_INCOMPLETE`: not all milestones are Completed (count >= 1).
+- `FINAL_PAYMENT_UNPAID`: final payment is not paid.
+- `HANDOVER_MISSING`: no handover files in `document` table.
+- `SIGNOFF_MISSING`: sign-off is not recorded.
+Side effects: sets `status = 'Completed'`, `completedAt = now()`, `warrantyEndsAt = now() + 3 months` (from same timestamp); sends completion email to client; portal notification; audit log row.
+
+### submitProjectFeedback  (step 31)
+Who can call: client (own project only)
+Input:  `{ projectId: string, data: { rating: number, comment?: string } }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors:
+- `FORBIDDEN`: caller is not client or does not own project.
+- `NOT_COMPLETED`: project status is not `Completed`.
+- `INVALID_RATING`: rating not an integer between 1 and 5.
+- `ALREADY_SUBMITTED`: feedback already submitted by this client for this project.
+Side effects: inserts record into `projectFeedback`; notifies PM; audit log row.
+
+### signUpWithEmail  (step 31b)
+Who can call: public (unauthenticated)
+Input:  `FormData` with `name`, `email`, `password`, `confirmPassword`
+Output: `{ success: boolean, message?: string, fieldErrors?: Record<string, string> }`
+Side effects: creates user with status `invited` and role `client`; generates verification token; sends verification email via Resend; does not sign in; audit log row.
+
+### verifyEmail  (step 31b)
+Who can call: public
+Input:  `token: string`
+Output: `{ success: boolean, message?: string, redirect?: string }`
+Side effects: consumes single-use verification token; updates user status to `active` and `emailVerified = now()`; links matching leads by email and registers client in `projectStakeholders`; audit log row.
+
+### resendVerificationEmail  (step 31b)
+Who can call: public
+Input:  `email: string`
+Output: `{ success: boolean, message?: string }`
+Side effects: rate-limited by IP and email; checks if account is `invited`; generates new token and sends email; audit log row.
+
 (Add one per action as modules are built.)
