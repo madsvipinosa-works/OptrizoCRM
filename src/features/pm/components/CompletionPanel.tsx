@@ -549,3 +549,4 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
         </div>
     );
 }
+

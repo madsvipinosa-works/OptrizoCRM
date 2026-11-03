@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 vi.mock("@/auth", async () => (await import("../../helpers/mock-auth")).authModuleMock());
+vi.mock("@auth/drizzle-adapter", () => ({ DrizzleAdapter: vi.fn() }));
 vi.mock("@/db", async () => ({ db: (await import("../../helpers/mock-db")).createMockDb() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/features/audit/log", () => ({ logAction: vi.fn() }));
@@ -213,5 +214,56 @@ describe("Completed project guards in pm actions", () => {
     const res = await updateProjectStatus("proj-1", "Completed");
     expect(res.success).toBe(false);
     expect(res.message).toMatch(/projects can only be marked completed via the project completion flow/i);
+  });
+});
+
+describe("auth credentials authorizeUser", () => {
+  it("returns null for wrong password on invited account without revealing status", async () => {
+    const { authorizeUser } = await vi.importActual<typeof import("@/auth")>("@/auth");
+    const bcrypt = await import("bcryptjs");
+    const hashedPassword = await bcrypt.hash("CorrectPassword123!", 10);
+
+    mockDb.query.users.findFirst.mockResolvedValueOnce({
+      id: "user-invited-1",
+      email: "invited@example.com",
+      password: hashedPassword,
+      status: "invited",
+      isActive: true,
+      deletedAt: null,
+      role: "client",
+      name: "Invited Client",
+    });
+
+    const result = await authorizeUser({
+      email: "invited@example.com",
+      password: "WrongPassword999!",
+    });
+
+    // Must return null without throwing an error that reveals account status
+    expect(result).toBeNull();
+  });
+
+  it("throws verification error when correct password is provided on invited account", async () => {
+    const { authorizeUser } = await vi.importActual<typeof import("@/auth")>("@/auth");
+    const bcrypt = await import("bcryptjs");
+    const hashedPassword = await bcrypt.hash("CorrectPassword123!", 10);
+
+    mockDb.query.users.findFirst.mockResolvedValueOnce({
+      id: "user-invited-1",
+      email: "invited@example.com",
+      password: hashedPassword,
+      status: "invited",
+      isActive: true,
+      deletedAt: null,
+      role: "client",
+      name: "Invited Client",
+    });
+
+    await expect(
+      authorizeUser({
+        email: "invited@example.com",
+        password: "CorrectPassword123!",
+      })
+    ).rejects.toThrow("Please verify your email address before signing in.");
   });
 });
