@@ -14,7 +14,7 @@ import {
     tasks,
     taskAssignees,
     taskSubmissions,
-    clientFeedback,
+
     auditLogs,
     notifications,
     services,
@@ -646,35 +646,6 @@ export async function seedDemoAccounts() {
         submissionNotes: "Implemented appointment reservation engine with transactional PostgreSQL row locks to prevent simultaneous double-booking of doctor slots.",
     });
     console.log("   ✅ Created 2 Task Submissions");
-
-    // 5.7 Threaded Client Feedback Conversation on Milestone 2
-    const [parentFeedback] = await db.insert(clientFeedback).values({
-        milestoneId: m2.id,
-        clientId: client.id,
-        status: "REVISION_REQUESTED",
-        commentText: "The staging portal looks fantastic! We tested the appointment scheduling calendar on both mobile and desktop. Could we ensure automated SMS reminders trigger 24 hours prior to scheduled consultations?",
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-    }).returning();
-
-    // Agency Staff Reply in the Thread
-    await db.insert(clientFeedback).values({
-        milestoneId: m2.id,
-        clientId: admin.id,
-        parentFeedbackId: parentFeedback.id,
-        status: "APPROVED",
-        commentText: "Thank you Elena! We have scoped the automated SMS dispatch into Sprint 3 Task #7 using Twilio Messaging API. The scheduling engine and portal deliverables are ready for your final sign-off.",
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-    });
-
-    // Milestone 1 Historical Approved Feedback
-    await db.insert(clientFeedback).values({
-        milestoneId: m1.id,
-        clientId: client.id,
-        status: "APPROVED",
-        commentText: "Sprint 1 high-fidelity wireframes and PostgreSQL 3NF schema approved with high praise from our executive committee. Design tokens match our clinical branding perfectly.",
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    });
-    console.log("   💬 Seeded Threaded Client Feedback & Revision History");
 
     // ==========================================
     // 6. GOVERNANCE: AUDIT LOGS & NOTIFICATIONS
