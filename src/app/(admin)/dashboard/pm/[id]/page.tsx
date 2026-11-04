@@ -28,7 +28,7 @@ export default async function KanbanBoardPage(props: {
 
     // Authorize project read access
     const hasReadAccess = await authorizeProject(id, "read");
-    if (!hasReadAccess) {
+    if (!hasReadAccess.ok) {
         notFound();
     }
 
