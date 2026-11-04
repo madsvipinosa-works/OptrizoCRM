@@ -83,6 +83,7 @@ interface UserListItem {
     email: string;
     image: string | null;
     jobTitle: string | null;
+    status?: "active" | "locked" | "deactivated" | "invited";
     isActive: boolean;
     showOnAboutPage: boolean;
     role: "superadmin" | "sales" | "manager" | "developer" | "content_editor" | "client";
@@ -113,7 +114,7 @@ const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title:
                                     <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />
                                     <JobTitleEditor userId={user.id} currentTitle={user.jobTitle} isAdmin={true} />
                                     <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />
-                                    <UserActiveToggle userId={user.id} isActive={user.isActive} isAdmin={true} />
+                                    <UserActiveToggle userId={user.id} status={user.status} isActive={user.isActive} isAdmin={true} userName={user.name || user.email} />
                                     {user.role !== "client" && (
                                         <>
                                             <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />

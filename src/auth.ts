@@ -17,6 +17,7 @@ import {
     resetRateLimit,
 } from "@/lib/rate-limit"
 import type { Session } from "next-auth"
+import { canSignIn, isSessionValid } from "@/lib/account-status"
 
 async function resolveClientIp(request: Request | undefined): Promise<string | null> {
     const fromRequest = getClientIp(request?.headers);
@@ -70,16 +71,20 @@ export async function authorizeUser(credentials: Record<string, unknown> | undef
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) return null;
 
-    if (!user.isActive || user.status === "deactivated") {
-        throw new Error("Account deactivated. Please contact an administrator.");
-    }
+    if (!canSignIn(user)) {
+        if (!user.isActive || user.status === "deactivated") {
+            throw new Error("Account deactivated. Please contact an administrator.");
+        }
 
-    if (user.status === "invited") {
-        throw new Error("Please verify your email address before signing in.");
-    }
+        if (user.status === "invited") {
+            throw new Error("Please verify your email address before signing in.");
+        }
 
-    if (user.status === "locked") {
-        throw new Error("Account is locked. Please reset your password or contact support.");
+        if (user.status === "locked") {
+            throw new Error("Account is locked. Please reset your password or contact support.");
+        }
+
+        return null;
     }
 
     // Successful login clears the per-account counter (the IP counter keeps running).
@@ -120,15 +125,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     where: eq(users.email, user.email),
                 });
 
-                if (existingUser?.deletedAt) {
-                    return false;
-                }
-
-                if (existingUser && !existingUser.isActive) {
-                    throw new Error("Account deactivated. Please contact an administrator.");
-                }
-
                 if (existingUser) {
+                    if (!canSignIn(existingUser)) {
+                        if (!existingUser.isActive || existingUser.status === "deactivated") {
+                            throw new Error("Account deactivated. Please contact an administrator.");
+                        }
+                        if (existingUser.status === "invited") {
+                            throw new Error("Please verify your email address before signing in.");
+                        }
+                        if (existingUser.status === "locked") {
+                            throw new Error("Account is locked. Please reset your password or contact support.");
+                        }
+                        return false;
+                    }
+
                     // Update the user.id so the DrizzleAdapter links the account correctly
                     user.id = existingUser.id;
                     user.role = existingUser.role;
@@ -152,9 +162,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                             id: users.id,
                             name: users.name,
                             role: users.role,
+                            status: users.status,
                             jobTitle: users.jobTitle,
                             isActive: users.isActive,
                             deletedAt: users.deletedAt,
+                            lockedUntil: users.lockedUntil,
                         })
                         .from(users)
                         .where(
@@ -164,7 +176,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         )
                         .limit(1);
 
-                    if (!dbUser || !dbUser.isActive || dbUser.deletedAt) {
+                    if (!dbUser || !isSessionValid(dbUser)) {
                         token.invalidated = true;
                         delete token.id;
                         delete token.role;

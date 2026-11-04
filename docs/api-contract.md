@@ -479,4 +479,67 @@ Input:  `email: string`
 Output: `{ success: boolean, message?: string }`
 Side effects: rate-limited by IP and email; checks if account is `invited`; generates new token and sends email; audit log row.
 
+### lockUser (Session 10 / Item 1)
+Who can call: superadmin
+Input: `targetId: string` (uuid)
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `INVALID_ID`: targetId is not a valid uuid.
+- `USER_NOT_FOUND`: target user does not exist.
+- `SELF_TARGET`: caller cannot lock own account.
+- `LAST_SUPERADMIN`: cannot lock the last active Super Admin.
+- `INVALID_TRANSITION`: target account is not active.
+Side effects: updates `status = 'locked'`, `isActive = true`, `lockedUntil = null` (manual lock terminating active sessions); audit log row with actorRole in details.
+
+### unlockUser (Session 10 / Item 1)
+Who can call: superadmin
+Input: `targetId: string` (uuid)
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `INVALID_ID`: targetId is not a valid uuid.
+- `USER_NOT_FOUND`: target user does not exist.
+- `SELF_TARGET`: caller cannot unlock own account.
+- `INVALID_TRANSITION`: target account is not locked.
+Side effects: updates `status = 'active'`, `isActive = true`, `failedLogins = 0`, `lockedUntil = null`; audit log row with actorRole in details.
+
+### deactivateUser (Session 10 / Item 1)
+Who can call: superadmin
+Input: `targetId: string` (uuid)
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `INVALID_ID`: targetId is not a valid uuid.
+- `USER_NOT_FOUND`: target user does not exist.
+- `SELF_TARGET`: caller cannot deactivate own account.
+- `LAST_SUPERADMIN`: cannot deactivate the last active Super Admin.
+- `INVALID_TRANSITION`: target account is already deactivated.
+Side effects: updates `status = 'deactivated'`, `isActive = false`; if target is developer with open tasks (not done/backlog), notifies all managers via `notifyAllAdmins`; audit log row with actorRole in details.
+
+### reactivateUser (Session 10 / Item 1)
+Who can call: superadmin
+Input: `targetId: string` (uuid)
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `INVALID_ID`: targetId is not a valid uuid.
+- `USER_NOT_FOUND`: target user does not exist.
+- `SELF_TARGET`: caller cannot reactivate own account.
+- `INVALID_TRANSITION`: target account is not deactivated.
+- `PASSWORD_MISSING`: target user has no set password.
+Side effects: updates `status = 'active'`, `isActive = true`, `failedLogins = 0`, `lockedUntil = null`; audit log row with actorRole in details.
+
+### updateUserRole (Session 10 / Item 1)
+Who can call: superadmin
+Input: `userId: string`, `newRole: "sales" | "manager" | "developer" | "content_editor"`
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `SELF_TARGET`: caller cannot change own role.
+- `INVALID_ROLE`: newRole is not in whitelist (cannot promote to superadmin or client).
+- `TARGET_SUPERADMIN`: cannot change role of a Super Admin.
+- `TARGET_CLIENT`: cannot change role of a client account.
+Side effects: runs in transaction; updates `role = newRole`; revalidates `/dashboard/team` and `/dashboard/leads`; audit log row with actorRole in details.
+
 (Add one per action as modules are built.)
