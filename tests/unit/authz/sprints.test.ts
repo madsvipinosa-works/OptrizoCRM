@@ -1,0 +1,536 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import fs from "fs";
+import path from "path";
+
+vi.mock("@/auth", async () => (await import("../../helpers/mock-auth")).authModuleMock());
+vi.mock("@/db", async () => ({ db: (await import("../../helpers/mock-db")).createMockDb() }));
+vi.mock("@/features/audit/log", () => ({ logAction: vi.fn() }));
+vi.mock("@/features/notifications/send", () => ({
+  createSystemNotification: vi.fn(),
+  notifyAllAdmins: vi.fn(),
+  notifyProjectClients: vi.fn(),
+}));
+
+import { auth } from "@/auth";
+import { db } from "@/db";
+import { logAction } from "@/features/audit/log";
+import { createSystemNotification } from "@/features/notifications/send";
+import * as sprintActionsModule from "@/features/sprints/actions";
+import { planSprint, moveTaskToSprint } from "@/features/sprints/actions";
+import { applyEndedSprints } from "@/features/sprints/sprint-end";
+import { ROLES, signInAs, type Role } from "../../helpers/mock-auth";
+import { expectNoWrites, type MockDb } from "../../helpers/mock-db";
+
+const mockDb = db as unknown as MockDb;
+const root = path.resolve(__dirname, "../../..");
+
+const rolesExceptManager: Role[] = ROLES.filter((r) => r !== "manager");
+
+function createChainProxy(getRows: () => unknown): object {
+  const proxy: object = new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === "then") {
+          return (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
+            Promise.resolve().then(getRows).then(resolve, reject);
+        }
+        return () => proxy;
+      },
+    },
+  );
+  return proxy;
+}
+
+function setSelectSequence(sequence: unknown[][]) {
+  const queue = [...sequence];
+  mockDb.select.mockImplementation(() => {
+    const next = queue.length > 0 ? queue.shift()! : [];
+    return createChainProxy(() => next);
+  });
+}
+
+beforeEach(() => {
+  mockDb.resetMocks();
+  vi.clearAllMocks();
+  signInAs(auth, null);
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-10T04:00:00Z")); // 2026-11-10 in Asia/Manila
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe("source-text & export guards (STOP 2)", () => {
+  it("sprint-end.ts contains no revalidatePath, redirect, or notFound", () => {
+    const src = fs.readFileSync(path.join(root, "src/features/sprints/sprint-end.ts"), "utf8");
+    const stripped = src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    expect(stripped).not.toMatch(/\brevalidatePath\b/);
+    expect(stripped).not.toMatch(/\bredirect\b/);
+    expect(stripped).not.toMatch(/\bnotFound\b/);
+  });
+
+  it("src/features/sprints/actions.ts exports ONLY planSprint and moveTaskToSprint", () => {
+    const exportedKeys = Object.keys(sprintActionsModule).sort();
+    expect(exportedKeys).toEqual(["moveTaskToSprint", "planSprint"]);
+  });
+});
+
+describe("planSprint RBAC", () => {
+  const validPlanInput = {
+    projectId: "proj-1",
+    name: "Sprint 1",
+    goal: "Core Auth & Setup",
+    startDate: "2026-11-10",
+    endDate: "2026-11-20",
+    taskIds: ["task-1"],
+  };
+
+  it("rejects anonymous caller with NO writes", async () => {
+    const res = await planSprint(validPlanInput);
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expectNoWrites(mockDb);
+  });
+
+  it.each(rolesExceptManager)("rejects %s role with NO writes", async (role) => {
+    signInAs(auth, role, `user-${role}`);
+    const res = await planSprint(validPlanInput);
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expectNoWrites(mockDb);
+  });
+});
+
+describe("moveTaskToSprint RBAC", () => {
+  const validMoveInput = {
+    taskId: "task-1",
+    sprintId: "sprint-1",
+  };
+
+  it("rejects anonymous caller with NO writes", async () => {
+    const res = await moveTaskToSprint(validMoveInput);
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expectNoWrites(mockDb);
+  });
+
+  it.each(rolesExceptManager)("rejects %s role with NO writes", async (role) => {
+    signInAs(auth, role, `user-${role}`);
+    const res = await moveTaskToSprint(validMoveInput);
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expectNoWrites(mockDb);
+  });
+});
+
+describe("planSprint validation, containment, overlap, and IDOR guards", () => {
+  beforeEach(() => {
+    signInAs(auth, "manager", "pm-1");
+    mockDb.query.agencyProjects.findFirst.mockResolvedValue({
+      id: "proj-1",
+      leadId: "lead-1",
+      isArchived: false,
+    });
+    mockDb.query.leads.findFirst.mockResolvedValue({
+      id: "lead-1",
+      assignedPmId: "pm-1",
+    });
+  });
+
+  it("rejects when endDate is before startDate", async () => {
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Sprint 1",
+      startDate: "2026-11-20",
+      endDate: "2026-11-15",
+      taskIds: [],
+    });
+    expect(res).toEqual({ ok: false, error: "INVALID_DATE_RANGE" });
+    expectNoWrites(mockDb);
+  });
+
+  it("rejects when sprint endDate is in the past (before todayInManila)", async () => {
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Past Sprint",
+      startDate: "2026-11-01",
+      endDate: "2026-11-09", // today is 2026-11-10
+      taskIds: [],
+    });
+    expect(res).toEqual({ ok: false, error: "SPRINT_ALREADY_ENDED" });
+    expectNoWrites(mockDb);
+  });
+
+  it("rejects when sprint dates fall outside Development milestone dates", async () => {
+    setSelectSequence([
+      // 1. applyEndedSprints pre-check (no ended sprints)
+      [],
+      // 2. tx: lock agency_project
+      [{ id: "proj-1" }],
+      // 3. tx: development milestone (Nov 10 to Nov 20 Manila)
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-10T00:00:00+08:00"),
+          endDate: new Date("2026-11-20T23:59:59+08:00"),
+        },
+      ],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Sprint Out of Bounds",
+      startDate: "2026-11-10",
+      endDate: "2026-11-25", // past Nov 20
+      taskIds: [],
+    });
+
+    expect(res).toEqual({ ok: false, error: "OUTSIDE_DEVELOPMENT_DATES" });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("allows sprint dates and returns warning 'no_development_dates' when Development milestone dates are null", async () => {
+    setSelectSequence([
+      // 1. applyEndedSprints pre-check
+      [],
+      // 2. tx: lock agency_project
+      [{ id: "proj-1" }],
+      // 3. tx: development milestone with null dates
+      [{ id: "m-dev", startDate: null, endDate: null }],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Sprint 1",
+      startDate: "2026-11-10",
+      endDate: "2026-11-20",
+      taskIds: [],
+    });
+
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.warning).toBe("no_development_dates");
+      expect(res.sprintId).toBeTruthy();
+    }
+  });
+
+  it("returns { ok: false, error: 'SPRINT_OVERLAP' } on SQLSTATE 23P01 exclusion violation", async () => {
+    setSelectSequence([
+      [],
+      [{ id: "proj-1" }],
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-01T00:00:00+08:00"),
+          endDate: new Date("2026-11-30T23:59:59+08:00"),
+        },
+      ],
+    ]);
+
+    mockDb.insert.mockImplementationOnce(() =>
+      createChainProxy(() => {
+        const err = new Error("conflicting key value violates exclusion constraint") as Error & {
+          code?: string;
+        };
+        err.code = "23P01";
+        throw err;
+      }),
+    );
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Overlapping Sprint",
+      startDate: "2026-11-12",
+      endDate: "2026-11-18",
+      taskIds: [],
+    });
+
+    expect(res).toEqual({ ok: false, error: "SPRINT_OVERLAP" });
+  });
+
+  it("returns friendly error on duplicate sprint name (SQLSTATE 23505)", async () => {
+    setSelectSequence([
+      [],
+      [{ id: "proj-1" }],
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-01T00:00:00+08:00"),
+          endDate: new Date("2026-11-30T23:59:59+08:00"),
+        },
+      ],
+    ]);
+
+    mockDb.insert.mockImplementationOnce(() =>
+      createChainProxy(() => {
+        const err = new Error("duplicate key value violates unique constraint") as Error & {
+          code?: string;
+        };
+        err.code = "23505";
+        throw err;
+      }),
+    );
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Sprint 1",
+      startDate: "2026-11-12",
+      endDate: "2026-11-18",
+      taskIds: [],
+    });
+
+    expect(res).toEqual({
+      ok: false,
+      error: "A sprint with this name already exists in this project.",
+    });
+  });
+
+  it("rejects IDOR when a foreign task id (belonging to another project or missing) is passed", async () => {
+    setSelectSequence([
+      // 1. applyEndedSprints pre-check
+      [],
+      // 2. tx: lock agency_project
+      [{ id: "proj-1" }],
+      // 3. tx: development milestone
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-01T00:00:00+08:00"),
+          endDate: new Date("2026-11-30T23:59:59+08:00"),
+        },
+      ],
+      // 4. tx: existing sprints
+      [],
+      // 5. tx: candidate tasks matching projectId=proj-1 (only 1 found out of 2 requested)
+      [
+        {
+          id: "task-own",
+          projectId: "proj-1",
+          milestoneId: "m-dev",
+          status: "backlog",
+          sprintId: null,
+          carriedOver: false,
+          dueDate: null,
+        },
+      ],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Sprint 1",
+      startDate: "2026-11-10",
+      endDate: "2026-11-20",
+      taskIds: ["task-own", "task-foreign-proj-2"],
+    });
+
+    expect(res).toEqual({ ok: false, error: "INVALID_TASKS" });
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("converts backlog tasks to to_do and preserves carried tasks' status and carriedOver=true", async () => {
+    const updateSetPayloads: Record<string, unknown>[] = [];
+    mockDb.update.mockImplementation(() => ({
+      set: (payload: Record<string, unknown>) => {
+        updateSetPayloads.push(payload);
+        return createChainProxy(() => []);
+      },
+    }));
+
+    const existingDueDate = new Date("2026-11-15T00:00:00Z");
+
+    setSelectSequence([
+      // 1. applyEndedSprints pre-check
+      [],
+      // 2. tx: lock agency_project
+      [{ id: "proj-1" }],
+      // 3. tx: development milestone
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-01T00:00:00+08:00"),
+          endDate: new Date("2026-11-30T23:59:59+08:00"),
+        },
+      ],
+      // 4. tx: existing sprints (sprint-0 ended on 2026-11-05)
+      [{ id: "sprint-0", startDate: "2026-11-01", endDate: "2026-11-05" }],
+      // 5. tx: candidate tasks (1 backlog without dueDate, 1 in_progress in ended sprint-0 with existing dueDate)
+      [
+        {
+          id: "task-backlog",
+          projectId: "proj-1",
+          milestoneId: "m-dev",
+          status: "backlog",
+          sprintId: null,
+          carriedOver: false,
+          dueDate: null,
+        },
+        {
+          id: "task-carried",
+          projectId: "proj-1",
+          milestoneId: "m-dev",
+          status: "in_progress",
+          sprintId: "sprint-0",
+          carriedOver: true,
+          dueDate: existingDueDate,
+        },
+      ],
+      // 6. tx: assignees
+      [{ userId: "dev-1" }],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Sprint 2",
+      startDate: "2026-11-10",
+      endDate: "2026-11-20",
+      taskIds: ["task-backlog", "task-carried"],
+    });
+
+    expect(res.ok).toBe(true);
+    expect(updateSetPayloads).toHaveLength(2);
+
+    // Backlog task -> status becomes 'to_do', carriedOver stays false, dueDate set to sprint end
+    expect(updateSetPayloads[0]).toMatchObject({
+      status: "to_do",
+      carriedOver: false,
+    });
+    expect(updateSetPayloads[0].dueDate).toBeInstanceOf(Date);
+
+    // Carried task -> keeps 'in_progress', carriedOver stays true, existing dueDate preserved
+    expect(updateSetPayloads[1]).toMatchObject({
+      status: "in_progress",
+      carriedOver: true,
+      dueDate: existingDueDate,
+    });
+
+    expect(createSystemNotification).toHaveBeenCalledWith(
+      "dev-1",
+      expect.stringContaining('Sprint "Sprint 2"'),
+      "task",
+      "/dashboard/pm/proj-1",
+    );
+    expect(logAction).toHaveBeenCalledWith(
+      "CREATE",
+      "Sprint",
+      expect.stringContaining("[actorRole:manager]"),
+      "pm-1",
+      "proj-1",
+    );
+  });
+});
+
+describe("moveTaskToSprint IDOR & validation", () => {
+  beforeEach(() => {
+    signInAs(auth, "manager", "pm-1");
+    mockDb.query.agencyProjects.findFirst.mockResolvedValue({
+      id: "proj-1",
+      leadId: "lead-1",
+      isArchived: false,
+    });
+    mockDb.query.leads.findFirst.mockResolvedValue({
+      id: "lead-1",
+      assignedPmId: "pm-1",
+    });
+  });
+
+  it("rejects IDOR with a foreign sprintId belonging to another project", async () => {
+    mockDb.query.tasks.findFirst.mockResolvedValue({
+      id: "task-1",
+      projectId: "proj-1",
+      milestoneId: "m-dev",
+      title: "Task 1",
+    });
+
+    setSelectSequence([
+      // 1. applyEndedSprints pre-check
+      [],
+      // 2. tx: lock agency_project
+      [{ id: "proj-1" }],
+      // 3. tx: targetSprint where id=sprint-foreign AND projectId=proj-1 -> none!
+      [],
+    ]);
+
+    const res = await moveTaskToSprint({
+      taskId: "task-1",
+      sprintId: "sprint-foreign",
+    });
+
+    expect(res).toEqual({ ok: false, error: "SPRINT_NOT_FOUND" });
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("applyEndedSprints idempotency", () => {
+  it("returns to_do to backlog, marks active statuses carried_over=true, leaves done alone, and second call is a no-op", async () => {
+    const updateSetCalls: Record<string, unknown>[] = [];
+    mockDb.update.mockImplementation(() => ({
+      set: (payload: Record<string, unknown>) => {
+        updateSetCalls.push(payload);
+        return {
+          where: () => ({
+            returning: () =>
+              Promise.resolve(
+                payload.status === "backlog"
+                  ? [{ id: "t-todo", sprintId: null }]
+                  : [{ id: "t-prog", sprintId: "s-ended" }],
+              ),
+          }),
+        };
+      },
+    }));
+
+    // First call: s-ended has 1 to_do, 1 in_progress (carriedOver: false), and 1 done
+    setSelectSequence([
+      // 1. Pre-check: ended sprints
+      [{ id: "s-ended", name: "Sprint 1" }],
+      // 2. Pre-check: tasks in ended sprints
+      [
+        { id: "t-todo", status: "to_do", carriedOver: false },
+        { id: "t-prog", status: "in_progress", carriedOver: false },
+        { id: "t-done", status: "done", carriedOver: false },
+      ],
+      // 3. tx: lock agency_project
+      [{ id: "proj-1" }],
+      // 4. tx: lock ended sprints
+      [{ id: "s-ended", name: "Sprint 1" }],
+    ]);
+
+    const firstRun = await applyEndedSprints("proj-1");
+    expect(firstRun).toEqual({ returned: 1, carried: 1 });
+    expect(mockDb.transaction).toHaveBeenCalledTimes(1);
+    expect(updateSetCalls).toHaveLength(2);
+    expect(updateSetCalls[0]).toMatchObject({ status: "backlog", sprintId: null });
+    expect(updateSetCalls[1]).toMatchObject({ carriedOver: true });
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Sprint",
+      expect.stringContaining('Sprint "Sprint 1" ended'),
+      undefined,
+      "proj-1",
+    );
+
+    // Second call: all to_do are now backlog (sprintId=null) and in_progress has carriedOver=true
+    mockDb.transaction.mockClear();
+    updateSetCalls.length = 0;
+    vi.mocked(logAction).mockClear();
+
+    setSelectSequence([
+      // 1. Pre-check: ended sprints
+      [{ id: "s-ended", name: "Sprint 1" }],
+      // 2. Pre-check: tasks remaining in s-ended (only carried in_progress and done)
+      [
+        { id: "t-prog", status: "in_progress", carriedOver: true },
+        { id: "t-done", status: "done", carriedOver: false },
+      ],
+    ]);
+
+    const secondRun = await applyEndedSprints("proj-1");
+    expect(secondRun).toEqual({ returned: 0, carried: 0 });
+    expect(mockDb.transaction).not.toHaveBeenCalled();
+    expect(updateSetCalls).toHaveLength(0);
+    expect(logAction).not.toHaveBeenCalled();
+  });
+});
+
