@@ -154,6 +154,9 @@ export async function signInWithEmail(prevState: unknown, formData: FormData): P
             }
             const customMessage = cause?.message;
             if (customMessage) {
+                if (customMessage.toLowerCase().includes("locked")) {
+                    return { success: false, message: "Account is locked. Please try again later or contact your administrator." };
+                }
                 return { success: false, message: customMessage };
             }
             switch (error.type) {
