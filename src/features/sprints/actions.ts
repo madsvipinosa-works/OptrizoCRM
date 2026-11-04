@@ -80,6 +80,13 @@ function toSprintEndDueDate(endDateStr: string): Date {
   return new Date(`${endDateStr}T23:59:59+08:00`);
 }
 
+function toManilaCalendarDate(value: Date | string): string {
+  if (typeof value === "string" && ISO_DATE_RE.test(value.trim())) {
+    return value.trim();
+  }
+  return todayInManila(value instanceof Date ? value : new Date(value));
+}
+
 /**
  * Plans a new sprint and moves selected backlog / carried-over tasks into it.
  */
@@ -162,8 +169,8 @@ export async function planSprint(input: {
       }
 
       if (devMilestone.startDate && devMilestone.endDate) {
-        const milestoneStart = todayInManila(new Date(devMilestone.startDate));
-        const milestoneEnd = todayInManila(new Date(devMilestone.endDate));
+        const milestoneStart = toManilaCalendarDate(devMilestone.startDate);
+        const milestoneEnd = toManilaCalendarDate(devMilestone.endDate);
         if (startDate < milestoneStart || endDate > milestoneEnd) {
           throw new Error("OUTSIDE_DEVELOPMENT_DATES");
         }

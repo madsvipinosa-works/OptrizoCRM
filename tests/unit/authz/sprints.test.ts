@@ -172,12 +172,12 @@ describe("planSprint validation, containment, overlap, and IDOR guards", () => {
       [],
       // 2. tx: lock agency_project
       [{ id: "proj-1" }],
-      // 3. tx: development milestone (Nov 10 to Nov 20 Manila)
+      // 3. tx: development milestone (Nov 10 to Nov 20 at UTC midnight -> Nov 10 to Nov 20 in Asia/Manila)
       [
         {
           id: "m-dev",
-          startDate: new Date("2026-11-10T00:00:00+08:00"),
-          endDate: new Date("2026-11-20T23:59:59+08:00"),
+          startDate: new Date("2026-11-10T00:00:00.000Z"),
+          endDate: new Date("2026-11-20T00:00:00.000Z"),
         },
       ],
     ]);
@@ -187,6 +187,104 @@ describe("planSprint validation, containment, overlap, and IDOR guards", () => {
       name: "Sprint Out of Bounds",
       startDate: "2026-11-10",
       endDate: "2026-11-25", // past Nov 20
+    taskIds: [],
+    });
+
+    expect(res).toEqual({ ok: false, error: "OUTSIDE_DEVELOPMENT_DATES" });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("accepts a sprint starting on the Development milestone's start day (UTC midnight timestamptz)", async () => {
+    setSelectSequence([
+      [],
+      [{ id: "proj-1" }],
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-10T00:00:00.000Z"),
+          endDate: new Date("2026-11-20T00:00:00.000Z"),
+        },
+      ],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "Start Edge Sprint",
+      startDate: "2026-11-10", // exact start day
+      endDate: "2026-11-15",
+      taskIds: [],
+    });
+
+    expect(res.ok).toBe(true);
+  });
+
+  it("accepts a sprint ending on the Development milestone's end day (UTC midnight timestamptz)", async () => {
+    setSelectSequence([
+      [],
+      [{ id: "proj-1" }],
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-10T00:00:00.000Z"),
+          endDate: new Date("2026-11-20T00:00:00.000Z"),
+        },
+      ],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "End Edge Sprint",
+      startDate: "2026-11-15",
+      endDate: "2026-11-20", // exact end day (even when milestone.end_date is 2026-11-20T00:00:00Z)
+      taskIds: [],
+    });
+
+    expect(res.ok).toBe(true);
+  });
+
+  it("rejects a sprint starting one day before the Development milestone's start day", async () => {
+    setSelectSequence([
+      [],
+      [{ id: "proj-1" }],
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-15T00:00:00.000Z"),
+          endDate: new Date("2026-11-25T00:00:00.000Z"),
+        },
+      ],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "One Day Before Start",
+      startDate: "2026-11-14", // 1 day before Nov 15
+      endDate: "2026-11-20",
+      taskIds: [],
+    });
+
+    expect(res).toEqual({ ok: false, error: "OUTSIDE_DEVELOPMENT_DATES" });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a sprint ending one day after the Development milestone's end day", async () => {
+    setSelectSequence([
+      [],
+      [{ id: "proj-1" }],
+      [
+        {
+          id: "m-dev",
+          startDate: new Date("2026-11-10T00:00:00.000Z"),
+          endDate: new Date("2026-11-20T00:00:00.000Z"),
+        },
+      ],
+    ]);
+
+    const res = await planSprint({
+      projectId: "proj-1",
+      name: "One Day After End",
+      startDate: "2026-11-10",
+      endDate: "2026-11-21", // 1 day after Nov 20
       taskIds: [],
     });
 
