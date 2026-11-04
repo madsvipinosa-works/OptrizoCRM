@@ -435,8 +435,8 @@ export async function rejectProposalByClient(id: string, reason?: string) {
     }
 }
 
-import { Resend } from "resend";
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendMail } from "@/lib/mailer";
+
 
 export async function sendProposalEmail(proposalId: string) {
     const authz = await requireRole(["manager"]);
@@ -454,8 +454,8 @@ export async function sendProposalEmail(proposalId: string) {
     try {
         const url = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000')}/proposal/${proposalId}`;
 
-        await resend.emails.send({
-            from: "Optrizo <onboarding@resend.dev>",
+        await sendMail({
+
             to: p.lead.client.email,
             subject: `Your Custom Proposal from Optrizo - ${p.lead.businessName || p.lead.client.name}`,
             html: `<p>Hi ${p.lead.client.name},</p><p>We have prepared a custom proposal for your project.</p><p>You can view and accept it here: <br/><a href="${url}">${url}</a></p><p>Looking forward to working with you!</p><p>The Optrizo Team</p>`,
