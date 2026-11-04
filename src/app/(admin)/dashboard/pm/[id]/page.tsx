@@ -213,6 +213,11 @@ export default async function KanbanBoardPage(props: {
                 {isManager && (
                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                         <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/pm/${project.id}/timeline`}>
+                                Timeline
+                            </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
                             <Link href={`/dashboard/pm/${project.id}/payments`}>
                                 Payments
                             </Link>

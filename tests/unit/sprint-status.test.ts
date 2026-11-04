@@ -9,6 +9,7 @@ import {
   isTaskCarriedOver,
   isDevelopmentMilestone,
 } from "@/features/sprints/task-filters";
+import { buildGanttLayout } from "@/features/sprints/gantt-layout";
 
 const { insertValuesMock, insertMock, authMock } = vi.hoisted(() => {
   const insertValuesMock = vi.fn().mockResolvedValue(undefined);
@@ -185,5 +186,307 @@ describe("task-filters pure helpers (STOP 3 commit B)", () => {
     expect(stripped).toMatch(/backlogTasks=\{isManager\s*\?\s*managerBacklogTasks\s*:\s*undefined\}/);
   });
 });
+
+describe("gantt-layout pure helpers & timeline source-text guards (STOP 4)", () => {
+  it("handles empty project with no milestones, sprints, or key dates without crashing", () => {
+    const layout = buildGanttLayout({
+      milestones: [],
+      sprints: [],
+      keyDates: [],
+      today: "2026-11-10",
+    });
+
+    expect(layout.chartRange).toBeNull();
+    expect(layout.rows).toEqual([]);
+    expect(layout.todayPosition).toEqual({
+      date: "2026-11-10",
+      leftPercent: null,
+      inRange: false,
+    });
+    expect(layout.keyDates).toEqual([]);
+    expect(layout.monthMarkers).toEqual([]);
+  });
+
+  it("produces a 'No dates' row when a milestone has null dates without crashing", () => {
+    const layout = buildGanttLayout({
+      milestones: [
+        {
+          id: "m-req",
+          name: "Requirements",
+          status: "Completed",
+          startDate: "2026-11-01",
+          endDate: "2026-11-10",
+          order: 1,
+          doneTasks: 3,
+          totalTasks: 3,
+        },
+        {
+          id: "m-nodates",
+          name: "Handover",
+          status: "Pending",
+          startDate: null,
+          endDate: null,
+          order: 2,
+          doneTasks: 0,
+          totalTasks: 0,
+        },
+      ],
+      sprints: [],
+      keyDates: [],
+      today: "2026-11-05",
+    });
+
+    expect(layout.rows).toHaveLength(2);
+    const noDatesRow = layout.rows[1]!;
+    expect(noDatesRow.id).toBe("m-nodates");
+    expect(noDatesRow.hasDates).toBe(false);
+    expect(noDatesRow.noDatesLabel).toBe("No dates");
+    expect(noDatesRow.leftPercent).toBe(0);
+    expect(noDatesRow.widthPercent).toBe(0);
+    expect(noDatesRow.progressPercent).toBe(0);
+  });
+
+  it("computes accurate left% and width% math for known dates", () => {
+    // Milestone spans 2026-11-03..2026-11-08 (6 days).
+    // With 2-day padding on each side: chartRange is 2026-11-01..2026-11-10 (10 days total).
+    // Start offset = 2 days -> leftPercent = (2 / 10) * 100 = 20%.
+    // Duration = 6 days -> widthPercent = (6 / 10) * 100 = 60%.
+    const layout = buildGanttLayout({
+      milestones: [
+        {
+          id: "m-1",
+          name: "Requirements",
+          status: "In Progress",
+          startDate: "2026-11-03",
+          endDate: "2026-11-08",
+          order: 1,
+          doneTasks: 2,
+          totalTasks: 4,
+        },
+      ],
+      sprints: [],
+      keyDates: [],
+      today: "2026-11-05",
+    });
+
+    expect(layout.chartRange).toEqual({
+      startDate: "2026-11-01",
+      endDate: "2026-11-10",
+      totalDays: 10,
+    });
+
+    const row = layout.rows[0]!;
+    expect(row.leftPercent).toBe(20);
+    expect(row.widthPercent).toBe(60);
+    expect(row.progressPercent).toBe(50);
+  });
+
+  it("enforces minimum visible width for a one-day sprint on a wide timeline", () => {
+    // Wide milestone spanning 200 days so a 1-day sprint raw width is ~0.49% (< 2% min width)
+    const layout = buildGanttLayout({
+      milestones: [
+        {
+          id: "m-dev",
+          name: "Development",
+          status: "In Progress",
+          startDate: "2026-01-01",
+          endDate: "2026-07-20",
+          order: 1,
+          doneTasks: 1,
+          totalTasks: 10,
+        },
+      ],
+      sprints: [
+        {
+          id: "s-oneday",
+          name: "Hotfix Sprint",
+          startDate: "2026-03-15",
+          endDate: "2026-03-15",
+          status: "ended",
+          doneTasks: 1,
+          totalTasks: 1,
+        },
+      ],
+      keyDates: [],
+      today: "2026-04-01",
+    });
+
+    const sprintRow = layout.rows.find((r) => r.kind === "sprint" && r.id === "s-oneday");
+    expect(sprintRow).toBeDefined();
+    expect(sprintRow!.widthPercent).toBeGreaterThanOrEqual(2);
+  });
+
+  it("nests sprints as indented rows directly under the Development milestone", () => {
+    const layout = buildGanttLayout({
+      milestones: [
+        {
+          id: "m-design",
+          name: "Design",
+          status: "Completed",
+          startDate: "2026-11-01",
+          endDate: "2026-11-05",
+          order: 1,
+          doneTasks: 2,
+          totalTasks: 2,
+        },
+        {
+          id: "m-dev",
+          name: "Full-Stack Development",
+          status: "In Progress",
+          startDate: "2026-11-06",
+          endDate: "2026-11-25",
+          order: 2,
+          doneTasks: 3,
+          totalTasks: 6,
+        },
+        {
+          id: "m-uat",
+          name: "UAT and testing",
+          status: "Pending",
+          startDate: "2026-11-26",
+          endDate: "2026-11-30",
+          order: 3,
+          doneTasks: 0,
+          totalTasks: 2,
+        },
+      ],
+      sprints: [
+        {
+          id: "s-2",
+          name: "Sprint 2",
+          startDate: "2026-11-16",
+          endDate: "2026-11-25",
+          status: "planned",
+          doneTasks: 0,
+          totalTasks: 3,
+        },
+        {
+          id: "s-1",
+          name: "Sprint 1",
+          startDate: "2026-11-06",
+          endDate: "2026-11-15",
+          status: "active",
+          doneTasks: 3,
+          totalTasks: 3,
+        },
+      ],
+      keyDates: [],
+      today: "2026-11-10",
+    });
+
+    expect(layout.rows.map((r) => ({ id: r.id, kind: r.kind, indented: r.indented }))).toEqual([
+      { id: "m-design", kind: "milestone", indented: false },
+      { id: "m-dev", kind: "milestone", indented: false },
+      { id: "s-1", kind: "sprint", indented: true },
+      { id: "s-2", kind: "sprint", indented: true },
+      { id: "m-uat", kind: "milestone", indented: false },
+    ]);
+  });
+
+  it("computes todayPosition inside range vs outside range (null with inRange=false)", () => {
+    const baseInput = {
+      milestones: [
+        {
+          id: "m-1",
+          name: "Development",
+          status: "In Progress",
+          startDate: "2026-11-10",
+          endDate: "2026-11-20",
+          order: 1,
+          doneTasks: 1,
+          totalTasks: 2,
+        },
+      ],
+      sprints: [],
+      keyDates: [],
+    };
+
+    const inside = buildGanttLayout({
+      ...baseInput,
+      today: "2026-11-15",
+    });
+    expect(inside.todayPosition.inRange).toBe(true);
+    expect(inside.todayPosition.leftPercent).not.toBeNull();
+    expect(inside.todayPosition.leftPercent).toBeGreaterThan(0);
+    expect(inside.todayPosition.leftPercent).toBeLessThan(100);
+
+    const outside = buildGanttLayout({
+      ...baseInput,
+      today: "2026-12-25",
+    });
+    expect(outside.todayPosition).toEqual({
+      date: "2026-12-25",
+      leftPercent: null,
+      inRange: false,
+    });
+  });
+
+  it("computes progressPercent as 0 when totalTasks is 0 and omits null/empty key dates", () => {
+    const layout = buildGanttLayout({
+      milestones: [
+        {
+          id: "m-zero",
+          name: "Requirements",
+          status: "Pending",
+          startDate: "2026-11-01",
+          endDate: "2026-11-10",
+          order: 1,
+          doneTasks: 0,
+          totalTasks: 0,
+        },
+      ],
+      sprints: [],
+      keyDates: [
+        { kind: "signing", label: "Signed", date: "2026-11-01" },
+        { kind: "testing_day", label: "Testing day", date: "" },
+      ],
+      today: "2026-11-05",
+    });
+
+    expect(layout.rows[0]!.progressPercent).toBe(0);
+    expect(layout.keyDates).toHaveLength(1);
+    expect(layout.keyDates[0]!.kind).toBe("signing");
+  });
+
+  it("source-text guard: timeline/page.tsx calls requireRole before any db/query call and checks authorizeProject(...).ok", () => {
+    const timelinePagePath = path.resolve(
+      __dirname,
+      "../../src/app/(admin)/dashboard/pm/[id]/timeline/page.tsx",
+    );
+    const src = fs.readFileSync(timelinePagePath, "utf8");
+    const stripped = src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+
+    const requireRoleIdx = stripped.indexOf("requireRole(");
+    const authorizeIdx = stripped.indexOf("authorizeProject(");
+    const applyEndedIdx = stripped.indexOf("applyEndedSprints(");
+    const getTimelineIdx = stripped.indexOf("getTimelineData(");
+
+    expect(requireRoleIdx).toBeGreaterThan(-1);
+    expect(authorizeIdx).toBeGreaterThan(requireRoleIdx);
+    expect(applyEndedIdx).toBeGreaterThan(authorizeIdx);
+    expect(getTimelineIdx).toBeGreaterThan(authorizeIdx);
+
+    expect(stripped).toMatch(
+      /const\s+access\s*=\s*await\s+authorizeProject\s*\(\s*id\s*,\s*["']read["']\s*\)\s*;[\s\S]*?if\s*\(\s*!access\.ok\s*\)/,
+    );
+  });
+
+  it("source-text guard: no timeline file imports recharts", () => {
+    const timelineFiles = [
+      path.resolve(__dirname, "../../src/features/sprints/gantt-layout.ts"),
+      path.resolve(__dirname, "../../src/features/sprints/timeline-data.ts"),
+      path.resolve(__dirname, "../../src/features/pm/components/GanttTimeline.tsx"),
+      path.resolve(__dirname, "../../src/app/(admin)/dashboard/pm/[id]/timeline/page.tsx"),
+    ];
+
+    for (const file of timelineFiles) {
+      const content = fs.readFileSync(file, "utf8");
+      expect(content).not.toMatch(/recharts/i);
+    }
+  });
+});
+
 
 

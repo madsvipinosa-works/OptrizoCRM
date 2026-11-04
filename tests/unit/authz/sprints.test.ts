@@ -20,6 +20,7 @@ import { createTask, startTask, deleteTask } from "@/features/pm/actions";
 import * as sprintActionsModule from "@/features/sprints/actions";
 import { planSprint, moveTaskToSprint } from "@/features/sprints/actions";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
+import { getTimelineData } from "@/features/sprints/timeline-data";
 import { ROLES, signInAs, type Role } from "../../helpers/mock-auth";
 import { expectNoWrites, type MockDb } from "../../helpers/mock-db";
 
@@ -796,6 +797,98 @@ describe("deleteTask guard (STOP 3 commit A)", () => {
     },
   );
 });
+
+describe("getTimelineData query (STOP 4)", () => {
+  it("loads milestones, sprints, done/total counts (excluding backlog), and omits null key dates", async () => {
+    setSelectSequence([
+      // 1. agency_project row (signedOffAt is null)
+      [
+        {
+          id: "proj-1",
+          title: "Delivery Tracking App",
+          status: "In Progress",
+          leadId: "lead-1",
+          signedOffAt: null,
+        },
+      ],
+      // 2. lead row
+      [
+        {
+          businessName: "Santos Logistics",
+          contactName: "Maria Santos",
+        },
+      ],
+      // 3. signed proposal row (signedAt present)
+      [
+        {
+          signedAt: new Date("2026-11-07T02:00:00Z"),
+          acceptedAt: null,
+        },
+      ],
+      // 4. milestones
+      [
+        {
+          id: "m-dev",
+          name: "development",
+          title: "Development",
+          status: "In Progress",
+          startDate: new Date("2026-11-10T00:00:00Z"),
+          endDate: new Date("2026-11-30T00:00:00Z"),
+          order: 1,
+        },
+      ],
+      // 5. sprints
+      [
+        {
+          id: "s-1",
+          name: "Sprint 1",
+          startDate: "2026-11-10",
+          endDate: "2026-11-20",
+        },
+      ],
+      // 6. non-deleted tasks (even if a backlog row were returned, it is ignored)
+      [
+        { id: "t-1", milestoneId: "m-dev", sprintId: "s-1", status: "done" },
+        { id: "t-2", milestoneId: "m-dev", sprintId: "s-1", status: "in_progress" },
+        { id: "t-3", milestoneId: "m-dev", sprintId: null, status: "backlog" },
+      ],
+      // 7. uat meeting (none)
+      [],
+    ]);
+
+    const data = await getTimelineData("proj-1");
+    expect(data).not.toBeNull();
+    expect(data!.project).toEqual({
+      id: "proj-1",
+      title: "Delivery Tracking App",
+      status: "In Progress",
+      businessName: "Santos Logistics",
+      clientName: "Maria Santos",
+    });
+    expect(data!.milestones[0]).toMatchObject({
+      id: "m-dev",
+      name: "Development",
+      doneTasks: 1,
+      totalTasks: 2,
+    });
+    expect(data!.sprints[0]).toMatchObject({
+      id: "s-1",
+      name: "Sprint 1",
+      status: "active",
+      doneTasks: 1,
+      totalTasks: 2,
+    });
+    // Only signing key date present; testing_day and completion_sign_off omitted when null
+    expect(data!.keyDates).toEqual([
+      {
+        kind: "signing",
+        label: "Signed",
+        date: "2026-11-07",
+      },
+    ]);
+  });
+});
+
 
 
 
