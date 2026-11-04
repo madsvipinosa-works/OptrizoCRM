@@ -41,6 +41,7 @@ export async function submitProjectFeedback(
     const comment = data.comment ? data.comment.trim() : null;
 
     try {
+        let resolvedProjectId = "";
         let leadId: string | null = null;
         let projectTitle = "";
 
@@ -58,6 +59,7 @@ export async function submitProjectFeedback(
                 return { success: false, error: "Project not found or archived." };
             }
 
+            resolvedProjectId = project.id;
             leadId = project.leadId;
             projectTitle = project.title;
 
@@ -122,8 +124,9 @@ export async function submitProjectFeedback(
             await logAction(
                 "CREATE",
                 "Feedback",
-                `Submitted project feedback for ${projectId} (Rating: ${rating}/5)`,
-                session.user.id
+                `Submitted project feedback for ${resolvedProjectId} (Rating: ${rating}/5)`,
+                session.user.id,
+                resolvedProjectId
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in submitProjectFeedback:", postCommitErr);

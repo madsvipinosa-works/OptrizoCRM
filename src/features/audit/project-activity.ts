@@ -99,25 +99,90 @@ export function sanitizeActivityDetails(raw: string | null | undefined): string 
     .trim();
 }
 
+const ENTITY_DISPLAY_LABELS: Record<string, string> = {
+  project: "Project",
+  "project details": "Project Details",
+  "project resources": "Project Resources",
+  "project document": "Project Document",
+  document: "Handover Document",
+  "client document": "Client Document",
+  task: "Task",
+  milestone: "Milestone",
+  sprint: "Sprint",
+  payment: "Payment",
+  project_team_member: "Team Member",
+  feedback: "Project Feedback",
+};
+
+const KNOWN_ACTION_LABELS: Record<string, string> = {
+  plan_sprint: "Planned Sprint",
+  move_task_to_sprint: "Moved Task to Sprint",
+  sprint_end: "Sprint Ended",
+  start_task: "Started Task",
+  submit_task: "Submitted Task",
+  approve_task: "Approved Task",
+  request_task_changes: "Requested Task Changes",
+  create_task: "Created Task",
+  update_task_details: "Updated Task Details",
+  delete_task: "Deleted Task",
+  mark_empty_milestone_done: "Completed Empty Milestone",
+  upload_payment_proof: "Uploaded Payment Proof",
+  confirm_payment: "Confirmed Payment",
+  reject_payment_proof: "Rejected Payment Proof",
+  add_handover_file: "Added Handover Document",
+  record_sign_off: "Recorded Client Sign-Off",
+  complete_project: "Completed Project",
+  submit_project_feedback: "Submitted Project Feedback",
+  add_project_team_member: "Added Team Member",
+  remove_project_team_member: "Removed Team Member",
+  update_project_details: "Updated Project Details",
+  update_project_status: "Updated Project Status",
+  update_project_settings: "Updated Project Resources",
+  add_project_document: "Added Project Document",
+  delete_project_document: "Deleted Project Document",
+  archive_project: "Archived Project",
+  unarchive_project: "Unarchived Project",
+};
+
+function normalizeEntityLabel(rawEntity: string): string {
+  const trimmed = rawEntity.trim();
+  if (!trimmed) return "";
+  const lower = trimmed.toLowerCase();
+  if (ENTITY_DISPLAY_LABELS[lower]) {
+    return ENTITY_DISPLAY_LABELS[lower];
+  }
+  return trimmed.replace(/_/g, " ");
+}
+
 /**
  * Formats an audit action and entity into a readable human label.
  * Unknown actions fall back to the raw action string.
  */
 export function formatActivityActionLabel(action: string, entity?: string | null): string {
-  const cleanEntity = (entity || "").trim();
+  const cleanEntity = normalizeEntityLabel(entity || "");
   switch (action) {
     case "CREATE":
+      if (cleanEntity === "Team Member") return "Added Team Member";
       return cleanEntity ? `Created ${cleanEntity}` : "Created";
     case "UPDATE":
       return cleanEntity ? `Updated ${cleanEntity}` : "Updated";
     case "DELETE":
+      if (cleanEntity === "Team Member") return "Removed Team Member";
       return cleanEntity ? `Deleted ${cleanEntity}` : "Deleted";
     case "LOGIN":
       return "Signed in";
     case "OTHER":
       return cleanEntity ? `${cleanEntity} activity` : "Other";
-    default:
+    default: {
+      const normalizedKey = action
+        .trim()
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .toLowerCase();
+      if (KNOWN_ACTION_LABELS[normalizedKey]) {
+        return KNOWN_ACTION_LABELS[normalizedKey];
+      }
       return action;
+    }
   }
 }
 
@@ -210,3 +275,4 @@ export async function getProjectActivity(
     nextCursor,
   };
 }
+

@@ -18,13 +18,27 @@ vi.mock("@/features/notifications/send", () => ({
   createSystemNotification: vi.fn(),
   notifyAllAdmins: vi.fn(),
   notifyProjectClients: vi.fn(),
+  notifyLeadPms: vi.fn(),
+}));
+vi.mock("@/lib/notifications", () => ({
+  sendPaymentDueEmail: vi.fn(),
+  sendProjectCompleteEmail: vi.fn(),
 }));
 
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { logAction } from "@/features/audit/log";
 import { createSystemNotification } from "@/features/notifications/send";
-import { createTask, startTask, deleteTask } from "@/features/pm/actions";
+import {
+  createTask,
+  startTask,
+  deleteTask,
+  approveTask,
+  requestTaskChanges,
+  markEmptyMilestoneDone,
+} from "@/features/pm/actions";
+import { confirmPayment } from "@/features/payments/actions";
+import { completeProject, addHandoverFile, recordSignOff } from "@/features/pm/completion-actions";
 import * as sprintActionsModule from "@/features/sprints/actions";
 import { planSprint, moveTaskToSprint } from "@/features/sprints/actions";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
@@ -1167,6 +1181,12 @@ describe("project activity page & getProjectActivity query (STOP 5)", () => {
     expect(formatActivityActionLabel("CREATE", "Sprint")).toBe("Created Sprint");
     expect(formatActivityActionLabel("UPDATE", "Task")).toBe("Updated Task");
     expect(formatActivityActionLabel("DELETE", "Task")).toBe("Deleted Task");
+    expect(formatActivityActionLabel("CREATE", "Document")).toBe("Created Handover Document");
+    expect(formatActivityActionLabel("CREATE", "project_team_member")).toBe("Added Team Member");
+    expect(formatActivityActionLabel("DELETE", "project_team_member")).toBe("Removed Team Member");
+    expect(formatActivityActionLabel("UPDATE", "Payment")).toBe("Updated Payment");
+    expect(formatActivityActionLabel("UPDATE", "Milestone")).toBe("Updated Milestone");
+    expect(formatActivityActionLabel("CREATE", "Feedback")).toBe("Created Project Feedback");
     expect(formatActivityActionLabel("CUSTOM_ACTION", "Sprint")).toBe("CUSTOM_ACTION");
   });
 
@@ -1190,6 +1210,320 @@ describe("project activity page & getProjectActivity query (STOP 5)", () => {
     expect(pageSrc).toMatch(/if\s*\(\s*!authz\.ok\s*\)/);
     expect(pageSrc).toMatch(/const\s+access\s*=\s*await\s+authorizeProject\(id,\s*"read"\)/);
     expect(pageSrc).toMatch(/if\s*\(\s*!access\.ok\s*\)/);
+  });
+});
+
+describe("projectId passed to logAction across project/task/milestone/payment/completion actions (STOP 5b)", () => {
+  it("startTask passes task.projectId to logAction", async () => {
+    signInAs(auth, "developer", "dev-1");
+    mockDb.query.taskAssignees.findFirst.mockResolvedValue({
+      taskId: "task-1",
+      userId: "dev-1",
+    });
+    mockDb.query.tasks.findFirst.mockResolvedValue({
+      projectId: "proj-start-1",
+    });
+
+    setSelectSequence([
+      // 1. applyEndedSprints pre-check: no ended sprints
+      [],
+      // 2. startTask tx: lock task
+      [{ id: "task-1", title: "Implement Login", status: "to_do", milestoneId: "m-1", projectId: "proj-start-1" }],
+      // 3. startTask tx: check milestone
+      [{ id: "m-1", status: "In Progress", projectId: "proj-start-1" }],
+    ]);
+
+    const res = await startTask("task-1");
+    expect(res).toEqual({ success: true });
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Task",
+      expect.stringContaining('Started task "Implement Login"'),
+      "dev-1",
+      "proj-start-1",
+    );
+  });
+
+  it("approveTask passes projectId derived from task/milestone rows to both Task and auto-closed Milestone logAction calls", async () => {
+    signInAs(auth, "manager", "pm-1");
+
+    setSelectSequence([
+      // 1. approveTask tx: lock task in review
+      [{ id: "task-1", title: "Final Task", status: "in_review", milestoneId: "m-1", projectId: "proj-approve-1" }],
+      // 2. approveTask tx: remaining tasks in milestone (all done)
+      [{ id: "task-0", status: "done" }],
+      // 3. closeMilestoneAndAdvance: lock current milestone
+      [
+        {
+          id: "m-1",
+          name: "requirements",
+          title: "Requirements & Architecture",
+          status: "In Progress",
+          projectId: "proj-approve-1",
+          order: 0,
+        },
+      ],
+      // 4. closeMilestoneAndAdvance: pending milestones
+      [
+        {
+          id: "m-2",
+          name: "design",
+          title: "UI/UX Design",
+          status: "Pending",
+          projectId: "proj-approve-1",
+          order: 1,
+        },
+      ],
+      // 5. closeMilestoneAndAdvance: payments matching trigger
+      [],
+      // 6. approveTask tx: assignees
+      [{ userId: "dev-1" }],
+    ]);
+
+    const updateRows = [
+      [],
+      [
+        {
+          id: "m-1",
+          name: "requirements",
+          title: "Requirements & Architecture",
+          status: "Completed",
+          projectId: "proj-approve-1",
+        },
+      ],
+      [
+        {
+          id: "m-2",
+          name: "design",
+          title: "UI/UX Design",
+          status: "In Progress",
+          projectId: "proj-approve-1",
+        },
+      ],
+    ];
+    mockDb.update.mockImplementation(() => {
+      const next = updateRows.length > 0 ? updateRows.shift()! : [];
+      return createChainProxy(() => next);
+    });
+
+    const res = await approveTask("task-1");
+    expect(res).toEqual({ success: true });
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Task",
+      expect.stringContaining('Approved task "Final Task"'),
+      "pm-1",
+      "proj-approve-1",
+    );
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Milestone",
+      expect.stringContaining('Milestone "Requirements & Architecture" completed automatically'),
+      "pm-1",
+      "proj-approve-1",
+    );
+  });
+
+  it("requestTaskChanges and markEmptyMilestoneDone pass DB-derived projectId to logAction", async () => {
+    signInAs(auth, "manager", "pm-1");
+
+    setSelectSequence([
+      [{ id: "task-1", title: "Task 1", status: "in_review", projectId: "proj-req-1" }],
+      [{ userId: "dev-1" }],
+    ]);
+
+    const reqRes = await requestTaskChanges("task-1", "Please fix mobile padding");
+    expect(reqRes).toEqual({ success: true });
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Task",
+      expect.stringContaining('Requested changes on task "Task 1"'),
+      "pm-1",
+      "proj-req-1",
+    );
+
+    vi.mocked(logAction).mockClear();
+
+    setSelectSequence([
+      // 1. Lock milestone in markEmptyMilestoneDone
+      [
+        {
+          id: "m-5",
+          name: "handover",
+          title: "Final Handover",
+          status: "In Progress",
+          projectId: "proj-empty-1",
+          order: 4,
+        },
+      ],
+      // 2. Existing tasks in milestone (empty)
+      [],
+      // 3. Lock milestone in closeMilestoneAndAdvance
+      [
+        {
+          id: "m-5",
+          name: "handover",
+          title: "Final Handover",
+          status: "In Progress",
+          projectId: "proj-empty-1",
+          order: 4,
+        },
+      ],
+      // 4. Pending milestones
+      [],
+      // 5. All remaining milestones
+      [{ id: "m-5", status: "Completed" }],
+      // 6. Payments
+      [],
+    ]);
+    mockDb.setWriteRows([
+      { id: "m-5", title: "Final Handover", status: "Completed", projectId: "proj-empty-1" },
+    ]);
+
+    const emptyRes = await markEmptyMilestoneDone({
+      milestoneId: "m-5",
+      reason: "Handed over directly in person",
+    });
+    expect(emptyRes).toEqual({ success: true });
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Milestone",
+      expect.stringContaining('Manager marked empty milestone "Final Handover" as done'),
+      "pm-1",
+      "proj-empty-1",
+    );
+  });
+
+  it("confirmPayment passes payment.projectId from DB row to logAction", async () => {
+    signInAs(auth, "manager", "pm-1");
+    mockDb.query.payments.findFirst.mockResolvedValue(undefined); // OR number unique check
+
+    setSelectSequence([
+      // confirmPayment tx: lock payment row
+      [
+        {
+          id: "pay-1",
+          projectId: "proj-pay-1",
+          label: "50% Downpayment",
+          amount: 50000,
+          currency: "PHP",
+          status: "proof_uploaded",
+        },
+      ],
+    ]);
+
+    const res = await confirmPayment("pay-1", {
+      method: "bank_transfer",
+      referenceNo: "BPI-998877",
+      orNumber: "OR-2026-001",
+      receivedAt: new Date("2026-11-10T02:00:00Z"),
+    });
+
+    expect(res.success).toBe(true);
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Payment",
+      expect.stringContaining("Payment pay-1 confirmed as paid"),
+      "pm-1",
+      "proj-pay-1",
+    );
+  });
+
+  it("completion actions (addHandoverFile, recordSignOff, completeProject) pass DB-derived projectId to logAction", async () => {
+    signInAs(auth, "manager", "pm-1");
+    const authzMod = await import("@/lib/authz");
+    const fileSpy = vi
+      .spyOn(authzMod, "validateFileUrlForProject")
+      .mockResolvedValue({ ok: true });
+
+    // 1. addHandoverFile
+    mockDb.query.agencyProjects.findFirst.mockResolvedValue({
+      id: "proj-comp-1",
+      status: "In Progress",
+      isArchived: false,
+    });
+
+    const handoverRes = await addHandoverFile("proj-comp-1", {
+      title: "Architecture Manual",
+      fileName: "manual.pdf",
+      fileUrl: "/uploads/manual.pdf",
+    });
+    expect(handoverRes.success).toBe(true);
+    expect(logAction).toHaveBeenCalledWith(
+      "CREATE",
+      "Document",
+      expect.stringContaining('Added handover file "Architecture Manual"'),
+      "pm-1",
+      "proj-comp-1",
+    );
+
+    vi.mocked(logAction).mockClear();
+
+    // 2. recordSignOff
+    setSelectSequence([
+      [
+        {
+          id: "proj-comp-1",
+          title: "Delivery App",
+          status: "In Progress",
+          isArchived: false,
+        },
+      ],
+    ]);
+
+    const signOffRes = await recordSignOff("proj-comp-1", {
+      signOffFileUrl: "/uploads/signoff.pdf",
+      signedOffAt: new Date("2026-11-10T01:00:00Z"),
+    });
+    expect(signOffRes.success).toBe(true);
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Project",
+      expect.stringContaining("Recorded sign-off for project proj-comp-1"),
+      "pm-1",
+      "proj-comp-1",
+    );
+
+    vi.mocked(logAction).mockClear();
+
+    // 3. completeProject
+    setSelectSequence([
+      [
+        {
+          id: "proj-comp-1",
+          title: "Delivery App",
+          status: "In Review",
+          isArchived: false,
+          signOffFileUrl: "/uploads/signoff.pdf",
+          signedOffAt: new Date("2026-11-10T01:00:00Z"),
+        },
+      ],
+    ]);
+    mockDb.query.milestones.findMany.mockResolvedValue([
+      { id: "m-1", title: "Development", status: "Completed" },
+    ]);
+    mockDb.query.payments.findMany.mockResolvedValue([
+      { id: "pay-1", label: "Final Payment", status: "paid", scheduleItem: { sortOrder: 1 } },
+    ]);
+    mockDb.query.document.findMany.mockResolvedValue([{ id: "doc-1" }]);
+    mockDb.setWriteRows([
+      {
+        completedAt: new Date("2026-11-10T04:00:00Z"),
+        warrantyEndsAt: new Date("2027-02-10T04:00:00Z"),
+      },
+    ]);
+
+    const compRes = await completeProject("proj-comp-1");
+    expect(compRes.success).toBe(true);
+    expect(logAction).toHaveBeenCalledWith(
+      "UPDATE",
+      "Project",
+      expect.stringContaining('Completed project "Delivery App" (proj-comp-1)'),
+      "pm-1",
+      "proj-comp-1",
+    );
+
+    fileSpy.mockRestore();
   });
 });
 

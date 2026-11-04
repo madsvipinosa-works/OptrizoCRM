@@ -133,6 +133,7 @@ export async function planSprint(input: {
 
   let warning: "no_development_dates" | undefined;
   let newSprintId = "";
+  let resolvedProjectId = "";
   let assigneeUserIds: string[] = [];
 
   try {
@@ -147,6 +148,8 @@ export async function planSprint(input: {
       if (!lockedProject) {
         throw new Error("PROJECT_NOT_FOUND");
       }
+
+      resolvedProjectId = lockedProject.id;
 
       // Load the project's Development milestone inside the transaction (D2)
       const [devMilestone] = await tx
@@ -309,7 +312,7 @@ export async function planSprint(input: {
       "Sprint",
       `[actorRole:${authz.session.user.role}] Planned sprint "${name}" (${startDate}..${endDate}) with ${taskIds.length} task(s)`,
       authz.session.user.id,
-      projectId,
+      resolvedProjectId || projectId,
     );
   } catch (postErr) {
     console.error("Post-commit error in planSprint:", postErr);

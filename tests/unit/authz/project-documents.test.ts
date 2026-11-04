@@ -96,7 +96,7 @@ describe("addProjectDocument", () => {
     // Treated as a client upload: admins are told, the project's clients are not.
     expect(notifyAllAdmins).toHaveBeenCalledTimes(1);
     expect(notifyProjectClients).not.toHaveBeenCalled();
-    expect(logAction).toHaveBeenCalledWith("CREATE", "Project Document", expect.any(String), "client-1");
+    expect(logAction).toHaveBeenCalledWith("CREATE", "Project Document", expect.any(String), "client-1", "p1");
   });
 });
 
