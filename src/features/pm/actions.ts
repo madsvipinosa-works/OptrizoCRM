@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
+import { agencyProjects, milestones, tasks, sprints, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { eq, and, isNull, ne, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -9,6 +9,8 @@ import { createSystemNotification } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { authorizeProject, requireRole, requireRoles } from "@/lib/authz";
 import { closeMilestoneAndAdvance } from "@/features/pm/milestone-flow";
+import { applyEndedSprints } from "@/features/sprints/sprint-end";
+import { deriveSprintStatus, todayInManila } from "@/features/sprints/sprint-status";
 import { sendPaymentDueEmail } from "@/lib/notifications";
 import { z } from "zod";
 
@@ -44,7 +46,7 @@ export async function updateProjectDetails(
     try {
         const currentProject = await db.query.agencyProjects.findFirst({
             where: eq(agencyProjects.id, projectId),
-            columns: { status: true },
+            columns: { id: true, status: true },
         });
 
         if (!currentProject) {
@@ -113,7 +115,13 @@ export async function updateProjectDetails(
             }
         });
 
-        await logAction("UPDATE", "Project Details", `Project ${projectId} details updated`);
+        await logAction(
+            "UPDATE",
+            "Project Details",
+            `Project ${projectId} details updated`,
+            session?.user?.id,
+            currentProject.id ?? projectId
+        );
 
         revalidatePath(`/dashboard/pm/${projectId}`);
         revalidatePath("/dashboard/pm");
@@ -150,7 +158,13 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
             .set({ status, updatedAt: new Date() })
             .where(eq(agencyProjects.id, projectId));
 
-        await logAction("UPDATE", "Project", `Project ${projectId} status updated to ${status}`);
+        await logAction(
+            "UPDATE",
+            "Project",
+            `Project ${projectId} status updated to ${status}`,
+            session?.user?.id,
+            oldProject.id ?? projectId
+        );
 
         const { notifyProjectClients } = await import("@/features/notifications/send");
         await notifyProjectClients(
@@ -189,9 +203,19 @@ export async function updateProjectSettings(
             updatePayload.documents = documents;
         }
 
-        await db.update(agencyProjects).set(updatePayload).where(eq(agencyProjects.id, projectId));
+        const [updatedProject] = await db
+            .update(agencyProjects)
+            .set(updatePayload)
+            .where(eq(agencyProjects.id, projectId))
+            .returning({ id: agencyProjects.id });
 
-        await logAction("UPDATE", "Project Resources", `Project ${projectId} resources updated`);
+        await logAction(
+            "UPDATE",
+            "Project Resources",
+            `Project ${projectId} resources updated`,
+            session?.user?.id,
+            updatedProject?.id ?? projectId
+        );
 
         if (stagingUrls && stagingUrls.length > 0) {
             const { notifyProjectClients } = await import("@/features/notifications/send");
@@ -247,14 +271,21 @@ export async function addProjectDocument(projectId: string, newDoc: ProjectDocum
 
     try {
         const { sql } = await import("drizzle-orm");
-        await db.update(agencyProjects)
+        const [updatedProject] = await db.update(agencyProjects)
             .set({
                 documents: sql`COALESCE(${agencyProjects.documents}, '[]'::jsonb) || ${JSON.stringify([doc])}::jsonb`,
                 updatedAt: new Date()
             })
-            .where(eq(agencyProjects.id, projectId));
+            .where(eq(agencyProjects.id, projectId))
+            .returning({ id: agencyProjects.id });
 
-        await logAction("CREATE", "Project Document", `Added document '${doc.title}' to Project ${projectId}`, session.user.id);
+        await logAction(
+            "CREATE",
+            "Project Document",
+            `Added document '${doc.title}' to Project ${projectId}`,
+            session.user.id,
+            updatedProject?.id ?? projectId
+        );
 
         if (doc.uploadedByRole === "agency") {
             const { notifyProjectClients } = await import("@/features/notifications/send");
@@ -323,7 +354,13 @@ export async function deleteProjectDocument(projectId: string, documentId: strin
             await deleteImage(docToDelete.url);
         }
 
-        await logAction("DELETE", "Project Document", `Deleted document '${docToDelete.title}' from Project ${projectId}`, session.user.id);
+        await logAction(
+            "DELETE",
+            "Project Document",
+            `Deleted document '${docToDelete.title}' from Project ${projectId}`,
+            session.user.id,
+            project.id
+        );
 
         revalidatePath(`/dashboard/pm/${projectId}`);
         revalidatePath("/dashboard/pm");
@@ -348,20 +385,28 @@ export async function createTask(
     description?: string, 
     assigneeIds?: string[],
     weight: number = 1,
-    estimatedHours?: number
+    estimatedHours?: number,
+    opts?: { sprintId?: string | null; toBacklog?: boolean }
 ): Promise<ActionState> {
-    const session = await auth();
-    if (!hasRole(session, ["manager"])) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    const access = await authorizeProject(projectId, "write");
+    if (!access.ok) {
         return { success: false, message: "Unauthorized" };
     }
 
     if (!title.trim()) return { success: false, message: "Title is required" };
 
     try {
+        await applyEndedSprints(projectId);
+
         const milestone = await db.query.milestones.findFirst({
             where: and(eq(milestones.id, milestoneId), isNull(milestones.deletedAt)),
         });
-        if (!milestone) {
+        if (!milestone || (milestone.projectId && milestone.projectId !== projectId)) {
             return { success: false, message: "Milestone not found" };
         }
         if (milestone.status === "Completed") {
@@ -380,12 +425,33 @@ export async function createTask(
             }
         }
 
+        const isDevMilestone =
+            milestone.name === "development" || milestone.title === "Full-Stack Development";
+
+        let initialStatus: "backlog" | "to_do" = isDevMilestone ? "backlog" : "to_do";
+        let resolvedSprintId: string | null = null;
+
+        if (isDevMilestone && opts?.sprintId && !opts?.toBacklog) {
+            const targetSprint = await db.query.sprints.findFirst({
+                where: and(eq(sprints.id, opts.sprintId), eq(sprints.projectId, projectId)),
+            });
+            if (!targetSprint) {
+                return { success: false, message: "Sprint not found in this project" };
+            }
+            if (deriveSprintStatus(targetSprint.startDate, targetSprint.endDate, todayInManila()) === "ended") {
+                return { success: false, message: "Cannot add task to an ended sprint" };
+            }
+            initialStatus = "to_do";
+            resolvedSprintId = targetSprint.id;
+        }
+
         const [newTask] = await db.insert(tasks).values({
             projectId,
             milestoneId,
+            sprintId: resolvedSprintId,
             title,
             description,
-            status: "to_do",
+            status: initialStatus,
             weight: weight || 1,
             estimatedHours: estimatedHours || null
         }).returning();
@@ -397,7 +463,7 @@ export async function createTask(
             );
         }
 
-        await logAction("CREATE", "Task", `Task "${title}" created`);
+        await logAction("CREATE", "Task", `Task "${title}" created`, authz.session.user.id, newTask?.projectId ?? milestone.projectId ?? projectId);
 
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task created.", task: newTask };
@@ -497,7 +563,9 @@ export async function submitTask(input: {
     await logAction(
         "UPDATE",
         "Task",
-        `Developer ${session.user.name || session.user.id} submitted task "${taskTitle}" (${input.taskId}) for review`
+        `Developer ${session.user.name || session.user.id} submitted task "${taskTitle}" (${input.taskId}) for review`,
+        session.user.id,
+        taskProjectId ?? undefined
     );
 
     if (taskProjectId) {
@@ -591,7 +659,13 @@ export async function updateTaskDetails(
              }
         }
 
-        await logAction("UPDATE", "Task", `Task ${taskId} details updated`);
+        await logAction(
+            "UPDATE",
+            "Task",
+            `Task ${taskId} details updated`,
+            session?.user?.id,
+            existingTask.projectId
+        );
 
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task details updated.", task: updatedTask };
@@ -602,18 +676,52 @@ export async function updateTaskDetails(
 }
 
 export async function deleteTask(taskId: string): Promise<ActionState> {
-    const session = await auth();
-    if (!hasRole(session, ["manager"])) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
         return { success: false, message: "Unauthorized" };
     }
 
     try {
+        const taskRow = await db.query.tasks.findFirst({
+            where: and(eq(tasks.id, taskId), isNull(tasks.deletedAt)),
+            columns: {
+                id: true,
+                projectId: true,
+                status: true,
+                title: true,
+            },
+        });
+
+        if (!taskRow) {
+            return { success: false, message: "Task not found" };
+        }
+
+        const projectId = taskRow.projectId;
+        const access = await authorizeProject(projectId, "write");
+        if (!access.ok) {
+            return { success: false, message: "Unauthorized" };
+        }
+
+        if (taskRow.status !== "backlog" && taskRow.status !== "to_do") {
+            return {
+                success: false,
+                message: "Only tasks that have not started can be deleted.",
+            };
+        }
+
         await db.update(tasks)
             .set({ deletedAt: new Date(), updatedAt: new Date() })
             .where(eq(tasks.id, taskId));
-        
-        await logAction("DELETE", "Task", `Task ${taskId} soft-deleted`);
-        
+
+        await logAction(
+            "DELETE",
+            "Task",
+            `Task ${taskId} soft-deleted`,
+            authz.session.user.id,
+            projectId
+        );
+
+        revalidatePath(`/dashboard/pm/${projectId}`);
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task deleted." };
     } catch (error) {
@@ -710,11 +818,18 @@ export async function archiveProject(projectId: string): Promise<ActionState> {
     }
 
     try {
-        await db.update(agencyProjects)
+        const [archivedProject] = await db.update(agencyProjects)
             .set({ isArchived: true, updatedAt: new Date() })
-            .where(eq(agencyProjects.id, projectId));
+            .where(eq(agencyProjects.id, projectId))
+            .returning({ id: agencyProjects.id });
 
-        await logAction("UPDATE", "Project", `Project ${projectId} archived.`);
+        await logAction(
+            "UPDATE",
+            "Project",
+            `Project ${projectId} archived.`,
+            session?.user?.id,
+            archivedProject?.id ?? projectId
+        );
 
         revalidatePath("/dashboard/pm");
         revalidatePath("/portal");
@@ -732,11 +847,18 @@ export async function unarchiveProject(projectId: string): Promise<ActionState> 
     }
 
     try {
-        await db.update(agencyProjects)
+        const [unarchivedProject] = await db.update(agencyProjects)
             .set({ isArchived: false, updatedAt: new Date() })
-            .where(eq(agencyProjects.id, projectId));
+            .where(eq(agencyProjects.id, projectId))
+            .returning({ id: agencyProjects.id });
 
-        await logAction("UPDATE", "Project", `Project ${projectId} unarchived.`);
+        await logAction(
+            "UPDATE",
+            "Project",
+            `Project ${projectId} unarchived.`,
+            session?.user?.id,
+            unarchivedProject?.id ?? projectId
+        );
 
         revalidatePath(`/dashboard/pm/${projectId}`);
         revalidatePath("/dashboard/pm");
@@ -784,6 +906,14 @@ export async function startTask(
     }
 
     try {
+        const preTask = await db.query.tasks.findFirst({
+            where: and(eq(tasks.id, taskId), isNull(tasks.deletedAt)),
+            columns: { projectId: true },
+        });
+        if (preTask?.projectId) {
+            await applyEndedSprints(preTask.projectId);
+        }
+
         const result = await db.transaction(async (tx) => {
             const [task] = await tx
                 .select()
@@ -840,7 +970,7 @@ export async function startTask(
         }
 
         try {
-            await logAction("UPDATE", "Task", `Started task "${result.task?.title || taskId}"`);
+            await logAction("UPDATE", "Task", `Started task "${result.task?.title || taskId}"`, session.user.id, result.task?.projectId);
         } catch (logErr) {
             console.error("Post-commit log error in startTask:", logErr);
         }
@@ -991,9 +1121,21 @@ export async function approveTask(
                 }
             }
 
-            await logAction("UPDATE", "Task", `Approved task "${task?.title}" (${taskId}) to Done`);
+            await logAction(
+                "UPDATE",
+                "Task",
+                `Approved task "${task?.title}" (${taskId}) to Done`,
+                authz.session.user.id,
+                task?.projectId
+            );
             if (closeResult) {
-                await logAction("UPDATE", "Milestone", `Milestone "${closeResult.closedMilestone.title}" completed automatically upon task completion`);
+                await logAction(
+                    "UPDATE",
+                    "Milestone",
+                    `Milestone "${closeResult.closedMilestone.title}" completed automatically upon task completion`,
+                    authz.session.user.id,
+                    closeResult.closedMilestone.projectId ?? task?.projectId
+                );
             }
         } catch (postCommitErr) {
             console.error("Post-commit error in approveTask:", postCommitErr);
@@ -1087,7 +1229,9 @@ export async function requestTaskChanges(
             await logAction(
                 "UPDATE",
                 "Task",
-                `Requested changes on task "${task?.title}" (${taskId}): ${safeComment}`
+                `Requested changes on task "${task?.title}" (${taskId}): ${safeComment}`,
+                authz.session.user.id,
+                task?.projectId
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in requestTaskChanges:", postCommitErr);
@@ -1226,7 +1370,9 @@ export async function markEmptyMilestoneDone(input: {
             await logAction(
                 "UPDATE",
                 "Milestone",
-                `Manager marked empty milestone "${milestone.title}" as done (reason: ${safeReason})`
+                `Manager marked empty milestone "${milestone.title}" as done (reason: ${safeReason})`,
+                authz.session.user.id,
+                milestone.projectId
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in markEmptyMilestoneDone:", postCommitErr);

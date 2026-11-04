@@ -589,4 +589,58 @@ Who can access: public (outside middleware route matcher).
 Method: GET
 Behavior: Never touches the database or consumes the invite token on page load. Awaits search parameters and passes the token into `<AcceptInviteForm>` where the token is preserved in a hidden input field. The user submits the form to call `acceptStaffInvite`.
 
+## Session 8: Sprints & Backlog
+
+### planSprint  (step 23b)
+Who can call: manager (assigned to project)
+Input:  `{ projectId: string, name: string, goal?: string, startDate: string, endDate: string, taskIds: string[] }`
+Output: `{ ok: true, sprintId: string, warning?: 'no_development_dates' } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not a manager or does not have write access to `projectId`.
+- `INVALID_DATE_RANGE`: `endDate < startDate`.
+- `SPRINT_ALREADY_ENDED`: `endDate < todayInManila()`.
+- `OUTSIDE_DEVELOPMENT_DATES`: the Development milestone has `startDate` and `endDate` set and the sprint dates fall outside them.
+- `SPRINT_OVERLAP`: sprint date range overlaps an existing sprint in the same project (caught via PostgreSQL exclusion constraint `23P01`).
+- Duplicate sprint name in the same project returns a friendly message (caught via unique index `23505`).
+- `INVALID_TASKS`: any ID in `taskIds` is missing, belongs to another project, is not in the Development milestone, or is neither `backlog` nor an active/carried task (`in_progress`, `in_review`, `changes_requested`) in an ended sprint.
+Side effects: runs `applyEndedSprints(projectId)` first; locks `agency_project` FOR UPDATE → `sprint` → `task`; inserts `sprint` row; moves `backlog` tasks to `status = 'to_do'` (`sprintId = newSprint.id`, preserving `carriedOver`), and moves carried tasks from ended sprints to `sprintId = newSprint.id` with `carriedOver = true` and unchanged status; sets `dueDate` to sprint `endDate` only when `task.dueDate` is null; notifies assigned developers after commit; writes audit log row with `projectId`.
+
+### moveTaskToSprint  (step 23)
+Who can call: manager (assigned to the task's project)
+Input:  `{ taskId: string, sprintId: string }`
+Output: `{ ok: true } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not a manager or lacks write access to the task's project (derived from the task row).
+- `TASK_NOT_FOUND`: task does not exist or is soft-deleted.
+- `SPRINT_NOT_FOUND`: sprint does not exist or belongs to another project.
+- `SPRINT_ALREADY_ENDED`: target sprint's `endDate < todayInManila()`.
+- `NOT_DEVELOPMENT_TASK`: task is not in the project's Development milestone.
+- `INVALID_TASK_STATUS`: task is neither `backlog` nor an unfinished carried-over task (`in_progress`, `in_review`, `changes_requested`) in an ended sprint.
+Side effects: derives `projectId` from the task row; runs `applyEndedSprints(projectId)` first; locks `agency_project` FOR UPDATE → `sprint` → `task`; sets `sprintId = targetSprint.id`, converts `backlog` to `to_do` (or keeps carried status and sets `carriedOver = true`), sets `dueDate` to sprint `endDate` if null; writes audit log row with `projectId`.
+
+### createTask (sprint options)  (step 23a)
+Who can call: manager (assigned to project)
+Input:  `(projectId: string, milestoneId: string, title: string, description?: string, assigneeIds?: string[], weight?: number, estimatedHours?: number, opts?: { sprintId?: string | null; toBacklog?: boolean })`
+Output: `{ success: boolean, message: string }`
+Errors:
+- `Unauthorized`: caller is not a manager or lacks write access on `projectId`.
+- Milestone belongs to another project, is not found, or is `Completed`.
+- `opts.sprintId` belongs to another project or is already ended (`endDate < todayInManila()`).
+Side effects: runs `applyEndedSprints(projectId)` first; in the Development milestone, defaults to `status = 'backlog'` and `sprintId = null` when `opts?.toBacklog` is true or `opts?.sprintId` is omitted/null; when a valid non-ended `opts.sprintId` is provided in Development, inserts with `status = 'to_do'`, `sprintId = opts.sprintId`, and sets `dueDate` to the sprint's `endDate` if none was supplied; in all other milestones, ignores `sprintId`/`toBacklog` and inserts with `status = 'to_do'` and `sprintId = null`; writes audit log row with `projectId`.
+
+### deleteTask  (step 23)
+Who can call: manager (assigned to the task's project)
+Input:  `(taskId: string)`
+Output: `{ success: boolean, message: string }`
+Errors:
+- `Unauthorized`: caller is not a manager (`requireRole(["manager"])`) or lacks write access on the project derived from the task row (`authorizeProject(projectId, "write").ok`).
+- `Task not found`: task does not exist or is already soft-deleted.
+- `"Only tasks that have not started can be deleted."`: task status is anything other than `'backlog'` or `'to_do'` (`in_progress`, `in_review`, `changes_requested`, `done` are rejected).
+Side effects: derives `projectId` from the task row; soft-deletes the task (`deletedAt = now()`); writes audit log row last with `projectId`; revalidates the project board path.
+
+### /dashboard/pm/[id]/activity  (step 075-ref)
+Who can access: manager (with read access to `projectId` via `requireRole(["manager"]).ok` then `authorizeProject(id, "read").ok`).
+Method: GET
+Behavior: Read-only project activity table grouped by day in Asia/Manila (`When`, `Who`, `Action`, `Details`), backed by `getProjectActivity(projectId, { limit = 50, before? })` (`limit` capped at 100, cursor pagination by `created_at/id`). Joins `audit_log` to `user` selecting only `name` and `role` (never `password` or other user columns), formats action names into readable labels with fallback to the raw action string, sanitizes details, and renders plain text only.
+
 (Add one per action as modules are built.)

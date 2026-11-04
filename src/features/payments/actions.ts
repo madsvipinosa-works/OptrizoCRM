@@ -113,7 +113,8 @@ export async function uploadPaymentProof(
                 "UPDATE",
                 "Payment",
                 `Payment proof uploaded for payment ${paymentId} on project ${projectId}`,
-                session.user.id
+                session.user.id,
+                projectId
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in uploadPaymentProof:", postCommitErr);
@@ -277,7 +278,8 @@ export async function confirmPayment(
                 "UPDATE",
                 "Payment",
                 `Payment ${paymentId} confirmed as paid (${data.method}, OR #${orNumber})`,
-                session.user.id
+                session.user.id,
+                projectId
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in confirmPayment:", postCommitErr);
@@ -382,7 +384,8 @@ export async function rejectPaymentProof(
                 "UPDATE",
                 "Payment",
                 `Payment proof rejected for payment ${paymentId} (Reason: ${trimmedReason})`,
-                session.user.id
+                session.user.id,
+                projectId
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in rejectPaymentProof:", postCommitErr);

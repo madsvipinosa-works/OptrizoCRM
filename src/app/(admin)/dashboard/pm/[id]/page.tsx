@@ -12,10 +12,13 @@ import { ProjectResourcesSidebar } from "@/features/pm/components/ProjectResourc
 import { ProjectProgressCard } from "@/components/projects/weighted-progress-bar";
 import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
 import { authorizeProject } from "@/lib/authz";
+import { applyEndedSprints } from "@/features/sprints/sprint-end";
+import { getSprints, getBacklog } from "@/features/sprints/queries";
+import { excludeBacklogTasks, pickDefaultSprint } from "@/features/sprints/task-filters";
 
 export default async function KanbanBoardPage(props: {
     params: Promise<{ id: string }>;
-    searchParams?: Promise<{ view?: string; taskId?: string }>;
+    searchParams?: Promise<{ view?: string; taskId?: string; sprint?: string }>;
 }) {
     const session = await auth();
     if (!hasRole(session, ["manager", "developer"])) {
@@ -33,6 +36,17 @@ export default async function KanbanBoardPage(props: {
     }
 
     const isManager = hasRole(session, ["manager"]);
+
+    // Lazy sprint-end cleanup and sprint loading (STOP 3)
+    await applyEndedSprints(id);
+    const projectSprints = await getSprints(id);
+
+    const requestedSprintId =
+        typeof searchParams?.sprint === "string" ? searchParams.sprint.trim() : "";
+    const validatedSprint =
+        projectSprints.find((s) => s.id === requestedSprintId) ??
+        pickDefaultSprint(projectSprints);
+    const selectedSprintId = validatedSprint?.id ?? null;
 
     // Trigger deadline checks on load
     const { checkAndNotifyOverdueTasks } = await import("@/features/pm/actions");
@@ -58,6 +72,25 @@ export default async function KanbanBoardPage(props: {
     });
 
     if (!project) notFound();
+
+    // Managers only: load backlog and carried-over tasks. Developers NEVER receive backlog data.
+    let managerBacklogTasks: React.ComponentProps<typeof KanbanBoard>["backlogTasks"] = undefined;
+    if (isManager) {
+        const rawBacklog = await getBacklog(id);
+        const taskMap = new Map((project.tasks || []).map((t) => [t.id, t]));
+        managerBacklogTasks = rawBacklog.map((b) => {
+            const full = taskMap.get(b.id);
+            return (full ?? { ...b, assignees: [] }) as unknown as NonNullable<
+                React.ComponentProps<typeof KanbanBoard>["backlogTasks"]
+            >[number];
+        });
+    }
+
+    // Filter out backlog tasks so developers never receive backlog data and board columns only receive non-backlog tasks
+    const boardProject = {
+        ...project,
+        tasks: excludeBacklogTasks(project.tasks || []),
+    };
 
     // Query project team members (developers on this project)
     const teamMemberRecords = await db.query.projectTeamMembers.findMany({
@@ -89,21 +122,21 @@ export default async function KanbanBoardPage(props: {
     // Available developers for PM to add to project team
     const availableDevelopers = isManager
         ? await db.query.users.findMany({
-              where: (users, { eq, and, isNull }) =>
-                  and(
-                      eq(users.role, "developer"),
-                      eq(users.isActive, true),
-                      isNull(users.deletedAt)
-                  ),
-              columns: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  image: true,
-                  role: true,
-                  jobTitle: true,
-              },
-          })
+            where: (users, { eq, and, isNull }) =>
+                and(
+                    eq(users.role, "developer"),
+                    eq(users.isActive, true),
+                    isNull(users.deletedAt)
+                ),
+            columns: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+                role: true,
+                jobTitle: true,
+            },
+        })
         : [];
 
     // Compute open task counts server-side in ONE grouped query (no per-row queries)
@@ -180,6 +213,16 @@ export default async function KanbanBoardPage(props: {
                 {isManager && (
                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                         <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/pm/${project.id}/timeline`}>
+                                Timeline
+                            </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/pm/${project.id}/activity`}>
+                                Activity
+                            </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
                             <Link href={`/dashboard/pm/${project.id}/payments`}>
                                 Payments
                             </Link>
@@ -230,7 +273,7 @@ export default async function KanbanBoardPage(props: {
             ) : (
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                     <KanbanBoard
-                        project={project as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
+                        project={boardProject as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
                         teamMembers={teamMemberOptions as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}
                         availableDevelopers={availableDevelopersWithCounts}
                         projectTeamRecords={projectTeamRecordsWithCounts}
@@ -238,6 +281,9 @@ export default async function KanbanBoardPage(props: {
                         currentUserRole={session.user.role}
                         viewAll={viewAll}
                         clientInfo={clientInfo}
+                        sprints={projectSprints}
+                        selectedSprintId={selectedSprintId}
+                        backlogTasks={isManager ? managerBacklogTasks : undefined}
                     />
                 </div>
             )}

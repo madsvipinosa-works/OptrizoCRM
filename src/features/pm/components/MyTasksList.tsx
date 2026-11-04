@@ -14,6 +14,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { excludeBacklogTasks } from "@/features/sprints/task-filters";
 
 export interface MyTaskItem {
     id: string;
@@ -42,7 +43,7 @@ function formatMilestoneName(name: string): string {
 }
 
 function normalizeStatus(status: string): "to_do" | "in_progress" | "changes_requested" | "in_review" | "done" {
-    if (status === "to_do" || status === "Todo" || status === "backlog") return "to_do";
+    if (status === "to_do" || status === "Todo") return "to_do";
     if (status === "in_progress" || status === "In Progress") return "in_progress";
     if (status === "changes_requested" || status === "Changes Requested") return "changes_requested";
     if (status === "in_review" || status === "In Review") return "in_review";
@@ -87,28 +88,31 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
     const [statusFilter, setStatusFilter] = useState("all");
     const [hideDone, setHideDone] = useState(false);
 
+    // Exclude backlog tasks from developer list (Decision D12)
+    const visibleTasks = useMemo(() => excludeBacklogTasks(tasks), [tasks]);
+
     // Collect unique projects for dropdown
     const uniqueProjects = useMemo(() => {
         const map = new Map<string, string>();
-        tasks.forEach((t) => {
+        visibleTasks.forEach((t) => {
             if (!map.has(t.projectId)) {
                 map.set(t.projectId, t.projectTitle);
             }
         });
         return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
-    }, [tasks]);
+    }, [visibleTasks]);
 
     // Check for urgent banner items (changes requested or new to-do)
     const alertTask = useMemo(() => {
         return (
-            tasks.find((t) => normalizeStatus(t.status) === "changes_requested") ||
-            tasks.find((t) => normalizeStatus(t.status) === "to_do")
+            visibleTasks.find((t) => normalizeStatus(t.status) === "changes_requested") ||
+            visibleTasks.find((t) => normalizeStatus(t.status) === "to_do")
         );
-    }, [tasks]);
+    }, [visibleTasks]);
 
     // Filter tasks
     const filteredTasks = useMemo(() => {
-        return tasks.filter((t) => {
+        return visibleTasks.filter((t) => {
             const norm = normalizeStatus(t.status);
 
             // Search
@@ -141,7 +145,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
 
             return true;
         });
-    }, [tasks, searchQuery, projectFilter, statusFilter, hideDone]);
+    }, [visibleTasks, searchQuery, projectFilter, statusFilter, hideDone]);
 
     return (
         <div className="space-y-4 w-full">
@@ -251,7 +255,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                 </div>
 
                 <div className="text-xs text-muted-foreground h-9 flex items-center shrink-0">
-                    Showing {filteredTasks.length} of {tasks.length} tasks
+                    Showing {filteredTasks.length} of {visibleTasks.length} tasks
                 </div>
             </div>
 
@@ -269,7 +273,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                 {/* Table Body */}
                 {filteredTasks.length === 0 ? (
                     <div className="py-12 text-center text-sm text-muted-foreground">
-                        {tasks.length === 0
+                        {visibleTasks.length === 0
                             ? "You have no tasks assigned across active projects."
                             : "No tasks match your filters."}
                     </div>

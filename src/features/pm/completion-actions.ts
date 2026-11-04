@@ -68,7 +68,13 @@ export async function addHandoverFile(
             uploadedBy: session.user.id,
         });
 
-        await logAction("CREATE", "Document", `Added handover file "${title}" (${fileName}) to project ${projectId}`, session.user.id);
+        await logAction(
+            "CREATE",
+            "Document",
+            `Added handover file "${title}" (${fileName}) to project ${project.id}`,
+            session.user.id,
+            project.id
+        );
 
         revalidatePath(`/dashboard/pm/${projectId}/complete`);
         revalidatePath(`/dashboard/pm/${projectId}`);
@@ -147,14 +153,20 @@ export async function recordSignOff(
                 })
                 .where(eq(agencyProjects.id, projectId));
 
-            return { success: true };
+            return { success: true, projectId: project.id };
         });
 
         if (!txResult.success) {
             return txResult;
         }
 
-        await logAction("UPDATE", "Project", `Recorded sign-off for project ${projectId}`, session.user.id);
+        await logAction(
+            "UPDATE",
+            "Project",
+            `Recorded sign-off for project ${txResult.projectId}`,
+            session.user.id,
+            txResult.projectId
+        );
 
         revalidatePath(`/dashboard/pm/${projectId}/complete`);
         revalidatePath(`/dashboard/pm/${projectId}`);
@@ -192,6 +204,7 @@ export async function completeProject(
     }
 
     try {
+        let resolvedProjectId = "";
         let projectTitle = "";
         let finalWarrantyEnd: Date | null = null;
 
@@ -210,6 +223,7 @@ export async function completeProject(
                 return { success: false, error: "Project is already completed." };
             }
 
+            resolvedProjectId = project.id;
             projectTitle = project.title;
 
             // 1. Verify all milestones are Completed
@@ -339,8 +353,9 @@ export async function completeProject(
             await logAction(
                 "UPDATE",
                 "Project",
-                `Completed project "${projectTitle}" (${projectId}). Warranty ends: ${finalWarrantyEnd ? (finalWarrantyEnd as Date).toISOString() : "N/A"}`,
-                session.user.id
+                `Completed project "${projectTitle}" (${resolvedProjectId}). Warranty ends: ${finalWarrantyEnd ? (finalWarrantyEnd as Date).toISOString() : "N/A"}`,
+                session.user.id,
+                resolvedProjectId
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in completeProject:", postCommitErr);

@@ -64,7 +64,9 @@ export async function addProjectTeamMember(
             await logAction(
                 "CREATE",
                 "project_team_member",
-                `Added developer ${targetUser.name || targetUser.email} to project "${project.title}"`
+                `Added developer ${targetUser.name || targetUser.email} to project "${project.title}"`,
+                authz.session.user.id,
+                project.id
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in addProjectTeamMember:", postCommitErr);
@@ -154,7 +156,9 @@ export async function removeProjectTeamMember(
             await logAction(
                 "DELETE",
                 "project_team_member",
-                `Removed developer ${userId} from project "${project.title}" (reassigned ${reassignedCount} open tasks)`
+                `Removed developer ${userId} from project "${project.title}" (reassigned ${reassignedCount} open tasks)`,
+                authz.session.user.id,
+                project.id
             );
         } catch (postCommitErr) {
             console.error("Post-commit error in removeProjectTeamMember:", postCommitErr);
