@@ -87,6 +87,8 @@ function isAllowedOnDashboardPath(pathname: string, role: string): boolean {
     cleanPath.startsWith("/dashboard/analytics/") ||
     cleanPath === "/dashboard/team" ||
     cleanPath.startsWith("/dashboard/team/") ||
+    cleanPath === "/dashboard/roles" ||
+    cleanPath.startsWith("/dashboard/roles/") ||
     cleanPath === "/dashboard/audit" ||
     cleanPath.startsWith("/dashboard/audit/") ||
     cleanPath === "/dashboard/settings" ||

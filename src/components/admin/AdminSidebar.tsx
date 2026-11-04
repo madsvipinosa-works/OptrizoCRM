@@ -12,6 +12,7 @@ import {
     Users,
     KanbanSquare,
     Menu,
+    Shield,
     ShieldAlert,
     LogOut,
     HelpCircle,
@@ -71,6 +72,7 @@ const navGroups: NavGroup[] = [
         title: "System Administration",
         items: [
             { href: "/dashboard/team", label: "Team", icon: Users, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/roles", label: "Roles", icon: Shield, allowedRoles: ["superadmin"] },
             { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ["superadmin"] },
             { href: "/dashboard/audit", label: "Audit Logs", icon: ShieldAlert, allowedRoles: ["superadmin"] },
         ],

@@ -345,6 +345,51 @@ describe("team pages source-text authorization guard (requireRole before DB quer
     expect(listSrc).not.toMatch(/password/i);
     expect(detailSrc).not.toMatch(/password/i);
   });
+
+  it("roles/page.tsx calls requireRole(['superadmin']) before any db/query call", () => {
+    const filePath = path.join(root, "src/app/(admin)/dashboard/roles/page.tsx");
+    const src = fs.readFileSync(filePath, "utf8");
+
+    expect(src).toMatch(/import\s*\{[^}]*requireRole[^}]*\}\s*from\s*["']@\/lib\/authz["']/);
+
+    const requireRoleIdx = src.indexOf("requireRole(");
+    const dbQueryIdx = src.indexOf("db.");
+
+    expect(requireRoleIdx).toBeGreaterThan(-1);
+    if (dbQueryIdx !== -1) {
+      expect(requireRoleIdx).toBeLessThan(dbQueryIdx);
+    }
+    expect(src).toMatch(/requireRole\(\s*\[\s*["']superadmin["']\s*\]\s*\)/);
+    expect(src).toMatch(/redirect\(["']\/dashboard["']\)/);
+  });
+
+  it("middleware.ts allows only superadmin on /dashboard/roles", () => {
+    const middlewarePath = path.join(root, "middleware.ts");
+    const src = fs.readFileSync(middlewarePath, "utf8");
+
+    // Source-text check: /dashboard/roles is in the superadmin block
+    expect(src).toMatch(/cleanPath\s*===\s*["']\/dashboard\/roles["']/);
+    expect(src).toMatch(/cleanPath\.startsWith\(["']\/dashboard\/roles\/["']\)/);
+
+    // Extract and evaluate isAllowedOnDashboardPath across all roles
+    const fnMatch = src.match(/function isAllowedOnDashboardPath\([^)]*\)[^{]*\{[\s\S]*?\n\}/);
+    expect(fnMatch).not.toBeNull();
+    const fnBody = fnMatch![0]
+      .replace(/:\s*string/g, "")
+      .replace(/:\s*boolean/g, "");
+    const checkPath = new Function(`${fnBody}; return isAllowedOnDashboardPath;`)() as (
+      pathname: string,
+      role: string
+    ) => boolean;
+
+    expect(checkPath("/dashboard/roles", "superadmin")).toBe(true);
+    expect(checkPath("/dashboard/roles/sub", "superadmin")).toBe(true);
+
+    for (const role of nonSuperadminRoles) {
+      expect(checkPath("/dashboard/roles", role)).toBe(false);
+      expect(checkPath("/dashboard/roles/sub", role)).toBe(false);
+    }
+  });
 });
 
 describe("team list and detail runtime behavior (Session 10 / STOP 5)", () => {
