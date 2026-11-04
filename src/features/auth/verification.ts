@@ -3,7 +3,7 @@ import "server-only";
 import crypto from "crypto";
 import { db } from "@/db";
 import { verificationTokens, leads, agencyProjects, projectStakeholders } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 /**
  * Creates a single-use email verification token valid for 24 hours.
@@ -43,7 +43,12 @@ export async function consumeVerificationToken(
 
     const deleted = await executor
         .delete(verificationTokens)
-        .where(eq(verificationTokens.token, token.trim()))
+        .where(
+            and(
+                eq(verificationTokens.token, token.trim()),
+                sql`${verificationTokens.identifier} NOT LIKE 'staff-invite:%'`
+            )
+        )
         .returning();
 
     if (!deleted || deleted.length === 0) {

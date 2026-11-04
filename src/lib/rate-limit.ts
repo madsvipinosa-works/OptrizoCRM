@@ -29,7 +29,9 @@ export type RateLimitPolicy =
   | "contact"
   | "intake"
   | "verifyResendIp"
-  | "verifyResendEmail";
+  | "verifyResendEmail"
+  | "inviteAccept"
+  | "inviteResend";
 
 interface PolicyConfig {
   limit: number;
@@ -58,6 +60,10 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicy, PolicyConfig> = {
   // Email verification resend: rate-limited by IP and email
   verifyResendIp: { limit: 5, windowMs: 15 * MINUTE },
   verifyResendEmail: { limit: 3, windowMs: 15 * MINUTE },
+  // Staff invite acceptance: public endpoint, rate-limited by IP (bcrypt.hash per request).
+  inviteAccept: { limit: 10, windowMs: 15 * MINUTE },
+  // Staff invite resend: rate-limited per target user id.
+  inviteResend: { limit: 5, windowMs: 15 * MINUTE },
 };
 
 export interface RateLimitResult {

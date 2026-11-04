@@ -542,4 +542,51 @@ Errors:
 - `TARGET_CLIENT`: cannot change role of a client account.
 Side effects: runs in transaction; updates `role = newRole`; revalidates `/dashboard/team` and `/dashboard/leads`; audit log row with actorRole in details.
 
+### inviteStaff (Session 10 / Item 2)
+Who can call: superadmin
+Input: `{ email: string, name: string, role: "sales" | "manager" | "developer" | "content_editor", jobTitle?: string | null }`
+Output: `{ ok: boolean, emailSent?: boolean, error?: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `VALIDATION_ERROR`: invalid email format, empty name, or invalid role (cannot invite superadmin or client).
+- `USER_EXISTS`: a user with this email address already exists in any status (including soft-deleted).
+Side effects: runs in transaction; inserts user row with `status = 'invited'`, `password = null`, `emailVerified = null`, `isActive = true`; generates 32-byte base64url token; stores `sha256(token)` in `verificationToken` with identifier `staff-invite:<email>` expiring in 48 hours; calls `sendStaffInviteEmail` after commit; writes audit log with actor role in details (never the raw token).
+
+### resendStaffInvite (Session 10 / Item 2)
+Who can call: superadmin
+Input: `userId: string`
+Output: `{ ok: boolean, emailSent?: boolean, error?: string }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `RATE_LIMITED`: too many resend attempts for target user (`inviteResend` policy).
+- `USER_NOT_FOUND`: user does not exist.
+- `INVALID_STATE`: target account is not an unaccepted staff invitation (`status !== 'invited'`, `role === 'client'`, or `password !== null`).
+Side effects: runs in transaction; deletes prior `staff-invite:` tokens for user's email; inserts new `sha256(token)` token expiring in 48 hours; sends invitation email after commit; writes audit log with actor role in details.
+
+### cancelStaffInvite (Session 10 / Item 2)
+Who can call: superadmin
+Input: `userId: string`
+Output: `{ ok: boolean, message?: string, error?: string }`
+Errors:
+- `UNAUTHORIZED`: caller is not superadmin.
+- `USER_NOT_FOUND`: user does not exist.
+- `INVALID_STATE`: target account is not an unaccepted staff invitation (`status !== 'invited'`, `role === 'client'`, or `password !== null`).
+- `FK_VIOLATION`: target user has foreign-key references; caller is advised to deactivate instead.
+Side effects: runs in transaction; deletes all `staff-invite:` tokens for email; deletes user row guarded by `WHERE status = 'invited' AND password IS NULL`; writes audit log with actor role in details.
+
+### acceptStaffInvite (Session 10 / Item 2)
+Who can call: public (rate-limited by IP via `inviteAccept`)
+Input: `{ token: string, password: string, confirmPassword: string }`
+Output: `{ ok: boolean, message?: string, error?: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `RATE_LIMITED`: too many attempts from IP.
+- `VALIDATION_ERROR`: password < 8 chars, missing uppercase, missing number/symbol, or passwords do not match.
+- `INVALID_OR_EXPIRED`: token does not exist, hash does not match, identifier does not match `staff-invite:`, expired (> 48h), user not in `invited` status, user has non-null password, or user has role `client`. Returns uniform generic error: `"This invite is invalid or has expired."`.
+Side effects: runs in transaction; atomically deletes token via `consumeStaffInvite`; hashes password with bcrypt (10 rounds); updates user setting `password = hash`, `status = 'active'`, `isActive = true`, `emailVerified = now()`, `failedLogins = 0`; writes audit log after commit; does NOT establish a session (caller redirects to `/login`).
+
+### /accept-invite (Session 10 / Item 2)
+Who can access: public (outside middleware route matcher).
+Method: GET
+Behavior: Never touches the database or consumes the invite token on page load. Awaits search parameters and passes the token into `<AcceptInviteForm>` where the token is preserved in a hidden input field. The user submits the form to call `acceptStaffInvite`.
+
 (Add one per action as modules are built.)

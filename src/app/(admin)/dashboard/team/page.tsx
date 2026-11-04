@@ -1,6 +1,8 @@
 import { db } from "@/db";
 import { requireRole } from "@/lib/authz";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { UserRoleSelect } from "@/features/cms/team/components/UserRoleSelect";
 import { JobTitleEditor } from "@/features/cms/team/components/JobTitleEditor";
 import { UserActiveToggle } from "@/features/cms/team/components/UserActiveToggle";
@@ -9,7 +11,7 @@ import { TeamToolbar } from "@/features/cms/team/components/TeamToolbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Shield, ShieldAlert, User } from "lucide-react";
+import { Shield, ShieldAlert, User, UserPlus } from "lucide-react";
 import { users } from "@/db/schema";
 import { inArray, ilike, or, and, eq } from "drizzle-orm";
 
@@ -51,10 +53,22 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight text-glow">User Management</h2>
-                <p className="text-muted-foreground">
-                    Manage staff access and registered users/clients.
-                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight text-glow">User Management</h2>
+                    <p className="text-muted-foreground">Manage staff access and registered users/clients.</p>
+
+    
+                </div>
+                <Link href="/dashboard/team/new">
+                    <Button className="bg-[#0e6b7e] hover:bg-[#0e6b7e]/90 text-white font-semibold gap-1.5 shadow-sm">
+                        <UserPlus className="w-4 h-4" />
+                        Invite staff
+                    </Button>
+                </Link>
+            </div>
+
+
             </div>
 
             <TeamToolbar />
@@ -118,7 +132,7 @@ const UserList = ({ list, title, currentUserId }: { list: UserListItem[], title:
                                     <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />
                                     <JobTitleEditor userId={user.id} currentTitle={user.jobTitle} isAdmin={true} />
                                     <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />
-                                    <UserActiveToggle userId={user.id} status={user.status} isActive={user.isActive} isAdmin={true} userName={user.name || user.email} />
+                                    <UserActiveToggle userId={user.id} status={user.status} isActive={user.isActive} isAdmin={true} userName={user.name || user.email} userRole={user.role} />
                                     {user.role !== "client" && (
                                         <>
                                             <span className="hidden sm:block w-1 h-1 rounded-full bg-border" />

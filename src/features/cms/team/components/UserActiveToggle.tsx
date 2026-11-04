@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { lockUser, unlockUser, deactivateUser, reactivateUser } from "@/features/users/actions";
+import { resendStaffInvite, cancelStaffInvite } from "@/features/users/invite-actions";
 import { ChevronDown, Loader2 } from "lucide-react";
 import {
     DropdownMenu,
@@ -17,6 +18,7 @@ export interface UserActiveToggleProps {
     status?: "active" | "locked" | "deactivated" | "invited";
     isAdmin?: boolean;
     userName?: string;
+    userRole?: string;
 }
 
 export function UserActiveToggle({
@@ -25,6 +27,7 @@ export function UserActiveToggle({
     status,
     isAdmin = true,
     userName,
+    userRole,
 }: UserActiveToggleProps) {
     const [loading, setLoading] = useState(false);
 
@@ -55,7 +58,7 @@ export function UserActiveToggle({
         );
     }
 
-    async function handleAction(actionType: "lock" | "unlock" | "deactivate" | "reactivate") {
+    async function handleAction(actionType: "lock" | "unlock" | "deactivate" | "reactivate" | "resend" | "cancel") {
         const displayName = userName || "this user";
 
         if (actionType === "lock") {
@@ -72,9 +75,16 @@ export function UserActiveToggle({
             if (!confirmed) return;
         }
 
+        if (actionType === "cancel") {
+            const confirmed = window.confirm(
+                `Cancel staff invitation for ${displayName}?\n\nThis will revoke the invitation link and delete the pending user account.`
+            );
+            if (!confirmed) return;
+        }
+
         setLoading(true);
         try {
-            let res: { success: boolean; message?: string };
+            let res: { success?: boolean; ok?: boolean; message?: string; error?: string };
             switch (actionType) {
                 case "lock":
                     res = await lockUser(userId);
@@ -88,12 +98,19 @@ export function UserActiveToggle({
                 case "reactivate":
                     res = await reactivateUser(userId);
                     break;
+                case "resend":
+                    res = await resendStaffInvite(userId);
+                    break;
+                case "cancel":
+                    res = await cancelStaffInvite(userId);
+                    break;
             }
 
-            if (!res.success) {
-                toast.error(res.message || "Failed to update account status.");
+            const isOk = res.success !== undefined ? res.success : res.ok;
+            if (!isOk) {
+                toast.error(res.message || res.error || "Action failed.");
             } else {
-                toast.success(res.message || "Account status updated.");
+                toast.success(res.message || (actionType === "resend" ? "Invitation email resent." : "Account updated."));
             }
         } catch (err) {
             console.error("Status action error:", err);
@@ -149,12 +166,27 @@ export function UserActiveToggle({
                     </DropdownMenuItem>
                 )}
                 {effectiveStatus === "invited" && (
-                    <DropdownMenuItem
-                        onClick={() => handleAction("deactivate")}
-                        className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
-                    >
-                        Deactivate account
-                    </DropdownMenuItem>
+                    <>
+                        {userRole !== "client" && (
+                            <>
+                                <DropdownMenuItem onClick={() => handleAction("resend")}>
+                                    Resend invite
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => handleAction("cancel")}
+                                    className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                                >
+                                    Cancel invite
+                                </DropdownMenuItem>
+                            </>
+                        )}
+                        <DropdownMenuItem
+                            onClick={() => handleAction("deactivate")}
+                            className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                        >
+                            Deactivate account
+                        </DropdownMenuItem>
+                    </>
                 )}
             </DropdownMenuContent>
         </DropdownMenu>

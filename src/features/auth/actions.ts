@@ -232,7 +232,7 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
     try {
         const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
         if (existing) {
-            if (existing.status === "invited") {
+            if (existing.status === "invited" && existing.role === "client") {
                 // If account exists with 'invited' status, create fresh token and resend with generic success message
                 try {
                     const token = await createVerificationToken(email);
@@ -338,6 +338,13 @@ export async function verifyEmail(token: string): Promise<AuthActionResult> {
                 return { success: false, message: "Account not found." };
             }
 
+            if (user.role !== "client") {
+                return {
+                    success: false,
+                    message: "Account is not eligible for verification. Please contact support.",
+                };
+            }
+
             // Only set active when status = 'invited' (never reactivate deactivated or locked)
             if (user.status !== "invited") {
                 if (user.status === "active") {
@@ -423,7 +430,7 @@ export async function resendVerificationEmail(email: string): Promise<AuthAction
         });
 
         // Anti-enumeration: return generic success if user does not exist
-        if (!user) {
+        if (!user || user.role !== "client") {
             return {
                 success: true,
                 message: "If an account exists with this email, a verification link has been sent.",
