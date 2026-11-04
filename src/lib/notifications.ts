@@ -1,11 +1,6 @@
-
-import { Resend } from "resend";
 import { db } from "@/db";
 import { logSystemError } from "@/features/audit/error-logger";
-
-// Use a fallback key for development if not provided, but log warning
-const resendApiKey = process.env.RESEND_API_KEY || "re_123_mock_key";
-const resend = new Resend(resendApiKey);
+import { sendMail } from "@/lib/mailer";
 
 // Email Template for New Leads
 export async function sendLeadNotification(leadData: {
@@ -14,7 +9,6 @@ export async function sendLeadNotification(leadData: {
     message: string;
     service?: string;
     budget?: string;
-
 }) {
     try {
         // 1. Fetch Notification Recipients from Site Settings
@@ -23,7 +17,6 @@ export async function sendLeadNotification(leadData: {
         const recipientsRaw = settings?.notificationEmails;
 
         console.log("DEBUG: Raw Recipients:", recipientsRaw);
-        console.log("DEBUG: API Key Present:", !!process.env.RESEND_API_KEY);
 
         // Filter valid emails
         let recipients: string[] = [];
@@ -40,14 +33,8 @@ export async function sendLeadNotification(leadData: {
 
         console.log(`Sending Lead Alert to: ${recipients.join(", ")}`);
 
-        if (!process.env.RESEND_API_KEY) {
-            console.log("MOCK EMAIL SENT (Missing API Key):", leadData);
-            return { success: true, mock: true };
-        }
-
-        // 2. Send Email via Resend
-        const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        // 2. Send Email via Nodemailer SMTP
+        const result = await sendMail({
             to: recipients,
             subject: `New Lead: ${leadData.name} - ${leadData.service || "General Inquiry"}`,
             html: `
@@ -75,12 +62,12 @@ export async function sendLeadNotification(leadData: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error:", result.error);
+            return { success: false, error: result.error };
         }
 
-        return { success: true, data };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Notification Failed:", err);
         await logSystemError(err, {
@@ -102,14 +89,7 @@ export async function sendClientWelcomeEmail(clientData: {
     try {
         const portalUrl = process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/portal` : "http://localhost:3000/portal";
 
-        if (!process.env.RESEND_API_KEY) {
-            console.log(`[MOCK EMAIL] To: ${clientData.email} | Subject: Welcome to your Client Portal`);
-            console.log(`Link: ${portalUrl}`);
-            return { success: true, mock: true };
-        }
-
-        const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: clientData.email,
             subject: `Welcome to Optrizo! Your project is ready.`,
             html: `
@@ -140,12 +120,12 @@ export async function sendClientWelcomeEmail(clientData: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending welcome email:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending welcome email:", result.error);
+            return { success: false, error: result.error };
         }
 
-        return { success: true, data };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Welcome Email Failed:", err);
         return { success: false, error: err };
@@ -159,14 +139,7 @@ export async function sendClientOnboardingEmail(clientData: {
     resetUrl: string;
 }) {
     try {
-        if (!process.env.RESEND_API_KEY) {
-            console.log(`[MOCK EMAIL] To: ${clientData.email} | Subject: Welcome to Optrizo - Set Up Your Account`);
-            console.log(`Link: ${clientData.resetUrl}`);
-            return { success: true, mock: true };
-        }
-
-        const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: clientData.email,
             subject: `Welcome to Optrizo - Set Up Your Account`,
             html: `
@@ -193,12 +166,12 @@ export async function sendClientOnboardingEmail(clientData: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending onboarding email:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending onboarding email:", result.error);
+            return { success: false, error: result.error };
         }
 
-        return { success: true, data };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Onboarding Email Failed:", err);
         return { success: false, error: err };
@@ -208,14 +181,7 @@ export async function sendClientOnboardingEmail(clientData: {
 // Email Template for Password Reset
 export async function sendPasswordResetEmail(email: string, resetUrl: string) {
     try {
-        if (!process.env.RESEND_API_KEY) {
-            console.log(`[MOCK EMAIL] To: ${email} | Subject: Reset Your Password - Optrizo`);
-            console.log(`Link: ${resetUrl}`);
-            return { success: true, mock: true };
-        }
-
-        const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: email,
             subject: `Reset Your Password - Optrizo`,
             html: `
@@ -241,12 +207,12 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string) {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending password reset email:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending password reset email:", result.error);
+            return { success: false, error: result.error };
         }
 
-        return { success: true, data };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Password Reset Email Failed:", err);
         return { success: false, error: err };
@@ -255,13 +221,7 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string) {
 
 export async function sendTaskBlockedEmail(clientEmails: string[], projectName: string, taskTitle: string) {
     try {
-        if (!process.env.RESEND_API_KEY) {
-            console.log(`[MOCK EMAIL] To: ${clientEmails.join(",")} | Subject: Action Required: Task Blocked`);
-            return { success: true, mock: true };
-        }
-        
-        await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: clientEmails,
             subject: `Action Required: Optrizo Task Blocked`,
             html: `
@@ -281,7 +241,13 @@ export async function sendTaskBlockedEmail(clientEmails: string[], projectName: 
                 </div>
             `,
         });
-        return { success: true };
+
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending task blocked email:", result.error);
+            return { success: false, error: result.error };
+        }
+
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Task Blocked Email Failed:", err);
         return { success: false, error: err };
@@ -297,13 +263,7 @@ export async function sendInquiryConfirmationEmail(data: {
     serviceName: string;
 }) {
     try {
-        if (!process.env.RESEND_API_KEY) {
-            console.log(`[MOCK EMAIL] To: ${data.email} | Subject: Inquiry Received: ${data.serviceName}`);
-            return { success: true, mock: true };
-        }
-
-        const { data: resData, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: data.email,
             subject: `Inquiry Received - ${data.serviceName} | Optrizo Digital Solutions`,
             html: `
@@ -332,12 +292,12 @@ export async function sendInquiryConfirmationEmail(data: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending inquiry confirmation:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending inquiry confirmation:", result.error);
+            return { success: false, error: result.error };
         }
 
-        return { success: true, data: resData };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Inquiry Confirmation Email Failed:", err);
         return { success: false, error: err };
@@ -364,13 +324,7 @@ export async function sendMeetingInviteEmail(data: {
         const loginUrl = `${portalBaseUrl}/login?email=${encodeURIComponent(data.email)}`;
         const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
 
-        if (!process.env.RESEND_API_KEY) {
-            console.log(`[MOCK EMAIL] To: ${data.email} | Subject: Meeting Invitation: ${data.meetingType} at ${formattedDate}`);
-            return { success: true, mock: true };
-        }
-
-        const { data: resData, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: data.email,
             subject: `Invitation: ${data.meetingType} with Optrizo (${formattedDate})`,
             html: `
@@ -404,12 +358,12 @@ export async function sendMeetingInviteEmail(data: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending meeting invite:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending meeting invite:", result.error);
+            return { success: false, error: result.error };
         }
 
-        return { success: true, data: resData };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Meeting Invite Email Failed:", err);
         return { success: false, error: err };
@@ -433,13 +387,7 @@ export async function sendMeetingReminderEmail(data: {
         const portalBaseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
         const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
 
-        if (!process.env.RESEND_API_KEY) {
-            console.log(`[MOCK EMAIL] Reminder To: ${data.email} | ${data.meetingType} at ${formattedDate}`);
-            return { success: true, mock: true };
-        }
-
-        const { data: resData, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: data.email,
             subject: `Reminder: ${data.meetingType} with Optrizo Tomorrow (${formattedDate})`,
             html: `
@@ -469,12 +417,12 @@ export async function sendMeetingReminderEmail(data: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending meeting reminder:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending meeting reminder:", result.error);
+            return { success: false, error: result.error };
         }
 
-        return { success: true, data: resData };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("Meeting Reminder Email Failed:", err);
         return { success: false, error: err };
@@ -492,8 +440,7 @@ export async function sendSignedProposalEmail(data: {
     pdfUrl: string;
 }) {
     try {
-        const { error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: data.clientEmail,
             subject: `Signed Statement of Work Copy - ${data.proposalCode || "Optrizo"}`,
             html: `
@@ -522,11 +469,11 @@ export async function sendSignedProposalEmail(data: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending signed proposal email:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending signed proposal email:", result.error);
+            return { success: false, error: result.error };
         }
-        return { success: true };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("sendSignedProposalEmail error:", err);
         return { success: false, error: err };
@@ -546,17 +493,11 @@ export async function sendPaymentDueEmail(data: {
     paymentsUrl: string;
 }) {
     try {
-        if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes("mock")) {
-            console.log(`[MOCK EMAIL] Payment Due To: ${data.clientEmail} | Amount: ${data.currency} ${data.amount} for ${data.projectTitle}`);
-            return { success: true, mock: true };
-        }
-
         const formattedDate = data.dueDate
             ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(data.dueDate))
             : "Due Upon Receipt";
 
-        const { error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: data.clientEmail,
             subject: `Payment Due: ${data.projectTitle} - ${data.currency} ${data.amount}`,
             html: `
@@ -590,11 +531,11 @@ export async function sendPaymentDueEmail(data: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending payment due email:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending payment due email:", result.error);
+            return { success: false, error: result.error };
         }
-        return { success: true };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("sendPaymentDueEmail error:", err);
         return { success: false, error: err };
@@ -611,13 +552,7 @@ export async function sendProjectCompleteEmail(data: {
     portalUrl: string;
 }) {
     try {
-        if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes("mock")) {
-            console.log(`[MOCK EMAIL] Project Complete To: ${data.clientEmail} | Project: ${data.projectTitle}`);
-            return { success: true, mock: true };
-        }
-
-        const { error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: data.clientEmail,
             subject: `Project Completed: ${data.projectTitle}`,
             html: `
@@ -646,11 +581,11 @@ export async function sendProjectCompleteEmail(data: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending project complete email:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending project complete email:", result.error);
+            return { success: false, error: result.error };
         }
-        return { success: true };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("sendProjectCompleteEmail error:", err);
         return { success: false, error: err };
@@ -666,13 +601,7 @@ export async function sendEmailVerificationEmail(data: {
     verifyUrl: string;
 }) {
     try {
-        if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes("mock")) {
-            console.log(`[MOCK EMAIL] Verify Email To: ${data.email} | URL: ${data.verifyUrl}`);
-            return { success: true, mock: true };
-        }
-
-        const { error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        const result = await sendMail({
             to: data.email,
             subject: `Verify Your Optrizo Account`,
             html: `
@@ -701,11 +630,11 @@ export async function sendEmailVerificationEmail(data: {
             `,
         });
 
-        if (error) {
-            console.error("Resend Error sending email verification:", error);
-            return { success: false, error };
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending email verification:", result.error);
+            return { success: false, error: result.error };
         }
-        return { success: true };
+        return { success: true, mock: result.skipped };
     } catch (err) {
         console.error("sendEmailVerificationEmail error:", err);
         return { success: false, error: err };
