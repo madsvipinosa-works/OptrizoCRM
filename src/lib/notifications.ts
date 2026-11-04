@@ -640,3 +640,66 @@ export async function sendEmailVerificationEmail(data: {
         return { success: false, error: err };
     }
 }
+
+/**
+ * Sends a staff invitation email with a 48-hour single-use set-password link.
+ */
+export async function sendStaffInviteEmail(data: {
+    to: string;
+    name: string;
+    role: string;
+    link: string;
+}) {
+    try {
+        const roleLabels: Record<string, string> = {
+            sales: "Sales Specialist",
+            manager: "Project Manager",
+            developer: "Developer",
+            content_editor: "Content Editor",
+            superadmin: "Super Admin",
+        };
+        const roleDisplay = roleLabels[data.role] || data.role;
+
+        const result = await sendMail({
+            to: data.to,
+            subject: `Invitation to join Optrizo as ${roleDisplay}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px 20px; color: #14202b;">
+                    <div style="margin-bottom: 24px;">
+                        <span style="font-size: 18px; font-weight: 700; color: #0e6b7e; letter-spacing: -0.02em;">OPTRIZO</span>
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
+                        You've Been Invited to Join Optrizo
+                    </h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Hello ${data.name}, you have been invited to join the Optrizo team as a <strong>${roleDisplay}</strong>.
+                    </p>
+                    <p style="margin: 0 0 20px; font-size: 15px; color: #4b5a67; line-height: 1.5;">
+                        Please click the button below to accept your invitation and set your account password:
+                    </p>
+                    <div style="margin: 24px 0;">
+                        <a href="${data.link}" style="background-color: #0e6b7e; color: #ffffff; padding: 12px 22px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 14px;">
+                            Accept Invitation &amp; Set Password &rarr;
+                        </a>
+                    </div>
+                    <p style="margin: 16px 0 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                        This invitation link is valid for 48 hours. If you were not expecting this invitation, you can safely ignore this email.
+                    </p>
+                    <p style="font-size: 12px; color: #7a8b98; margin: 24px 0 0;">
+                        Optrizo Digital Solutions &bull; Staff Account Provisioning
+                    </p>
+                </div>
+            `,
+        });
+
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending staff invite:", result.error);
+            return { success: false, error: result.error };
+        }
+        return { success: true, mock: result.skipped };
+    } catch (err) {
+        console.error("sendStaffInviteEmail error:", err);
+        return { success: false, error: err };
+        return { success: false, error: err };
+    }
+}

@@ -4,7 +4,7 @@ import Credentials from "next-auth/providers/credentials"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { db } from "@/db"
 import { users } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { and, eq, isNotNull, lte, sql } from "drizzle-orm"
 import authConfig from "./auth.config"
 import bcrypt from "bcryptjs"
 import { headers as nextHeaders } from "next/headers"
@@ -17,6 +17,8 @@ import {
     resetRateLimit,
 } from "@/lib/rate-limit"
 import type { Session } from "next-auth"
+import { canSignIn, isSessionValid } from "@/lib/account-status"
+import { logAction } from "@/features/audit/log"
 
 async function resolveClientIp(request: Request | undefined): Promise<string | null> {
     const fromRequest = getClientIp(request?.headers);
@@ -68,18 +70,92 @@ export async function authorizeUser(credentials: Record<string, unknown> | undef
 
     // Run bcrypt.compare FIRST: wrong password returns null immediately without revealing account status
     const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) return null;
 
-    if (!user.isActive || user.status === "deactivated") {
-        throw new Error("Account deactivated. Please contact an administrator.");
+    // Expired auto-lock: if status === 'locked' && lockedUntil !== null && lockedUntil <= now(), clear atomically
+    if (user.status === "locked" && user.lockedUntil !== null && new Date(user.lockedUntil) <= new Date()) {
+        const [cleared] = await db
+            .update(users)
+            .set({
+                status: "active",
+                failedLogins: 0,
+                lockedUntil: null,
+                isActive: true,
+            })
+            .where(
+                and(
+                    eq(users.id, user.id),
+                    eq(users.status, "locked"),
+                    isNotNull(users.lockedUntil),
+                    lte(users.lockedUntil, sql`now()`)
+                )
+            )
+            .returning({
+                id: users.id,
+                status: users.status,
+                failedLogins: users.failedLogins,
+                lockedUntil: users.lockedUntil,
+                isActive: users.isActive,
+            });
+
+        if (cleared) {
+            user.status = "active";
+            user.failedLogins = 0;
+            user.lockedUntil = null;
+            user.isActive = true;
+        }
     }
 
-    if (user.status === "invited") {
-        throw new Error("Please verify your email address before signing in.");
+    if (!isValid) {
+        // Count failure ONLY if user exists, has a password, and status is 'active' (after expired auto-lock check)
+        if (user.status === "active") {
+            const [updated] = await db
+                .update(users)
+                .set({
+                    failedLogins: sql`${users.failedLogins} + 1`,
+                    status: sql`CASE WHEN ${users.failedLogins} + 1 >= 5 THEN 'locked'::account_status ELSE ${users.status} END`,
+                    lockedUntil: sql`CASE WHEN ${users.failedLogins} + 1 >= 5 THEN now() + interval '15 minutes' ELSE ${users.lockedUntil} END`,
+                })
+                .where(and(eq(users.id, user.id), eq(users.status, "active")))
+                .returning({
+                    id: users.id,
+                    status: users.status,
+                    failedLogins: users.failedLogins,
+                    lockedUntil: users.lockedUntil,
+                });
+
+            if (updated?.status === "locked") {
+                try {
+                    await logAction("UPDATE", "user", "auto-lock after 5 failed sign-ins", user.id);
+                } catch (auditErr) {
+                    console.error("Failed to log auto-lock action:", auditErr);
+                }
+            }
+        }
+        return null;
     }
 
-    if (user.status === "locked") {
-        throw new Error("Account is locked. Please reset your password or contact support.");
+    if (!canSignIn(user)) {
+        if (!user.isActive || user.status === "deactivated") {
+            throw new Error("Account deactivated. Please contact an administrator.");
+        }
+
+        if (user.status === "invited") {
+            throw new Error("Please verify your email address before signing in.");
+        }
+
+        if (user.status === "locked") {
+            throw new Error("Account is locked. Please try again later or contact your administrator.");
+        }
+
+        return null;
+    }
+
+    // Reset failedLogins if > 0 on successful login
+    if (user.status === "active" && (user.failedLogins ?? 0) > 0) {
+        await db
+            .update(users)
+            .set({ failedLogins: 0 })
+            .where(and(eq(users.id, user.id), eq(users.status, "active")));
     }
 
     // Successful login clears the per-account counter (the IP counter keeps running).
@@ -120,15 +196,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     where: eq(users.email, user.email),
                 });
 
-                if (existingUser?.deletedAt) {
-                    return false;
-                }
-
-                if (existingUser && !existingUser.isActive) {
-                    throw new Error("Account deactivated. Please contact an administrator.");
-                }
-
                 if (existingUser) {
+                    if (!canSignIn(existingUser)) {
+                        if (!existingUser.isActive || existingUser.status === "deactivated") {
+                            throw new Error("Account deactivated. Please contact an administrator.");
+                        }
+                        if (existingUser.status === "invited") {
+                            throw new Error("Please verify your email address before signing in.");
+                        }
+                        if (existingUser.status === "locked") {
+                            throw new Error("Account is locked. Please try again later or contact your administrator.");
+                        }
+                        return false;
+                    }
+
                     // Update the user.id so the DrizzleAdapter links the account correctly
                     user.id = existingUser.id;
                     user.role = existingUser.role;
@@ -152,9 +233,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                             id: users.id,
                             name: users.name,
                             role: users.role,
+                            status: users.status,
                             jobTitle: users.jobTitle,
                             isActive: users.isActive,
                             deletedAt: users.deletedAt,
+                            lockedUntil: users.lockedUntil,
                         })
                         .from(users)
                         .where(
@@ -164,7 +247,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         )
                         .limit(1);
 
-                    if (!dbUser || !dbUser.isActive || dbUser.deletedAt) {
+                    if (!dbUser || !isSessionValid(dbUser)) {
                         token.invalidated = true;
                         delete token.id;
                         delete token.role;

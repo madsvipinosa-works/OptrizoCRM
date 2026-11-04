@@ -1,46 +1,200 @@
 "use client";
 
 import { useState } from "react";
-import { toggleUserActiveStatus } from "@/features/cms/team/actions";
-import { Power, PowerOff } from "lucide-react";
+import { lockUser, unlockUser, deactivateUser, reactivateUser } from "@/features/users/actions";
+import { resendStaffInvite, cancelStaffInvite } from "@/features/users/invite-actions";
+import { ChevronDown, Loader2 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
-export function UserActiveToggle({ userId, isActive, isAdmin }: { userId: string, isActive: boolean, isAdmin: boolean }) {
+export interface UserActiveToggleProps {
+    userId: string;
+    isActive?: boolean;
+    status?: "active" | "locked" | "deactivated" | "invited";
+    isAdmin?: boolean;
+    userName?: string;
+    userRole?: string;
+    mode?: "full" | "invite-only";
+}
+
+export function UserActiveToggle({
+    userId,
+    isActive = true,
+    status,
+    isAdmin = true,
+    userName,
+    userRole,
+    mode = "full",
+}: UserActiveToggleProps) {
     const [loading, setLoading] = useState(false);
 
-    if (!isAdmin) {
+    const effectiveStatus: "active" | "locked" | "deactivated" | "invited" =
+        status || (isActive ? "active" : "deactivated");
+
+    const badgeStyle = {
+        active: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+        locked: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        deactivated: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+        invited: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
+    }[effectiveStatus];
+
+    const statusLabel = {
+        active: "Active",
+        locked: "Locked",
+        deactivated: "Deactivated",
+        invited: "Invited",
+    }[effectiveStatus];
+
+    const isInvitedStaff = effectiveStatus === "invited" && userRole !== "client";
+
+    if (!isAdmin || (mode === "invite-only" && !isInvitedStaff)) {
         return (
-            <div className={`text-xs font-semibold px-2 py-1 flex items-center gap-1.5 rounded-full ${isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                {isActive ? <Power className="w-3 h-3" /> : <PowerOff className="w-3 h-3" />}
-                {isActive ? 'Active' : 'Deactivated'}
-            </div>
+            <span
+                className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center capitalize ${badgeStyle}`}
+            >
+                {statusLabel}
+            </span>
         );
     }
 
-    async function handleToggle() {
+    async function handleAction(actionType: "lock" | "unlock" | "deactivate" | "reactivate" | "resend" | "cancel") {
+        const displayName = userName || "this user";
+
+        if (actionType === "lock") {
+            const confirmed = window.confirm(
+                `Lock account for ${displayName}?\n\nThe user will not be able to sign in until unlocked.`
+            );
+            if (!confirmed) return;
+        }
+
+        if (actionType === "deactivate") {
+            const confirmed = window.confirm(
+                `Deactivate ${displayName}?\n\n${displayName} can no longer sign in. Their history stays in the audit log. Open tasks stay as they are, and the Project Manager is told to reassign them.\n\nYou can turn the account back on later.`
+            );
+            if (!confirmed) return;
+        }
+
+        if (actionType === "cancel") {
+            const confirmed = window.confirm(
+                `Cancel staff invitation for ${displayName}?\n\nThis will revoke the invitation link and delete the pending user account.`
+            );
+            if (!confirmed) return;
+        }
+
         setLoading(true);
-        const res = await toggleUserActiveStatus(userId, isActive);
-        setLoading(false);
-        
-        if (!res.success) {
-            alert(res.message);
+        try {
+            let res: { success?: boolean; ok?: boolean; message?: string; error?: string };
+            switch (actionType) {
+                case "lock":
+                    res = await lockUser(userId);
+                    break;
+                case "unlock":
+                    res = await unlockUser(userId);
+                    break;
+                case "deactivate":
+                    res = await deactivateUser(userId);
+                    break;
+                case "reactivate":
+                    res = await reactivateUser(userId);
+                    break;
+                case "resend":
+                    res = await resendStaffInvite(userId);
+                    break;
+                case "cancel":
+                    res = await cancelStaffInvite(userId);
+                    break;
+            }
+
+            const isOk = res.success !== undefined ? res.success : res.ok;
+            if (!isOk) {
+                toast.error(res.message || res.error || "Action failed.");
+            } else {
+                toast.success(res.message || (actionType === "resend" ? "Invitation email resent." : "Account updated."));
+            }
+        } catch (err) {
+            console.error("Status action error:", err);
+            toast.error("An unexpected error occurred while updating status.");
+        } finally {
+            setLoading(false);
         }
     }
 
     return (
-        <div className="flex items-center gap-2 cursor-pointer group" onClick={e => e.stopPropagation()}>
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-green-500' : 'text-red-500'}`}>
-                {isActive ? 'Active' : 'Deactivated'}
-            </span>
-            <button
-                type="button"
-                role="switch"
-                aria-checked={isActive}
-                onClick={handleToggle}
-                disabled={loading}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:opacity-50 ${isActive ? 'bg-green-500' : 'bg-red-500'}`}
-            >
-                <span className={`pointer-events-none block h-4 w-4 rounded-full bg-black shadow-lg ring-0 transition-transform ${isActive ? 'translate-x-2' : '-translate-x-2'}`} />
-            </button>
-        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild disabled={loading}>
+                <button
+                    type="button"
+                    disabled={loading}
+                    className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary ${badgeStyle}`}
+                >
+                    {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                    <span>{statusLabel}</span>
+                    <ChevronDown className="w-3 h-3 opacity-70" />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+                {effectiveStatus === "active" && (
+                    <>
+                        <DropdownMenuItem onClick={() => handleAction("lock")}>
+                            Lock account
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => handleAction("deactivate")}
+                            className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                        >
+                            Deactivate account
+                        </DropdownMenuItem>
+                    </>
+                )}
+                {effectiveStatus === "locked" && (
+                    <>
+                        <DropdownMenuItem onClick={() => handleAction("unlock")}>
+                            Unlock account
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => handleAction("deactivate")}
+                            className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                        >
+                            Deactivate account
+                        </DropdownMenuItem>
+                    </>
+                )}
+                {effectiveStatus === "deactivated" && (
+                    <DropdownMenuItem onClick={() => handleAction("reactivate")}>
+                        Reactivate account
+                    </DropdownMenuItem>
+                )}
+                {effectiveStatus === "invited" && (
+                    <>
+                        {userRole !== "client" && (
+                            <>
+                                <DropdownMenuItem onClick={() => handleAction("resend")}>
+                                    Resend invite
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => handleAction("cancel")}
+                                    className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                                >
+                                    Cancel invite
+                                </DropdownMenuItem>
+                            </>
+                        )}
+                        {mode === "full" && (
+                            <DropdownMenuItem
+                                onClick={() => handleAction("deactivate")}
+                                className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                            >
+                                Deactivate account
+                            </DropdownMenuItem>
+                        )}
+                    </>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }

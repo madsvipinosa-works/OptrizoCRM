@@ -32,6 +32,8 @@ export const users = pgTable("user", {
     image: text("image"),
     role: roleEnum("role").default("client").notNull(),
     status: accountStatusEnum("status").default("active").notNull(),
+    failedLogins: integer("failed_logins").default(0).notNull(),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
     jobTitle: text("job_title"),
     companyName: text("company_name"),
     industry: text("industry"),
