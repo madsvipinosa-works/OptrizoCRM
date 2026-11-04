@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import path from "path";
+import util from "util";
 
 vi.mock("@/auth", async () => (await import("../../helpers/mock-auth")).authModuleMock());
 vi.mock("@auth/drizzle-adapter", () => ({ DrizzleAdapter: vi.fn() }));
 vi.mock("@/db", async () => ({ db: (await import("../../helpers/mock-db")).createMockDb() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+}));
 vi.mock("@/features/audit/log", () => ({ logAction: vi.fn() }));
 vi.mock("@/features/notifications/send", () => ({
   notifyAllAdmins: vi.fn(),
@@ -13,6 +18,9 @@ vi.mock("@/features/notifications/send", () => ({
 
 import { auth } from "@/auth";
 import { db } from "@/db";
+import { notFound } from "next/navigation";
+import TeamPage from "@/app/(admin)/dashboard/team/page";
+import TeamMemberDetailPage from "@/app/(admin)/dashboard/team/[id]/page";
 import { lockUser, unlockUser, deactivateUser, reactivateUser } from "@/features/users/actions";
 import { changeAccountStatus, type DbTransaction } from "@/features/users/account-status";
 import { updateUserRole } from "@/features/cms/team/actions";
@@ -310,5 +318,112 @@ describe("team pages source-text authorization guard (requireRole before DB quer
       expect(requireRoleIdx).toBeLessThan(dbQueryIdx);
     }
     expect(src).toMatch(/requireRole\(\s*\[\s*["']superadmin["']\s*\]\s*\)/);
+  });
+
+  it("team/[id]/page.tsx calls requireRole(['superadmin']) before any db/query call", () => {
+    const filePath = path.join(root, "src/app/(admin)/dashboard/team/[id]/page.tsx");
+    const src = fs.readFileSync(filePath, "utf8");
+
+    expect(src).toMatch(/import\s*\{[^}]*requireRole[^}]*\}\s*from\s*["']@\/lib\/authz["']/);
+
+    const requireRoleIdx = src.indexOf("requireRole(");
+    const dbQueryIdx = src.indexOf("db.");
+
+    expect(requireRoleIdx).toBeGreaterThan(-1);
+    expect(dbQueryIdx).toBeGreaterThan(-1);
+    expect(requireRoleIdx).toBeLessThan(dbQueryIdx);
+    expect(src).toMatch(/requireRole\(\s*\[\s*["']superadmin["']\s*\]\s*\)/);
+  });
+
+  it("list and detail queries never select the password column", () => {
+    const listPath = path.join(root, "src/app/(admin)/dashboard/team/page.tsx");
+    const detailPath = path.join(root, "src/app/(admin)/dashboard/team/[id]/page.tsx");
+
+    const listSrc = fs.readFileSync(listPath, "utf8");
+    const detailSrc = fs.readFileSync(detailPath, "utf8");
+
+    expect(listSrc).not.toMatch(/password/i);
+    expect(detailSrc).not.toMatch(/password/i);
+  });
+});
+
+describe("team list and detail runtime behavior (Session 10 / STOP 5)", () => {
+  it("invalid id format on team/[id]/page.tsx calls notFound() without querying DB", async () => {
+    signInAs(auth, "superadmin", superadminUuid);
+    vi.mocked(notFound).mockClear();
+
+    await TeamMemberDetailPage({
+      params: Promise.resolve({ id: "not-a-valid-uuid" }),
+    });
+
+    expect(notFound).toHaveBeenCalledTimes(1);
+    expect(mockDb.query.users.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("missing or soft-deleted user on team/[id]/page.tsx calls notFound()", async () => {
+    signInAs(auth, "superadmin", superadminUuid);
+    vi.mocked(notFound).mockClear();
+
+    // Missing user
+    mockDb.query.users.findFirst.mockResolvedValueOnce(undefined);
+    await TeamMemberDetailPage({
+      params: Promise.resolve({ id: targetUuid }),
+    });
+    expect(notFound).toHaveBeenCalledTimes(1);
+
+    // Soft-deleted user
+    vi.mocked(notFound).mockClear();
+    mockDb.query.users.findFirst.mockResolvedValueOnce({
+      id: targetUuid,
+      name: "Deleted User",
+      email: "del@optrizo.ph",
+      role: "developer",
+      status: "deactivated",
+      isActive: false,
+      jobTitle: null,
+      lockedUntil: null,
+      deletedAt: new Date(),
+    });
+    await TeamMemberDetailPage({
+      params: Promise.resolve({ id: targetUuid }),
+    });
+    expect(notFound).toHaveBeenCalledTimes(1);
+  });
+
+  it("team/page.tsx filters ignore invalid enum values and apply valid enum values", async () => {
+    signInAs(auth, "superadmin", superadminUuid);
+
+    mockDb.query.users.findMany.mockResolvedValue([]);
+
+    // 1. Invalid enum values are ignored
+    await TeamPage({
+      searchParams: Promise.resolve({
+        role: "not_a_role",
+        status: "not_a_status",
+      }),
+    });
+
+    expect(mockDb.query.users.findMany).toHaveBeenCalledTimes(1);
+    const invalidCallArg = mockDb.query.users.findMany.mock.calls[0][0];
+    expect(invalidCallArg.columns).not.toHaveProperty("password");
+    expect(invalidCallArg.limit).toBe(100);
+    const invalidWhereStr = util.inspect(invalidCallArg.where, { depth: 8 });
+    expect(invalidWhereStr).not.toContain("not_a_role");
+    expect(invalidWhereStr).not.toContain("not_a_status");
+
+    // 2. Valid enum values are applied
+    mockDb.query.users.findMany.mockClear();
+    await TeamPage({
+      searchParams: Promise.resolve({
+        role: "developer",
+        status: "locked",
+      }),
+    });
+
+    expect(mockDb.query.users.findMany).toHaveBeenCalledTimes(1);
+    const validCallArg = mockDb.query.users.findMany.mock.calls[0][0];
+    const validWhereStr = util.inspect(validCallArg.where, { depth: 8 });
+    expect(validWhereStr).toContain("developer");
+    expect(validWhereStr).toContain("locked");
   });
 });

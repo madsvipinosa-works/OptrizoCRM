@@ -19,6 +19,7 @@ export interface UserActiveToggleProps {
     isAdmin?: boolean;
     userName?: string;
     userRole?: string;
+    mode?: "full" | "invite-only";
 }
 
 export function UserActiveToggle({
@@ -28,6 +29,7 @@ export function UserActiveToggle({
     isAdmin = true,
     userName,
     userRole,
+    mode = "full",
 }: UserActiveToggleProps) {
     const [loading, setLoading] = useState(false);
 
@@ -48,7 +50,9 @@ export function UserActiveToggle({
         invited: "Invited",
     }[effectiveStatus];
 
-    if (!isAdmin) {
+    const isInvitedStaff = effectiveStatus === "invited" && userRole !== "client";
+
+    if (!isAdmin || (mode === "invite-only" && !isInvitedStaff)) {
         return (
             <span
                 className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center capitalize ${badgeStyle}`}
@@ -70,7 +74,7 @@ export function UserActiveToggle({
 
         if (actionType === "deactivate") {
             const confirmed = window.confirm(
-                `Deactivate account for ${displayName}?\n\nThey will no longer be able to sign in. Any open tasks will remain for Project Manager reassignment.`
+                `Deactivate ${displayName}?\n\n${displayName} can no longer sign in. Their history stays in the audit log. Open tasks stay as they are, and the Project Manager is told to reassign them.\n\nYou can turn the account back on later.`
             );
             if (!confirmed) return;
         }
@@ -180,12 +184,14 @@ export function UserActiveToggle({
                                 </DropdownMenuItem>
                             </>
                         )}
-                        <DropdownMenuItem
-                            onClick={() => handleAction("deactivate")}
-                            className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
-                        >
-                            Deactivate account
-                        </DropdownMenuItem>
+                        {mode === "full" && (
+                            <DropdownMenuItem
+                                onClick={() => handleAction("deactivate")}
+                                className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                            >
+                                Deactivate account
+                            </DropdownMenuItem>
+                        )}
                     </>
                 )}
             </DropdownMenuContent>
