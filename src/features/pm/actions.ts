@@ -633,18 +633,52 @@ export async function updateTaskDetails(
 }
 
 export async function deleteTask(taskId: string): Promise<ActionState> {
-    const session = await auth();
-    if (!hasRole(session, ["manager"])) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
         return { success: false, message: "Unauthorized" };
     }
 
     try {
+        const taskRow = await db.query.tasks.findFirst({
+            where: and(eq(tasks.id, taskId), isNull(tasks.deletedAt)),
+            columns: {
+                id: true,
+                projectId: true,
+                status: true,
+                title: true,
+            },
+        });
+
+        if (!taskRow) {
+            return { success: false, message: "Task not found" };
+        }
+
+        const projectId = taskRow.projectId;
+        const access = await authorizeProject(projectId, "write");
+        if (!access.ok) {
+            return { success: false, message: "Unauthorized" };
+        }
+
+        if (taskRow.status !== "backlog" && taskRow.status !== "to_do") {
+            return {
+                success: false,
+                message: "Only tasks that have not started can be deleted.",
+            };
+        }
+
         await db.update(tasks)
             .set({ deletedAt: new Date(), updatedAt: new Date() })
             .where(eq(tasks.id, taskId));
-        
-        await logAction("DELETE", "Task", `Task ${taskId} soft-deleted`);
-        
+
+        await logAction(
+            "DELETE",
+            "Task",
+            `Task ${taskId} soft-deleted`,
+            authz.session.user.id,
+            projectId
+        );
+
+        revalidatePath(`/dashboard/pm/${projectId}`);
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task deleted." };
     } catch (error) {

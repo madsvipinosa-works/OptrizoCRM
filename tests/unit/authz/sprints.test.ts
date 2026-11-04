@@ -16,7 +16,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { logAction } from "@/features/audit/log";
 import { createSystemNotification } from "@/features/notifications/send";
-import { createTask, startTask } from "@/features/pm/actions";
+import { createTask, startTask, deleteTask } from "@/features/pm/actions";
 import * as sprintActionsModule from "@/features/sprints/actions";
 import { planSprint, moveTaskToSprint } from "@/features/sprints/actions";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
@@ -698,5 +698,104 @@ describe("createTask and startTask sprint integration (STOP 2 commit 2)", () => 
     });
   });
 });
+
+describe("deleteTask guard (STOP 3 commit A)", () => {
+  it("rejects anonymous caller with NO writes", async () => {
+    const res = await deleteTask("task-1");
+    expect(res).toEqual({ success: false, message: "Unauthorized" });
+    expectNoWrites(mockDb);
+  });
+
+  it.each(rolesExceptManager)("rejects %s role with NO writes", async (role) => {
+    signInAs(auth, role, `user-${role}`);
+    const res = await deleteTask("task-1");
+    expect(res).toEqual({ success: false, message: "Unauthorized" });
+    expectNoWrites(mockDb);
+  });
+
+  it("rejects a task from another project when authorizeProject denies write access", async () => {
+    signInAs(auth, "manager", "pm-1");
+    mockDb.query.tasks.findFirst.mockResolvedValue({
+      id: "task-foreign",
+      projectId: "proj-other",
+      status: "backlog",
+      title: "Foreign Task",
+    });
+
+    const authzMod = await import("@/lib/authz");
+    const spy = vi
+      .spyOn(authzMod, "authorizeProject")
+      .mockResolvedValueOnce({ ok: false, reason: "FORBIDDEN" });
+
+    const res = await deleteTask("task-foreign");
+    expect(spy).toHaveBeenCalledWith("proj-other", "write");
+    expect(res).toEqual({ success: false, message: "Unauthorized" });
+    expectNoWrites(mockDb);
+    spy.mockRestore();
+  });
+
+  it.each(["in_progress", "in_review", "changes_requested", "done"] as const)(
+    "rejects %s task with friendly message and NO writes",
+    async (status) => {
+      signInAs(auth, "manager", "pm-1");
+      mockDb.query.tasks.findFirst.mockResolvedValue({
+        id: `task-${status}`,
+        projectId: "proj-1",
+        status,
+        title: `Task ${status}`,
+      });
+      mockDb.query.agencyProjects.findFirst.mockResolvedValue({
+        id: "proj-1",
+        leadId: "lead-1",
+        isArchived: false,
+      });
+      mockDb.query.leads.findFirst.mockResolvedValue({
+        id: "lead-1",
+        assignedPmId: "pm-1",
+      });
+
+      const res = await deleteTask(`task-${status}`);
+      expect(res).toEqual({
+        success: false,
+        message: "Only tasks that have not started can be deleted.",
+      });
+      expectNoWrites(mockDb);
+    },
+  );
+
+  it.each(["backlog", "to_do"] as const)(
+    "allows deleting a %s task and writes audit log with projectId",
+    async (status) => {
+      signInAs(auth, "manager", "pm-1");
+      mockDb.query.tasks.findFirst.mockResolvedValue({
+        id: `task-${status}`,
+        projectId: "proj-1",
+        status,
+        title: `Task ${status}`,
+      });
+      mockDb.query.agencyProjects.findFirst.mockResolvedValue({
+        id: "proj-1",
+        leadId: "lead-1",
+        isArchived: false,
+      });
+      mockDb.query.leads.findFirst.mockResolvedValue({
+        id: "lead-1",
+        assignedPmId: "pm-1",
+      });
+
+      const res = await deleteTask(`task-${status}`);
+      expect(res).toEqual({ success: true, message: "Task deleted." });
+      expect(mockDb.update).toHaveBeenCalledTimes(1);
+      expect(logAction).toHaveBeenCalledWith(
+        "DELETE",
+        "Task",
+        `Task task-${status} soft-deleted`,
+        "pm-1",
+        "proj-1",
+      );
+    },
+  );
+});
+
 
 
