@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { auth } from "@/auth";
+import { requireRole } from "@/lib/authz";
 import { redirect } from "next/navigation";
 import { UserRoleSelect } from "@/features/cms/team/components/UserRoleSelect";
 import { JobTitleEditor } from "@/features/cms/team/components/JobTitleEditor";
@@ -16,8 +16,12 @@ import { inArray, ilike, or, and, eq } from "drizzle-orm";
 export const dynamic = 'force-dynamic';
 
 export default async function TeamPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-    const session = await auth();
-    if (!session?.user) redirect("/");
+    const authz = await requireRole(["superadmin"]);
+    if (!authz.ok) {
+        redirect("/dashboard");
+    }
+    const session = authz.session;
+
 
     const params = await searchParams;
     const query = params.q || "";

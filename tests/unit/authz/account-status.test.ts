@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import fs from "fs";
+import path from "path";
 
 vi.mock("@/auth", async () => (await import("../../helpers/mock-auth")).authModuleMock());
 vi.mock("@auth/drizzle-adapter", () => ({ DrizzleAdapter: vi.fn() }));
@@ -265,5 +267,48 @@ describe("authorizeUser password check on deactivated accounts", () => {
 
     // Must return null without throwing an error that reveals account status
     expect(result).toBeNull();
+  });
+});
+
+describe("team pages source-text authorization guard (requireRole before DB queries)", () => {
+  const root = path.resolve(__dirname, "../../..");
+
+  it("team/page.tsx calls requireRole(['superadmin']) before executing queries", () => {
+    const filePath = path.join(root, "src/app/(admin)/dashboard/team/page.tsx");
+    const src = fs.readFileSync(filePath, "utf8");
+
+    // Must import requireRole from @/lib/authz
+    expect(src).toMatch(/import\s*\{[^}]*requireRole[^}]*\}\s*from\s*["']@\/lib\/authz["']/);
+
+    // Find positions of requireRole and db queries
+    const requireRoleIdx = src.indexOf("requireRole(");
+    const dbQueryIdx = src.indexOf("db.");
+
+    expect(requireRoleIdx).toBeGreaterThan(-1);
+    expect(dbQueryIdx).toBeGreaterThan(-1);
+    expect(requireRoleIdx).toBeLessThan(dbQueryIdx);
+
+    // Must check for superadmin
+    expect(src).toMatch(/requireRole\(\s*\[\s*["']superadmin["']\s*\]\s*\)/);
+
+    // Must redirect to /dashboard on failure
+    expect(src).toMatch(/redirect\(["']\/dashboard["']\)/);
+  });
+
+  it("team/new/page.tsx calls requireRole before querying when present", () => {
+    const filePath = path.join(root, "src/app/(admin)/dashboard/team/new/page.tsx");
+    if (!fs.existsSync(filePath)) {
+      // team/new/page.tsx is scheduled for later stop
+      return;
+    }
+    const src = fs.readFileSync(filePath, "utf8");
+    const requireRoleIdx = src.indexOf("requireRole(");
+    const dbQueryIdx = src.indexOf("db.");
+
+    expect(requireRoleIdx).toBeGreaterThan(-1);
+    if (dbQueryIdx !== -1) {
+      expect(requireRoleIdx).toBeLessThan(dbQueryIdx);
+    }
+    expect(src).toMatch(/requireRole\(\s*\[\s*["']superadmin["']\s*\]\s*\)/);
   });
 });
