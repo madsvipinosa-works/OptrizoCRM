@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { agencyProjects, milestones, tasks, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
+import { agencyProjects, milestones, tasks, sprints, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { eq, and, isNull, ne, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -9,6 +9,8 @@ import { createSystemNotification } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { authorizeProject, requireRole, requireRoles } from "@/lib/authz";
 import { closeMilestoneAndAdvance } from "@/features/pm/milestone-flow";
+import { applyEndedSprints } from "@/features/sprints/sprint-end";
+import { deriveSprintStatus, todayInManila } from "@/features/sprints/sprint-status";
 import { sendPaymentDueEmail } from "@/lib/notifications";
 import { z } from "zod";
 
@@ -348,20 +350,28 @@ export async function createTask(
     description?: string, 
     assigneeIds?: string[],
     weight: number = 1,
-    estimatedHours?: number
+    estimatedHours?: number,
+    opts?: { sprintId?: string | null; toBacklog?: boolean }
 ): Promise<ActionState> {
-    const session = await auth();
-    if (!hasRole(session, ["manager"])) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    const access = await authorizeProject(projectId, "write");
+    if (!access.ok) {
         return { success: false, message: "Unauthorized" };
     }
 
     if (!title.trim()) return { success: false, message: "Title is required" };
 
     try {
+        await applyEndedSprints(projectId);
+
         const milestone = await db.query.milestones.findFirst({
             where: and(eq(milestones.id, milestoneId), isNull(milestones.deletedAt)),
         });
-        if (!milestone) {
+        if (!milestone || (milestone.projectId && milestone.projectId !== projectId)) {
             return { success: false, message: "Milestone not found" };
         }
         if (milestone.status === "Completed") {
@@ -380,12 +390,33 @@ export async function createTask(
             }
         }
 
+        const isDevMilestone =
+            milestone.name === "development" || milestone.title === "Full-Stack Development";
+
+        let initialStatus: "backlog" | "to_do" = isDevMilestone ? "backlog" : "to_do";
+        let resolvedSprintId: string | null = null;
+
+        if (isDevMilestone && opts?.sprintId && !opts?.toBacklog) {
+            const targetSprint = await db.query.sprints.findFirst({
+                where: and(eq(sprints.id, opts.sprintId), eq(sprints.projectId, projectId)),
+            });
+            if (!targetSprint) {
+                return { success: false, message: "Sprint not found in this project" };
+            }
+            if (deriveSprintStatus(targetSprint.startDate, targetSprint.endDate, todayInManila()) === "ended") {
+                return { success: false, message: "Cannot add task to an ended sprint" };
+            }
+            initialStatus = "to_do";
+            resolvedSprintId = targetSprint.id;
+        }
+
         const [newTask] = await db.insert(tasks).values({
             projectId,
             milestoneId,
+            sprintId: resolvedSprintId,
             title,
             description,
-            status: "to_do",
+            status: initialStatus,
             weight: weight || 1,
             estimatedHours: estimatedHours || null
         }).returning();
@@ -397,7 +428,7 @@ export async function createTask(
             );
         }
 
-        await logAction("CREATE", "Task", `Task "${title}" created`);
+        await logAction("CREATE", "Task", `Task "${title}" created`, authz.session.user.id, projectId);
 
         revalidatePath("/dashboard/pm/[id]");
         return { success: true, message: "Task created.", task: newTask };
@@ -784,6 +815,14 @@ export async function startTask(
     }
 
     try {
+        const preTask = await db.query.tasks.findFirst({
+            where: and(eq(tasks.id, taskId), isNull(tasks.deletedAt)),
+            columns: { projectId: true },
+        });
+        if (preTask?.projectId) {
+            await applyEndedSprints(preTask.projectId);
+        }
+
         const result = await db.transaction(async (tx) => {
             const [task] = await tx
                 .select()
@@ -840,7 +879,7 @@ export async function startTask(
         }
 
         try {
-            await logAction("UPDATE", "Task", `Started task "${result.task?.title || taskId}"`);
+            await logAction("UPDATE", "Task", `Started task "${result.task?.title || taskId}"`, session.user.id, result.task?.projectId);
         } catch (logErr) {
             console.error("Post-commit log error in startTask:", logErr);
         }

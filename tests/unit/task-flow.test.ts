@@ -274,6 +274,18 @@ describe("markEmptyMilestoneDone", () => {
 });
 
 describe("createTask hardening", () => {
+  beforeEach(() => {
+    mockDb.query.agencyProjects.findFirst.mockResolvedValue({
+      id: "p1",
+      leadId: "lead-1",
+      isArchived: false,
+    });
+    mockDb.query.leads.findFirst.mockResolvedValue({
+      id: "lead-1",
+      assignedPmId: "user-manager",
+    });
+  });
+
   it("rejects adding task to a Completed milestone", async () => {
     signInAs(auth, "manager");
     mockDb.query.milestones.findFirst.mockResolvedValue({ id: "m1", status: "Completed" });

@@ -4,6 +4,7 @@ import path from "path";
 
 vi.mock("@/auth", async () => (await import("../../helpers/mock-auth")).authModuleMock());
 vi.mock("@/db", async () => ({ db: (await import("../../helpers/mock-db")).createMockDb() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/features/audit/log", () => ({ logAction: vi.fn() }));
 vi.mock("@/features/notifications/send", () => ({
   createSystemNotification: vi.fn(),
@@ -15,6 +16,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { logAction } from "@/features/audit/log";
 import { createSystemNotification } from "@/features/notifications/send";
+import { createTask, startTask } from "@/features/pm/actions";
 import * as sprintActionsModule from "@/features/sprints/actions";
 import { planSprint, moveTaskToSprint } from "@/features/sprints/actions";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
@@ -533,4 +535,168 @@ describe("applyEndedSprints idempotency", () => {
     expect(logAction).not.toHaveBeenCalled();
   });
 });
+
+describe("createTask and startTask sprint integration (STOP 2 commit 2)", () => {
+  beforeEach(() => {
+    signInAs(auth, "manager", "pm-1");
+    mockDb.query.agencyProjects.findFirst.mockResolvedValue({
+      id: "proj-1",
+      leadId: "lead-1",
+      isArchived: false,
+    });
+    mockDb.query.leads.findFirst.mockResolvedValue({
+      id: "lead-1",
+      assignedPmId: "pm-1",
+    });
+  });
+
+  it("createTask defaults to status 'backlog' with sprintId=null in Development milestone", async () => {
+    const insertedValues: Record<string, unknown>[] = [];
+    mockDb.insert.mockImplementation(() => ({
+      values: (payload: Record<string, unknown>) => {
+        insertedValues.push(payload);
+        return {
+          returning: () =>
+            Promise.resolve([{ id: "new-task-1", ...payload }]),
+        };
+      },
+    }));
+
+    mockDb.query.milestones.findFirst.mockResolvedValue({
+      id: "m-dev",
+      projectId: "proj-1",
+      name: "development",
+      title: "Full-Stack Development",
+      status: "In Progress",
+    });
+
+    const res = await createTask("proj-1", "m-dev", "Build API");
+    expect(res.success).toBe(true);
+    expect(insertedValues[0]).toMatchObject({
+      projectId: "proj-1",
+      milestoneId: "m-dev",
+      status: "backlog",
+      sprintId: null,
+    });
+  });
+
+  it("createTask sets status 'to_do' and sprintId when a valid non-ended sprintId of the same project is given in Development", async () => {
+    const insertedValues: Record<string, unknown>[] = [];
+    mockDb.insert.mockImplementation(() => ({
+      values: (payload: Record<string, unknown>) => {
+        insertedValues.push(payload);
+        return {
+          returning: () =>
+            Promise.resolve([{ id: "new-task-2", ...payload }]),
+        };
+      },
+    }));
+
+    mockDb.query.milestones.findFirst.mockResolvedValue({
+      id: "m-dev",
+      projectId: "proj-1",
+      name: "development",
+      title: "Full-Stack Development",
+      status: "In Progress",
+    });
+    mockDb.query.sprints.findFirst.mockResolvedValue({
+      id: "sprint-active",
+      projectId: "proj-1",
+      startDate: "2026-11-10",
+      endDate: "2026-11-20",
+    });
+
+    const res = await createTask("proj-1", "m-dev", "Sprint Task", undefined, undefined, 1, undefined, {
+      sprintId: "sprint-active",
+    });
+    expect(res.success).toBe(true);
+    expect(insertedValues[0]).toMatchObject({
+      projectId: "proj-1",
+      milestoneId: "m-dev",
+      status: "to_do",
+      sprintId: "sprint-active",
+    });
+  });
+
+  it("createTask defaults to status 'to_do' and ignores sprintId in non-Development milestones", async () => {
+    const insertedValues: Record<string, unknown>[] = [];
+    mockDb.insert.mockImplementation(() => ({
+      values: (payload: Record<string, unknown>) => {
+        insertedValues.push(payload);
+        return {
+          returning: () =>
+            Promise.resolve([{ id: "new-task-3", ...payload }]),
+        };
+      },
+    }));
+
+    mockDb.query.milestones.findFirst.mockResolvedValue({
+      id: "m-design",
+      projectId: "proj-1",
+      name: "design",
+      title: "UI/UX Design",
+      status: "In Progress",
+    });
+
+    const res = await createTask("proj-1", "m-design", "Wireframes", undefined, undefined, 1, undefined, {
+      sprintId: "sprint-active",
+      toBacklog: true,
+    });
+    expect(res.success).toBe(true);
+    expect(insertedValues[0]).toMatchObject({
+      projectId: "proj-1",
+      milestoneId: "m-design",
+      status: "to_do",
+      sprintId: null,
+    });
+  });
+
+  it("startTask calls applyEndedSprints before checking task status", async () => {
+    signInAs(auth, "developer", "dev-1");
+    mockDb.query.taskAssignees.findFirst.mockResolvedValue({
+      taskId: "task-expired-sprint",
+      userId: "dev-1",
+    });
+    mockDb.query.tasks.findFirst.mockResolvedValue({
+      projectId: "proj-1",
+    });
+
+    const updateSetPayloads: Record<string, unknown>[] = [];
+    mockDb.update.mockImplementation(() => ({
+      set: (payload: Record<string, unknown>) => {
+        updateSetPayloads.push(payload);
+        return {
+          where: () => ({
+            returning: () => Promise.resolve([{ id: "task-expired-sprint", sprintId: null }]),
+          }),
+        };
+      },
+    }));
+
+    setSelectSequence([
+      // 1. applyEndedSprints pre-check: ended sprint found
+      [{ id: "s-ended", name: "Sprint 1" }],
+      // 2. applyEndedSprints pre-check: task is to_do in ended sprint
+      [{ id: "task-expired-sprint", status: "to_do", carriedOver: false }],
+      // 3. applyEndedSprints tx: lock agency_project
+      [{ id: "proj-1" }],
+      // 4. applyEndedSprints tx: lock ended sprints
+      [{ id: "s-ended", name: "Sprint 1" }],
+      // 5. startTask tx: lock task -> now status is 'backlog' after applyEndedSprints returned it!
+      [{ id: "task-expired-sprint", status: "backlog", milestoneId: "m-dev", projectId: "proj-1" }],
+    ]);
+
+    const res = await startTask("task-expired-sprint");
+    expect(res).toEqual({
+      success: false,
+      message: "Only tasks in To Do status can be started",
+    });
+    // Verify applyEndedSprints ran its backlog return update before startTask checked the task status
+    expect(updateSetPayloads[0]).toMatchObject({
+      status: "backlog",
+      sprintId: null,
+    });
+  });
+});
+
 
