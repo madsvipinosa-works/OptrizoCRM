@@ -638,4 +638,9 @@ Errors:
 - `"Only tasks that have not started can be deleted."`: task status is anything other than `'backlog'` or `'to_do'` (`in_progress`, `in_review`, `changes_requested`, `done` are rejected).
 Side effects: derives `projectId` from the task row; soft-deletes the task (`deletedAt = now()`); writes audit log row last with `projectId`; revalidates the project board path.
 
+### /dashboard/pm/[id]/activity  (step 075-ref)
+Who can access: manager (with read access to `projectId` via `requireRole(["manager"]).ok` then `authorizeProject(id, "read").ok`).
+Method: GET
+Behavior: Read-only project activity table grouped by day in Asia/Manila (`When`, `Who`, `Action`, `Details`), backed by `getProjectActivity(projectId, { limit = 50, before? })` (`limit` capped at 100, cursor pagination by `created_at/id`). Joins `audit_log` to `user` selecting only `name` and `role` (never `password` or other user columns), formats action names into readable labels with fallback to the raw action string, sanitizes details, and renders plain text only.
+
 (Add one per action as modules are built.)

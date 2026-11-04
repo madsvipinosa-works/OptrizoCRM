@@ -5,6 +5,14 @@ import path from "path";
 vi.mock("@/auth", async () => (await import("../../helpers/mock-auth")).authModuleMock());
 vi.mock("@/db", async () => ({ db: (await import("../../helpers/mock-db")).createMockDb() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(() => {
+    throw new Error("NEXT_NOT_FOUND");
+  }),
+  redirect: vi.fn(() => {
+    throw new Error("NEXT_REDIRECT");
+  }),
+}));
 vi.mock("@/features/audit/log", () => ({ logAction: vi.fn() }));
 vi.mock("@/features/notifications/send", () => ({
   createSystemNotification: vi.fn(),
@@ -21,6 +29,13 @@ import * as sprintActionsModule from "@/features/sprints/actions";
 import { planSprint, moveTaskToSprint } from "@/features/sprints/actions";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
 import { getTimelineData } from "@/features/sprints/timeline-data";
+import {
+  getProjectActivity,
+  formatActivityActionLabel,
+  sanitizeActivityDetails,
+} from "@/features/audit/project-activity";
+import PmProjectActivityPage from "@/app/(admin)/dashboard/pm/[id]/activity/page";
+import { notFound, redirect } from "next/navigation";
 import { ROLES, signInAs, type Role } from "../../helpers/mock-auth";
 import { expectNoWrites, type MockDb } from "../../helpers/mock-db";
 
@@ -984,6 +999,197 @@ describe("getTimelineData query (STOP 4)", () => {
         date: "2026-11-07",
       },
     ]);
+  });
+});
+
+describe("project activity page & getProjectActivity query (STOP 5)", () => {
+  it("blocks unauthenticated users on PmProjectActivityPage with redirect before any DB query", async () => {
+    signInAs(auth, null);
+
+    await expect(
+      PmProjectActivityPage({
+        params: Promise.resolve({ id: "proj-1" }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith("/");
+    expect(mockDb.select).not.toHaveBeenCalled();
+  });
+
+  it.each(["developer", "sales", "client", "content_editor", "superadmin"] as const)(
+    "blocks %s role on PmProjectActivityPage with redirect before any DB query",
+    async (role) => {
+      signInAs(auth, role, `user-${role}`);
+
+      await expect(
+        PmProjectActivityPage({
+          params: Promise.resolve({ id: "proj-1" }),
+        }),
+      ).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(redirect).toHaveBeenCalledWith("/");
+      expect(mockDb.select).not.toHaveBeenCalled();
+    },
+  );
+
+  it("denies a manager who does NOT have access to another project (authorizeProject returns ok: false)", async () => {
+    signInAs(auth, "manager", "pm-other");
+    const authzMod = await import("@/lib/authz");
+    const spy = vi
+      .spyOn(authzMod, "authorizeProject")
+      .mockResolvedValueOnce({ ok: false, reason: "FORBIDDEN" });
+
+    await expect(
+      PmProjectActivityPage({
+        params: Promise.resolve({ id: "proj-foreign" }),
+      }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(spy).toHaveBeenCalledWith("proj-foreign", "read");
+    expect(notFound).toHaveBeenCalledTimes(1);
+    expect(mockDb.select).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("allows a manager with access to the project to render PmProjectActivityPage", async () => {
+    signInAs(auth, "manager", "pm-owner");
+    setSelectSequence([
+      // 1. project header
+      [{ id: "proj-1", title: "Delivery Tracking App", leadId: "lead-1" }],
+      // 2. lead header
+      [{ businessName: "Santos Logistics", contactName: "Maria Santos" }],
+      // 3. getProjectActivity rows
+      [
+        {
+          id: "log-1",
+          projectId: "proj-1",
+          action: "CREATE",
+          entity: "Sprint",
+          details: '[actorRole:manager] Planned sprint "Sprint 1"',
+          createdAt: new Date("2026-11-10T04:00:00Z"),
+          userName: "PM Owner",
+          userRole: "manager",
+        },
+      ],
+    ]);
+
+    const element = await PmProjectActivityPage({
+      params: Promise.resolve({ id: "proj-1" }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(element).toBeTruthy();
+  });
+
+  it("getProjectActivity returns ONLY rows for the requested projectId and exposes ONLY user.name and user.role", async () => {
+    let capturedSelectShape: Record<string, unknown> | undefined;
+    let capturedLimit: number | undefined;
+
+    mockDb.select.mockImplementation((shape: Record<string, unknown>) => {
+      capturedSelectShape = shape;
+      const chain: Record<string, unknown> = {};
+      const handler = {
+        get(_target: object, prop: string) {
+          if (prop === "limit") {
+            return (n: number) => {
+              capturedLimit = n;
+              return createChainProxy(() => [
+                {
+                  id: "log-own",
+                  projectId: "proj-1",
+                  action: "UPDATE",
+                  entity: "Task",
+                  details: "Task approved by bob@example.com with token=secret123",
+                  createdAt: new Date("2026-11-10T03:00:00Z"),
+                  userName: "Alice",
+                  userRole: "manager",
+                  password: "SHOULD_NEVER_BE_EXPOSED",
+                  email: "alice@example.com",
+                },
+                {
+                  id: "log-other-project",
+                  projectId: "proj-2",
+                  action: "CREATE",
+                  entity: "Task",
+                  details: "Other project row",
+                  createdAt: new Date("2026-11-10T02:00:00Z"),
+                  userName: "Bob",
+                  userRole: "manager",
+                },
+              ]);
+            };
+          }
+          return () => new Proxy(chain, handler);
+        },
+      };
+      return new Proxy(chain, handler);
+    });
+
+    const res = await getProjectActivity("proj-1", { limit: 500 });
+
+    // 1. Cap limit at 100 even when 500 is requested
+    expect(capturedLimit).toBe(100);
+
+    // 2. Explicit select columns: only id, projectId, action, entity, details, createdAt, userName, userRole
+    expect(Object.keys(capturedSelectShape || {}).sort()).toEqual([
+      "action",
+      "createdAt",
+      "details",
+      "entity",
+      "id",
+      "projectId",
+      "userName",
+      "userRole",
+    ]);
+
+    // 3. Only rows belonging to proj-1 are returned
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0]!.id).toBe("log-own");
+    expect(res.items[0]!.projectId).toBe("proj-1");
+
+    // 4. User object exposes ONLY name and role (never password, email, etc.)
+    expect(res.items[0]!.user).toEqual({
+      name: "Alice",
+      role: "manager",
+    });
+    expect(Object.keys(res.items[0]!.user!)).toEqual(["name", "role"]);
+    expect("password" in (res.items[0]!.user as Record<string, unknown>)).toBe(false);
+    expect("email" in (res.items[0]!.user as Record<string, unknown>)).toBe(false);
+
+    // 5. Details have third-party emails and tokens redacted
+    expect(res.items[0]!.details).not.toContain("bob@example.com");
+    expect(res.items[0]!.details).not.toContain("secret123");
+  });
+
+  it("formatActivityActionLabel formats known actions and falls back to raw string for unknown actions", () => {
+    expect(formatActivityActionLabel("CREATE", "Sprint")).toBe("Created Sprint");
+    expect(formatActivityActionLabel("UPDATE", "Task")).toBe("Updated Task");
+    expect(formatActivityActionLabel("DELETE", "Task")).toBe("Deleted Task");
+    expect(formatActivityActionLabel("CUSTOM_ACTION", "Sprint")).toBe("CUSTOM_ACTION");
+  });
+
+  it("sanitizeActivityDetails strips [actorRole:...] and redacts emails, hashes, and tokens", () => {
+    const raw =
+      "[actorRole:manager] Sent invite to user@client.org with hash a1b2c3d4e5f60718293a4b5c6d7e8f90 and token=xyz987";
+    const clean = sanitizeActivityDetails(raw);
+    expect(clean).not.toContain("[actorRole:manager]");
+    expect(clean).not.toContain("user@client.org");
+    expect(clean).not.toContain("a1b2c3d4e5f60718293a4b5c6d7e8f90");
+    expect(clean).not.toContain("xyz987");
+  });
+
+  it("source-text guard: activity/page.tsx uses requireRole and authorizeProject(...).ok and never uses dangerouslySetInnerHTML", () => {
+    const pageSrc = fs.readFileSync(
+      path.join(root, "src/app/(admin)/dashboard/pm/[id]/activity/page.tsx"),
+      "utf8",
+    );
+    expect(pageSrc).not.toContain("dangerouslySetInnerHTML");
+    expect(pageSrc).toMatch(/const\s+authz\s*=\s*await\s+requireRole\(\["manager"\]\)/);
+    expect(pageSrc).toMatch(/if\s*\(\s*!authz\.ok\s*\)/);
+    expect(pageSrc).toMatch(/const\s+access\s*=\s*await\s+authorizeProject\(id,\s*"read"\)/);
+    expect(pageSrc).toMatch(/if\s*\(\s*!access\.ok\s*\)/);
   });
 });
 

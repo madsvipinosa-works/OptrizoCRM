@@ -218,6 +218,11 @@ export default async function KanbanBoardPage(props: {
                             </Link>
                         </Button>
                         <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/pm/${project.id}/activity`}>
+                                Activity
+                            </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
                             <Link href={`/dashboard/pm/${project.id}/payments`}>
                                 Payments
                             </Link>
