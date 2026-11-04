@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { isBacklogTask, isTaskCarriedOver } from "@/features/sprints/task-filters";
 
 export type PmTaskStatus =
     | "Todo"
@@ -35,6 +36,8 @@ export interface PmTask {
     title: string;
     description: string | null;
     status: PmTaskStatus;
+    sprintId?: string | null;
+    carriedOver?: boolean | null;
     reviewNote?: string | null;
     requiresProof?: boolean;
     proofLinks?: { label: string; url: string }[] | null;
@@ -118,8 +121,9 @@ const COLUMNS: {
     },
 ];
 
-function normalizeStatus(status: PmTaskStatus): "to_do" | "in_progress" | "changes_requested" | "in_review" | "done" {
-    if (status === "to_do" || status === "Todo" || status === "backlog") return "to_do";
+function normalizeStatus(status: PmTaskStatus): "backlog" | "to_do" | "in_progress" | "changes_requested" | "in_review" | "done" {
+    if (status === "backlog") return "backlog";
+    if (status === "to_do" || status === "Todo") return "to_do";
     if (status === "in_progress" || status === "In Progress") return "in_progress";
     if (status === "changes_requested" || status === "Changes Requested") return "changes_requested";
     if (status === "in_review" || status === "In Review") return "in_review";
@@ -141,6 +145,9 @@ export function PmKanbanBoard({
 }: PmKanbanBoardProps) {
     const [selectedMobileColumn, setSelectedMobileColumn] = useState<"to_do" | "in_progress" | "in_review" | "done">("to_do");
     const boardScrollRef = React.useRef<HTMLDivElement>(null);
+
+    // Exclude backlog tasks from board columns
+    const boardTasks = tasks.filter((t) => !isBacklogTask(t));
 
     const scrollToColumn = (colId: "to_do" | "in_progress" | "in_review" | "done") => {
         setSelectedMobileColumn(colId);
@@ -169,7 +176,7 @@ export function PmKanbanBoard({
             {/* Quick Switch Tab Bar on Mobile */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 md:hidden scrollbar-none px-1 shrink-0">
                 {COLUMNS.map((col) => {
-                    const count = tasks.filter((t) => {
+                    const count = boardTasks.filter((t) => {
                         const norm = normalizeStatus(t.status);
                         if (col.id === "in_progress") {
                             return norm === "in_progress" || norm === "changes_requested";
@@ -213,7 +220,7 @@ export function PmKanbanBoard({
             >
                 <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch w-full min-w-0 md:min-w-[950px] lg:min-w-full h-full">
                     {COLUMNS.map((col) => {
-                        const columnTasks = tasks.filter((t) => {
+                        const columnTasks = boardTasks.filter((t) => {
                             const norm = normalizeStatus(t.status);
                             if (col.id === "in_progress") {
                                 return norm === "in_progress" || norm === "changes_requested";
@@ -226,7 +233,7 @@ export function PmKanbanBoard({
                                 key={col.id}
                                 column={col}
                                 tasks={columnTasks}
-                                allTasks={tasks}
+                                allTasks={boardTasks}
                                 currentUserId={currentUserId}
                                 currentUserRole={currentUserRole}
                                 onStartTask={onStartTask}
@@ -358,6 +365,7 @@ function TaskCard({
 
     const normStatus = normalizeStatus(task.status);
     const isChangesRequested = normStatus === "changes_requested";
+    const isCarriedOver = isTaskCarriedOver(task);
     const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && normStatus !== "done";
 
     // Permission checks
@@ -378,15 +386,25 @@ function TaskCard({
             {/* Header: Title, Tags & Delete Button */}
             <div className="flex items-start justify-between gap-2 min-w-0">
                 <div className="flex flex-col gap-1 flex-1 min-w-0">
-                    {/* Status Badge Tag for Changes Requested */}
-                    {isChangesRequested && (
-                        <div className="flex items-center gap-1">
-                            <Badge
-                                variant="destructive"
-                                className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-rose-500 text-white shrink-0 whitespace-nowrap"
-                            >
-                                Changes Requested
-                            </Badge>
+                    {/* Status & Carried Over Badge Tags */}
+                    {(isChangesRequested || isCarriedOver) && (
+                        <div className="flex flex-wrap items-center gap-1">
+                            {isChangesRequested && (
+                                <Badge
+                                    variant="destructive"
+                                    className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-rose-500 text-white shrink-0 whitespace-nowrap"
+                                >
+                                    Changes Requested
+                                </Badge>
+                            )}
+                            {isCarriedOver && (
+                                <Badge
+                                    variant="secondary"
+                                    className="text-[10px] font-semibold px-2 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 shrink-0 whitespace-nowrap"
+                                >
+                                    Carried over
+                                </Badge>
+                            )}
                         </div>
                     )}
 
@@ -401,8 +419,8 @@ function TaskCard({
                     </h4>
                 </div>
 
-                {/* Delete Button for Managers */}
-                {isManager && onDeleteTask && !isViewOnly && (
+                {/* Delete Button for Managers (only on tasks that haven't started) */}
+                {isManager && onDeleteTask && !isViewOnly && (normStatus === "to_do" || normStatus === "backlog") && (
                     <div className="flex items-center shrink-0 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                             type="button"

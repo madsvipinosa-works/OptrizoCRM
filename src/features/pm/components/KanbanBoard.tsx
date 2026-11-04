@@ -21,6 +21,9 @@ import { Label } from "@/components/ui/label";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
 import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
 import { MilestoneStrip } from "./MilestoneStrip";
+import { SprintBar } from "./SprintBar";
+import { BacklogPanel } from "./BacklogPanel";
+import { PlanSprintDialog } from "./PlanSprintDialog";
 import {
     ProjectTeamDrawer,
     ProjectTeamMemberRecord,
@@ -30,12 +33,23 @@ import {
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
+import type { SprintWithCounts } from "@/features/sprints/queries";
+import {
+    filterBoardTasks,
+    isDevelopmentMilestone,
+    pickDefaultSprint,
+    excludeBacklogTasks,
+    isBacklogTask,
+} from "@/features/sprints/task-filters";
 
 interface KanbanMilestone {
     id: string;
     order: number;
+    name?: string | null;
     title: string;
     status: "Pending" | "In Progress" | "Completed";
+    startDate?: Date | string | null;
+    endDate?: Date | string | null;
     doneReason?: string | null;
 }
 
@@ -60,6 +74,9 @@ export function KanbanBoard({
     currentUserRole,
     viewAll = false,
     clientInfo,
+    sprints = [],
+    selectedSprintId: initialSelectedSprintId = null,
+    backlogTasks,
 }: {
     project: KanbanProject;
     teamMembers: TeamMemberItem[];
@@ -69,6 +86,9 @@ export function KanbanBoard({
     currentUserRole?: string;
     viewAll?: boolean;
     clientInfo?: ClientInfo;
+    sprints?: SprintWithCounts[];
+    selectedSprintId?: string | null;
+    backlogTasks?: PmTask[];
 }) {
     const router = useRouter();
     const [optimisticTasks, setOptimisticTasks] = useState<PmTask[]>(project.tasks || []);
@@ -96,11 +116,39 @@ export function KanbanBoard({
     );
 
     const activeMilestone = optimisticMilestones.find((m) => m.id === activeMilestoneId);
+    const isDevelopment = isDevelopmentMilestone(activeMilestone);
 
     // Roles and Developer View Mode
     const isManager = currentUserRole === "manager";
     const isDeveloper = currentUserRole === "developer";
     const [showAllTasks, setShowAllTasks] = useState<boolean>(viewAll);
+
+    // Sprint selection & Backlog panel state
+    const defaultSprint = useMemo(() => pickDefaultSprint(sprints), [sprints]);
+    const [selectedSprintId, setSelectedSprintId] = useState<string | null>(
+        initialSelectedSprintId ?? defaultSprint?.id ?? null
+    );
+    const [isBacklogOpen, setIsBacklogOpen] = useState(false);
+    const [isPlanSprintOpen, setIsPlanSprintOpen] = useState(false);
+    const [planSprintPreselectedIds, setPlanSprintPreselectedIds] = useState<string[] | undefined>(
+        undefined
+    );
+
+    useEffect(() => {
+        if (initialSelectedSprintId && sprints.some((s) => s.id === initialSelectedSprintId)) {
+            setSelectedSprintId(initialSelectedSprintId);
+        } else if (!selectedSprintId || !sprints.some((s) => s.id === selectedSprintId)) {
+            setSelectedSprintId(pickDefaultSprint(sprints)?.id ?? null);
+        }
+    }, [initialSelectedSprintId, sprints, selectedSprintId]);
+
+    const handleSelectSprint = (sprintId: string) => {
+        setSelectedSprintId(sprintId);
+        setIsBacklogOpen(false);
+        router.replace(`/dashboard/pm/${project.id}?sprint=${encodeURIComponent(sprintId)}`, {
+            scroll: false,
+        });
+    };
 
     // Modals and Drawers
     const [teamDrawerOpen, setTeamDrawerOpen] = useState(false);
@@ -119,6 +167,7 @@ export function KanbanBoard({
     const [newTaskWeight, setNewTaskWeight] = useState<number>(1);
     const [newTaskHours, setNewTaskHours] = useState<string>("");
     const [newTaskDueDate, setNewTaskDueDate] = useState<string>("");
+    const [newTaskSprintChoice, setNewTaskSprintChoice] = useState<string>("backlog");
     const [isCreatingTask, setIsCreatingTask] = useState(false);
 
     // Active Task Details reference
@@ -127,10 +176,14 @@ export function KanbanBoard({
         return optimisticTasks.find((t) => t.id === viewingTaskDetails.id) || viewingTaskDetails;
     }, [viewingTaskDetails, optimisticTasks]);
 
-    // Filter tasks by active milestone
+    // Filter tasks by active milestone and sprint (in Development)
     const milestoneTasks = useMemo(() => {
-        return optimisticTasks.filter((t) => t.milestoneId === activeMilestoneId);
-    }, [optimisticTasks, activeMilestoneId]);
+        const rawMilestoneTasks = optimisticTasks.filter((t) => t.milestoneId === activeMilestoneId);
+        return filterBoardTasks(rawMilestoneTasks, {
+            isDevelopment,
+            selectedSprintId,
+        });
+    }, [optimisticTasks, activeMilestoneId, isDevelopment, selectedSprintId]);
 
     // Apply Developer filter (My tasks vs All tasks)
     const displayedTasks = useMemo(() => {
@@ -148,6 +201,20 @@ export function KanbanBoard({
             t.assignees?.some((a) => a.user.id === currentUserId)
         ).length;
     }, [milestoneTasks, currentUserId]);
+
+    // Manager-only backlog tasks
+    const managerBacklogList = useMemo(() => {
+        if (!isManager) return [];
+        if (backlogTasks) return backlogTasks;
+        return optimisticTasks.filter(
+            (t) => t.milestoneId === activeMilestoneId && isBacklogTask(t)
+        );
+    }, [isManager, backlogTasks, optimisticTasks, activeMilestoneId]);
+
+    const nonEndedSprints = useMemo(
+        () => sprints.filter((s) => s.status !== "ended"),
+        [sprints]
+    );
 
     // -------------------------------------------------------------------------
     // Task Action Handlers
@@ -293,6 +360,11 @@ export function KanbanBoard({
         setIsCreatingTask(true);
         try {
             const hours = newTaskHours ? parseInt(newTaskHours) : undefined;
+            const opts = isDevelopment
+                ? newTaskSprintChoice === "backlog"
+                    ? { toBacklog: true }
+                    : { sprintId: newTaskSprintChoice }
+                : undefined;
 
             const res = await createTask(
                 project.id,
@@ -301,11 +373,16 @@ export function KanbanBoard({
                 newTaskDesc.trim() || undefined,
                 newAssigneeIds,
                 newTaskWeight,
-                hours
+                hours,
+                opts
             );
 
             if (res.success) {
-                toast.success("Task created");
+                toast.success(
+                    isDevelopment && newTaskSprintChoice === "backlog"
+                        ? "Task added to backlog"
+                        : "Task created"
+                );
                 setIsAddingTask(false);
                 setNewTaskTitle("");
                 setNewTaskDesc("");
@@ -313,6 +390,7 @@ export function KanbanBoard({
                 setNewTaskWeight(1);
                 setNewTaskHours("");
                 setNewTaskDueDate("");
+                setNewTaskSprintChoice("backlog");
                 router.refresh();
             } else {
                 toast.error(res.message || "Failed to create task");
@@ -479,34 +557,131 @@ export function KanbanBoard({
                         title: m.title,
                         status: m.status,
                         doneReason: m.doneReason,
-                        taskCount: optimisticTasks.filter((t) => t.milestoneId === m.id).length,
+                        taskCount: excludeBacklogTasks(
+                            optimisticTasks.filter((t) => t.milestoneId === m.id)
+                        ).length,
                     }))}
                     activeMilestoneId={activeMilestoneId}
-                    onSelectMilestone={setActiveMilestoneId}
+                    onSelectMilestone={(id) => {
+                        setActiveMilestoneId(id);
+                        setIsBacklogOpen(false);
+                    }}
                     isManager={isManager}
                     onMilestoneUpdated={() => router.refresh()}
                 />
             </div>
 
-            {/* 4-Column Kanban Board */}
-            <div className="flex-1 min-h-0 flex flex-col">
-                <PmKanbanBoard
-                    tasks={displayedTasks}
-                    teamMembers={teamMembers}
-                    currentUserId={currentUserId}
-                    currentUserRole={currentUserRole}
-                    onStartTask={handleStartTask}
-                    onSubmitTask={(task) => setProofingTask(task)}
-                    onApproveTask={handleApproveTask}
-                    onRequestChanges={(task) => {
-                        setRequestChangesTask(task);
-                        setRequestChangesComment("");
-                    }}
-                    onDeleteTask={(task) => setDeletingTask(task)}
-                    onClickTask={(task) => setViewingTaskDetails(task)}
-                    isViewOnly={isDeveloper && showAllTasks}
-                />
+            {/* Sprint Bar in Development milestone */}
+            {isDevelopment && (
+                <div className="shrink-0">
+                    <SprintBar
+                        sprints={sprints}
+                        selectedSprintId={selectedSprintId}
+                        onSelectSprint={handleSelectSprint}
+                        isManager={isManager}
+                        backlogCount={managerBacklogList.length}
+                        isBacklogOpen={isBacklogOpen}
+                        onToggleBacklog={() => setIsBacklogOpen((prev) => !prev)}
+                        onOpenPlanSprint={() => {
+                            setPlanSprintPreselectedIds(undefined);
+                            setIsPlanSprintOpen(true);
+                        }}
+                    />
+                </div>
+            )}
+
+            {/* Main Content Area: Board or No-Sprints Empty State / Backlog Panel */}
+            <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto">
+                {isDevelopment && sprints.length === 0 ? (
+                    <div className="flex flex-col gap-4 flex-1 min-h-0">
+                        <div className="rounded-xl border border-dashed border-border bg-card/70 p-6 text-center space-y-2 shrink-0">
+                            <p className="text-sm sm:text-base font-semibold text-foreground">
+                                No sprint yet. Plan a sprint to start work.
+                            </p>
+                            {isManager && (
+                                <div className="pt-1">
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            setPlanSprintPreselectedIds(undefined);
+                                            setIsPlanSprintOpen(true);
+                                        }}
+                                    >
+                                        <Plus className="w-3.5 h-3.5 mr-1.5" />
+                                        Plan sprint
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        {isManager && activeMilestone && (
+                            <BacklogPanel
+                                projectId={project.id}
+                                developmentMilestoneId={activeMilestone.id}
+                                backlogTasks={managerBacklogList}
+                                sprints={sprints}
+                                onOpenPlanSprint={(ids) => {
+                                    setPlanSprintPreselectedIds(ids);
+                                    setIsPlanSprintOpen(true);
+                                }}
+                                onTasksChanged={() => router.refresh()}
+                            />
+                        )}
+                    </div>
+                ) : isDevelopment && isManager && isBacklogOpen && activeMilestone ? (
+                    <BacklogPanel
+                        projectId={project.id}
+                        developmentMilestoneId={activeMilestone.id}
+                        backlogTasks={managerBacklogList}
+                        sprints={sprints}
+                        onOpenPlanSprint={(ids) => {
+                            setPlanSprintPreselectedIds(ids);
+                            setIsPlanSprintOpen(true);
+                        }}
+                        onTasksChanged={() => router.refresh()}
+                    />
+                ) : (
+                    <PmKanbanBoard
+                        tasks={displayedTasks}
+                        teamMembers={teamMembers}
+                        currentUserId={currentUserId}
+                        currentUserRole={currentUserRole}
+                        onStartTask={handleStartTask}
+                        onSubmitTask={(task) => setProofingTask(task)}
+                        onApproveTask={handleApproveTask}
+                        onRequestChanges={(task) => {
+                            setRequestChangesTask(task);
+                            setRequestChangesComment("");
+                        }}
+                        onDeleteTask={(task) => setDeletingTask(task)}
+                        onClickTask={(task) => setViewingTaskDetails(task)}
+                        isViewOnly={isDeveloper && showAllTasks}
+                    />
+                )}
             </div>
+
+            {/* Plan Sprint Dialog (Managers Only) */}
+            {isManager && (
+                <PlanSprintDialog
+                    open={isPlanSprintOpen}
+                    onOpenChange={setIsPlanSprintOpen}
+                    projectId={project.id}
+                    projectTitle={project.title || "Project"}
+                    existingSprintCount={sprints.length}
+                    backlogTasks={managerBacklogList}
+                    initialSelectedTaskIds={planSprintPreselectedIds}
+                    developmentStartDate={activeMilestone?.startDate}
+                    developmentEndDate={activeMilestone?.endDate}
+                    onSprintPlanned={(newSprintId) => {
+                        setSelectedSprintId(newSprintId);
+                        setIsBacklogOpen(false);
+                        router.replace(
+                            `/dashboard/pm/${project.id}?sprint=${encodeURIComponent(newSprintId)}`,
+                            { scroll: false }
+                        );
+                    }}
+                />
+            )}
 
             {/* Task Details Drawer */}
             <TaskDetailsDrawer
@@ -645,6 +820,30 @@ export function KanbanBoard({
                                     placeholder="Details or deliverables for the assigned developer..."
                                 />
                             </div>
+
+                            {isDevelopment && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                                        Sprint
+                                    </Label>
+                                    <select
+                                        value={newTaskSprintChoice}
+                                        onChange={(e) => setNewTaskSprintChoice(e.target.value)}
+                                        className="w-full h-9 rounded-md border border-border bg-background px-3 text-xs sm:text-sm text-foreground"
+                                    >
+                                        <option value="backlog">Backlog (no sprint yet)</option>
+                                        {nonEndedSprints.map((s) => (
+                                            <option key={s.id} value={s.id}>
+                                                {s.name} ({s.startDate} – {s.endDate})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Shown only for Development tasks. Leave it in the backlog and pick it when you plan a sprint, or put it in a sprint now.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
                                     <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
@@ -728,7 +927,9 @@ export function KanbanBoard({
                                 disabled={isCreatingTask || !newTaskTitle.trim()}
                             >
                                 {isCreatingTask ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
-                                Create Task
+                                {isDevelopment && newTaskSprintChoice === "backlog"
+                                    ? "Add to backlog"
+                                    : "Create Task"}
                             </Button>
                         </DialogFooter>
                     </form>
