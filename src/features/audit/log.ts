@@ -14,7 +14,8 @@ export async function logAction(
     action: AuditAction,
     entity: string,
     details?: string,
-    forcedUserId?: string
+    forcedUserId?: string,
+    projectId?: string
 ) {
     try {
         let userId = forcedUserId;
@@ -32,6 +33,7 @@ export async function logAction(
             action,
             entity,
             details,
+            ...(projectId !== undefined ? { projectId } : {}),
         });
     } catch {
         // We catch and log errors securely without crashing the main user workflow

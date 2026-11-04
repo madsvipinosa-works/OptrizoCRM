@@ -1,6 +1,7 @@
 import {
     boolean,
     timestamp,
+    date,
     pgTable,
     text,
     primaryKey,
@@ -598,6 +599,7 @@ export const auditLogs = pgTable("audit_log", {
         .$defaultFn(() => crypto.randomUUID()),
     userId: text("userId")
         .references(() => users.id, { onDelete: "set null" }), // Keep log even if user is deleted
+    projectId: text("project_id"), // No FK: rows must outlive projects (see 0015_session8_sprints.sql for idx_audit_project)
     action: auditActionEnum("action").notNull(),
     entity: text("entity").notNull(),
     details: text("details"),
@@ -909,6 +911,26 @@ export const milestones = pgTable("milestone", {
     uniqueIndex("idx_milestone_project_name").on(t.projectId, t.name).where(sql`"name" IS NOT NULL`),
 ]);
 
+// Note: sprint_no_overlap exclusion constraint, sprint_id_project_uniq, and idx_sprint_project_name are defined in src/db/migrations/0015_session8_sprints.sql
+export const sprints = pgTable("sprint", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("project_id")
+        .notNull()
+        .references(() => agencyProjects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    goal: text("goal"),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    createdBy: text("created_by")
+        .references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    check("sprint_dates_check", sql`${t.endDate} >= ${t.startDate}`),
+]);
+
+// Note: composite FK task_sprint_same_project_fk (sprint_id, "projectId") -> sprint(id, project_id) and partial index idx_task_sprint are defined in src/db/migrations/0015_session8_sprints.sql
 export const tasks = pgTable("task", {
     id: text("id")
         .primaryKey()
@@ -919,6 +941,8 @@ export const tasks = pgTable("task", {
     milestoneId: text("milestoneId")
         .notNull()
         .references(() => milestones.id, { onDelete: "cascade" }),
+    sprintId: text("sprint_id"),
+    carriedOver: boolean("carried_over").default(false).notNull(),
     title: text("title").notNull(),
     description: text("description"),
     dependsOnTaskId: text("dependsOnTaskId"),
@@ -1091,6 +1115,7 @@ export const agencyProjectsRelations = relations(agencyProjects, ({ one, many })
         references: [leads.id],
     }),
     milestones: many(milestones),
+    sprints: many(sprints),
     tasks: many(tasks),
     payments: many(payments),
     documents: many(document),
@@ -1168,6 +1193,18 @@ export const projectFeedbackRelations = relations(projectFeedback, ({ one }) => 
     }),
 }));
 
+export const sprintsRelations = relations(sprints, ({ one, many }) => ({
+    project: one(agencyProjects, {
+        fields: [sprints.projectId],
+        references: [agencyProjects.id],
+    }),
+    creator: one(users, {
+        fields: [sprints.createdBy],
+        references: [users.id],
+    }),
+    tasks: many(tasks),
+}));
+
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
     project: one(agencyProjects, {
         fields: [tasks.projectId],
@@ -1176,6 +1213,10 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     milestone: one(milestones, {
         fields: [tasks.milestoneId],
         references: [milestones.id],
+    }),
+    sprint: one(sprints, {
+        fields: [tasks.sprintId],
+        references: [sprints.id],
     }),
     assignees: many(taskAssignees),
     dependsOn: one(tasks, {
