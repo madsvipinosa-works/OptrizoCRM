@@ -16,13 +16,13 @@ The spec has no Super Admin settings screen for now (spec §6 and §10). These s
 | Setting | Field | Used for |
 |---|---|---|
 | Notification emails | `notificationEmails` | Addresses that receive notification emails (read in `src/lib/notifications.ts`). A system setting. |
-| Public contact email | `contactEmail` | Shown on the public site. Website content. |
-| Logo (light and dark), favicon | `logoUrl`, `logoDarkUrl`, `faviconUrl` | Branding on the public site. Website content. |
-| Homepage hero and media | `heroTitle`, `heroDescription`, `demoVideoUrl` | Home page. Website content. |
-| FAQs | `faqs` | Public site. Website content. |
-| About page | `aboutText`, `aboutHeroTitle`, `missionStatement`, `companyStats`, `aboutTechStack`, `aboutTechStackItems`, `aboutCtaHeadline`, `aboutCtaText` | About page. Website content. |
+| Public contact email | `contactEmail` | Shown on the public site. Website content (owned by Content Editor via `pages` (`slug = 'contact'`) in Session 11; dual-written on publish). |
+| Logo (light and dark), favicon | `logoUrl`, `logoDarkUrl`, `faviconUrl` | Branding on the public site. Website content (legacy read-only on `/dashboard/settings`). |
+| Homepage hero and media | `heroTitle`, `heroDescription`, `demoVideoUrl` | Home page. Website content (`heroTitle` and `heroDescription` owned by Content Editor via `pages` (`slug = 'home'`) in Session 11; dual-written on publish). |
+| FAQs | `faqs` | Public site Contact page. Website content (kept rendering read-only from `site_settings.faqs`). |
+| About page | `aboutText`, `aboutHeroTitle`, `missionStatement`, `companyStats`, `aboutTechStack`, `aboutTechStackItems`, `aboutCtaHeadline`, `aboutCtaText` | About page. Website content (`aboutHeroTitle`, `aboutText`, `missionStatement`, and team cards are owned by Content Editor via `pages` (`slug = 'about'`) in Session 11; `companyStats`, `aboutTechStack`, `aboutTechStackItems`, `aboutCtaHeadline`, and `aboutCtaText` remain rendering read-only). |
 
-Gap: the spec gives website content to the Content Editor (§7), but only `superadmin` can save this form today.
+Gap (closing in Session 11): Spec §7 gives public website content (Services, Portfolio, and Home/About/Contact pages with version history) to the Content Editor (`content_editor` role only; Super Admin is monitor-only). Migration `0017_content_editor.sql` adds `content_status` (`draft`, `published`, `hidden`) to `service` and `case_study`, and creates `pages` + `page_version` seeded from `site_settings`, `user`, `service`, and `case_study`. `/dashboard/settings` remains for `notificationEmails` and legacy read-only blocks.
 
 ### Rate limits
 

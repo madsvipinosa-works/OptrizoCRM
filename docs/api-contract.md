@@ -643,4 +643,140 @@ Who can access: manager (with read access to `projectId` via `requireRole(["mana
 Method: GET
 Behavior: Read-only project activity table grouped by day in Asia/Manila (`When`, `Who`, `Action`, `Details`), backed by `getProjectActivity(projectId, { limit = 50, before? })` (`limit` capped at 100, cursor pagination by `created_at/id`). Joins `audit_log` to `user` selecting only `name` and `role` (never `password` or other user columns), formats action names into readable labels with fallback to the raw action string, sanitizes details, and renders plain text only.
 
+---
+
+## Session 11: Content Editor (C1–C9)
+
+All Content Editor mutations require `requireRole(["content_editor"])` and test `.ok` (`superadmin` is monitor-only per spec §6 and receives `FORBIDDEN`). Legacy text values backfilled in migration `0017` (such as existing 83–113 char service descriptions) are preserved as-is; Zod length limits apply on the next save/publish.
+
+> **No delete action for services**: Because `lead."serviceId"` references `service(id)` (14 leads in the live database reference existing services), there is **no delete action for services at all** — neither preset nor added services can be deleted. Services can only be hidden or unhidden via `hideService`, `unhideService`, and `publishService`.
+
+### saveServiceDraft  (steps C2, C3)
+Who can call: content_editor
+Input:  `{ id?: string, title: string, slug?: string, description: string, scopeOverview?: string, deliverables: string[], timelineEstimate?: string, targetAudience?: string, image?: string | null, icon?: string | null, order?: number, showOnServicesPage: boolean, showInInquiry: boolean }`
+Output: `{ ok: true, id: string, status: 'draft' | 'published' | 'hidden' } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `VALIDATION_ERROR`: `title` empty or >80 chars; `description` empty or >60 chars; `scopeOverview` >600 chars; `deliverables` has 0 or >10 non-empty items or an item >120 chars; `timelineEstimate` >60 chars; `targetAudience` >200 chars; `slug` does not match `^[a-z0-9]+(?:-[a-z0-9]+)*$` or >80 chars; `image` is non-empty and fails upload URL validation.
+- `NOT_FOUND`: `id` was supplied and no `service` row exists with that `id`.
+- `SLUG_TAKEN`: another service already uses the normalized `slug`.
+Side effects: if `id` is omitted, inserts a new `service` row with `status = 'draft'`, `isPreset = false`, auto-generated unique slug if blank, and `updatedAt = now()`; if `id` is provided, updates the existing row in place (preserving its current `status` when already `published` or `hidden`, or keeping `draft`) and sets `updatedAt = now()`; writes `audit_log` row (`create_service_draft` or `update_service`) with `entityType: 'service'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/services`, `/services`, `/`, and `/contact`.
+
+### publishService  (steps C2, C3)
+Who can call: content_editor
+Input:  `{ id?: string, title: string, slug?: string, description: string, scopeOverview?: string, deliverables: string[], timelineEstimate?: string, targetAudience?: string, image?: string | null, icon?: string | null, order?: number, showOnServicesPage: boolean, showInInquiry: boolean }`
+Output: `{ ok: true, id: string, status: 'published' } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `VALIDATION_ERROR`: same field validation as `saveServiceDraft`.
+- `NOT_FOUND`: `id` was supplied and no `service` row exists with that `id`.
+- `SLUG_TAKEN`: another service already uses the normalized `slug`.
+Side effects: inserts or updates the `service` row with `status = 'published'`, `publishedAt = now()`, `updatedAt = now()`; writes `audit_log` row (`publish_service`) with `entityType: 'service'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/services`, `/services`, `/`, and `/contact`.
+
+### hideService  (steps C2, C3)
+Who can call: content_editor
+Input:  `{ id: string }`
+Output: `{ ok: true, status: 'hidden' } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `NOT_FOUND`: service does not exist.
+Side effects: sets `status = 'hidden'`, `updatedAt = now()` on the `service` row (works on both preset and added services; hidden services do not appear on the public Services page, Home featured services, or the public inquiry form dropdown); writes `audit_log` row (`hide_service`) with `entityType: 'service'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/services`, `/services`, `/`, and `/contact`.
+
+### unhideService  (steps C2, C3)
+Who can call: content_editor
+Input:  `{ id: string }`
+Output: `{ ok: true, status: 'published' } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `NOT_FOUND`: service does not exist.
+- `VALIDATION_ERROR`: existing row fails required publish validation (e.g. missing title, description, or deliverables).
+Side effects: sets `status = 'published'`, `publishedAt = COALESCE(publishedAt, now())`, `updatedAt = now()`; writes `audit_log` row (`unhide_service`) with `entityType: 'service'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/services`, `/services`, `/`, and `/contact`.
+
+### savePortfolioDraft  (steps C4, C5)
+Who can call: content_editor
+Input:  `{ id?: string, title: string, slug?: string, serviceId: string, clientName?: string, clientDisplayName?: string, clientConsent: boolean, summary: string, content?: string, coverImage: string, galleryImages?: string[], technologies: string[], liveUrl?: string | null, sortOrder?: number }`
+Output: `{ ok: true, id: string, status: 'draft' | 'published' | 'hidden' } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `VALIDATION_ERROR`: `title` empty or >100 chars; `serviceId` missing or does not reference an existing `service`; `summary` empty or >160 chars; `content` >4000 chars; `coverImage` empty or fails upload URL validation; `galleryImages` >6 items or invalid URL; `technologies` has 0 or >12 items or an item >40 chars; `liveUrl` non-empty and not a valid `https://` URL; `clientConsent` is `true` and `clientName` is empty; `clientConsent` is `false` and `clientDisplayName` is empty (defaults to `'Confidential client'`).
+- `NOT_FOUND`: `id` was supplied and no `case_study` row exists with that `id`.
+- `SLUG_TAKEN`: another portfolio item already uses the normalized `slug`.
+Side effects: stores the real client name in private `"clientName"` and the public fallback label in `client_display_name` (public queries never select `"clientName"` directly unless `client_consent = true`); inserts (`status = 'draft'`, `published = false`) or updates the `case_study` row, syncing `description = summary`, `updatedBy = user.id`, `updatedAt = now()`; writes `audit_log` row (`create_portfolio_draft` or `update_portfolio`) with `entityType: 'case_study'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/portfolio`, `/portfolio`, and `/`.
+
+### publishPortfolio  (steps C4, C5)
+Who can call: content_editor
+Input:  `{ id?: string, title: string, slug?: string, serviceId: string, clientName?: string, clientDisplayName?: string, clientConsent: boolean, summary: string, content?: string, coverImage: string, galleryImages?: string[], technologies: string[], liveUrl?: string | null, sortOrder?: number }`
+Output: `{ ok: true, id: string, status: 'published' } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `VALIDATION_ERROR`: same validation as `savePortfolioDraft`.
+- `NOT_FOUND`: `id` was supplied and no `case_study` row exists with that `id`.
+- `SLUG_TAKEN`: another portfolio item already uses the normalized `slug`.
+Side effects: inserts or updates the `case_study` row with `status = 'published'`, `published = true`, `publishedAt = now()`, `description = summary`, `updatedBy = user.id`, `updatedAt = now()`; writes `audit_log` row (`publish_portfolio`) with `entityType: 'case_study'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/portfolio`, `/portfolio`, and `/`.
+
+### hidePortfolio  (steps C4, C5)
+Who can call: content_editor
+Input:  `{ id: string }`
+Output: `{ ok: true, status: 'hidden' } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `NOT_FOUND`: portfolio item does not exist.
+Side effects: sets `status = 'hidden'`, `published = false`, `updatedBy = user.id`, `updatedAt = now()`; writes `audit_log` row (`hide_portfolio`) with `entityType: 'case_study'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/portfolio`, `/portfolio`, and `/`.
+
+### unhidePortfolio  (steps C4, C5)
+Who can call: content_editor
+Input:  `{ id: string }`
+Output: `{ ok: true, status: 'published' } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `NOT_FOUND`: portfolio item does not exist.
+- `VALIDATION_ERROR`: row is missing required publish fields (`serviceId`, `summary`, `coverImage`, or consent/display name rules).
+Side effects: sets `status = 'published'`, `published = true`, `publishedAt = COALESCE(publishedAt, now())`, `updatedBy = user.id`, `updatedAt = now()`; writes `audit_log` row (`unhide_portfolio`) with `entityType: 'case_study'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/portfolio`, `/portfolio`, and `/`.
+
+### savePageDraft  (steps C6, C7, C8)
+Who can call: content_editor
+Input:  `{ slug: 'home' | 'about' | 'contact', baseVersion: number, fields: HomePageFields | AboutPageFields | ContactPageFields }`
+Output: `{ ok: true, version: number, draftUpdatedAt: string } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `CONFLICT`: `pages.version !== baseVersion` (another publish/restore occurred since the editor loaded the page).
+- `VALIDATION_ERROR`: per-slug Zod schema failure:
+  - `home`: `heading` 1..60 chars; `intro` 1..160 chars; `mainImageUrl` empty or valid uploaded image URL; `featuredServiceIds` max 3 IDs, all existing in `service` with `status = 'published'`; `featuredPortfolioIds` max 3 IDs, all existing in `case_study` with `status = 'published'`.
+  - `about`: `heading` 1..60 chars; `story` 1..2000 chars (plain text only); `mission` <=500 chars; `vision` <=500 chars; `howWeWork` <=1000 chars; `team` max 20 items of `{ name: 1..80 chars, jobTitle: 1..80 chars, photoUrl }`. **Photo URL validation note**: `about.team[].photoUrl` must accept either our uploaded image URL prefix (`/uploads/` or `https://*.public.blob.vercel-storage.com/...`) OR an unchanged existing `https://` avatar URL already present on the saved/published `about` page row (e.g. `https://lh3.googleusercontent.com/...` from the `user` backfill), or empty string `""`.
+  - `contact`: `heading` 1..60 chars; `intro` 1..160 chars; `email` valid email <=120 chars; `phone` 1..40 chars; `address` 1..200 chars; `officeHours` 1..120 chars.
+Side effects: updates `pages.draft_fields = fields`, `draft_updated_at = now()`, `draft_updated_by = user.id` guarded by `WHERE slug = input.slug AND version = input.baseVersion` (does NOT overwrite live `pages.fields` or increment `version`); writes `audit_log` row (`save_page_draft`) with `entityType: 'page'`, `entityId: slug`; revalidates `/dashboard/content` and `/dashboard/content/pages/[slug]`.
+
+### publishPage  (steps C6, C7, C8)
+Who can call: content_editor
+Input:  `{ slug: 'home' | 'about' | 'contact', baseVersion: number, fields: HomePageFields | AboutPageFields | ContactPageFields }`
+Output: `{ ok: true, version: number, publishedAt: string } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `CONFLICT`: `pages.version !== baseVersion`.
+- `VALIDATION_ERROR`: same per-slug validation as `savePageDraft`.
+Side effects: runs in an ACID transaction locking the `pages` row `FOR UPDATE`; verifies `version === baseVersion`; sets `newVersion = version + 1`, `fields = validatedFields`, `draft_fields = null`, `status = 'published'`, `version = newVersion`, `published_at = now()`, `published_by = user.id`, `draft_updated_at = null`, `draft_updated_by = null`; inserts a `page_version` snapshot row (`version_no = newVersion`, `fields = validatedFields`, `action = 'publish'`, `restored_from = null`, `created_by = user.id`); dual-writes legacy `site_settings` columns (`"heroTitle"`, `"heroDescription"`, `about_hero_title`, `"aboutText"`, `mission_statement`, `"contactEmail"`) so legacy readers stay in sync; writes `audit_log` row (`publish_page`) with `entityType: 'page'`, `entityId: slug`, and `version: newVersion` in details; revalidates `/dashboard/content`, `/dashboard/content/pages/[slug]`, and the public page (`/` for `home`, `/about` for `about`, `/contact` for `contact`).
+
+### restorePageVersion  (step C9)
+Who can call: content_editor
+Input:  `{ slug: 'home' | 'about' | 'contact', versionNo: number, baseVersion: number, discardDraft?: boolean }`
+Output: `{ ok: true, newVersion: number, restoredFrom: number } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor`.
+- `CONFLICT`: `pages.version !== baseVersion`.
+- `DRAFT_EXISTS`: `pages.draft_fields IS NOT NULL` and `discardDraft !== true` (prompts the editor to confirm discarding the unsaved draft before restoring).
+- `VERSION_NOT_FOUND`: no `page_version` row exists for `(slug, versionNo)`.
+- `VALIDATION_ERROR`: the historical snapshot's `fields` no longer pass the slug's field validator (any deleted/hidden featured IDs in `home` are filtered out before validation).
+Side effects: runs in an ACID transaction locking the `pages` row `FOR UPDATE`; verifies `version === baseVersion`; sets `newVersion = version + 1`, `fields = snapshot.fields`, `draft_fields = null`, `status = 'published'`, `version = newVersion`, `published_at = now()`, `published_by = user.id`, `draft_updated_at = null`, `draft_updated_by = null`; inserts a new `page_version` row (`version_no = newVersion`, `fields = snapshot.fields`, `action = 'restore'`, `restored_from = versionNo`, `created_by = user.id`); syncs legacy `site_settings` fields; writes `audit_log` row (`restore_page_version`) with `entityType: 'page'`, `entityId: slug`, `restoredFrom: versionNo`, `newVersion` in details; revalidates `/dashboard/content`, `/dashboard/content/pages/[slug]`, `/dashboard/content/pages/[slug]/history`, and the corresponding public route.
+
+### uploadContentImage  (steps C3, C5, C6, C7)
+Who can call: content_editor
+Input:  `FormData` with field `file: File`
+Output: `{ ok: true, url: string } | { ok: false, error: string }`
+Errors:
+- `FORBIDDEN`: caller is not `content_editor` (verified via `requireRole(["content_editor"])`).
+- `NO_FILE`: `file` is missing or empty.
+- `FILE_TOO_LARGE`: `file.size > 2 * 1024 * 1024` (strict 2 MB limit per spec §7).
+- `INVALID_FILE_TYPE`: file magic bytes do not match JPEG (`FF D8 FF`) or PNG (`89 50 4E 47 0D 0A 1A 0A`). SVG, WebP, GIF, PDF, and spoofed extensions are rejected.
+Side effects: uploads the validated JPG/PNG binary with a random UUID filename to Vercel Blob (`access: 'public'`) when `BLOB_READ_WRITE_TOKEN` is configured, or writes to `public/uploads/content/` in local development; writes `audit_log` row (`upload_content_image`); returns `{ ok: true, url }`.
+
 (Add one per action as modules are built.)

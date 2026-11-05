@@ -20,6 +20,7 @@ import type { AdapterAccount } from "next-auth/adapters";
 export const roleEnum = pgEnum("role", ["superadmin", "sales", "manager", "developer", "content_editor", "client"]);
 export const paymentMethodEnum = pgEnum("payment_method", ["bank_transfer", "gcash", "cheque", "cash"]);
 export const accountStatusEnum = pgEnum("account_status", ["invited", "active", "locked", "deactivated"]);
+export const contentStatusEnum = pgEnum("content_status", ["draft", "published", "hidden"]);
 
 // 2. Users Table (Extended for RBAC)
 export const users = pgTable("user", {
@@ -134,6 +135,17 @@ export const caseStudies = pgTable("case_study", {
     technologies: jsonb("technologies").$type<string[]>().default([]).notNull(),
     published: boolean("published").default(false).notNull(),
     order: text("order").default("0").notNull(),
+    status: contentStatusEnum("status").default("draft").notNull(),
+    serviceId: text("service_id")
+        .references(() => services.id, { onDelete: "set null" }),
+    clientDisplayName: text("client_display_name"),
+    clientConsent: boolean("client_consent").default(false).notNull(),
+    summary: text("summary"),
+    liveUrl: text("live_url"),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    updatedBy: text("updated_by")
+        .references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -161,7 +173,16 @@ export const services = pgTable("service", {
     scopeOverview: text("scope_overview"),
     timelineEstimate: text("timeline_estimate").default("2-4 Weeks"),
     targetAudience: text("target_audience"),
-});
+    status: contentStatusEnum("status").default("draft").notNull(),
+    isPreset: boolean("is_preset").default(false).notNull(),
+    showOnServicesPage: boolean("show_on_services_page").default(true).notNull(),
+    showInInquiry: boolean("show_in_inquiry").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+}, (t) => [
+    uniqueIndex("service_slug_unique").on(t.slug).where(sql`"slug" IS NOT NULL`),
+]);
 
 // 9. Testimonials
 export const testimonials = pgTable("testimonial", {
@@ -226,6 +247,82 @@ export const aboutValues = pgTable("about_value", {
     icon: text("icon").default("Zap"), // Lucide icon name
     order: integer("order").default(0).notNull(),
 });
+
+// 10c. Public Website Pages & Version History (Content Editor C1-C9)
+export interface HomePageFields {
+    heading: string;
+    intro: string;
+    mainImageUrl: string;
+    featuredServiceIds: string[];
+    featuredPortfolioIds: string[];
+}
+
+export interface AboutTeamMemberItem {
+    name: string;
+    jobTitle: string;
+    photoUrl: string;
+}
+
+export interface AboutPageFields {
+    heading: string;
+    story: string;
+    mission: string;
+    vision: string;
+    howWeWork: string;
+    team: AboutTeamMemberItem[];
+}
+
+export interface ContactPageFields {
+    heading: string;
+    intro: string;
+    email: string;
+    phone: string;
+    address: string;
+    officeHours: string;
+}
+
+export type PageFieldsMap = {
+    home: HomePageFields;
+    about: AboutPageFields;
+    contact: ContactPageFields;
+};
+
+export type PageSlug = keyof PageFieldsMap;
+
+export const pages = pgTable("pages", {
+    slug: text("slug").primaryKey(),
+    fields: jsonb("fields").$type<Record<string, unknown>>().default({}).notNull(),
+    draftFields: jsonb("draft_fields").$type<Record<string, unknown>>(),
+    status: contentStatusEnum("status").default("draft").notNull(),
+    version: integer("version").default(0).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: text("published_by")
+        .references(() => users.id, { onDelete: "set null" }),
+    draftUpdatedAt: timestamp("draft_updated_at", { withTimezone: true }),
+    draftUpdatedBy: text("draft_updated_by")
+        .references(() => users.id, { onDelete: "set null" }),
+}, (t) => [
+    check("pages_slug_check", sql`${t.slug} IN ('home', 'about', 'contact')`),
+]);
+
+export const pageVersions = pgTable("page_version", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    pageSlug: text("page_slug")
+        .notNull()
+        .references(() => pages.slug, { onDelete: "cascade" }),
+    versionNo: integer("version_no").notNull(),
+    fields: jsonb("fields").$type<Record<string, unknown>>().notNull(),
+    action: text("action").notNull(),
+    restoredFrom: integer("restored_from"),
+    createdBy: text("created_by")
+        .references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex("page_version_slug_version_unique").on(t.pageSlug, t.versionNo),
+    check("page_version_action_check", sql`${t.action} IN ('publish', 'restore')`),
+]);
 
 // 11. Casual Inquiries (Contact Us Form)
 export const inquiryStatusEnum = pgEnum("inquiry_status", ["Unread", "Read", "Archived"]);
@@ -1281,5 +1378,47 @@ export const taskTemplatesRelations = relations(taskTemplates, ({ one }) => ({
     serviceTemplate: one(serviceTemplates, {
         fields: [taskTemplates.serviceTemplateId],
         references: [serviceTemplates.id],
+    }),
+}));
+
+// Relations for CMS (Services, Case Studies, Pages, Page Versions)
+export const servicesRelations = relations(services, ({ many }) => ({
+    caseStudies: many(caseStudies),
+    leads: many(leads),
+}));
+
+export const caseStudiesRelations = relations(caseStudies, ({ one }) => ({
+    service: one(services, {
+        fields: [caseStudies.serviceId],
+        references: [services.id],
+    }),
+    updatedByUser: one(users, {
+        fields: [caseStudies.updatedBy],
+        references: [users.id],
+    }),
+}));
+
+export const pagesRelations = relations(pages, ({ one, many }) => ({
+    publishedByUser: one(users, {
+        fields: [pages.publishedBy],
+        references: [users.id],
+        relationName: "pagePublishedBy",
+    }),
+    draftUpdatedByUser: one(users, {
+        fields: [pages.draftUpdatedBy],
+        references: [users.id],
+        relationName: "pageDraftUpdatedBy",
+    }),
+    versions: many(pageVersions),
+}));
+
+export const pageVersionsRelations = relations(pageVersions, ({ one }) => ({
+    page: one(pages, {
+        fields: [pageVersions.pageSlug],
+        references: [pages.slug],
+    }),
+    author: one(users, {
+        fields: [pageVersions.createdBy],
+        references: [users.id],
     }),
 }));
