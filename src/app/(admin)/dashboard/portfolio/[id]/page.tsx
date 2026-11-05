@@ -45,7 +45,6 @@ export default async function EditPortfolioPage({ params }: Props) {
                     title: project.title,
                     serviceId: project.serviceId,
                     summary: project.summary ?? project.description ?? "",
-                    content: project.content,
                     images,
                     technologies: Array.isArray(project.technologies) ? project.technologies : [],
                     liveUrl: project.liveUrl,

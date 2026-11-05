@@ -214,6 +214,63 @@ describe("Content lifecycle, versioning, conflict detection, and audit", () => {
         });
     });
 
+    describe("Portfolio update keeps legacy content", () => {
+        const storedRow = {
+            id: "port-1",
+            title: "Project",
+            slug: "project",
+            status: "published",
+            publishedAt: new Date("2026-01-01T00:00:00Z"),
+            coverImage: null,
+            galleryImages: [],
+            content: "<p>Legacy <b>HTML</b> text</p>",
+        };
+        const baseInput = { title: "Project", summary: "A short summary.", serviceId: "svc-1" };
+
+        function captureUpdates(): Record<string, unknown>[] {
+            const sets: Record<string, unknown>[] = [];
+            mockDb.update.mockImplementation(() => ({
+                set: (values: Record<string, unknown>) => {
+                    sets.push(values);
+                    return { where: () => Promise.resolve([]) };
+                },
+            }));
+            return sets;
+        }
+
+        it("succeeds without content and leaves the stored HTML column untouched", async () => {
+            setSelectSequence([[storedRow], [{ id: "svc-1" }]]);
+            const sets = captureUpdates();
+
+            const res = await portfolioActions.updatePortfolio("port-1", baseInput);
+
+            expect(res).toMatchObject({ ok: true, id: "port-1" });
+            expect(sets).toHaveLength(1);
+            expect(sets[0]).not.toHaveProperty("content");
+        });
+
+        it("still rejects a submitted content value that contains HTML", async () => {
+            setSelectSequence([[storedRow], [{ id: "svc-1" }]]);
+            const sets = captureUpdates();
+
+            const res = await portfolioActions.updatePortfolio("port-1", { ...baseInput, content: "<p>new</p>" });
+
+            expect(res).toMatchObject({ error: "VALIDATION_ERROR" });
+            expect((res as { fieldErrors?: Record<string, string> }).fieldErrors).toHaveProperty("content");
+            expect(sets).toHaveLength(0);
+        });
+
+        it("writes a submitted plain-text content value", async () => {
+            setSelectSequence([[storedRow], [{ id: "svc-1" }]]);
+            const sets = captureUpdates();
+
+            const res = await portfolioActions.updatePortfolio("port-1", { ...baseInput, content: "New plain text." });
+
+            expect(res).toMatchObject({ ok: true });
+            expect(sets[0]).toMatchObject({ content: "New plain text." });
+        });
+    });
+
     describe("Audit insertion on actions", () => {
         it("writes audit log row in same transaction on createService", async () => {
             setSelect([]); // for taken slugs

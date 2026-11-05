@@ -145,7 +145,8 @@ export async function updatePortfolio(id: string, input: unknown): Promise<Portf
                     serviceId: data.serviceId ?? null,
                     summary: data.summary,
                     description: data.summary,
-                    content: data.content ?? null,
+                    // Only touch `content` when a new value was submitted. Legacy text (often HTML) stays as stored.
+                    ...(data.content !== undefined ? { content: data.content } : {}),
                     coverImage: data.coverImage ?? null,
                     galleryImages: data.galleryImages,
                     technologies: data.technologies,

@@ -19,8 +19,6 @@ export type PortfolioFormValues = {
     title: string;
     serviceId: string | null;
     summary: string;
-    /** Legacy full text. It is sent back unchanged so saving never erases it. */
-    content: string | null;
     images: string[];
     technologies: string[];
     liveUrl: string | null;
@@ -85,7 +83,6 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                 title,
                 serviceId: serviceId || null,
                 summary,
-                content: project?.content ?? undefined,
                 coverImage: images[0] ?? null,
                 galleryImages: images.slice(1),
                 technologies: technologies
@@ -205,12 +202,6 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                 </div>
                 <Textarea id="portfolio-summary" rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} />
                 {fieldError("summary") && <p role="alert" className="text-xs text-destructive">{fieldError("summary")}</p>}
-                {fieldError("content") && (
-                    <p role="alert" className="text-xs text-destructive">
-                        {"The older full description of this project can't be saved as it is: "}
-                        {fieldError("content")}
-                    </p>
-                )}
             </div>
 
             <ContentImageField
