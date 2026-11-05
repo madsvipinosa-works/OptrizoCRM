@@ -27,11 +27,15 @@ import EditServicePage from "@/app/(admin)/dashboard/services/[id]/page";
 import PortfolioListPage from "@/app/(admin)/dashboard/portfolio/page";
 import NewPortfolioPage from "@/app/(admin)/dashboard/portfolio/new/page";
 import EditPortfolioPage from "@/app/(admin)/dashboard/portfolio/[id]/page";
+import PagesIndexPage from "@/app/(admin)/dashboard/pages/page";
+import PageEditorPage from "@/app/(admin)/dashboard/pages/[slug]/page";
+import AboutRedirectPage from "@/app/(admin)/dashboard/about/page";
 
 const mockDb = db as unknown as MockDb;
 
 const blockedRoles = ROLES.filter((role) => role !== "content_editor");
 const params = { params: Promise.resolve({ id: "row-1" }) };
+const pageParams = (slug: string) => ({ params: Promise.resolve({ slug }) });
 
 type Loader = { name: string; run: () => Promise<unknown> };
 
@@ -43,6 +47,12 @@ const loaders: Loader[] = [
     { name: "C5 /dashboard/portfolio", run: () => PortfolioListPage() },
     { name: "C6 /dashboard/portfolio/new", run: () => NewPortfolioPage() },
     { name: "C6 /dashboard/portfolio/[id]", run: () => EditPortfolioPage(params) },
+    { name: "/dashboard/pages", run: () => PagesIndexPage() },
+    { name: "C7 /dashboard/pages/home", run: () => PageEditorPage(pageParams("home")) },
+    { name: "C8 /dashboard/pages/about", run: () => PageEditorPage(pageParams("about")) },
+    { name: "C9 /dashboard/pages/contact", run: () => PageEditorPage(pageParams("contact")) },
+    { name: "/dashboard/pages/[invalid slug]", run: () => PageEditorPage(pageParams("settings")) },
+    { name: "/dashboard/about (redirect)", run: () => AboutRedirectPage() },
 ];
 
 beforeEach(() => {
@@ -71,9 +81,61 @@ describe("content editor pages: every loader checks the role on the server", () 
 
     it("lets content_editor through the list and new pages", async () => {
         signInAs(auth, "content_editor");
-        for (const loader of loaders.filter((l) => l.name !== "C3 /dashboard/services/[id]" && l.name !== "C6 /dashboard/portfolio/[id]")) {
+        const open = loaders.filter((l) => /^C[125] |new$/.test(l.name));
+        expect(open).toHaveLength(5);
+        for (const loader of open) {
             await expect(loader.run()).resolves.toBeTruthy();
         }
+        expectNoWrites(mockDb);
+    });
+
+    it("sends content_editor from the pages index and the old about route to the page editor", async () => {
+        signInAs(auth, "content_editor");
+        await expect(PagesIndexPage()).rejects.toThrow("NEXT_REDIRECT");
+        await expect(AboutRedirectPage()).rejects.toThrow("NEXT_REDIRECT");
+        expectNoWrites(mockDb);
+    });
+
+    it("returns notFound for a slug that is not home, about or contact, before reading anything", async () => {
+        signInAs(auth, "content_editor");
+        for (const slug of ["settings", "Home", "", "home/../about", "admin"]) {
+            await expect(PageEditorPage(pageParams(slug))).rejects.toThrow("NEXT_NOT_FOUND");
+        }
+        expect(mockDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns notFound when the page row is missing, after the role check passed", async () => {
+        signInAs(auth, "content_editor");
+        mockDb.setSelectRows([]);
+        await expect(PageEditorPage(pageParams("home"))).rejects.toThrow("NEXT_NOT_FOUND");
+        expect(mockDb.select).toHaveBeenCalled();
+    });
+
+    it("renders the page editor for content_editor when the page exists", async () => {
+        signInAs(auth, "content_editor");
+        mockDb.setSelectRows([
+            {
+                // page row
+                slug: "home",
+                fields: { heading: "Hello" },
+                draftFields: null,
+                status: "published",
+                version: 1,
+                publishedAt: null,
+                publishedBy: null,
+                draftUpdatedAt: null,
+                draftUpdatedBy: null,
+                // service, portfolio and version rows share this stub
+                id: "row-1",
+                title: "Row",
+                versionNo: 1,
+                action: "publish",
+                restoredFrom: null,
+                createdAt: new Date("2026-01-01T00:00:00Z"),
+                authorName: "Editor",
+            },
+        ]);
+        await expect(PageEditorPage(pageParams("home"))).resolves.toBeTruthy();
         expectNoWrites(mockDb);
     });
 
@@ -108,9 +170,28 @@ describe("legacy service and case study actions are gone", () => {
     });
 
     it("keeps the actions other screens still use", () => {
-        for (const name of ["getSiteSettings", "updateSiteSettings", "updateHeroSettings"]) {
+        for (const name of ["getSiteSettings", "updateSiteSettings"]) {
             expect(source).toMatch(new RegExp(`export\\s+async\\s+function\\s+${name}\\b`));
         }
+    });
+
+    it("updateHeroSettings is no longer exported", () => {
+        expect(source).not.toMatch(/export\s+async\s+function\s+updateHeroSettings\b/);
+    });
+
+    it.each([
+        "src/features/cms/components/HeroTab.tsx",
+        "src/features/cms/components/AboutTab.tsx",
+        "src/features/cms/about/components/AboutSettingsForm.tsx",
+        "src/features/cms/about/components/ValuesManager.tsx",
+        "src/features/cms/team/components/UserAboutToggle.tsx",
+        "src/features/cms/about-actions.ts",
+    ])("the legacy Hero/About piece %s is deleted", (file) => {
+        expect(existsSync(resolve(process.cwd(), file))).toBe(false);
+    });
+
+    it("keeps BentoIcon, which the public About page still renders", () => {
+        expect(existsSync(resolve(process.cwd(), "src/features/cms/about/components/BentoIcon.tsx"))).toBe(true);
     });
 
     it.each([

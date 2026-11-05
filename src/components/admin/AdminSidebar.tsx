@@ -70,6 +70,7 @@ const navGroups: NavGroup[] = [
             { href: "/dashboard/cms", label: "Content Home", icon: Monitor, allowedRoles: ["content_editor"] },
             { href: "/dashboard/services", label: "Services", icon: Layers, allowedRoles: ["content_editor"] },
             { href: "/dashboard/portfolio", label: "Portfolio", icon: FolderGit2, allowedRoles: ["content_editor"] },
+            { href: "/dashboard/pages", label: "Pages", icon: FileText, allowedRoles: ["content_editor"] },
         ],
     },
     {

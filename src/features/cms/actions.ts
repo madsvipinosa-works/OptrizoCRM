@@ -142,48 +142,6 @@ export async function updateSiteSettings(prevState: ActionState, formData: FormD
     }
 }
 
-export async function updateHeroSettings(prevState: ActionState, formData: FormData): Promise<ActionState> {
-    try {
-        await requireEditor();
-
-        const rawData = Object.fromEntries(formData);
-        const heroSchema = z.object({
-            heroTitle: z.string().optional(),
-            heroDescription: z.string().optional(),
-            demoVideoUrl: z.string().optional(),
-        });
-
-        const validated = heroSchema.safeParse(rawData);
-        if (!validated.success) {
-            return {
-                success: false,
-                message: "Validation failed",
-                errors: validated.error.flatten().fieldErrors,
-            };
-        }
-
-        const payload = {
-            heroTitle: validated.data.heroTitle?.trim() || null,
-            heroDescription: validated.data.heroDescription?.trim() || null,
-            demoVideoUrl: validated.data.demoVideoUrl?.trim() || null,
-        };
-
-        await db.insert(siteSettings)
-            .values({ id: "singleton_root", ...payload })
-            .onConflictDoUpdate({
-                target: siteSettings.id,
-                set: payload,
-            });
-
-        revalidateTag("site-settings", "max");
-        revalidatePath("/");
-        return { success: true, message: "Homepage Hero & Media updated successfully!" };
-    } catch (error) {
-        console.error("Failed to update hero settings:", error);
-        return { success: false, message: "Failed to update hero settings." };
-    }
-}
-
 // --- Posts ---
 
 export type CreatePostState = {

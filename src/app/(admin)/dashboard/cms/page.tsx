@@ -4,7 +4,6 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs, caseStudies, services, users } from "@/db/schema";
 import { requireRole } from "@/lib/authz";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -151,13 +150,15 @@ export default async function ContentHomePage() {
                     <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Pages</p>
                     <p className="text-sm">3 · Home, About, Contact</p>
                     <ul className="space-y-1 text-sm">
-                        {["Home", "About", "Contact"].map((name) => (
-                            <li
-                                key={name}
-                                className="flex items-center justify-between rounded-md border border-dashed border-border px-3 py-1.5 text-muted-foreground"
-                            >
-                                <span>{name}</span>
-                                <Badge variant="outline">next step</Badge>
+                        {(["home", "about", "contact"] as const).map((slug) => (
+                            <li key={slug}>
+                                <Link
+                                    href={`/dashboard/pages/${slug}`}
+                                    className="flex items-center justify-between rounded-md border border-border px-3 py-1.5 hover:bg-accent"
+                                >
+                                    <span className="capitalize">{slug}</span>
+                                    <span className="text-xs text-muted-foreground">Edit</span>
+                                </Link>
                             </li>
                         ))}
                     </ul>
