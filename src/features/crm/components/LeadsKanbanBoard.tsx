@@ -1,9 +1,32 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { LeadCard } from "./LeadCard";
+import type { KeyboardEvent, MouseEvent } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+    Archive,
+    CheckCircle2,
+    Edit3,
+    Loader2,
+    MessagesSquare,
+    MoreHorizontal,
+    RefreshCw,
+    Send,
+    Sparkles,
+    type LucideIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { archiveLead } from "@/features/crm/actions";
+import { getDaysInStage, getLeadSubStatus } from "@/features/crm/utils/stageUtils";
 import type { LeadItem } from "./LeadsDataTable";
-import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
 
 interface LeadsKanbanBoardProps {
     leads: LeadItem[];
@@ -14,127 +37,347 @@ interface LeadsKanbanBoardProps {
     onArchiveLead?: (leadId: string) => void;
 }
 
-const STAGES = [
-    "New Lead",
-    "Discovery & Qualifying",
-    "Proposal Sent",
-    "In Negotiation",
-    "Closed Won",
-    "Closed Lost",
-] as const;
+/**
+ * Board columns follow mockup step 2: five stages, each moved only by the
+ * automations in workflow-spec §4. Closed lost is intentionally not a column;
+ * lost leads are reached from the table view, where Sales can reopen them.
+ * There is no drag-and-drop: the spec forbids manual stage changes.
+ */
+// Each stage has its own hue (tokens --stage-*): icon tile, title color, count.
+// Card text stays on --foreground so contrast never depends on the hue.
+const COLUMNS: { status: string; title: string; hint: string; icon: LucideIcon; tone: { tile: string; text: string; count: string } }[] = [
+    {
+        status: "New Lead",
+        title: "New lead",
+        hint: "Auto: inquiry received",
+        icon: Sparkles,
+        tone: { tile: "bg-stage-new/15 text-stage-new", text: "text-stage-new", count: "bg-stage-new/12 ring-stage-new/30" },
+    },
+    {
+        status: "Discovery & Qualifying",
+        title: "Discovery",
+        hint: "Auto: first interaction logged",
+        icon: MessagesSquare,
+        tone: { tile: "bg-stage-discovery/15 text-stage-discovery", text: "text-stage-discovery", count: "bg-stage-discovery/12 ring-stage-discovery/30" },
+    },
+    {
+        status: "Proposal Sent",
+        title: "Proposal sent",
+        hint: "Auto: proposal sent",
+        icon: Send,
+        tone: { tile: "bg-stage-proposal/15 text-stage-proposal", text: "text-stage-proposal", count: "bg-stage-proposal/12 ring-stage-proposal/30" },
+    },
+    {
+        status: "In Negotiation",
+        title: "Negotiation",
+        hint: "Auto: client requests changes",
+        icon: RefreshCw,
+        tone: { tile: "bg-stage-negotiation/15 text-stage-negotiation", text: "text-stage-negotiation", count: "bg-stage-negotiation/12 ring-stage-negotiation/30" },
+    },
+    {
+        status: "Closed Won",
+        title: "Closed",
+        hint: "Auto: client signed",
+        icon: CheckCircle2,
+        tone: { tile: "bg-stage-closed/15 text-stage-closed", text: "text-stage-closed", count: "bg-stage-closed/12 ring-stage-closed/30" },
+    },
+];
 
-export function LeadsKanbanBoard({
-    leads,
-    assignableUsers,
-    isAdmin,
-    onSelectLead,
-    onEditLead,
-    onArchiveLead,
-}: LeadsKanbanBoardProps) {
+/**
+ * Fits the board to the window so its sideways scrollbar is always on screen
+ * (no need to scroll the page down to reach it). Columns scroll vertically
+ * inside. Measured on mount and on resize only.
+ */
+function useFitToViewport<T extends HTMLElement>(minHeight = 320) {
+    const ref = useRef<T>(null);
+    const [height, setHeight] = useState<number | null>(null);
+    useLayoutEffect(() => {
+        const measure = () => {
+            const el = ref.current;
+            if (!el) return;
+            const top = el.getBoundingClientRect().top + window.scrollY;
+            // Leave room for the page's own bottom padding so the page itself does not scroll.
+            const main = el.closest("main");
+            const bottomGap = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 16;
+            setHeight(Math.max(minHeight, Math.floor(window.innerHeight - top - bottomGap)));
+        };
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, [minHeight]);
+    return { ref, height };
+}
+
+const spring = { type: "spring" as const, stiffness: 300, damping: 26 };
+
+export function LeadsKanbanBoard({ leads, isAdmin, onSelectLead, onEditLead, onArchiveLead }: LeadsKanbanBoardProps) {
+    const { ref, height } = useFitToViewport<HTMLDivElement>();
     return (
-        <div className="w-full overflow-x-auto pb-4 scrollbar-thin">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start min-w-[1400px] 2xl:min-w-full">
-                {STAGES.map((stage) => {
-                    const columnLeads = leads.filter((l) => l.status === stage);
-                    const totalColumnValue = columnLeads.reduce((acc, l) => acc + getLeadEffectiveValue(l), 0);
-
-                    return (
-                        <KanbanColumn
-                            key={stage}
-                            stage={stage}
-                            leads={columnLeads}
-                            totalValue={totalColumnValue}
-                            assignableUsers={assignableUsers}
-                            isAdmin={isAdmin}
-                            onSelectLead={onSelectLead}
-                            onEditLead={onEditLead}
-                            onArchiveLead={onArchiveLead}
-                        />
-                    );
-                })}
+        <div
+            ref={ref}
+            style={height ? { height } : undefined}
+            className="board-scroll -mx-1 overflow-x-auto overflow-y-hidden px-1 pb-4"
+        >
+            <div className="grid h-full min-w-[1060px] grid-cols-5 gap-3">
+                {COLUMNS.map((column) => (
+                    <BoardColumn
+                        key={column.status}
+                        column={column}
+                        leads={leads.filter((lead) => lead.status === column.status)}
+                        isAdmin={isAdmin}
+                        onSelectLead={onSelectLead}
+                        onEditLead={onEditLead}
+                        onArchiveLead={onArchiveLead}
+                    />
+                ))}
             </div>
         </div>
     );
 }
 
-function KanbanColumn({
-    stage,
+function BoardColumn({
+    column,
     leads,
-    totalValue,
-    assignableUsers,
     isAdmin,
     onSelectLead,
     onEditLead,
     onArchiveLead,
 }: {
-    stage: string;
+    column: (typeof COLUMNS)[number];
     leads: LeadItem[];
-    totalValue: number;
-    assignableUsers: any[];
     isAdmin?: boolean;
     onSelectLead?: (lead: LeadItem) => void;
     onEditLead?: (lead: LeadItem) => void;
     onArchiveLead?: (leadId: string) => void;
 }) {
-    return (
-        <div className="flex flex-col rounded-xl border border-border bg-card/60 backdrop-blur-xs p-3 min-h-[550px] transition-colors w-full min-w-0">
-            {/* Column Header */}
-            <div className="flex flex-col gap-1 pb-3 mb-3 border-b border-border">
-                <div className="flex items-center justify-between">
-                    <Badge variant="secondary" title={stage} className={`font-semibold ${getStageBadgeStyle(stage)}`}>
-                        {stage}
-                    </Badge>
-                    <span className="text-[11px] font-bold font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border">
-                        {leads.length}
-                    </span>
-                </div>
-                {totalValue > 0 && (
-                    <div className="text-[11px] font-mono text-emerald-500 dark:text-emerald-400 font-semibold flex items-center justify-end">
-                        ${totalValue >= 1000 ? `${Number((totalValue / 1000).toFixed(1))}k` : totalValue.toLocaleString()}
-                    </div>
-                )}
-            </div>
+    const headingId = `column-${column.status.replace(/\W+/g, "-").toLowerCase()}`;
 
-            {/* Column Items */}
-            <div className="flex flex-col gap-2.5 flex-1">
-                {leads.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center border border-dashed border-border/60 rounded-lg p-6 text-center text-xs text-muted-foreground/60 select-none">
-                        No deals in this stage
-                    </div>
-                ) : (
-                    leads.map((lead) => (
-                        <div key={lead.id} className="w-full min-w-0">
-                            <LeadCard
-                                lead={lead}
-                                assignableUsers={assignableUsers}
-                                isAdmin={isAdmin}
-                                onSelect={onSelectLead}
-                                onEdit={onEditLead}
-                                onArchive={onArchiveLead}
-                            />
-                        </div>
-                    ))
+    return (
+        <section
+            aria-labelledby={headingId}
+            className="flex h-full min-h-0 min-w-0 flex-col rounded-2xl bg-muted/50 p-2 ring-1 ring-inset ring-border/50 dark:bg-muted/30"
+        >
+            <header className="px-2 pb-3 pt-1.5">
+                <div className="flex items-center gap-2">
+                    <span className={`grid size-6 shrink-0 place-items-center rounded-md ${column.tone.tile}`}>
+                        <column.icon className="size-3.5" aria-hidden="true" />
+                    </span>
+                    <h3 id={headingId} className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+                        {column.title}
+                    </h3>
+                    <motion.span
+                        key={leads.length}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", duration: 0.3, bounce: 0.2 }}
+                        className={`ml-auto min-w-6 rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold tabular-nums text-foreground ring-1 ring-inset ${column.tone.count}`}
+                        aria-label={`${leads.length} ${leads.length === 1 ? "lead" : "leads"}`}
+                    >
+                        {leads.length}
+                    </motion.span>
+                </div>
+                <p className="mt-1 text-[11.5px] text-muted-foreground">{column.hint}</p>
+            </header>
+
+            <ul className="column-scroll -mx-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-1 pb-6">
+                <AnimatePresence initial={false} mode="popLayout">
+                    {leads.map((lead, index) => (
+                        <PipelineCard
+                            key={lead.id}
+                            lead={lead}
+                            index={index}
+                            isAdmin={isAdmin}
+                            onSelect={onSelectLead}
+                            onEdit={onEditLead}
+                            onArchive={onArchiveLead}
+                        />
+                    ))}
+                </AnimatePresence>
+                {leads.length === 0 && (
+                    <li className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border px-3 text-center text-xs text-muted-foreground">
+                        No leads here yet
+                    </li>
                 )}
-            </div>
-        </div>
+            </ul>
+        </section>
     );
 }
 
-function getStageBadgeStyle(stage: string) {
-    switch (stage) {
-        case "New Lead":
-            return "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/30 text-[10px]";
-        case "Discovery & Qualifying":
-            return "bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/30 text-[10px]";
-        case "Proposal Sent":
-            return "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30 text-[10px]";
-        case "In Negotiation":
-            return "bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border-cyan-500/30 text-[10px]";
-        case "Closed Won":
-            return "bg-primary/10 text-primary border-primary/30 text-[10px]";
-        case "Closed Lost":
-            return "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30 text-[10px]";
-        default:
-            return "bg-muted text-muted-foreground border-border text-[10px]";
+// Chip text stays on --foreground for contrast; the dot carries the meaning.
+const SUB_STATUS_STYLE: Record<string, { chip: string; dot: string }> = {
+    "No contact yet": { chip: "bg-foreground/[0.06]", dot: "bg-muted-foreground" },
+    "In progress": { chip: "bg-primary/12", dot: "bg-primary" },
+    Sent: { chip: "bg-primary/12", dot: "bg-primary" },
+    "Needs revision": { chip: "bg-warning/14", dot: "bg-warning" },
+    Signed: { chip: "bg-success/14", dot: "bg-success" },
+    Declined: { chip: "bg-destructive/10", dot: "bg-destructive" },
+};
+
+/** Sub-status chip shared by the board cards and the table's Status column. */
+export function SubStatusChip({ status }: { status: string }) {
+    const style = SUB_STATUS_STYLE[status] ?? SUB_STATUS_STYLE["No contact yet"];
+    return (
+        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-snug text-foreground ${style.chip}`}>
+            <span className={`size-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
+            {status}
+        </span>
+    );
+}
+
+function formatPrice(amount: number | null | undefined, currency: string | null | undefined) {
+    if (!amount) return null;
+    try {
+        return new Intl.NumberFormat("en-PH", {
+            style: "currency",
+            currency: currency || "PHP",
+            maximumFractionDigits: 0,
+        }).format(amount);
+    } catch {
+        return amount.toLocaleString();
     }
+}
+
+function initialsOf(name?: string | null) {
+    return (name || "?")
+        .split(" ")
+        .map((word) => word[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+}
+
+function PipelineCard({
+    lead,
+    index,
+    isAdmin,
+    onSelect,
+    onEdit,
+    onArchive,
+}: {
+    lead: LeadItem;
+    index: number;
+    isAdmin?: boolean;
+    onSelect?: (lead: LeadItem) => void;
+    onEdit?: (lead: LeadItem) => void;
+    onArchive?: (leadId: string) => void;
+}) {
+    const reduceMotion = useReducedMotion();
+    const [isArchiving, setIsArchiving] = useState(false);
+
+    const title = lead.businessName || lead.contactName || lead.client?.name || "Unnamed lead";
+    const service = lead.service?.title || lead.otherServiceText || lead.industry || null;
+    const latestProposal = lead.proposals?.[0];
+    const price = formatPrice(latestProposal?.totalPrice, latestProposal?.currency);
+    // Before a proposal exists the card shows urgency (step 2); afterwards, the proposal price.
+    const detail = price ?? lead.urgency ?? null;
+    const subStatus = getLeadSubStatus(lead);
+    const days = getDaysInStage(lead);
+    const owner = lead.assignees?.[0];
+
+    const open = () => onSelect?.(lead);
+    const onKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            open();
+        }
+    };
+
+    const handleArchive = async (event: MouseEvent) => {
+        event.stopPropagation();
+        if (!confirm(`Archive "${title}"? It will be hidden from the pipeline.`)) return;
+        setIsArchiving(true);
+        try {
+            const res = await archiveLead(lead.id);
+            if (res.success) {
+                toast.success(res.message || "Lead archived");
+                onArchive?.(lead.id);
+            } else {
+                toast.error(res.message || "Could not archive this lead");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Could not archive this lead");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
+
+    return (
+        <motion.li
+            layout={!reduceMotion}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98, filter: "blur(3px)" }}
+            transition={{ ...spring, delay: reduceMotion ? 0 : Math.min(index, 8) * 0.04 }}
+            whileHover={reduceMotion ? undefined : { y: -2 }}
+            whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+            role="button"
+            tabIndex={0}
+            aria-label={`Open ${title}`}
+            onClick={open}
+            onKeyDown={onKeyDown}
+            className="group relative flex cursor-pointer flex-col gap-2 rounded-[14px] bg-card p-3 text-left shadow-[0_0_0_1px_var(--border),0_1px_2px_rgba(0,0,0,0.04),0_2px_6px_rgba(0,0,0,0.03)] outline-none transition-shadow duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_0_0_1px_var(--border),0_4px_12px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.06)] focus-visible:shadow-[0_0_0_2px_var(--ring)]"
+        >
+            <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold leading-snug text-foreground [text-wrap:pretty] break-words">
+                        {title}
+                    </div>
+                    {(service || detail) && (
+                        <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                            {[service, detail].filter(Boolean).join(" · ")}
+                        </div>
+                    )}
+                </div>
+
+                {isAdmin && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(event) => event.stopPropagation()}
+                                onKeyDown={(event) => event.stopPropagation()}
+                                aria-label={`Actions for ${title}`}
+                                className="-mr-1 -mt-1 size-7 shrink-0 text-muted-foreground opacity-70 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                            >
+                                <MoreHorizontal className="size-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40" onClick={(event) => event.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => onEdit?.(lead)} className="gap-2">
+                                <Edit3 className="size-3.5" /> Edit details
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleArchive} disabled={isArchiving} className="gap-2 text-destructive focus:text-destructive">
+                                {isArchiving ? <Loader2 className="size-3.5 animate-spin" /> : <Archive className="size-3.5" />}
+                                Archive
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            </div>
+
+            <div>
+                <SubStatusChip status={subStatus} />
+            </div>
+
+            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+                {owner ? (
+                    <span className="flex min-w-0 items-center gap-1.5" title={`Owner: ${owner.name || "Sales"}`}>
+                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-foreground">
+                            {initialsOf(owner.name)}
+                        </span>
+                        <span className="truncate text-[11px] text-muted-foreground">{owner.name || "Sales"}</span>
+                    </span>
+                ) : (
+                    <span className="text-[11px] text-muted-foreground">Unclaimed</span>
+                )}
+                <span className="shrink-0 text-[11px] font-medium tabular-nums text-muted-foreground">
+                    {days === 0 ? "Today" : `${days}d in stage`}
+                </span>
+            </div>
+        </motion.li>
+    );
 }

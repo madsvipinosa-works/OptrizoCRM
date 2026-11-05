@@ -41,6 +41,8 @@ export default async function LeadsPage({
     const query = params?.query || "";
     const status = params?.status || "";
     const focusedLeadId = params?.leadId || "";
+    // Old links (?leadId=) now open the lead's own page, which runs its own access check.
+    if (focusedLeadId) redirect(`/dashboard/leads/${focusedLeadId}`);
 
     // Build the where clause from the aliased table that the relational query
     // passes in, so the correlated subquery references "leads" and not "lead".
@@ -66,52 +68,27 @@ export default async function LeadsPage({
     const leadsList = await db.query.leads.findMany({
         where: whereClause,
         with: {
-            client: true, // Need client details for display
+            // Only the user columns the UI shows: never send password hashes to the browser.
+            client: { columns: { name: true, email: true } },
+            service: { columns: { id: true, title: true } },
             activityLogs: {
                 with: {
-                    author: true,
+                    author: { columns: { id: true, name: true } },
                 },
                 orderBy: (logs, { desc }) => [desc(logs.createdAt)],
             },
-            assignees: { with: { user: true } },
+            assignees: { with: { user: { columns: { id: true, name: true, image: true, jobTitle: true, role: true } } } },
             proposals: {
                 where: (p, { isNull }) => isNull(p.deletedAt),
                 orderBy: (p, { desc }) => [desc(p.updatedAt)]
             },
             crmTasks: {
-                with: { assignee: true },
+                with: { assignee: { columns: { id: true, name: true, image: true } } },
                 orderBy: (t, { asc }) => [asc(t.dueDate)]
             }
         },
         orderBy: [desc(leads.createdAt)],
     });
-
-    // Sales staff may open an unassigned lead from the daily overview so they
-    // can claim it, without exposing leads already assigned to another rep.
-    if (focusedLeadId && !leadsList.some((lead) => lead.id === focusedLeadId)) {
-        const focusedLead = await db.query.leads.findFirst({
-            where: eq(leads.id, focusedLeadId),
-            with: {
-                client: true,
-                activityLogs: {
-                    with: { author: true },
-                    orderBy: (logs, { desc }) => [desc(logs.createdAt)],
-                },
-                assignees: { with: { user: true } },
-                proposals: {
-                    where: (proposal, { isNull }) => isNull(proposal.deletedAt),
-                    orderBy: (proposal, { desc }) => [desc(proposal.updatedAt)]
-                },
-                crmTasks: {
-                    with: { assignee: true },
-                    orderBy: (task, { asc }) => [asc(task.dueDate)],
-                },
-            },
-        });
-        if (focusedLead && focusedLead.assignees.length === 0) {
-            leadsList.push(focusedLead);
-        }
-    }
 
     // Fetch potential assignees (Sales staff)
     const assignableUsers = await db.query.users.findMany({
@@ -135,33 +112,17 @@ export default async function LeadsPage({
             updatedAt: t.updatedAt.toISOString()
         })) || []
     }));
-    const focusedLeadCanBeClaimed = leadsList.some(
-        (lead) => lead.id === focusedLeadId && lead.assignees.length === 0
-    );
-
+    // Header (title, Board/Table switch, actions) is rendered by the pipeline view,
+    // so the switch can sit in the header row as in mockup step 2 / 2a.
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-glow">Sales Pipeline</h2>
-                    <p className="text-muted-foreground">
-                        Manage inquiries and active deals.
-                    </p>
-                </div>
-                {isSales && (
-                    <CreateLeadModal assignableUsers={assignableUsers} />
-                )}
-            </div>
-
-            <LeadsBoard
-                leads={serializedLeads as unknown as React.ComponentProps<typeof LeadsBoard>['leads']}
-                assignableUsers={assignableUsers}
-                currentUserId={currentUserId}
-                query={query}
-                status={status}
-                isAdmin={isSales || focusedLeadCanBeClaimed}
-                initialLeadId={focusedLeadId}
-            />
-        </div>
+        <LeadsBoard
+            leads={serializedLeads as unknown as React.ComponentProps<typeof LeadsBoard>['leads']}
+            assignableUsers={assignableUsers}
+            currentUserId={currentUserId}
+            query={query}
+            status={status}
+            isAdmin={isSales}
+            headerActions={isSales ? <CreateLeadModal assignableUsers={assignableUsers} /> : undefined}
+        />
     );
 }

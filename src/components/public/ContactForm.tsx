@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, type ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
-import { submitContactForm, type ContactState } from "@/features/crm/actions/submit-inquiry";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { submitContactForm, type ContactState, type ContactFormValues } from "@/features/crm/actions/submit-inquiry";
 
 const initialState: ContactState = {
     message: "",
@@ -15,106 +15,122 @@ const initialState: ContactState = {
     success: false,
 }
 
+// Shared field styling. Error borders come from the Input's own aria-invalid styles.
+const fieldClassName =
+    "bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20";
+
 interface ContactFormProps {
     className?: string;
 }
 
+type FieldName = keyof ContactFormValues;
+
+interface FieldProps extends Omit<ComponentProps<"input">, "name" | "id"> {
+    name: FieldName;
+    label: string;
+    state: ContactState;
+    multiline?: boolean;
+}
+
+function Field({ name, label, state, multiline, className = "", ...inputProps }: FieldProps) {
+    const error = state.errors?.[name]?.[0];
+    const errorId = `${name}-error`;
+    const shared = {
+        id: name,
+        name,
+        defaultValue: state.values?.[name],
+        "aria-required": true,
+        "aria-invalid": error ? true : undefined,
+        "aria-describedby": error ? errorId : undefined,
+    };
+
+    return (
+        <div className="space-y-2">
+            <Label htmlFor={name}>{label}</Label>
+            {multiline ? (
+                <Textarea
+                    {...shared}
+                    placeholder={inputProps.placeholder}
+                    className={`min-h-[150px] ${fieldClassName} ${className}`}
+                />
+            ) : (
+                <Input {...shared} {...inputProps} className={`h-11 ${fieldClassName} ${className}`} />
+            )}
+            {error && (
+                <p id={errorId} className="text-sm text-destructive dark:text-[color-mix(in_oklab,var(--destructive)_80%,white)]">{error}</p>
+            )}
+        </div>
+    );
+}
+
 export function ContactForm({ className = "" }: ContactFormProps) {
     const [state, formAction, isPending] = useActionState(submitContactForm, initialState);
+    const formRef = useRef<HTMLFormElement>(null);
+
+    // After a failed submit, move focus to the first field that needs fixing.
+    useEffect(() => {
+        if (state.success || Object.keys(state.errors ?? {}).length === 0) return;
+        formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }, [state]);
 
     return (
         <Card className={`glass-card border-primary/20 w-full h-fit self-start ${className}`}>
             <CardHeader>
                 <CardTitle>Send a Message</CardTitle>
-                <CardDescription>We usually respond within 24 hours.</CardDescription>
+                <CardDescription>We usually respond within 24 hours. All fields are required.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form key={state.success ? "success-reset" : "active-form"} action={formAction} className="space-y-6">
-                    {state?.message && (
-                        <div className={`p-3 rounded-md text-sm ${state.success ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                            {state.message}
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="firstName">First name</Label>
-                            <Input 
-                                id="firstName" 
-                                name="firstName" 
-                                placeholder="John" 
-                                defaultValue={state.values?.firstName}
-                                className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
-                                aria-describedby="firstName-error" 
-                            />
-                            {state?.errors?.firstName && (
-                                <p id="firstName-error" className="text-sm text-red-500">{state.errors.firstName[0]}</p>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="lastName">Last name</Label>
-                            <Input 
-                                id="lastName" 
-                                name="lastName" 
-                                placeholder="Doe" 
-                                defaultValue={state.values?.lastName}
-                                className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
-                                aria-describedby="lastName-error" 
-                            />
-                            {state?.errors?.lastName && (
-                                <p id="lastName-error" className="text-sm text-red-500">{state.errors.lastName[0]}</p>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input 
-                            id="email" 
-                            name="email" 
-                            type="email" 
-                            placeholder="john@example.com" 
-                            defaultValue={state.values?.email}
-                            className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
-                            aria-describedby="email-error" 
-                        />
-                        {state?.errors?.email && (
-                            <p id="email-error" className="text-sm text-red-500">{state.errors.email[0]}</p>
+                <form
+                    ref={formRef}
+                    key={state.success ? "success-reset" : "active-form"}
+                    action={formAction}
+                    noValidate
+                    className="space-y-6"
+                >
+                    <div aria-live="polite" role="status">
+                        {state?.message && (
+                            <div
+                                className={`flex items-start gap-2 p-3 rounded-md text-sm text-foreground border ${state.success ? "bg-success/10 border-success/30" : "bg-destructive/10 border-destructive/30"}`}
+                            >
+                                {state.success ? (
+                                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
+                                ) : (
+                                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+                                )}
+                                <span>{state.message}</span>
+                            </div>
                         )}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="subject">Subject</Label>
-                        <Input 
-                            id="subject" 
-                            name="subject" 
-                            placeholder="Project Inquiry" 
-                            defaultValue={state.values?.subject}
-                            className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
-                            aria-describedby="subject-error" 
-                        />
-                        {state?.errors?.subject && (
-                            <p id="subject-error" className="text-sm text-red-500">{state.errors.subject[0]}</p>
-                        )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-4">
+                        <Field name="firstName" label="First name" state={state} placeholder="John" autoComplete="given-name" />
+                        <Field name="lastName" label="Last name" state={state} placeholder="Doe" autoComplete="family-name" />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="message">Message</Label>
-                        <Textarea 
-                            id="message" 
-                            name="message" 
-                            placeholder="Tell us about your project..." 
-                            defaultValue={state.values?.message}
-                            className="min-h-[150px] bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
-                            aria-describedby="message-error" 
-                        />
-                        {state?.errors?.message && (
-                            <p id="message-error" className="text-sm text-red-500">{state.errors.message[0]}</p>
-                        )}
-                    </div>
+                    <Field
+                        name="email"
+                        label="Email"
+                        state={state}
+                        type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        spellCheck={false}
+                        placeholder="john@example.com"
+                    />
 
-                    <Button type="submit" size="lg" disabled={isPending} className="w-full bg-primary text-black font-bold hover:bg-primary/90">
-                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Send Message"}
+                    <Field name="subject" label="Subject" state={state} placeholder="Project Inquiry" />
+
+                    <Field name="message" label="Message" state={state} multiline placeholder="Tell us about your project..." />
+
+                    <Button type="submit" size="lg" disabled={isPending} className="w-full h-11 font-bold">
+                        {isPending ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                Sending…
+                            </>
+                        ) : (
+                            "Send Message"
+                        )}
                     </Button>
                 </form>
             </CardContent>

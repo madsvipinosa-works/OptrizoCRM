@@ -19,6 +19,8 @@ interface DiscoveryTrackerProps {
     proposalRequestedAt?: Date | string | null;
     onOpenDiscoveryForm: () => void;
     onRefresh?: () => void;
+    /** Hide the 3-step progress when the page shows it elsewhere (e.g. in the header). */
+    hideSteps?: boolean;
 }
 
 export function DiscoveryTracker({
@@ -34,6 +36,7 @@ export function DiscoveryTracker({
     proposalRequestedAt,
     onOpenDiscoveryForm,
     onRefresh,
+    hideSteps = false,
 }: DiscoveryTrackerProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,54 +59,15 @@ export function DiscoveryTracker({
 
     return (
         <div className="space-y-4">
-            {/* Strictly 3-Step Tracker Bar (Mockups 023-3, 024-4, 027-5, 029-7) */}
-            <div className="flex items-center gap-2 flex-wrap text-xs font-semibold">
-                {/* Step 1: Meeting scheduled */}
-                <span
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full transition-all ${
-                        hasMeetingScheduled
-                            ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/30"
-                            : "bg-muted text-muted-foreground border border-border"
-                    }`}
-                >
-                    {hasMeetingScheduled && <Check className="h-3.5 w-3.5" />}
-                    1. Meeting scheduled
-                </span>
-
-                {/* Step 2: Meeting done */}
-                <span
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full transition-all ${
-                        hasMeetingDone
-                            ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/30"
-                            : hasMeetingScheduled
-                            ? "bg-primary/20 text-primary border border-primary/40"
-                            : "bg-muted text-muted-foreground border border-border"
-                    }`}
-                >
-                    {hasMeetingDone && <Check className="h-3.5 w-3.5" />}
-                    2. Meeting done
-                </span>
-
-                {/* Step 3: Requirements complete */}
-                <span
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full transition-all ${
-                        isFormSubmitted
-                            ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/30"
-                            : hasMeetingDone
-                            ? "bg-primary/20 text-primary border border-primary/40"
-                            : "bg-muted text-muted-foreground border border-border"
-                    }`}
-                >
-                    {isFormSubmitted && <Check className="h-3.5 w-3.5" />}
-                    3. Requirements complete
-                </span>
-            </div>
+            {!hideSteps && (
+                <DiscoverySteps hasMeetingScheduled={hasMeetingScheduled} hasMeetingDone={hasMeetingDone} isFormSubmitted={isFormSubmitted} />
+            )}
 
             {/* Step 2 Completed State: Meeting done, prompt to fill discovery form (Mockup 027-5) */}
             {hasMeetingDone && !isFormSubmitted && (
-                <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+                <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-foreground">Discovery Meeting Completed</span>
+                        <span className="text-sm font-semibold text-foreground">Discovery meeting done</span>
                         <span className="text-xs text-muted-foreground capitalize">
                             {doneMeetingFormat ? doneMeetingFormat.replace("_", " ") : "Video call"}
                             {doneMeetingDate && ` • ${new Date(doneMeetingDate).toLocaleDateString()}`}
@@ -117,22 +81,22 @@ export function DiscoveryTracker({
                         </div>
                     )}
 
-                    <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-700 dark:text-cyan-300">
+                    <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-sm text-foreground ring-1 ring-inset ring-primary/25">
                         Next: fill in the discovery form to unlock the proposal.
                     </div>
 
                     <Button
                         onClick={onOpenDiscoveryForm}
-                        className="w-full bg-primary text-black font-semibold hover:bg-primary/90 h-9 text-xs gap-1.5"
+                        className="w-full h-10 gap-1.5 font-semibold active:scale-[0.98]"
                     >
                         <FileSpreadsheet className="h-3.5 w-3.5" />
                         Fill in discovery form
                     </Button>
 
                     <div className="pt-2 border-t border-border space-y-1">
-                        <Button disabled className="w-full h-9 text-xs bg-muted text-muted-foreground cursor-not-allowed">
+                        <Button disabled className="w-full h-10 bg-muted text-muted-foreground cursor-not-allowed">
                             <Lock className="h-3.5 w-3.5 mr-1" />
-                            Create proposal (locked)
+                            Request proposal (locked)
                         </Button>
                         <p className="text-[11px] text-muted-foreground text-center">
                             Meeting done. Submit the discovery form to unlock.
@@ -143,17 +107,17 @@ export function DiscoveryTracker({
 
             {/* Step 3 Completed State: Discovery form submitted (Mockups 029-7 & 030-8) */}
             {isFormSubmitted && (
-                <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+                <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            <CheckCircle2 className="h-4 w-4 text-success" />
                             Discovery form submitted
                         </span>
                         {!isProposalRequested && (
                             <button
                                 type="button"
                                 onClick={onOpenDiscoveryForm}
-                                className="text-xs text-primary hover:underline font-semibold"
+                                className="text-sm font-medium text-foreground underline underline-offset-4"
                             >
                                 Edit form
                             </button>
@@ -190,7 +154,7 @@ export function DiscoveryTracker({
                     {/* Proposal Requested Banner & Button (Mockup 030-8) */}
                     {isProposalRequested ? (
                         <div className="space-y-2 pt-2 border-t border-border">
-                            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-300">
+                            <div className="rounded-lg bg-success/10 px-3 py-2 text-sm text-foreground ring-1 ring-inset ring-success/30">
                                 Proposal requested{proposalRequestedAt ? ` on ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(proposalRequestedAt))}` : ""}. Assigned to Project Manager.
                             </div>
                             <Button
@@ -208,7 +172,7 @@ export function DiscoveryTracker({
                             <Button
                                 onClick={handleRequestProposal}
                                 disabled={isSubmitting}
-                                className="w-full h-10 text-xs font-semibold bg-primary text-black hover:bg-primary/90 gap-1.5 shadow-sm"
+                                className="w-full h-10 gap-1.5 font-semibold active:scale-[0.98]"
                             >
                                 <Send className="h-3.5 w-3.5" />
                                 {isSubmitting ? "Requesting..." : "Request proposal"}
@@ -220,10 +184,10 @@ export function DiscoveryTracker({
 
             {/* Neither done yet: locked state */}
             {!hasMeetingDone && (
-                <div className="p-3 bg-muted/20 border border-border rounded-xl space-y-1">
-                    <Button disabled className="w-full h-9 text-xs bg-muted text-muted-foreground cursor-not-allowed">
+                <div className="space-y-1.5">
+                    <Button disabled className="w-full h-10 bg-muted text-muted-foreground cursor-not-allowed">
                         <Lock className="h-3.5 w-3.5 mr-1" />
-                        Create proposal (locked)
+                        Request proposal (locked)
                     </Button>
                     <p className="text-[11px] text-muted-foreground text-center">
                         Complete the discovery meeting and form first.
@@ -231,5 +195,50 @@ export function DiscoveryTracker({
                 </div>
             )}
         </div>
+    );
+}
+
+/**
+ * The three discovery steps as numbered pills (mockup step 3 header).
+ * Done steps turn green with a check; the current step gets a green ring.
+ */
+export function DiscoverySteps({
+    hasMeetingScheduled,
+    hasMeetingDone,
+    isFormSubmitted,
+}: {
+    hasMeetingScheduled: boolean;
+    hasMeetingDone: boolean;
+    isFormSubmitted: boolean;
+}) {
+    const steps = [
+        { label: "Meeting scheduled", done: hasMeetingScheduled, current: !hasMeetingScheduled },
+        { label: "Meeting done", done: hasMeetingDone, current: hasMeetingScheduled && !hasMeetingDone },
+        { label: "Requirements complete", done: isFormSubmitted, current: hasMeetingDone && !isFormSubmitted },
+    ];
+    return (
+        <ol aria-label="Discovery progress" className="flex flex-wrap items-center gap-2">
+            {steps.map((step, index) => (
+                <li key={step.label} aria-current={step.current ? "step" : undefined} className="flex items-center gap-1.5">
+                    <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-300 ${
+                            step.done
+                                ? "bg-success/15 text-foreground"
+                                : step.current
+                                ? "bg-card text-foreground ring-1 ring-inset ring-primary/60"
+                                : "bg-muted text-muted-foreground"
+                        }`}
+                    >
+                        {step.done ? (
+                            <Check className="size-3.5 text-success" aria-hidden="true" />
+                        ) : (
+                            <span className="tabular-nums">{index + 1}.</span>
+                        )}
+                        {step.label}
+                        <span className="sr-only">{step.done ? " (done)" : step.current ? " (current step)" : " (not started)"}</span>
+                    </span>
+                </li>
+            ))}
+        </ol>
     );
 }

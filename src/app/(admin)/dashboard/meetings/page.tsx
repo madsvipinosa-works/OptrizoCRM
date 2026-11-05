@@ -259,6 +259,7 @@ export default function MeetingsPage() {
                 meeting={selectedMeeting}
                 isOpen={!!selectedMeeting}
                 onClose={() => setSelectedMeeting(null)}
+                role={role}
                 onUpdate={loadData}
             />
         </div>

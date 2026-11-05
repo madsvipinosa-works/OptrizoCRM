@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
     Table,
     TableBody,
@@ -9,7 +9,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -28,31 +27,24 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    DollarSign,
-    Building2,
     ChevronDown,
-    ArrowUpDown,
-    CheckCircle2,
-    Clock,
-    Flame,
-    Zap,
-    Snowflake,
+    ChevronsUpDown,
+    ArrowDown,
+    ArrowUp,
     FileText,
-    MoreVertical,
+    MoreHorizontal,
     Edit3,
     Archive,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    Search,
     RotateCcw,
-    Globe,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import Link from "next/link";
-import { getLeadEffectiveValue } from "@/features/crm/utils/dealValue";
-import { getLeadSubStatus, getDaysInStage, formatDaysInStage } from "@/features/crm/utils/stageUtils";
+import { getLeadSubStatus, getDaysInStage } from "@/features/crm/utils/stageUtils";
+import { SubStatusChip } from "./LeadsKanbanBoard";
 
 export type LeadItem = {
     id: string;
@@ -77,6 +69,13 @@ export type LeadItem = {
     lossReason?: string | null;
     lossNotes?: string | null;
     isArchived?: boolean;
+    service?: { id: string; title: string } | null;
+    otherServiceText?: string | null;
+    urgency?: string | null;
+    clientType?: string | null;
+    roleInCompany?: string | null;
+    contactPreference?: string | null;
+    details?: string | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     activityLogs?: any[];
@@ -105,6 +104,54 @@ const STAGES = [
     "Closed Lost",
 ] as const;
 
+// Display names follow the mockups; stored values stay unchanged.
+const STAGE_LABEL: Record<string, string> = {
+    "New Lead": "New lead",
+    "Discovery & Qualifying": "Discovery",
+    "Proposal Sent": "Proposal sent",
+    "In Negotiation": "Negotiation",
+    "Closed Won": "Closed",
+    "Closed Lost": "Closed lost",
+};
+
+type SortField = "stage" | "businessName" | "lastContact" | "daysInStage";
+
+function SortableHead({
+    label,
+    field,
+    sortField,
+    sortOrder,
+    onSort,
+    className = "",
+}: {
+    label: string;
+    field: SortField;
+    sortField: SortField;
+    sortOrder: "asc" | "desc";
+    onSort: (field: SortField) => void;
+    className?: string;
+}) {
+    const active = sortField === field;
+    const Icon = !active ? ChevronsUpDown : sortOrder === "asc" ? ArrowUp : ArrowDown;
+    return (
+        <TableHead
+            className={className}
+            aria-sort={active ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
+        >
+            <button
+                type="button"
+                onClick={() => onSort(field)}
+                className={`-ml-1.5 inline-flex h-8 items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors hover:bg-muted hover:text-foreground ${
+                    active ? "text-foreground" : "text-muted-foreground"
+                }`}
+            >
+                {label}
+                <Icon className="size-3.5 opacity-70" aria-hidden="true" />
+            </button>
+        </TableHead>
+    );
+}
+
 export function LeadsDataTable({
     leads,
     assignableUsers,
@@ -116,17 +163,21 @@ export function LeadsDataTable({
     onResetFilters,
 }: LeadsDataTableProps) {
     const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
-    const [sortField, setSortField] = useState<"createdAt" | "businessName" | "estimatedValue">("createdAt");
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    const [sortField, setSortField] = useState<SortField>("stage");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
     // Pagination State: Defaults to 10 items as requested
     const [pageSize, setPageSize] = useState<number>(10);
     const [currentPage, setCurrentPage] = useState<number>(1);
 
     // Reset pagination to page 1 whenever leads length, sortField, or sortOrder change
-    useEffect(() => {
+    // (adjusting state during render, not in an effect: https://react.dev/learn/you-might-not-need-an-effect)
+    const pageResetKey = `${leads.length}|${sortField}|${sortOrder}`;
+    const [lastPageResetKey, setLastPageResetKey] = useState(pageResetKey);
+    if (lastPageResetKey !== pageResetKey) {
+        setLastPageResetKey(pageResetKey);
         setCurrentPage(1);
-    }, [leads.length, sortField, sortOrder]);
+    }
 
     const toggleSelectRow = (id: string) => {
         setSelectedLeadIds((prev) =>
@@ -135,20 +186,22 @@ export function LeadsDataTable({
     };
 
     const sortedLeads = useMemo(() => {
+        const direction = sortOrder === "asc" ? 1 : -1;
+        const nameOf = (lead: LeadItem) => (lead.businessName || lead.contactName || lead.client?.name || "").toLowerCase();
+        const stageIndex = (lead: LeadItem) => {
+            const index = STAGES.indexOf(lead.status as (typeof STAGES)[number]);
+            return index === -1 ? STAGES.length : index;
+        };
+        const lastContactTime = (lead: LeadItem) => (lead.lastContactedAt ? new Date(lead.lastContactedAt).getTime() : 0);
+
         return [...leads].sort((a, b) => {
-            if (sortField === "businessName") {
-                const nameA = (a.businessName || a.contactName || a.client?.name || "").toLowerCase();
-                const nameB = (b.businessName || b.contactName || b.client?.name || "").toLowerCase();
-                return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-            } else if (sortField === "estimatedValue") {
-                const valA = getLeadEffectiveValue(a);
-                const valB = getLeadEffectiveValue(b);
-                return sortOrder === "asc" ? valA - valB : valB - valA;
-            } else {
-                const timeA = new Date(a.createdAt).getTime();
-                const timeB = new Date(b.createdAt).getTime();
-                return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
-            }
+            let result = 0;
+            if (sortField === "businessName") result = nameOf(a).localeCompare(nameOf(b));
+            else if (sortField === "lastContact") result = lastContactTime(a) - lastContactTime(b);
+            else if (sortField === "daysInStage") result = getDaysInStage(a) - getDaysInStage(b);
+            else result = stageIndex(a) - stageIndex(b);
+            // Stable tie-break: newest lead first.
+            return result * direction || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
     }, [leads, sortField, sortOrder]);
 
@@ -180,57 +233,33 @@ export function LeadsDataTable({
         setSelectedLeadIds(sortedLeads.map((l) => l.id));
     };
 
-    const toggleSort = (field: "createdAt" | "businessName" | "estimatedValue") => {
+    const toggleSort = (field: SortField) => {
         if (sortField === field) {
             setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
         } else {
             setSortField(field);
-            setSortOrder("desc");
+            setSortOrder(field === "lastContact" || field === "daysInStage" ? "desc" : "asc");
         }
-    };
-
-    const getPriorityBadge = (lead: LeadItem) => {
-                const priority = lead.priority || "Warm";
-
-        if (priority === "Hot") {
-            return (
-                <Badge variant="outline" className="text-[10px] gap-1 font-semibold bg-rose-500/10 text-rose-400 border-rose-500/20">
-                    <Flame className="h-3 w-3 text-rose-400" /> Hot
-                </Badge>
-            );
-        }
-        if (priority === "Cold") {
-            return (
-                <Badge variant="outline" className="text-[10px] gap-1 font-semibold bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
-                    <Snowflake className="h-3 w-3 text-cyan-400" /> Cold
-                </Badge>
-            );
-        }
-        return (
-            <Badge variant="outline" className="text-[10px] gap-1 font-semibold bg-amber-500/10 text-amber-400 border-amber-500/20">
-                <Zap className="h-3 w-3 text-amber-400" /> Warm
-            </Badge>
-        );
     };
 
     return (
         <div className="space-y-4">
             {/* Bulk Action Bar */}
             {selectedLeadIds.length > 0 && (
-                <div className="flex items-center justify-between p-3 rounded-xl border border-primary/30 bg-primary/10 text-primary-foreground animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                        <span className="bg-primary text-black px-2 py-0.5 rounded-full font-bold">
+                <div className="flex items-center justify-between rounded-xl bg-card px-3 py-2 shadow-[0_0_0_1px_var(--border),0_4px_12px_rgba(0,0,0,0.06)] animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <span className="min-w-6 rounded-full bg-primary px-2 py-0.5 text-center text-xs font-bold tabular-nums text-primary-foreground">
                             {selectedLeadIds.length}
                         </span>
-                        Selected Opportunities
+                        selected
                     </div>
 
                     <div className="flex items-center gap-2">
                         {onBulkAssign && isAdmin && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button size="sm" variant="outline" className="text-xs h-8 bg-card border-border text-foreground hover:bg-muted">
-                                        Assign Staff <ChevronDown className="h-3 w-3 ml-1" />
+                                    <Button size="sm" variant="outline" className="h-8 gap-1 text-sm">
+                                        Assign to <ChevronDown className="size-3.5" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="bg-card border-border text-foreground">
@@ -266,22 +295,22 @@ export function LeadsDataTable({
 
             {/* Smart Multi-Page Selection Banner */}
             {isCurrentPageAllSelected && totalItems > paginatedLeads.length && (
-                <div className="flex items-center justify-between px-4 py-2.5 bg-primary/10 border border-primary/30 rounded-xl text-xs text-foreground animate-in fade-in duration-150">
+                <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-2.5 text-sm text-foreground animate-in fade-in duration-150">
                     <div>
                         <span>
-                            All <strong className="font-semibold text-primary">{paginatedLeads.length}</strong> opportunities on this page are selected.
+                            All <strong className="font-semibold tabular-nums">{paginatedLeads.length}</strong> leads on this page are selected.
                         </span>
                         {selectedLeadIds.length < totalItems ? (
                             <button
                                 type="button"
                                 onClick={selectAllMatching}
-                                className="ml-2 font-semibold text-primary underline hover:text-primary/80 transition-colors"
+                                className="ml-2 font-semibold underline underline-offset-4"
                             >
-                                Select all {totalItems} opportunities across all pages
+                                Select all {totalItems} leads
                             </button>
                         ) : (
-                            <span className="ml-2 font-semibold text-primary">
-                                All {totalItems} opportunities across all pages are selected.
+                            <span className="ml-2 font-semibold">
+                                All {totalItems} leads are selected.
                             </span>
                         )}
                     </div>
@@ -296,74 +325,40 @@ export function LeadsDataTable({
                 </div>
             )}
 
-            {/* High Density Table */}
-            <div className="rounded-xl border border-border glass-card overflow-hidden shadow-xs">
-                <Table>
-                    <TableHeader className="bg-muted/40">
-                        <TableRow className="hover:bg-transparent border-border">
-                            <TableHead className="w-[40px] px-3">
+            {/* Leads table (mockup step 2a): sorted by stage by default */}
+            <div className="overflow-hidden rounded-2xl bg-card shadow-[0_0_0_1px_var(--border),0_1px_2px_rgba(0,0,0,0.04)]">
+                <div className="overflow-x-auto override-scrollbar">
+                <Table className="min-w-[900px]">
+                    <TableHeader>
+                        <TableRow className="border-border hover:bg-transparent">
+                            <TableHead className="w-[44px] px-4">
                                 <Checkbox
                                     checked={isCurrentPageAllSelected}
                                     onCheckedChange={toggleSelectCurrentPage}
-                                    className="border-border data-[state=checked]:bg-primary data-[state=checked]:text-black"
-                                    aria-label="Select all rows on current page"
+                                    aria-label="Select all rows on this page"
                                 />
                             </TableHead>
-                            <TableHead className="min-w-[200px]">
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => toggleSort("businessName")}
-                                    className="p-0 text-xs font-semibold hover:bg-transparent hover:text-primary text-muted-foreground flex items-center gap-1"
-                                >
-                                    Opportunity / Contact <ArrowUpDown className="h-3 w-3" />
-                                </Button>
-                            </TableHead>
-                            <TableHead className="w-[180px]">Pipeline Stage</TableHead>
-                            <TableHead>Industry / Focus</TableHead>
-                            <TableHead>
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => toggleSort("estimatedValue")}
-                                    className="p-0 text-xs font-semibold hover:bg-transparent hover:text-primary text-muted-foreground flex items-center gap-1"
-                                >
-                                    Value ($) <ArrowUpDown className="h-3 w-3" />
-                                </Button>
-                            </TableHead>
-                            <TableHead>Priority</TableHead>
-                            <TableHead>Assignees</TableHead>
-                            <TableHead className="text-right">
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => toggleSort("createdAt")}
-                                    className="p-0 text-xs font-semibold hover:bg-transparent hover:text-primary text-muted-foreground flex items-center gap-1 ml-auto"
-                                >
-                                    Last Contact <ArrowUpDown className="h-3 w-3" />
-                                </Button>
-                            </TableHead>
-                            <TableHead className="w-[60px] text-center">SOW</TableHead>
+                            <SortableHead label="Business name" field="businessName" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} className="min-w-[200px]" />
+                            <TableHead className="text-xs font-medium text-muted-foreground">Service</TableHead>
+                            <SortableHead label="Stage" field="stage" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} />
+                            <TableHead className="text-xs font-medium text-muted-foreground">Status</TableHead>
+                            <TableHead className="text-xs font-medium text-muted-foreground">Client type</TableHead>
+                            <SortableHead label="Last contact" field="lastContact" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} />
+                            <SortableHead label="In stage" field="daysInStage" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} />
+                            <TableHead className="w-[76px]"><span className="sr-only">Actions</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {paginatedLeads.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={9} className="text-center py-16 text-muted-foreground text-xs">
-                                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
-                                        <div className="h-10 w-10 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground">
-                                            <Search className="h-5 w-5" />
-                                        </div>
-                                        <p className="font-semibold text-foreground text-sm">No opportunities found</p>
-                                        <p className="text-muted-foreground text-xs text-center">
-                                            No pipeline deals match your active filters and search query. Try broadening your criteria.
-                                        </p>
+                            <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={9} className="py-16 text-center">
+                                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                                        <p className="text-sm font-semibold text-foreground">No leads match</p>
+                                        <p className="text-sm text-muted-foreground">Try a different search or stage.</p>
                                         {onResetFilters && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={onResetFilters}
-                                                className="mt-2 text-xs gap-1.5 bg-card border-border text-foreground hover:bg-muted"
-                                            >
-                                                <RotateCcw className="h-3.5 w-3.5" />
-                                                Reset All Filters
+                                            <Button variant="outline" size="sm" onClick={onResetFilters} className="mt-2 gap-1.5">
+                                                <RotateCcw className="size-3.5" />
+                                                Clear filters
                                             </Button>
                                         )}
                                     </div>
@@ -372,115 +367,66 @@ export function LeadsDataTable({
                         ) : (
                             paginatedLeads.map((lead) => {
                                 const isSelected = selectedLeadIds.includes(lead.id);
-                                const leadTitle = lead.businessName || lead.contactName || lead.client?.name || "Unknown Opportunity";
-                                const email = lead.contactEmail || lead.client?.email;
-                                const lastContact = lead.lastContactedAt
-                                    ? new Date(lead.lastContactedAt)
-                                    : lead.updatedAt
-                                    ? new Date(lead.updatedAt)
-                                    : new Date(lead.createdAt);
-                                const daysIdle = Math.floor((Date.now() - lastContact.getTime()) / (1000 * 3600 * 24));
-                                const isStale = !["Closed Won", "Closed Lost"].includes(lead.status) && daysIdle >= 5;
+                                const leadTitle = lead.businessName || lead.contactName || lead.client?.name || "Unnamed lead";
+                                const clientName = lead.contactName || lead.client?.name;
+                                const service = lead.service?.title || lead.otherServiceText || null;
+                                const lastContact = lead.lastContactedAt ? new Date(lead.lastContactedAt) : null;
+                                const days = getDaysInStage(lead);
+                                const isClosed = ["Closed Won", "Closed Lost"].includes(lead.status);
 
                                 return (
                                     <TableRow
                                         key={lead.id}
-                                        className={`border-border transition-colors group cursor-pointer ${
-                                            isSelected ? "bg-primary/5" : "hover:bg-muted/40"
-                                        } ${isStale ? "border-l-2 border-l-amber-500" : ""}`}
+                                        data-state={isSelected ? "selected" : undefined}
+                                        tabIndex={0}
+                                        aria-label={`Open ${leadTitle}`}
                                         onClick={() => onSelectLead?.(lead)}
+                                        onKeyDown={(event) => {
+                                            if (event.target !== event.currentTarget) return;
+                                            if (event.key === "Enter" || event.key === " ") {
+                                                event.preventDefault();
+                                                onSelectLead?.(lead);
+                                            }
+                                        }}
+                                        className="group cursor-pointer border-border outline-none transition-colors duration-150 hover:bg-muted/50 focus-visible:bg-muted/60 data-[state=selected]:bg-primary/[0.06]"
                                     >
-                                        <TableCell className="px-3" onClick={(e) => e.stopPropagation()}>
+                                        <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
                                             <Checkbox
                                                 checked={isSelected}
                                                 onCheckedChange={() => toggleSelectRow(lead.id)}
-                                                className="border-border data-[state=checked]:bg-primary data-[state=checked]:text-black"
+                                                aria-label={`Select ${leadTitle}`}
                                             />
                                         </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="font-semibold text-foreground group-hover:text-primary transition-colors text-xs">
-                                                    {leadTitle}
-                                                </span>
-                                                {email && (
-                                                    <span className="text-[11px] text-muted-foreground">
-                                                        {email}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex flex-col gap-1 items-start">
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={`font-semibold ${getStatusBadgeColor(lead.status)}`}
-                                                >
-                                                    {lead.status}
-                                                </Badge>
-                                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                                    <span className="font-medium text-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
-                                                        {getLeadSubStatus(lead)}
-                                                    </span>
-                                                    <span>{formatDaysInStage(getDaysInStage(lead))}</span>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col gap-0.5">
-                                                <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
-                                                    <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                                                    <span className="truncate max-w-[130px]">{lead.industry || "General"}</span>
-                                                </div>
-                                                {lead.source && (
-                                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground truncate max-w-[140px]" title={`Acquisition Source: ${lead.source}`}>
-                                                        <Globe className="h-2.5 w-2.5 text-primary/70 shrink-0" />
-                                                        <span className="truncate">{lead.source}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-0.5 text-xs text-emerald-500 dark:text-emerald-400 font-mono font-bold">
-                                                <DollarSign className="h-3 w-3" />
-                                                {getLeadEffectiveValue(lead).toLocaleString()}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {getPriorityBadge(lead)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {lead.assignees && lead.assignees.length > 0 ? (
-                                                <div className="flex -space-x-1.5 overflow-hidden">
-                                                    {lead.assignees.slice(0, 3).map((assignee, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            className="w-5 h-5 rounded-full bg-card border border-border text-primary flex items-center justify-center font-bold text-[9px]"
-                                                            title={assignee.name || "Staff"}
-                                                        >
-                                                            {assignee.name?.[0]?.toUpperCase() || "U"}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <span className="text-muted-foreground/60 text-[10px] italic">Unassigned</span>
+                                        <TableCell className="py-3">
+                                            <div className="text-sm font-semibold text-foreground">{leadTitle}</div>
+                                            {clientName && clientName !== leadTitle && (
+                                                <div className="text-xs text-muted-foreground">{clientName}</div>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right text-xs">
-                                            <span className={isStale ? "text-amber-500 dark:text-amber-400 font-semibold flex items-center justify-end gap-1" : "text-muted-foreground"}>
-                                                {isStale && <Clock className="h-3 w-3 text-amber-500 dark:text-amber-400 inline" />}
-                                                {isStale ? `${daysIdle}d ago` : formatDistanceToNow(lastContact, { addSuffix: true })}
-                                            </span>
+                                        <TableCell className="text-sm text-foreground">
+                                            {service ?? <span className="text-muted-foreground">Not set</span>}
                                         </TableCell>
-                                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex items-center justify-center gap-1">
+                                        <TableCell className="text-sm text-foreground">{STAGE_LABEL[lead.status] ?? lead.status}</TableCell>
+                                        <TableCell>
+                                            <SubStatusChip status={getLeadSubStatus(lead)} />
+                                        </TableCell>
+                                        <TableCell className="text-sm capitalize text-foreground">{lead.clientType ?? "local"}</TableCell>
+                                        <TableCell className="text-sm tabular-nums text-muted-foreground">
+                                            {lastContact ? format(lastContact, "MMM d") : "—"}
+                                        </TableCell>
+                                        <TableCell className="text-sm tabular-nums text-muted-foreground">
+                                            {isClosed ? "—" : days === 0 ? "Today" : `${days} ${days === 1 ? "day" : "days"}`}
+                                        </TableCell>
+                                        <TableCell className="pr-3" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end gap-0.5">
                                                 {lead.proposals && lead.proposals.length > 0 && (
                                                     <Link
                                                         href={`/dashboard/proposals/${lead.proposals[0].id}`}
                                                         prefetch={false}
-                                                        className="inline-flex p-1.5 rounded-md bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
-                                                        title="View Proposal"
+                                                        aria-label={`View proposal for ${leadTitle}`}
+                                                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                                     >
-                                                        <FileText className="h-3.5 w-3.5" />
+                                                        <FileText className="size-4" />
                                                     </Link>
                                                 )}
                                                 {(onEditLead || onArchiveLead) && (
@@ -488,26 +434,21 @@ export function LeadsDataTable({
                                                         <DropdownMenuTrigger asChild>
                                                             <button
                                                                 type="button"
-                                                                className="inline-flex p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                                                aria-label={`Actions for ${leadTitle}`}
+                                                                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                                             >
-                                                                <MoreVertical className="h-3.5 w-3.5" />
+                                                                <MoreHorizontal className="size-4" />
                                                             </button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-36 bg-card border-border text-foreground">
+                                                        <DropdownMenuContent align="end" className="w-40">
                                                             {onEditLead && (
-                                                                <DropdownMenuItem
-                                                                    onClick={() => onEditLead(lead)}
-                                                                    className="text-xs cursor-pointer gap-2"
-                                                                >
-                                                                    <Edit3 className="h-3 w-3" /> Edit Deal
+                                                                <DropdownMenuItem onClick={() => onEditLead(lead)} className="gap-2">
+                                                                    <Edit3 className="size-3.5" /> Edit details
                                                                 </DropdownMenuItem>
                                                             )}
                                                             {onArchiveLead && (
-                                                                <DropdownMenuItem
-                                                                    onClick={() => onArchiveLead(lead.id)}
-                                                                    className="text-xs cursor-pointer gap-2 text-rose-400 focus:text-rose-400"
-                                                                >
-                                                                    <Archive className="h-3 w-3" /> {lead.isArchived ? "Unarchive" : "Archive"}
+                                                                <DropdownMenuItem onClick={() => onArchiveLead(lead.id)} className="gap-2 text-destructive focus:text-destructive">
+                                                                    <Archive className="size-3.5" /> {lead.isArchived ? "Unarchive" : "Archive"}
                                                                 </DropdownMenuItem>
                                                             )}
                                                         </DropdownMenuContent>
@@ -521,9 +462,10 @@ export function LeadsDataTable({
                         )}
                     </TableBody>
                 </Table>
+                </div>
 
                 {/* Pagination Footer: 10 items default + navigation + selector */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3.5 bg-muted/20 border-t border-border text-xs">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t border-border text-xs">
                     {/* Left: Range and Rows per Page */}
                     <div className="flex flex-wrap items-center gap-4">
                         <span className="text-muted-foreground font-medium">
@@ -531,7 +473,7 @@ export function LeadsDataTable({
                             <strong className="text-foreground font-semibold">
                                 {totalItems === 0 ? "0" : `${startIndex + 1}–${endIndex}`}
                             </strong>{" "}
-                            of <strong className="text-foreground font-semibold">{totalItems}</strong> opportunities
+                            of <strong className="text-foreground font-semibold">{totalItems}</strong> leads
                         </span>
 
                         <div className="flex items-center gap-2">
@@ -605,7 +547,7 @@ export function LeadsDataTable({
                                         onClick={() => setCurrentPage(pageNum)}
                                         className={`h-7 w-7 p-0 text-xs font-semibold ${
                                             isActive
-                                                ? "bg-primary text-black hover:bg-primary/90"
+                                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                                 : "bg-card border-border text-foreground hover:bg-muted"
                                         }`}
                                     >
@@ -654,23 +596,4 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | "...
         return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
     }
     return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
-}
-
-function getStatusBadgeColor(status: string) {
-    switch (status) {
-        case "New Lead":
-            return "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/30 text-[10px]";
-        case "Discovery & Qualifying":
-            return "bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/30 text-[10px]";
-        case "Proposal Sent":
-            return "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30 text-[10px]";
-        case "In Negotiation":
-            return "bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border-cyan-500/30 text-[10px]";
-        case "Closed Won":
-            return "bg-primary/10 text-primary border-primary/30 text-[10px]";
-        case "Closed Lost":
-            return "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30 text-[10px]";
-        default:
-            return "bg-muted text-muted-foreground border-border text-[10px]";
-    }
 }
