@@ -1,10 +1,7 @@
-import { db } from "@/db";
-import { caseStudies } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { getPublishedPortfolio } from "@/features/cms/content/public-queries";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
@@ -14,10 +11,7 @@ export const metadata = {
 };
 
 export default async function ProjectsIndexPage() {
-    const publishedProjects = await db.query.caseStudies.findMany({
-        where: eq(caseStudies.published, true),
-        orderBy: [desc(caseStudies.createdAt)],
-    });
+    const publishedProjects = await getPublishedPortfolio();
 
     return (
         <div className="min-h-screen bg-background text-foreground pt-32 pb-24 relative overflow-hidden">
@@ -45,7 +39,7 @@ export default async function ProjectsIndexPage() {
                 {/* Projects Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 md:gap-12">
                     {publishedProjects.map((project) => {
-                        const tags = Array.isArray(project.technologies) ? project.technologies as string[] : [];
+                        const tags = project.technologies;
                         
                         return (
                             <Link href={`/projects/${project.slug}`} key={project.id} className="group flex flex-col space-y-5 cursor-pointer">
@@ -68,7 +62,7 @@ export default async function ProjectsIndexPage() {
                                     {/* Client Name Badge */}
                                     <div className="absolute top-4 left-4 z-20">
                                         <span className="px-3 py-1 bg-background/80 backdrop-blur-md border border-border text-foreground text-xs font-semibold uppercase tracking-wider rounded-full shadow-sm">
-                                            {project.clientName || "Enterprise Partner"}
+                                            {project.clientDisplayName}
                                         </span>
                                     </div>
                                 </div>
@@ -91,7 +85,7 @@ export default async function ProjectsIndexPage() {
                                     </h3>
                                     
                                     <p className="text-muted-foreground line-clamp-2">
-                                        {project.description || "Detailed case study of enterprise platform architecture and software engineering."}
+                                        {project.summary || "Detailed case study of enterprise platform architecture and software engineering."}
                                     </p>
 
                                     <div className="mt-auto pt-4 flex items-center text-primary font-semibold text-sm">

@@ -68,11 +68,6 @@
       "count": 1
     }
   },
-  "src/app/(public)/projects/[slug]/page.tsx": {
-    "react/no-unescaped-entities": {
-      "count": 1
-    }
-  },
   "src/app/api/proposals/[id]/pdf/route.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
@@ -160,14 +155,6 @@
   "src/features/audit/actions.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "src/features/client-portal/components/ClientPortalDashboardView.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "react-hooks/rules-of-hooks": {
-      "count": 1
     }
   },
   "src/features/cms/actions.ts": {

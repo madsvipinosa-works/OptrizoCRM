@@ -1,6 +1,4 @@
-import { db } from "@/db";
-import { services } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { getPublishedServiceBySlug } from "@/features/cms/content/public-queries";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -28,9 +26,8 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { slug } = await params;
-    const service = await db.query.services.findFirst({
-        where: or(eq(services.slug, slug), eq(services.id, slug)),
-    });
+    const decodedSlug = decodeURIComponent(slug);
+    const service = await getPublishedServiceBySlug(decodedSlug);
 
     if (!service) {
         return {
@@ -51,10 +48,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ServiceDetailPage({ params }: PageProps) {
     const { slug } = await params;
-
-    const service = await db.query.services.findFirst({
-        where: or(eq(services.slug, slug), eq(services.id, slug)),
-    });
+    const decodedSlug = decodeURIComponent(slug);
+    const service = await getPublishedServiceBySlug(decodedSlug);
 
     if (!service) {
         notFound();

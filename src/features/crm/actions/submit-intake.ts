@@ -2,12 +2,13 @@
 
 import { intakeFormSchema, publicInquirySchema } from "@/lib/schemas";
 import { db } from "@/db";
-import { leads, services, leadActivityLogs, auditLogs } from "@/db/schema";
+import { leads, leadActivityLogs, auditLogs } from "@/db/schema";
 import { auth } from "@/auth";
 import { createSystemNotification, notifyAllAdmins, notifyAllSales } from "@/features/notifications/send";
 import { sendInquiryConfirmationEmail } from "@/lib/notifications";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
+import { getPublishedServices as getPublishedServicesCms } from "@/features/cms/content/public-queries";
 
 export type IntakeFormValues = {
     businessName?: string;
@@ -75,17 +76,19 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
         const data = validatedInquiry.data;
 
         try {
-            // Resolve service title
+            // Resolve service title - re-check serviceId against published AND showInInquiry
             let serviceTitle = data.otherServiceText || "Other";
             let validServiceId: string | null = null;
             if (data.serviceId && data.serviceId !== "other") {
-                const foundService = await db.query.services.findFirst({
-                    where: (svc, { eq }) => eq(svc.id, data.serviceId!),
-                    columns: { id: true, title: true },
-                });
+                const inquiryServices = await getPublishedServicesCms({ forInquiry: true });
+                const foundService = inquiryServices.find((svc) => svc.id === data.serviceId);
                 if (foundService) {
                     serviceTitle = foundService.title;
                     validServiceId = foundService.id;
+                } else {
+                    // Fall back to "Other" with otherServiceText (do not trust the client)
+                    serviceTitle = data.otherServiceText || "Other";
+                    validServiceId = null;
                 }
             }
 
@@ -200,12 +203,16 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
 
     try {
         const estimatedValue = parseBudgetToEstimatedValue(validatedFields.data.budget);
-        const selectedService = validatedFields.data.serviceId
-            ? await db.query.services.findFirst({
-                where: (service, { eq }) => eq(service.id, validatedFields.data.serviceId!),
-                columns: { title: true },
-            })
-            : null;
+        let validServiceId: string | null = null;
+        let selectedService: { title: string } | null = null;
+        if (validatedFields.data.serviceId && validatedFields.data.serviceId !== "other") {
+            const inquiryServices = await getPublishedServicesCms({ forInquiry: true });
+            const foundService = inquiryServices.find((svc) => svc.id === validatedFields.data.serviceId);
+            if (foundService) {
+                validServiceId = foundService.id;
+                selectedService = { title: foundService.title };
+            }
+        }
 
         const [createdLead] = await db.insert(leads).values({
             clientId: session.user.id,
@@ -218,7 +225,7 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             estimatedValue,
             timelineExpectation: validatedFields.data.timelineExpectation,
             goals: validatedFields.data.goals,
-            serviceId: validatedFields.data.serviceId,
+            serviceId: validServiceId,
             status: "New Lead",
             source: "Client Portal Intake",
             lastContactedAt: null,
@@ -268,10 +275,8 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
 
 export async function getPublishedServices(): Promise<{ id: string; title: string }[]> {
     try {
-        const result = await db.query.services.findMany({
-            columns: { id: true, title: true },
-        });
-        return result;
+        const rows = await getPublishedServicesCms({ forInquiry: true });
+        return rows.map((s) => ({ id: s.id, title: s.title }));
     } catch {
         return [];
     }

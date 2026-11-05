@@ -2,7 +2,7 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { caseStudies, pages, pageVersions, services, siteSettings } from "@/db/schema";
+import { caseStudies, pages, pageVersions, services } from "@/db/schema";
 import { requireRole } from "@/lib/authz";
 import { insertContentAudit, type DbTx } from "./audit";
 import { revalidateContentPaths } from "./revalidate";
@@ -21,40 +21,10 @@ import {
 type PageOk = { ok: true; version: number; publishedAt?: Date; restoredFrom?: number };
 type PageResult = PageOk | ContentFailure;
 
-async function syncSiteSettings(tx: DbTx, slug: PageSlugValue, fields: Record<string, unknown>): Promise<void> {
-    try {
-        if (slug === "home") {
-            const h = fields as unknown as HomeFields;
-            await tx
-                .update(siteSettings)
-                .set({
-                    heroTitle: h.heading,
-                    heroDescription: h.intro,
-                })
-                .where(eq(siteSettings.id, "singleton_root"));
-        } else if (slug === "about") {
-            const a = fields as unknown as AboutFields;
-            await tx
-                .update(siteSettings)
-                .set({
-                    aboutHeroTitle: a.heading,
-                    aboutText: a.story,
-                    missionStatement: a.mission ?? null,
-                })
-                .where(eq(siteSettings.id, "singleton_root"));
-        } else if (slug === "contact") {
-            const c = fields as unknown as ContactFields;
-            await tx
-                .update(siteSettings)
-                .set({
-                    contactEmail: c.email,
-                })
-                .where(eq(siteSettings.id, "singleton_root"));
-        }
-    } catch (err) {
-        // site_settings dual-write is best-effort sync for legacy readers
-        console.warn("[content:pages] site_settings sync warning:", err);
-    }
+async function syncSiteSettings(_tx: DbTx, _slug: PageSlugValue, _fields: Record<string, unknown>): Promise<void> {
+    // All public readers (home, about, contact, metadata layout) now read directly via public-queries.
+    // Dual-write to siteSettings columns (heroTitle, heroDescription, aboutHeroTitle, aboutText, missionStatement, contactEmail)
+    // has been completely removed as no active readers remain.
 }
 
 export async function getPageForEdit(slug: string) {

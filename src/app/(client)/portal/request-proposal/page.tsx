@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { getPublishedServices } from "@/features/cms/content/public-queries";
 import { IntakeForm } from "@/components/crm/IntakeForm";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -16,14 +16,11 @@ export default async function RequestProposalPage({ searchParams }: PageProps) {
         redirect(`/login?callbackUrl=${encodeURIComponent(callback)}&reason=proposal_auth`);
     }
 
-    const availableServices = await db.query.services.findMany({
-        columns: {
-            id: true,
-            title: true,
-        },
-    });
+    const publishedServices = await getPublishedServices({ forInquiry: true });
+    const availableServices = publishedServices.map((s) => ({ id: s.id, title: s.title }));
 
-    const selectedService = availableServices.find(s => s.id === serviceId);
+    // Validate the serviceId against published+showInInquiry services
+    const selectedService = availableServices.find((s) => s.id === serviceId);
 
     return (
         <div className="container mx-auto px-4 py-12 max-w-3xl">
@@ -39,7 +36,7 @@ export default async function RequestProposalPage({ searchParams }: PageProps) {
             <p className="text-muted-foreground mb-8">
                 Fill out the form below to give us an overview of your needs. Our team will review your request and get back to you with a tailored proposal.
             </p>
-            <IntakeForm availableServices={availableServices} preSelectedServiceId={serviceId} />
+            <IntakeForm availableServices={availableServices} preSelectedServiceId={selectedService?.id} />
         </div>
     );
 }
