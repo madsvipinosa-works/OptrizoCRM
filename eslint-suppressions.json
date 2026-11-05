@@ -207,11 +207,6 @@
       "count": 6
     }
   },
-  "src/features/crm/components/LeadDetailsDrawer.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 12
-    }
-  },
   "src/features/crm/components/LeadSourceBarChart.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -230,19 +225,11 @@
   "src/features/crm/components/LeadsDataTable.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
-    },
-    "react-hooks/purity": {
-      "count": 1
-    }
-  },
-  "src/features/crm/components/LeadsKanbanBoard.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
     }
   },
   "src/features/crm/components/LeadsPipelineView.tsx": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 1
     }
   },
   "src/features/crm/components/PipelineAreaChart.tsx": {

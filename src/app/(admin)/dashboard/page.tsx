@@ -93,7 +93,7 @@ export default async function DashboardPage() {
     const recentUpdates: any[] = [];
     if (isSales && activeLeads.length > 0) {
         const sortedLeads = [...activeLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 3);
-        sortedLeads.forEach(l => recentUpdates.push({ type: 'lead', title: `Lead updated: ${l.businessName || l.contactName}`, date: l.updatedAt, url: `/dashboard/leads?leadId=${l.id}` }));
+        sortedLeads.forEach(l => recentUpdates.push({ type: 'lead', title: `Lead updated: ${l.businessName || l.contactName}`, date: l.updatedAt, url: `/dashboard/leads/${l.id}` }));
     }
     if (isDelivery) {
         const recentTasks = await db.query.tasks.findMany({
@@ -209,7 +209,7 @@ export default async function DashboardPage() {
                             )}
 
                             {isSales && todayFollowUps.map(lead => (
-                                <Link key={lead.id} href={`/dashboard/leads?leadId=${lead.id}`} className="block group">
+                                <Link key={lead.id} href={`/dashboard/leads/${lead.id}`} className="block group">
                                     <div className="p-3.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 transition-colors flex items-center justify-between">
                                         <div>
                                             <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ export default async function DashboardPage() {
                             
                             <div className="grid gap-3">
                                 {isSales && overdueLeads.map(lead => (
-                                    <Link key={lead.id} href={`/dashboard/leads?leadId=${lead.id}`} className="block group">
+                                    <Link key={lead.id} href={`/dashboard/leads/${lead.id}`} className="block group">
                                         <div className="p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors flex items-center justify-between">
                                             <div>
                                                 <p className="font-semibold text-sm text-foreground">{lead.businessName || lead.contactName}</p>

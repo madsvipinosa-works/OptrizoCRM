@@ -58,10 +58,12 @@ export default async function ContactPage() {
             <div className="absolute top-12 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none -z-10" />
             <div className="absolute top-1/3 right-10 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
 
-            {/* Primary 2-Column Grid (items-start prevents contact card stretching) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
-                {/* Left Column: Direct Outreach & Frequently Asked Questions */}
-                <div className="lg:col-span-6 space-y-8 min-w-0">
+            {/* Primary Grid (items-start prevents contact card stretching).
+                Mobile order: intro + contact cards, form, FAQ.
+                Desktop: intro and FAQ stack in the left column, form spans both rows on the right. */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-x-16 lg:gap-y-8 items-start">
+                {/* Left Column, Row 1: Direct Outreach */}
+                <div className="lg:col-span-6 lg:col-start-1 lg:row-start-1 space-y-8 min-w-0">
                     <div className="space-y-4">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                             <Sparkles className="w-3.5 h-3.5" /> Direct Communications
@@ -119,8 +121,15 @@ export default async function ContactPage() {
                             </div>
                         </a>
                     </div>
+                </div>
 
-                    {/* Frequently Asked Questions (Embedded directly in flow) */}
+                {/* Right Column: Contact Form (Fixed natural height, sticky on desktop, NEVER stretches) */}
+                <div className="lg:col-span-6 lg:col-start-7 lg:row-start-1 lg:row-span-2 w-full h-fit self-start lg:sticky lg:top-28">
+                    <ContactForm className="w-full h-fit self-start" />
+                </div>
+
+                {/* Left Column, Row 2: Frequently Asked Questions */}
+                <div className="lg:col-span-6 lg:col-start-1 lg:row-start-2 min-w-0">
                     <div className="pt-6 border-t border-border/80 space-y-4">
                         <div className="space-y-1">
                             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
@@ -156,11 +165,6 @@ export default async function ContactPage() {
                             ))}
                         </Accordion>
                     </div>
-                </div>
-
-                {/* Right Column: Contact Form (Fixed natural height, sticky on desktop, NEVER stretches) */}
-                <div className="lg:col-span-6 w-full h-fit self-start lg:sticky lg:top-28">
-                    <ContactForm className="w-full h-fit self-start" />
                 </div>
             </div>
         </div>
