@@ -1,22 +1,16 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowRight } from "lucide-react";
 
 import { getSiteSettings } from "@/features/cms/actions";
 import { HeroSection } from "@/components/public/HeroSection";
 import { ServicesGrid } from "@/components/blocks/ServicesGrid";
-import { db } from "@/db";
-import { caseStudies } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { getPublishedPage, getPublishedPortfolio, type PublicPortfolioItem } from "@/features/cms/content/public-queries";
+import type { HomeFields } from "@/features/cms/content/schemas";
+import type { services as servicesTable } from "@/db/schema";
 
 import { Gallery4, type Gallery4Item } from "@/components/ui/gallery4";
 
 export const dynamic = "force-static";
 export const revalidate = 3600; // Revalidate every hour (ISR - refreshed)
 
-import { ScrollReveal } from "@/components/ui/scroll-reveal";
-import { SectionHeading } from "@/components/ui/section-heading";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import { CTAScrollScale } from "@/components/blocks/cta-scroll-scale";
 import { PinnedPanelsLayout, PinnedPanel } from "@/components/ui/pinned-panels-layout";
@@ -44,19 +38,25 @@ function optimizeImageUrl(url: string | null | undefined, width = 80, height = 8
 
 export default async function Home() {
     const settings = await getSiteSettings();
+    const homePage = await getPublishedPage("home");
+    type HomeResolvedFields = HomeFields & {
+        featuredServices?: (typeof servicesTable.$inferSelect)[];
+        featuredPortfolio?: PublicPortfolioItem[];
+    };
+    const fields = homePage?.fields as HomeResolvedFields | undefined;
 
-    // Fetch active case studies for portfolio showcase
-    const activeProjects = await db.query.caseStudies.findMany({
-        where: eq(caseStudies.published, true),
-        orderBy: [desc(caseStudies.createdAt)],
-        limit: 6,
-    });
+    // Up to 3 featured published portfolio items
+    let portfolioItems = fields?.featuredPortfolio || [];
+    if (portfolioItems.length === 0) {
+        const fallback = await getPublishedPortfolio();
+        portfolioItems = fallback.slice(0, 3);
+    }
 
-    const featuredProjects: Gallery4Item[] = activeProjects.map((project) => ({
+    const featuredProjects: Gallery4Item[] = portfolioItems.slice(0, 3).map((project) => ({
         id: project.id.toString(),
         title: project.title,
-        clientName: project.clientName || "Enterprise Partner",
-        description: project.description || "Detailed case study of enterprise software and scalable cloud architecture.",
+        clientName: project.clientDisplayName || "Confidential client",
+        description: project.summary || "Detailed case study of enterprise software and scalable cloud architecture.",
         href: `/projects/${project.slug}`,
         image: optimizeImageUrl(project.coverImage, 640, 420, 65) || "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=65&w=640&auto=format&fit=crop",
         technologies: Array.isArray(project.technologies) ? project.technologies : [],
@@ -91,12 +91,15 @@ export default async function Home() {
             {/* Panel 1: Hero Section */}
             <PinnedPanel id="hero" hasTopRounding={false}>
                 <HeroSection
-                    title={settings?.heroTitle || undefined}
+                    title={fields?.heading || undefined}
                     titleLine1="OPTRIZO"
                     titleLine2="CUSTOM SOLUTIONS"
                     badgeText="OPTRIZO // CUSTOM SOLUTIONS"
                     taglineBold="POWERED BY INNOVATION."
-                    description={settings?.heroDescription || "We engineer bespoke web platforms, enterprise software, and scalable digital infrastructure through modern architecture."}
+                    description={fields?.intro || "We engineer bespoke web platforms, enterprise software, and scalable digital infrastructure through modern architecture."}
+                    mainImageUrl={fields?.mainImageUrl || undefined}
+                    ctaText="Request a service"
+                    ctaHref="/contact"
                 />
             </PinnedPanel>
 
@@ -148,7 +151,7 @@ export default async function Home() {
             {/* Panel 3: Services Section with Interactive Animated Hover Modal */}
             <PinnedPanel id="services">
                 <div className="relative z-10 w-full max-w-[1400px] mx-auto">
-                    <ServicesGrid />
+                    <ServicesGrid services={fields?.featuredServices} />
                 </div>
             </PinnedPanel>
 

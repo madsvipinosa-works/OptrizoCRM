@@ -17,6 +17,8 @@ import {
     LogOut,
     HelpCircle,
     Monitor,
+    Layers,
+    FolderGit2,
     Search,
     Sparkles,
     CheckCircle2,
@@ -65,7 +67,10 @@ const navGroups: NavGroup[] = [
         title: "Operations & Content",
         items: [
             { href: "/dashboard/pm", label: "Projects", icon: KanbanSquare, allowedRoles: ["manager", "developer"] },
-            { href: "/dashboard/cms", label: "Content Manager", icon: Monitor, allowedRoles: ["content_editor"] },
+            { href: "/dashboard/cms", label: "Content Home", icon: Monitor, allowedRoles: ["content_editor"] },
+            { href: "/dashboard/services", label: "Services", icon: Layers, allowedRoles: ["content_editor"] },
+            { href: "/dashboard/portfolio", label: "Portfolio", icon: FolderGit2, allowedRoles: ["content_editor"] },
+            { href: "/dashboard/pages", label: "Pages", icon: FileText, allowedRoles: ["content_editor"] },
         ],
     },
     {

@@ -1,6 +1,4 @@
-import { db } from "@/db";
-import { services } from "@/db/schema";
-import { asc } from "drizzle-orm";
+import { getPublishedServices } from "@/features/cms/content/public-queries";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowRight, Lock, Users, Zap } from "lucide-react";
@@ -27,9 +25,7 @@ const SERVICE_ASSETS: Record<string, { tags: string[] }> = {
 };
 
 export default async function ServicesPage() {
-    const allServices = await db.query.services.findMany({
-        orderBy: [asc(services.order)],
-    });
+    const allServices = await getPublishedServices({ forInquiry: false });
 
     return (
         <div className="relative min-h-screen bg-background text-foreground overflow-hidden font-sans">

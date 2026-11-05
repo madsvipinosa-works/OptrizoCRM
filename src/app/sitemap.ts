@@ -1,10 +1,8 @@
-import { db } from "@/db";
-import { caseStudies, services } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { getPublishedPortfolio, getPublishedServices } from "@/features/cms/content/public-queries";
 import { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-    const baseUrl = "https://optrizo.com"; // Replace with actual domain
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://optrizo.com";
 
     // 1. Static Routes
     const routes = [
@@ -20,23 +18,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: route === "" ? 1 : 0.8,
     }));
 
-    // 2. Dynamic Case Studies (Portfolio Projects)
-    const allProjects = await db.select({ slug: caseStudies.slug, createdAt: caseStudies.createdAt })
-        .from(caseStudies)
-        .where(eq(caseStudies.published, true));
-    const projectRoutes = allProjects.map((project) => ({
+    // 2. Dynamic Case Studies (Portfolio Projects - published only)
+    const publishedPortfolio = await getPublishedPortfolio();
+    const projectRoutes = publishedPortfolio.map((project) => ({
         url: `${baseUrl}/projects/${project.slug}`,
-        lastModified: project.createdAt,
+        lastModified: project.publishedAt || new Date(),
         changeFrequency: "monthly" as const,
         priority: 0.7,
     }));
 
-    // 3. Dynamic Services
-    const allServices = await db.select({ slug: services.slug, id: services.id })
-        .from(services);
-    const serviceRoutes = allServices.map((service) => ({
+    // 3. Dynamic Services (published only, showOnServicesPage = true)
+    const publishedServices = await getPublishedServices({ forInquiry: false });
+    const serviceRoutes = publishedServices.map((service) => ({
         url: `${baseUrl}/services/${service.slug || service.id}`,
-        lastModified: new Date(),
+        lastModified: service.updatedAt || service.createdAt || new Date(),
         changeFrequency: "monthly" as const,
         priority: 0.8,
     }));

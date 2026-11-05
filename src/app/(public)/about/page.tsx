@@ -1,27 +1,20 @@
 import { db } from "@/db";
-import { siteSettings, users, aboutValues } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { aboutValues } from "@/db/schema";
+import { asc } from "drizzle-orm";
+import { getPublishedPage } from "@/features/cms/content/public-queries";
+import type { AboutFields } from "@/features/cms/content/schemas";
 import { BentoIcon } from "@/features/cms/about/components/BentoIcon";
-import { Badge } from "@/components/ui/badge";
 import { ScrollReveal, RevealList, RevealItem } from "@/components/ui/scroll-reveal";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { 
-    ArrowRight, 
+import {
+    ArrowRight,
     ArrowUpRight,
-    CheckCircle2, 
-    Sparkles, 
-    Quote, 
-    Layers, 
-    Cpu, 
-    ShieldCheck, 
-    Zap, 
-    BarChart3, 
-    Users, 
-    Terminal, 
-    Code2, 
-    Workflow, 
-    Rocket, 
-    ExternalLink 
+    CheckCircle2,
+    Quote,
+    Layers,
+    Terminal,
+    Code2,
+    Rocket,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -31,11 +24,13 @@ export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
 export default async function AboutPage() {
     // Parallel Fetching
-    const [settings, dbValues, teamFromDb] = await Promise.all([
+    const [settings, dbValues, aboutPage] = await Promise.all([
         db.query.siteSettings.findFirst(),
         db.query.aboutValues.findMany({ orderBy: [asc(aboutValues.order)] }),
-        db.query.users.findMany({ where: eq(users.showOnAboutPage, true) })
+        getPublishedPage("about"),
     ]);
+
+    const fields = aboutPage?.fields as AboutFields | undefined;
 
     // Parse Stats JSON safely or use robust defaults
     let stats: { label: string, value: string }[] = [];
@@ -109,61 +104,14 @@ export default async function AboutPage() {
         }
     ];
 
-    // Mapped Team Members for Team Component
-    const mappedTeam: TeamMemberItem[] = (teamFromDb && teamFromDb.length > 0)
-        ? teamFromDb.map(u => ({
-            id: u.id,
-            name: u.name || "Optrizo Specialist",
-            role: u.jobTitle || "Engineering Team",
-            image: u.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600",
-            socials: u.linkedInUrl ? [
-                { platform: "linkedin" as const, link: u.linkedInUrl }
-            ] : undefined
-        }))
-        : [
-            {
-                id: "1",
-                name: "Alex Vance",
-                role: "Founder & Principal Architect",
-                image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600",
-                socials: [
-                    { platform: "linkedin" as const, link: "#" },
-                    { platform: "twitter" as const, link: "#" },
-                    { platform: "website" as const, link: "#" },
-                ]
-            },
-            {
-                id: "2",
-                name: "Elena Rostova",
-                role: "Head of Product & Design",
-                image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=600",
-                socials: [
-                    { platform: "instagram" as const, link: "#" },
-                    { platform: "dribbble" as const, link: "#" },
-                    { platform: "linkedin" as const, link: "#" },
-                ]
-            },
-            {
-                id: "3",
-                name: "Marcus Chen",
-                role: "Lead Full-Stack Engineer",
-                image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600",
-                socials: [
-                    { platform: "linkedin" as const, link: "#" },
-                    { platform: "twitter" as const, link: "#" },
-                ]
-            },
-            {
-                id: "4",
-                name: "Sarah Jenkins",
-                role: "VP of Client Success",
-                image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600",
-                socials: [
-                    { platform: "linkedin" as const, link: "#" },
-                    { platform: "website" as const, link: "#" },
-                ]
-            }
-        ];
+    // Mapped Team Members from CMS
+    const teamCards = fields?.team || [];
+    const mappedTeam: TeamMemberItem[] = teamCards.map((u, idx) => ({
+        id: String(idx + 1),
+        name: u.name,
+        role: u.jobTitle,
+        image: u.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600",
+    }));
 
     // Execution Lifecycle Steps
     const executionPillars = [
@@ -246,18 +194,59 @@ export default async function AboutPage() {
                             <p className="font-mono text-xs font-bold tracking-[0.22em] uppercase text-foreground">
                                 FULL-STACK SOFTWARE STUDIO <span className="text-primary">{" // "}</span>SCALABLE INFRASTRUCTURE
                             </p>
-                            <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground leading-relaxed">
-                                {settings?.aboutHeroTitle || "Engineering High-Performance Digital Products For Forward-Thinking Enterprises."}
+                            <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground leading-relaxed whitespace-pre-line">
+                                {fields?.heading || "Engineering High-Performance Digital Products For Forward-Thinking Enterprises."}
                             </p>
                         </div>
 
-                        {/* Manifesto Quote Panel */}
-                        <div className="glass-card border border-border/80 dark:border-white/10 rounded-2xl p-6 sm:p-7 relative shadow-sm">
-                            <Quote className="w-6 h-6 text-primary/40 mb-3" />
-                            <p className="text-base sm:text-lg text-foreground font-normal leading-relaxed">
-                                &quot;{settings?.missionStatement || "Optrizo is a full-service software studio. We combine modern technical architecture, high-converting UX design, and robust project workflows to transform ambitious ideas into enterprise digital assets."}&quot;
-                            </p>
-                        </div>
+                        {/* Manifesto Quote Panel (Mission) */}
+                        {fields?.mission?.trim() && (
+                            <div className="glass-card border border-border/80 dark:border-white/10 rounded-2xl p-6 sm:p-7 relative shadow-sm">
+                                <Quote className="w-6 h-6 text-primary/40 mb-3" />
+                                <span className="font-mono text-[10px] uppercase tracking-widest text-primary font-bold block mb-2">
+                                    MISSION
+                                </span>
+                                <p className="text-base sm:text-lg text-foreground font-normal leading-relaxed whitespace-pre-line">
+                                    &quot;{fields?.mission?.trim()}&quot;
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Story Panel */}
+                        {fields?.story?.trim() && (
+                            <div className="glass-card border border-border/80 dark:border-white/10 rounded-2xl p-6 sm:p-7 relative shadow-sm space-y-2">
+                                <span className="font-mono text-[10px] uppercase tracking-widest text-primary font-bold block">
+                                    OUR STORY
+                                </span>
+                                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+                                    {fields.story}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Vision Panel */}
+                        {fields?.vision?.trim() && (
+                            <div className="glass-card border border-border/80 dark:border-white/10 rounded-2xl p-6 sm:p-7 relative shadow-sm space-y-2">
+                                <span className="font-mono text-[10px] uppercase tracking-widest text-primary font-bold block">
+                                    VISION
+                                </span>
+                                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+                                    {fields.vision}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* How We Work Panel */}
+                        {fields?.howWeWork?.trim() && (
+                            <div className="glass-card border border-border/80 dark:border-white/10 rounded-2xl p-6 sm:p-7 relative shadow-sm space-y-2">
+                                <span className="font-mono text-[10px] uppercase tracking-widest text-primary font-bold block">
+                                    HOW WE WORK
+                                </span>
+                                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+                                    {fields.howWeWork}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Magnetic CTA Row */}
                         <div className="pt-2 flex flex-wrap items-center gap-6">
@@ -462,14 +451,16 @@ export default async function AboutPage() {
             {/* ============================================================== */}
             {/* SECTION 5: LEADERSHIP & SPECIALISTS (21st.dev team-02)        */}
             {/* ============================================================== */}
-            <div className="border-t border-border/60">
-                <Team 
-                    badge="04 // SPECIALISTS"
-                    title="Meet The Experts"
-                    subtitle="The engineers, product designers, and technical strategists crafting next-generation digital products at Optrizo."
-                    members={mappedTeam}
-                />
-            </div>
+            {mappedTeam.length > 0 && (
+                <div className="border-t border-border/60">
+                    <Team 
+                        badge="04 // SPECIALISTS"
+                        title="Meet The Experts"
+                        subtitle="The engineers, product designers, and technical strategists crafting next-generation digital products at Optrizo."
+                        members={mappedTeam}
+                    />
+                </div>
+            )}
 
             {/* ============================================================== */}
             {/* SECTION 6: ENTERPRISE TECH STACK & ECOSYSTEM (Magic UI Pills)  */}

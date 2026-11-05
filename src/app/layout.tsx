@@ -14,27 +14,35 @@ const geistMono = Geist_Mono({
 });
 
 import { getSiteSettings } from "@/features/cms/actions";
+import { getPublishedPage } from "@/features/cms/content/public-queries";
+import type { HomeFields } from "@/features/cms/content/schemas";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = await getSiteSettings();
+  const [settings, homePage] = await Promise.all([
+    getSiteSettings(),
+    getPublishedPage("home"),
+  ]);
+  const homeFields = homePage?.fields as HomeFields | undefined;
+  const siteTitle = homeFields?.heading || "Optrizo | Digital Transformation Agency";
+  const siteDescription = homeFields?.intro || "Optrizo is a premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions.";
 
   return {
     title: {
-      template: `%s | ${settings?.heroTitle || "Optrizo"}`,
-      default: settings?.heroTitle || "Optrizo | Digital Transformation Agency",
+      template: `%s | ${homeFields?.heading || "Optrizo"}`,
+      default: siteTitle,
     },
-    description: settings?.heroDescription || "Optrizo is a premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions.",
+    description: siteDescription,
     icons: {
       icon: settings?.faviconUrl || "/favicon.ico",
     },
     openGraph: {
-      title: settings?.heroTitle || "Optrizo | Digital Transformation Agency",
-      description: settings?.heroDescription || "Premium software development agency crafting high-performance websites.",
+      title: siteTitle,
+      description: siteDescription,
       url: "https://optrizo.com",
       siteName: "Optrizo",
       images: [
         {
-          url: settings?.logoUrl || "/og-image.jpg",
+          url: homeFields?.mainImageUrl || settings?.logoUrl || "/og-image.jpg",
           width: 1200,
           height: 630,
         },

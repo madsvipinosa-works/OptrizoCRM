@@ -68,6 +68,8 @@ function isAllowedOnDashboardPath(pathname: string, role: string): boolean {
   if (
     cleanPath === "/dashboard/cms" ||
     cleanPath.startsWith("/dashboard/cms/") ||
+    cleanPath === "/dashboard/pages" ||
+    cleanPath.startsWith("/dashboard/pages/") ||
     cleanPath === "/dashboard/services" ||
     cleanPath.startsWith("/dashboard/services/") ||
     cleanPath === "/dashboard/portfolio" ||

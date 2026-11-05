@@ -1,8 +1,7 @@
-import { db } from "@/db";
-import { services } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { getPublishedServices } from "@/features/cms/content/public-queries";
 import { ServicesWithAnimatedHoverModal, ServiceItem } from "@/components/ui/services-with-animated-hover-modal";
 import { SERVICE_METADATA_PRESETS } from "@/features/cms/constants/service-defaults";
+import type { services as servicesTable } from "@/db/schema";
 
 const defaultFallbackServices: ServiceItem[] = [
     {
@@ -63,24 +62,19 @@ const defaultFallbackServices: ServiceItem[] = [
     },
 ];
 
-export async function ServicesGrid() {
-    // Only query up to 4 services that have been explicitly chosen for the landing page showcase
-    let dbServices = await db.query.services.findMany({
-        where: eq(services.isFeatured, true),
-        orderBy: [asc(services.order)],
-        limit: 4,
-    });
+interface ServicesGridProps {
+    services?: (typeof servicesTable.$inferSelect)[];
+}
 
-    // Graceful fallback: If no services are currently flagged as featured, fallback to top 4 services
-    if (dbServices.length === 0) {
-        dbServices = await db.query.services.findMany({
-            orderBy: [asc(services.order)],
-            limit: 4,
-        });
+export async function ServicesGrid({ services: propServices }: ServicesGridProps = {}) {
+    let list = propServices;
+    if (!list || list.length === 0) {
+        const published = await getPublishedServices({ forInquiry: false });
+        list = published.slice(0, 3);
     }
 
-    const items: ServiceItem[] = dbServices.length > 0
-        ? dbServices.slice(0, 4).map((service, index) => ({
+    const items: ServiceItem[] = list.length > 0
+        ? list.slice(0, 3).map((service, index) => ({
             id: service.id,
             title: service.title,
             slug: service.slug,
@@ -91,8 +85,8 @@ export async function ServicesGrid() {
             link: service.link || "/contact",
             icon: service.icon,
             order: service.order,
-            inclusions: (service.inclusions as string[]) || null,
-            deliverables: (service.deliverables as string[]) || null,
+            inclusions: (Array.isArray(service.inclusions) ? (service.inclusions as string[]) : null),
+            deliverables: (Array.isArray(service.deliverables) ? (service.deliverables as string[]) : null),
             scopeOverview: service.scopeOverview,
             timelineEstimate: service.timelineEstimate,
             targetAudience: service.targetAudience,

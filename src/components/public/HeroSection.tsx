@@ -13,6 +13,7 @@ interface HeroSectionProps {
     badgeText?: string;
     ctaText?: string;
     ctaHref?: string;
+    mainImageUrl?: string;
 }
 
 export function HeroSection({
@@ -27,8 +28,9 @@ export function HeroSection({
     taglineBold = "POWERED BY INNOVATION.",
     description = "We engineer bespoke web platforms, enterprise software, and scalable digital infrastructure through modern architecture.",
     badgeText = "OPTRIZO // CUSTOM SOLUTIONS",
-    ctaText = "Start a Project",
+    ctaText = "Request a service",
     ctaHref = "/contact",
+    mainImageUrl,
 }: HeroSectionProps) {
     let line1 = titleLine1;
 
@@ -43,6 +45,16 @@ export function HeroSection({
 
     return (
         <div className="relative w-full overflow-hidden">
+            {mainImageUrl && (
+                <div className="absolute inset-0 -z-10 opacity-15 pointer-events-none">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={mainImageUrl}
+                        alt="Hero background"
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+            )}
             <ExperienceHero
                 badgeText={badgeText}
                 titleLine1={line1}

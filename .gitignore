@@ -34,6 +34,9 @@ pnpm-debug.log*
 # vercel
 .vercel
 
+# Content Editor images uploaded in local development
+public/uploads/content/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

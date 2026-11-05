@@ -1,10 +1,11 @@
-import { getSiteSettings } from "@/features/cms/actions";
+import { getPublishedPage } from "@/features/cms/content/public-queries";
+import type { ContactFields } from "@/features/cms/content/schemas";
 import { FooterSection } from "@/components/ui/footer-section";
 
 export async function Footer({ className }: { className?: string }) {
-    const settings = await getSiteSettings();
-
-    const email = settings?.contactEmail?.trim() || undefined;
+    const contactPage = await getPublishedPage("contact");
+    const fields = contactPage?.fields as ContactFields | undefined;
+    const email = fields?.email?.trim() || undefined;
 
     return (
         <FooterSection className={className} contactEmail={email} />

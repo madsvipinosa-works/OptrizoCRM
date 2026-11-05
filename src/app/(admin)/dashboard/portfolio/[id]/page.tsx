@@ -1,31 +1,60 @@
-import { ProjectForm } from "@/features/cms/components/ProjectForm";
-import { db } from "@/db";
-import { caseStudies } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
+import { db } from "@/db";
+import { caseStudies, services } from "@/db/schema";
+import { requireRole } from "@/lib/authz";
+import { PortfolioEditorForm } from "@/features/cms/components/content/PortfolioEditorForm";
+
+export const dynamic = "force-dynamic";
 
 interface Props {
     params: Promise<{ id: string }>;
 }
 
-export default async function EditProjectPage({ params }: Props) {
+export default async function EditPortfolioPage({ params }: Props) {
+    const a = await requireRole("content_editor");
+    if (!a.ok) notFound();
+
     const { id } = await params;
+    const [project] = await db.select().from(caseStudies).where(eq(caseStudies.id, id)).limit(1);
+    if (!project) notFound();
 
-    const project = await db.query.caseStudies.findFirst({
-        where: eq(caseStudies.id, id),
-    });
+    const serviceOptions = await db
+        .select({ id: services.id, title: services.title, status: services.status })
+        .from(services)
+        .orderBy(asc(services.order), asc(services.title));
 
-    if (!project) {
-        notFound();
-    }
+    const gallery = Array.isArray(project.galleryImages) ? project.galleryImages : [];
+    const images = [project.coverImage, ...gallery].filter(
+        (url, index, all): url is string => !!url && all.indexOf(url) === index,
+    );
 
     return (
-        <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Edit Project</h1>
-                <p className="text-muted-foreground">Update case study details.</p>
+        <div className="max-w-3xl mx-auto space-y-6">
+            <div>
+                <Link href="/dashboard/portfolio" className="text-sm text-muted-foreground hover:underline">
+                    ← Back to portfolio
+                </Link>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight">Edit portfolio project</h1>
             </div>
-            <ProjectForm initialData={project} />
+            <PortfolioEditorForm
+                services={serviceOptions}
+                project={{
+                    id: project.id,
+                    title: project.title,
+                    serviceId: project.serviceId,
+                    summary: project.summary ?? project.description ?? "",
+                    images,
+                    technologies: Array.isArray(project.technologies) ? project.technologies : [],
+                    liveUrl: project.liveUrl,
+                    clientName: project.clientName,
+                    clientDisplayName: project.clientDisplayName,
+                    clientConsent: project.clientConsent,
+                    sortOrder: project.sortOrder,
+                    status: project.status,
+                }}
+            />
         </div>
     );
 }

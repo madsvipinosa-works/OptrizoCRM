@@ -1,6 +1,8 @@
 import { Mail, MapPin, Phone, HelpCircle, Sparkles } from "lucide-react";
 import { ContactForm } from "@/components/public/ContactForm";
 import { getSiteSettings } from "@/features/cms/actions";
+import { getPublishedPage } from "@/features/cms/content/public-queries";
+import type { ContactFields } from "@/features/cms/content/schemas";
 import {
     Accordion,
     AccordionContent,
@@ -30,7 +32,12 @@ const defaultFaqs = [
 ];
 
 export default async function ContactPage() {
-    const settings = await getSiteSettings();
+    const [settings, contactPage] = await Promise.all([
+        getSiteSettings(),
+        getPublishedPage("contact"),
+    ]);
+
+    const fields = contactPage?.fields as ContactFields | undefined;
 
     // Use saved FAQs or fallback to defaults so FAQs are always populated
     let faqs = defaultFaqs;
@@ -38,7 +45,12 @@ export default async function ContactPage() {
         faqs = settings.faqs as { question: string; answer: string }[];
     }
 
-    const contactEmail = settings?.contactEmail || "hello@optrizo.com";
+    const heading = fields?.heading || "Let's Build Something Great";
+    const intro = fields?.intro || "We'd love to hear from you. Please fill out this form or reach out through our direct engineering channels.";
+    const email = fields?.email || "hello@optrizo.com";
+    const phone = fields?.phone || "+1 (555) 123-4567";
+    const address = fields?.address || "123 Innovation Drive\nTech Valley, CA 94043";
+    const officeHours = fields?.officeHours || "Mon - Fri from 9am to 6pm PST";
 
     return (
         <div className="container mx-auto px-4 py-16 sm:py-20 lg:py-24 relative">
@@ -54,18 +66,18 @@ export default async function ContactPage() {
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                             <Sparkles className="w-3.5 h-3.5" /> Direct Communications
                         </div>
-                        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground">
-                            Let&apos;s Build Something <span className="text-primary text-glow">Great</span>
+                        <h1 className="whitespace-pre-line text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+                            {heading}
                         </h1>
-                        <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                            We&apos;d love to hear from you. Please fill out this form or reach out through our direct engineering channels.
+                        <p className="whitespace-pre-line text-base sm:text-lg text-muted-foreground leading-relaxed">
+                            {intro}
                         </p>
                     </div>
 
                     {/* Direct Contact Cards */}
                     <div className="space-y-3.5">
                         <a
-                            href={`mailto:${contactEmail}`}
+                            href={`mailto:${email}`}
                             className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/50 hover:bg-card/90 transition-all group"
                         >
                             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors shrink-0">
@@ -76,7 +88,7 @@ export default async function ContactPage() {
                                     <h3 className="text-sm font-semibold text-foreground">Email Us</h3>
                                     <span className="text-[10px] font-medium text-primary px-1.5 py-0.2 rounded-full bg-primary/10 border border-primary/20">Replies in 24h</span>
                                 </div>
-                                <p className="text-sm text-foreground/90 font-medium truncate mt-0.5">{contactEmail}</p>
+                                <p className="text-sm text-foreground/90 font-medium truncate mt-0.5">{email}</p>
                                 <p className="text-xs text-muted-foreground">careers@optrizo.com</p>
                             </div>
                         </a>
@@ -87,15 +99,14 @@ export default async function ContactPage() {
                             </div>
                             <div>
                                 <h3 className="text-sm font-semibold text-foreground">Visit Us</h3>
-                                <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-                                    123 Innovation Drive<br />
-                                    Tech Valley, CA 94043
+                                <p className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed mt-0.5">
+                                    {address}
                                 </p>
                             </div>
                         </div>
 
                         <a
-                            href="tel:+15551234567"
+                            href={`tel:${phone.replace(/\s+/g, "")}`}
                             className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/50 hover:bg-card/90 transition-all group"
                         >
                             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors shrink-0">
@@ -103,8 +114,8 @@ export default async function ContactPage() {
                             </div>
                             <div>
                                 <h3 className="text-sm font-semibold text-foreground">Call Us Directly</h3>
-                                <p className="text-sm text-foreground/90 font-medium mt-0.5">+1 (555) 123-4567</p>
-                                <p className="text-xs text-muted-foreground">Mon - Fri from 9am to 6pm PST</p>
+                                <p className="text-sm text-foreground/90 font-medium mt-0.5">{phone}</p>
+                                <p className="whitespace-pre-line text-xs text-muted-foreground">{officeHours}</p>
                             </div>
                         </a>
                     </div>
