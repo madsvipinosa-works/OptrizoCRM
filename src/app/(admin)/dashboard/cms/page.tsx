@@ -1,130 +1,207 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { caseStudies, services, aboutValues } from "@/db/schema";
-import { desc, asc } from "drizzle-orm";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PortfolioTab } from "@/features/cms/components/PortfolioTab";
-import { ServicesTab } from "@/features/cms/components/ServicesTab";
-import { HeroTab } from "@/features/cms/components/HeroTab";
-import { AboutTab } from "@/features/cms/components/AboutTab";
-import { getSiteSettings } from "@/features/cms/actions";
-import { FolderGit2, Layers, Sparkles, Tv, Info } from "lucide-react";
+import { auditLogs, caseStudies, services, users } from "@/db/schema";
+import { requireRole } from "@/lib/authz";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
-export default async function CMSDashboardPage() {
-    // Parallel fetch for portfolio, services, site settings, and about page values
-    const [allProjects, allServices, settings, values] = await Promise.all([
-        db.query.caseStudies.findMany({ orderBy: [desc(caseStudies.createdAt)] }),
-        db.query.services.findMany({ orderBy: [asc(services.order)] }),
-        getSiteSettings(),
-        db.query.aboutValues.findMany({
-            orderBy: (aboutValues, { asc }) => [asc(aboutValues.order)],
-        }),
+export const dynamic = "force-dynamic";
+
+type Counts = { published: number; draft: number; hidden: number };
+
+const manilaDateTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+});
+
+const ACTION_LABELS: Record<string, string> = {
+    CREATE: "Created draft",
+    UPDATE: "Saved changes",
+    PUBLISH: "Published",
+    HIDE: "Hid",
+    UNHIDE: "Unhid",
+    RESTORE: "Restored",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+    content_editor: "Content Editor",
+    superadmin: "Super Admin",
+    manager: "Manager",
+    sales: "Sales",
+    developer: "Developer",
+    client: "Client",
+};
+
+const PAGE_LABELS: Record<string, string> = { home: "Home page", about: "About page", contact: "Contact page" };
+
+const RECENT_ENTITIES = ["Service", "Portfolio", "Page"];
+
+/** The audit `details` column is text. Read only the fields we show, and never trust its shape. */
+function readDetails(raw: string | null): { action: string | null; entityId: string | null; actorRole: string | null } {
+    const empty = { action: null, entityId: null, actorRole: null };
+    if (!raw) return empty;
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return empty;
+        const value = parsed as Record<string, unknown>;
+        const text = (key: string) => (typeof value[key] === "string" ? (value[key] as string) : null);
+        return { action: text("action"), entityId: text("entityId"), actorRole: text("actorRole") };
+    } catch {
+        return empty;
+    }
+}
+
+function countByStatus(rows: { status: "draft" | "published" | "hidden"; n: number }[]): Counts {
+    const counts: Counts = { published: 0, draft: 0, hidden: 0 };
+    for (const row of rows) counts[row.status] = Number(row.n);
+    return counts;
+}
+
+export default async function ContentHomePage() {
+    const a = await requireRole("content_editor");
+    if (!a.ok) notFound();
+
+    const [serviceRows, portfolioRows, recent] = await Promise.all([
+        db.select({ status: services.status, n: sql<number>`count(*)::int` }).from(services).groupBy(services.status),
+        db
+            .select({ status: caseStudies.status, n: sql<number>`count(*)::int` })
+            .from(caseStudies)
+            .groupBy(caseStudies.status),
+        db
+            .select({
+                id: auditLogs.id,
+                entity: auditLogs.entity,
+                details: auditLogs.details,
+                createdAt: auditLogs.createdAt,
+                userName: users.name,
+            })
+            .from(auditLogs)
+            .leftJoin(users, eq(auditLogs.userId, users.id))
+            .where(inArray(auditLogs.entity, RECENT_ENTITIES))
+            .orderBy(desc(auditLogs.createdAt))
+            .limit(10),
     ]);
 
-    // Analytics overview calculations
-    const publishedProjects = allProjects.filter(p => p.published).length;
+    const serviceCounts = countByStatus(serviceRows);
+    const portfolioCounts = countByStatus(portfolioRows);
+
+    const changes = recent.map((row) => ({ ...row, ...readDetails(row.details) }));
+
+    // Record titles come from the live tables by id (read-only). A missing row means the record was removed.
+    const serviceIds = changes.filter((c) => c.entity === "Service" && c.entityId).map((c) => c.entityId as string);
+    const portfolioIds = changes.filter((c) => c.entity === "Portfolio" && c.entityId).map((c) => c.entityId as string);
+    const [serviceTitles, portfolioTitles] = await Promise.all([
+        serviceIds.length
+            ? db.select({ id: services.id, title: services.title }).from(services).where(inArray(services.id, serviceIds))
+            : Promise.resolve([] as { id: string; title: string }[]),
+        portfolioIds.length
+            ? db
+                  .select({ id: caseStudies.id, title: caseStudies.title })
+                  .from(caseStudies)
+                  .where(inArray(caseStudies.id, portfolioIds))
+            : Promise.resolve([] as { id: string; title: string }[]),
+    ]);
+    const titleOf = new Map<string, string>([
+        ...serviceTitles.map((r) => [`Service:${r.id}`, r.title] as const),
+        ...portfolioTitles.map((r) => [`Portfolio:${r.id}`, r.title] as const),
+    ]);
+
+    function recordLabel(entity: string, entityId: string | null): string {
+        if (entity === "Page") return (entityId && PAGE_LABELS[entityId]) || "Page";
+        if (!entityId) return "record removed";
+        return titleOf.get(`${entity}:${entityId}`) ?? "record removed";
+    }
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 pb-12">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 rounded-2xl border border-border relative overflow-hidden">
-                <div className="absolute -top-12 -left-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-                <div className="space-y-1 relative">
-                    <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 mb-1">
-                        <Sparkles className="w-3.5 h-3.5" /> Content Management Studio
-                    </div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-foreground text-glow">Content Manager</h1>
-                    <p className="text-sm text-muted-foreground">Manage portfolio showcases, services, and site settings.</p>
+        <div className="max-w-5xl mx-auto space-y-8 pb-12">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Website content</h1>
+                <p className="text-muted-foreground">What visitors see on the Optrizo website.</p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2 rounded-xl border border-border p-5">
+                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Services</p>
+                    <p className="text-sm">
+                        {serviceCounts.published} published · {serviceCounts.draft} draft · {serviceCounts.hidden} hidden
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        Shown on the Services page and the inquiry form.
+                    </p>
+                    <Button asChild size="sm" variant="outline">
+                        <Link href="/dashboard/services">Manage services</Link>
+                    </Button>
+                </div>
+                <div className="space-y-2 rounded-xl border border-border p-5">
+                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Portfolio</p>
+                    <p className="text-sm">
+                        {portfolioCounts.published} published · {portfolioCounts.draft} draft · {portfolioCounts.hidden} hidden
+                    </p>
+                    <p className="text-xs text-muted-foreground">Finished projects shown on the website.</p>
+                    <Button asChild size="sm" variant="outline">
+                        <Link href="/dashboard/portfolio">Manage portfolio</Link>
+                    </Button>
+                </div>
+                <div className="space-y-2 rounded-xl border border-border p-5">
+                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Pages</p>
+                    <p className="text-sm">3 · Home, About, Contact</p>
+                    <ul className="space-y-1 text-sm">
+                        {["Home", "About", "Contact"].map((name) => (
+                            <li
+                                key={name}
+                                className="flex items-center justify-between rounded-md border border-dashed border-border px-3 py-1.5 text-muted-foreground"
+                            >
+                                <span>{name}</span>
+                                <Badge variant="outline">next step</Badge>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
 
-            {/* Content Stats Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="glass-card p-5 rounded-xl border border-border flex items-center justify-between relative overflow-hidden group hover:border-primary/40 transition-all">
-                    <div className="space-y-1">
-                        <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Case Studies</p>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold font-mono text-foreground">{allProjects.length}</span>
-                            <span className="text-xs text-purple-500 dark:text-purple-400 font-medium">{publishedProjects} Live</span>
-                        </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform">
-                        <FolderGit2 className="h-6 w-6" />
-                    </div>
-                </div>
-
-                <div className="glass-card p-5 rounded-xl border border-border flex items-center justify-between relative overflow-hidden group hover:border-primary/40 transition-all">
-                    <div className="space-y-1">
-                        <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Active Services</p>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold font-mono text-foreground">{allServices.length}</span>
-                            <span className="text-xs text-amber-500 dark:text-amber-400 font-medium">Offerings</span>
-                        </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform">
-                        <Layers className="h-6 w-6" />
-                    </div>
-                </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-5 text-sm">
+                <p className="font-medium">How changes go live</p>
+                <p className="mt-1 text-muted-foreground">
+                    Edits are saved as drafts. Visitors see them only after you click Publish. This workspace edits
+                    public website content only. It cannot open leads, proposals or projects.
+                </p>
             </div>
 
-            {/* Main Tabs Container */}
-            <Tabs defaultValue="portfolio" className="w-full">
-                <div className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-muted/50 backdrop-blur-xl border border-border p-1.5 rounded-xl gap-1.5 h-auto">
-                        <TabsTrigger 
-                            value="portfolio" 
-                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
-                        >
-                            <FolderGit2 className="w-4 h-4 shrink-0" />
-                            <span className="whitespace-nowrap">Portfolio</span>
-                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-foreground/10 text-foreground font-mono hidden sm:inline-block">{allProjects.length}</span>
-                        </TabsTrigger>
-                        
-                        <TabsTrigger 
-                            value="services" 
-                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
-                        >
-                            <Layers className="w-4 h-4 shrink-0" />
-                            <span className="whitespace-nowrap">Services</span>
-                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-foreground/10 text-foreground font-mono hidden sm:inline-block">{allServices.length}</span>
-                        </TabsTrigger>
-
-                        <TabsTrigger 
-                            value="hero" 
-                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
-                        >
-                            <Tv className="w-4 h-4 shrink-0" />
-                            <span className="whitespace-nowrap">Hero & Media</span>
-                        </TabsTrigger>
-
-                        <TabsTrigger 
-                            value="about" 
-                            className="data-[state=active]:bg-primary data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-sm py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground flex items-center justify-center gap-1.5 sm:gap-2 transition-all"
-                        >
-                            <Info className="w-4 h-4 shrink-0" />
-                            <span className="whitespace-nowrap">About Section</span>
-                        </TabsTrigger>
-                    </TabsList>
-                </div>
-
-                <div className="mt-6">
-                    <TabsContent value="portfolio" className="mt-0 outline-none">
-                        <PortfolioTab projects={allProjects} />
-                    </TabsContent>
-                    
-                    <TabsContent value="services" className="mt-0 outline-none">
-                        <ServicesTab services={allServices} />
-                    </TabsContent>
-
-                    <TabsContent value="hero" className="mt-0 outline-none">
-                        <HeroTab settings={settings} />
-                    </TabsContent>
-
-                    <TabsContent value="about" className="mt-0 outline-none">
-                        <AboutTab settings={settings || {}} values={values} />
-                    </TabsContent>
-                </div>
-            </Tabs>
+            <div className="space-y-3">
+                <h2 className="text-xl font-semibold">Recent changes</h2>
+                {changes.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                        No changes yet.
+                    </p>
+                ) : (
+                    <ul className="divide-y divide-border rounded-xl border border-border">
+                        {changes.map((change) => (
+                            <li key={change.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm">
+                                <span className="w-32 shrink-0 text-muted-foreground">
+                                    {manilaDateTime.format(change.createdAt)}
+                                </span>
+                                <span className="font-medium">
+                                    {change.userName ?? "Unknown user"}
+                                    {change.actorRole && (
+                                        <span className="ml-1 font-normal text-muted-foreground">
+                                            ({ROLE_LABELS[change.actorRole] ?? change.actorRole})
+                                        </span>
+                                    )}
+                                </span>
+                                <span>{(change.action && ACTION_LABELS[change.action]) ?? "Changed"}</span>
+                                <span className="text-muted-foreground">
+                                    {change.entity}: {recordLabel(change.entity, change.entityId)}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
         </div>
     );
 }
-

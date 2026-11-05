@@ -1,13 +1,32 @@
-import { ProjectForm } from "@/features/cms/components/ProjectForm";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { asc } from "drizzle-orm";
+import { db } from "@/db";
+import { services } from "@/db/schema";
+import { requireRole } from "@/lib/authz";
+import { PortfolioEditorForm } from "@/features/cms/components/content/PortfolioEditorForm";
 
-export default function NewProjectPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NewPortfolioPage() {
+    const a = await requireRole("content_editor");
+    if (!a.ok) notFound();
+
+    const serviceOptions = await db
+        .select({ id: services.id, title: services.title, status: services.status })
+        .from(services)
+        .orderBy(asc(services.order), asc(services.title));
+
     return (
-        <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Add New Project</h1>
-                <p className="text-muted-foreground">Create a case study to display on your portfolio.</p>
+        <div className="max-w-3xl mx-auto space-y-6">
+            <div>
+                <Link href="/dashboard/portfolio" className="text-sm text-muted-foreground hover:underline">
+                    ← Back to portfolio
+                </Link>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight">Add a portfolio project</h1>
+                <p className="text-muted-foreground">Only finished projects. Nothing here links to the real project records.</p>
             </div>
-            <ProjectForm />
+            <PortfolioEditorForm services={serviceOptions} />
         </div>
     );
 }
