@@ -6,7 +6,7 @@ import { eq, desc, and, gte, lte, or, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
-import { createSystemNotification, notifyLeadPms } from "@/features/notifications/send";
+import { createSystemNotification, notifyLeadClient, notifyLeadPms } from "@/features/notifications/send";
 import { sendMeetingInviteEmail, sendMeetingReminderEmail } from "@/lib/notifications";
 import { advanceToDiscoveryIfNew } from "@/features/crm/actions";
 
@@ -41,6 +41,24 @@ export interface MeetingItem {
         name: string | null;
         email: string;
     } | null;
+}
+
+const FORMAT_LABEL: Record<MeetingItem["format"], string> = {
+    video: "video call",
+    phone: "phone call",
+    in_person: "in person",
+    on_site: "on site",
+};
+
+/** Date and time for in-app messages, always in Manila time. */
+function formatMeetingWhen(date: Date): string {
+    return new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Manila",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    }).format(date);
 }
 
 export async function scheduleDiscoveryMeeting(data: {
@@ -108,7 +126,15 @@ export async function scheduleDiscoveryMeeting(data: {
         // 3. Write audit log
         await logAction("CREATE", "Meeting", `Scheduled discovery meeting for lead ${lead.businessName || lead.contactName || data.leadId}`);
 
-        // 4. Send email invite if contact email exists (with portal account sign-up link, no account creation)
+        // 4. In-app notification for the client (only when the lead is linked to a client account).
+        await notifyLeadClient(
+            data.leadId,
+            `Optrizo scheduled a discovery meeting (${FORMAT_LABEL[data.format]}) for ${formatMeetingWhen(meetingDate)}. Please confirm or suggest a new time.`,
+            "meeting",
+            "/portal/appointments"
+        );
+
+        // 5. Send email invite if contact email exists (with portal account sign-up link, no account creation)
         if (lead.contactEmail) {
             await sendMeetingInviteEmail({
                 clientName: lead.contactName || lead.businessName || "Client",
@@ -162,6 +188,13 @@ export async function scheduleBudgetPricingMeeting(data: {
 
     if (proposal.status !== "pricing_meeting_requested") {
         return { success: false, message: `Cannot schedule pricing meeting. Proposal is "${proposal.status}", must be "pricing_meeting_requested".` };
+    }
+
+    // A Project Manager organizes this meeting (spec: PM is required, Sales is optional). When the lead already
+    // has a PM, it must be that PM; when none is assigned yet, the calling PM is the organizer.
+    const assignedPmId = proposal.lead?.assignedPmId ?? null;
+    if (assignedPmId && assignedPmId !== session.user.id) {
+        return { success: false, message: "Only the Project Manager assigned to this lead can schedule its pricing meeting." };
     }
 
     const defaultAttendees = ["Project Manager (required)", "Client (required)"];
@@ -502,17 +535,37 @@ export async function markMeetingDone(data: {
 
     const meeting = await db.query.meetings.findFirst({
         where: eq(meetings.id, data.meetingId),
+        with: { lead: true },
     });
 
     if (!meeting) {
         return { success: false, message: "Meeting not found" };
     }
 
-    if (meeting.type === "discovery" && authz.session.user.role !== "sales") {
-        return { success: false, message: "Only sales can manage discovery meetings" };
+    // Spec: Sales marks `discovery` done; the PM marks `budget_pricing`, `project_review` and `uat` done.
+    const userId = authz.session.user.id;
+    const ownerRole = meeting.type === "discovery" ? "sales" : "manager";
+    if (authz.session.user.role !== ownerRole) {
+        return {
+            success: false,
+            message: ownerRole === "sales"
+                ? "Only sales can mark a discovery meeting as done."
+                : "Only the Project Manager can mark this meeting as done.",
+        };
     }
-    if (meeting.type === "budget_pricing" && authz.session.user.role !== "manager") {
-        return { success: false, message: "Only managers can manage budget & pricing meetings" };
+    if (ownerRole === "manager") {
+        // The lead's PM, or the PM who booked the meeting (the organizer), marks it done.
+        const assignedPmId = meeting.lead?.assignedPmId ?? null;
+        if (assignedPmId && assignedPmId !== userId && meeting.createdBy !== userId) {
+            return { success: false, message: "Only the Project Manager assigned to this lead can mark this meeting as done." };
+        }
+    }
+
+    if (meeting.status === "done") {
+        return { success: false, message: "This meeting is already marked as done." };
+    }
+    if (meeting.status === "cancelled") {
+        return { success: false, message: "A cancelled meeting cannot be marked as done." };
     }
 
     try {

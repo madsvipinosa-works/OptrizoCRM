@@ -20,7 +20,9 @@ import { MeetingDetailDrawer } from "@/features/meetings/components/MeetingDetai
 
 export default function MeetingsPage() {
     const { data: session } = useSession();
-    const role = (session?.user as { role?: string } | undefined)?.role || "sales";
+    // No role until the session has loaded. Defaulting to "sales" showed a PM the Sales controls (and the
+    // drawer as view-only) for as long as the session was still loading.
+    const role = (session?.user as { role?: string } | undefined)?.role ?? "";
     const isSales = role === "sales";
 
     const [meetingsList, setMeetingsList] = useState<MeetingItem[]>([]);
