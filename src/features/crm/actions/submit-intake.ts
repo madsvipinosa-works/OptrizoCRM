@@ -4,7 +4,7 @@ import { intakeFormSchema, publicInquirySchema } from "@/lib/schemas";
 import { db } from "@/db";
 import { leads, leadActivityLogs, auditLogs } from "@/db/schema";
 import { auth } from "@/auth";
-import { createSystemNotification, notifyAllAdmins, notifyAllSales } from "@/features/notifications/send";
+import { createSystemNotification, notifyAllSales } from "@/features/notifications/send";
 import { sendInquiryConfirmationEmail } from "@/lib/notifications";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
@@ -248,7 +248,6 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
         });
 
         await notifyAllSales(`New intake from ${session.user.name || session.user.email}`, "lead", "/dashboard/leads");
-        await notifyAllAdmins(`New lead intake from ${session.user.name || session.user.email}`, "lead", "/dashboard/leads");
 
         await db.insert(auditLogs).values({
             userId: session.user.id,

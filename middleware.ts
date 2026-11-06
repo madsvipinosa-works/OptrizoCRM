@@ -24,7 +24,12 @@ function isAllowedOnDashboardPath(pathname: string, role: string): boolean {
   const cleanPath = pathname.replace(/\/+$/, "") || "/";
 
   if (cleanPath === "/dashboard") {
-    return role === "sales" || role === "manager";
+    return role === "sales" || role === "manager" || role === "superadmin";
+  }
+
+  // Notifications: every staff role has its own list (clients use the bell in the portal).
+  if (cleanPath === "/dashboard/notifications") {
+    return role !== "client";
   }
 
   if (cleanPath === "/dashboard/leads" || cleanPath.startsWith("/dashboard/leads/")) {
