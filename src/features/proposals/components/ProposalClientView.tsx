@@ -64,6 +64,8 @@ interface Props {
         }> | null;
         fileUrl?: string | null;
         scope?: string | null;
+        projectName?: string | null;
+        exclusions?: string | null;
         timeline?: string | null;
         technicalApproach?: string | null;
         terms?: string | null;
@@ -208,6 +210,8 @@ export function ProposalClientView({
         proposalCode: proposal.proposalCode || `OPT-${proposal.id.split("-")[0].toUpperCase()}`,
         businessName: proposal.lead?.businessName || proposal.lead?.client?.name || "Valued Client",
         clientEmail: proposal.lead?.client?.email,
+        projectName: proposal.projectName,
+        exclusions: proposal.exclusions,
         scope: proposal.scope,
         technicalApproach: proposal.technicalApproach,
         deliverables: parsedDeliverables,

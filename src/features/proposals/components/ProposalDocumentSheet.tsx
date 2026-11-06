@@ -18,7 +18,11 @@ export interface ProposalDocumentData {
     proposalCode?: string | null;
     businessName?: string | null;
     clientEmail?: string | null;
+    /** Name of the project, shown under the title. */
+    projectName?: string | null;
     scope?: string | null;
+    /** What is not included in the scope. */
+    exclusions?: string | null;
     technicalApproach?: string | null;
     deliverables?: string[] | null;
     timeline?: string | null;
@@ -252,6 +256,11 @@ export function ProposalDocumentSheet({
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-serif font-bold text-foreground tracking-tight break-words">
                         Project Proposal &amp; Statement of Work
                     </h1>
+                    {data.projectName && (
+                        <p className="text-sm sm:text-base font-semibold text-foreground break-words">
+                            Project: {data.projectName}
+                        </p>
+                    )}
                     {data.businessName && (
                         <p className="text-xs sm:text-sm font-medium text-muted-foreground break-words">
                             Prepared exclusively for: <strong className="text-foreground">{data.businessName}</strong>
@@ -334,6 +343,12 @@ export function ProposalDocumentSheet({
                 <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line break-words min-w-0">
                     {data.scope || "The detailed project objectives, scope parameters, and technical requirements are set forth in this schedule."}
                 </div>
+                {data.exclusions && data.exclusions.trim() && (
+                    <div className="text-sm text-foreground/90 leading-relaxed break-words min-w-0">
+                        <strong className="text-foreground">Not included: </strong>
+                        <span className="whitespace-pre-line">{data.exclusions}</span>
+                    </div>
+                )}
             </section>
 
             {/* Needs & Strategic Objectives */}

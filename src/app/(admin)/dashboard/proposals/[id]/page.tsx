@@ -167,6 +167,8 @@ export default async function StaffProposalViewPage({
         proposalCode: proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`,
         businessName: proposal.lead?.businessName || proposal.lead?.contactName || "Client Business",
         clientEmail: proposal.lead?.contactEmail || proposal.lead?.client?.email || "client@example.com",
+        projectName: proposal.projectName,
+        exclusions: proposal.exclusions,
         scope: proposal.scope || "",
         technicalApproach: proposal.technicalApproach || "",
         deliverables: parsedDeliverables,
