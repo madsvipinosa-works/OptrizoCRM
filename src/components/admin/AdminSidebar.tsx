@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { UserWidget } from "@/components/admin/UserWidget";
 import { CommandPalette } from "@/components/admin/CommandPalette";
-import { handleSignOut } from "@/features/auth/signout-action";
+import { LogoutConfirmDialog } from "@/components/auth/LogoutConfirmDialog";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 interface NavItem {
@@ -88,6 +88,7 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
     const [cmdOpen, setCmdOpen] = useState(false);
+    const [logoutOpen, setLogoutOpen] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
     const userRole = user?.role || "user";
 
@@ -181,21 +182,22 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
                     <HelpCircle className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                     Client Portal
                 </Link>
-                <form action={handleSignOut}>
-                    <button
-                        type="submit"
+                <button
+                        type="button"
+                        onClick={() => setLogoutOpen(true)}
                         className="flex w-full items-center gap-3.5 px-3.5 py-2.5 text-sm font-semibold text-muted-foreground hover:text-red-500 transition-colors focus:outline-none group rounded-xl hover:bg-red-500/10 border-l-2 border-transparent cursor-pointer"
                     >
                         <LogOut className="h-4 w-4 scale-x-[-1] text-muted-foreground group-hover:text-red-500 transition-colors" />
-                        Log Out
+                        Log out
                     </button>
-                </form>
             </div>
         </div>
     );
 
     return (
         <>
+            <LogoutConfirmDialog open={logoutOpen} onOpenChange={setLogoutOpen} />
+
             {/* Command Palette Modal */}
             <CommandPalette open={cmdOpen} setOpen={setCmdOpen} userRole={userRole} />
 
