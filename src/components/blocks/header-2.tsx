@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useTransition } from 'react';
-import { Button, buttonVariants } from '@/components/ui/button';
+import React from 'react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MenuToggleIcon } from '@/components/ui/menu-toggle-icon';
 import { useScroll } from '@/components/ui/use-scroll';
@@ -9,10 +9,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Code2 } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { UserNav } from '@/components/auth/UserNav';
+import { LogoutConfirmDialog } from '@/components/auth/LogoutConfirmDialog';
 
-import { ShineBorder } from '@/components/ui/shine-border';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 
@@ -48,9 +49,14 @@ export function Header({
     mobileBellSlot,
 }: HeaderProps) {
     const [open, setOpen] = React.useState(false);
+    const [logoutOpen, setLogoutOpen] = React.useState(false);
     const scrolled = useScroll(10);
-    const [isPending, startTransition] = useTransition();
     const pathname = usePathname();
+    const reduceMotion = useReducedMotion();
+
+    // Current page: exact match for Home, prefix match for sections (e.g. /services/web-dev).
+    const isActive = (href: string) =>
+        href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
     // Automatically close the mobile menu on route change
     React.useEffect(() => {
@@ -71,29 +77,27 @@ export function Header({
     return (
         <header
             className={cn(
-                'fixed top-0 z-50 left-0 right-0 mx-auto w-full transition-all duration-500 ease-out print:hidden',
+                'fixed top-0 z-50 left-0 right-0 mx-auto w-full transition-[max-width,top] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] print:hidden',
                 {
                     'max-w-[1400px] md:top-0': !scrolled,
                     'md:max-w-5xl md:top-4': scrolled && !open,
                 },
             )}
         >
-            <ShineBorder
-                duration={8}
-                borderWidth={3}
-                color={["#39ff14", "#ffffff", "#39ff14"]} // Neon green with bright white center for extra glow
+            {/* Plain bar in the client palette: no animated border, no glow. */}
+            <div
                 className={cn(
-                    'w-full bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur-xl transition-all duration-500 ease-out p-0 border border-border/50',
+                    'w-full border border-border/70 bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 transition-[border-radius,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
                     {
                         'rounded-xl': !scrolled,
-                        'rounded-2xl shadow-lg shadow-primary/5': scrolled && !open,
+                        'rounded-2xl shadow-[0_8px_24px_-12px_rgba(11,15,20,0.18)]': scrolled && !open,
                         'rounded-none': open,
                     }
                 )}
             >
                 <nav
                     className={cn(
-                        'flex w-full items-center justify-between px-4 md:px-6 transition-all duration-500 ease-out',
+                        'flex w-full items-center justify-between px-4 md:px-6 transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
                         {
                             'h-16 md:h-14': scrolled,
                             'h-16 md:h-20': !scrolled,
@@ -148,21 +152,34 @@ export function Header({
                     </Link>
 
                     {/* Desktop Navigation */}
-                    <div className="hidden items-center gap-2 md:flex">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.href}
-                                className={cn(
-                                    buttonVariants({ variant: 'ghost' }),
-                                    'font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
-                                )}
-                                href={link.href}
-                            >
-                                {link.label}
-                            </Link>
-                        ))}
+                    <div className="hidden items-center gap-1 md:flex">
+                        {navLinks.map((link) => {
+                            const active = isActive(link.href);
+                            return (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    aria-current={active ? 'page' : undefined}
+                                    className={cn(
+                                        'relative rounded-lg px-3 py-2 text-sm outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-ring',
+                                        active ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground hover:text-foreground'
+                                    )}
+                                >
+                                    {link.label}
+                                    {/* Current-page marker: slides to the new link on navigation. */}
+                                    {active && (
+                                        <motion.span
+                                            layoutId="nav-active-indicator"
+                                            aria-hidden="true"
+                                            transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                                            className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-brand-deep"
+                                        />
+                                    )}
+                                </Link>
+                            );
+                        })}
 
-                        <div className="w-px h-6 bg-border mx-2" />
+                        <div className="mx-2 h-6 w-px bg-border" />
 
                         <ThemeToggle variant="icon" />
 
@@ -175,11 +192,8 @@ export function Header({
                                     user={session.user}
                                     isAdmin={isAdmin}
                                     onSignOut={async () => {
-                                        startTransition(async () => {
-                                            if (onSignOut) await onSignOut();
-                                        });
+                                        if (onSignOut) await onSignOut();
                                     }}
-                                    isPending={isPending}
                                 />
                             </div>
                         ) : (
@@ -187,12 +201,12 @@ export function Header({
                                 <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
                                     <Button
                                         variant="ghost"
-                                        className="font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all"
+                                        className="h-9 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
                                     >
                                         Login
                                     </Button>
                                 </LoginModal>
-                                <Button asChild className="font-semibold tracking-tight rounded-xl shadow-sm hover:shadow-md hover:box-glow transition-all">
+                                <Button asChild className="h-9 rounded-lg px-4 text-sm font-semibold transition-[background-color,transform] duration-150 ease-out hover:bg-primary/90 active:scale-[0.97]">
                                     <Link href="/contact">Get Started</Link>
                                 </Button>
                             </>
@@ -218,7 +232,7 @@ export function Header({
                         </Button>
                     </div>
                 </nav>
-            </ShineBorder>
+            </div>
 
             {/* Mobile Menu */}
             <div
@@ -235,19 +249,24 @@ export function Header({
                     )}
                 >
                     <div className="grid gap-y-2">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.label}
-                                className={cn(
-                                    buttonVariants({ variant: 'ghost' }),
-                                    'justify-start text-lg font-semibold tracking-tight rounded-xl h-12 border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all'
-                                )}
-                                href={link.href}
-                                onClick={() => setOpen(false)}
-                            >
-                                {link.label}
-                            </Link>
-                        ))}
+                        {navLinks.map((link) => {
+                            const active = isActive(link.href);
+                            return (
+                                <Link
+                                    key={link.label}
+                                    href={link.href}
+                                    aria-current={active ? 'page' : undefined}
+                                    onClick={() => setOpen(false)}
+                                    className={cn(
+                                        'flex h-12 items-center justify-between rounded-xl px-4 text-lg tracking-tight outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring',
+                                        active ? 'bg-brand-soft font-semibold text-foreground' : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground'
+                                    )}
+                                >
+                                    {link.label}
+                                    {active && <span aria-hidden="true" className="size-2 rounded-full bg-brand-deep" />}
+                                </Link>
+                            );
+                        })}
                     </div>
                     <div 
                         className="flex flex-col gap-3"
@@ -275,15 +294,19 @@ export function Header({
                                 )}
                                 <Button
                                     variant="outline"
-                                    className="w-full rounded-xl h-12 font-medium text-destructive hover:bg-destructive/10 border-border"
-                                    onClick={() => startTransition(async () => {
-                                        if (onSignOut) await onSignOut();
-                                        setOpen(false);
-                                    })}
-                                    disabled={isPending}
+                                    className="w-full rounded-xl h-12 font-medium border-border"
+                                    onClick={() => setLogoutOpen(true)}
                                 >
-                                    {isPending ? 'Signing out...' : 'Log out'}
+                                    Log out
                                 </Button>
+                                <LogoutConfirmDialog
+                                    open={logoutOpen}
+                                    onOpenChange={setLogoutOpen}
+                                    email={session.user?.email}
+                                    onConfirm={async () => {
+                                        if (onSignOut) await onSignOut();
+                                    }}
+                                />
                             </>
                         ) : (
                             <>

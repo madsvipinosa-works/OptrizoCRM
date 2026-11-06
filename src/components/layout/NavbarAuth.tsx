@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useTransition } from "react";
-import { useSession, signOut as clientSignOut } from "next-auth/react";
+import React, { useState } from "react";
+import { useSession } from "next-auth/react";
 import { UserNav } from "@/components/auth/UserNav";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import Link from "next/link";
-import { handleSignOut as serverSignOut } from "@/features/auth/signout-action";
+import { LogoutConfirmDialog, signOutEverywhere } from "@/components/auth/LogoutConfirmDialog";
 
 interface AuthProps {
     settings: {
@@ -20,18 +20,6 @@ const ADMIN_ROLES = ["superadmin", "sales", "manager", "developer", "content_edi
 
 export function NavbarAuthDesktop({ settings }: AuthProps) {
     const { data: session, status } = useSession();
-    const [isPending, startTransition] = useTransition();
-
-    const handleSignOut = async () => {
-        startTransition(async () => {
-            try {
-                await serverSignOut();
-            } catch {
-                // Fallback to client signout
-            }
-            await clientSignOut({ callbackUrl: "/" });
-        });
-    };
 
     if (status === "loading") {
         return (
@@ -52,8 +40,7 @@ export function NavbarAuthDesktop({ settings }: AuthProps) {
                 <UserNav
                     user={session.user}
                     isAdmin={isAdmin}
-                    onSignOut={handleSignOut}
-                    isPending={isPending}
+                    onSignOut={signOutEverywhere}
                 />
             </div>
         );
@@ -88,18 +75,7 @@ export function NavbarMobileBell() {
 
 export function NavbarAuthMobile({ settings }: AuthProps) {
     const { data: session, status } = useSession();
-    const [isPending, startTransition] = useTransition();
-
-    const handleSignOut = async () => {
-        startTransition(async () => {
-            try {
-                await serverSignOut();
-            } catch {
-                // Ignore
-            }
-            await clientSignOut({ callbackUrl: "/" });
-        });
-    };
+    const [logoutOpen, setLogoutOpen] = useState(false);
 
     if (status === "loading") {
         return (
@@ -132,13 +108,13 @@ export function NavbarAuthMobile({ settings }: AuthProps) {
                 )}
                 <Button
                     type="button"
-                    onClick={handleSignOut}
-                    disabled={isPending}
+                    onClick={() => setLogoutOpen(true)}
                     variant="outline"
-                    className="w-full rounded-xl h-12 font-medium text-destructive hover:bg-destructive/10 border-border"
+                    className="w-full rounded-xl h-12 font-medium border-border"
                 >
-                    {isPending ? "Logging out..." : "Log out"}
+                    Log out
                 </Button>
+                <LogoutConfirmDialog open={logoutOpen} onOpenChange={setLogoutOpen} email={session.user.email} />
             </>
         );
     }

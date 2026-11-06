@@ -57,6 +57,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-deep: var(--brand-deep);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -82,36 +84,38 @@
 .default,
 [data-theme="light"],
 [data-theme="default"] {
-  /* Theme Colors (Light Mode) */
-  --accent: oklch(76.97% 0.2124 148.67);
-  --accent-foreground: oklch(15% 0.0300 148.67);
-  --background: oklch(97.02% 0.0020 148.67);
-  --border: oklch(90.00% 0.0020 148.67);
-  --danger: oklch(0.5509 0.2166 25.29);
-  --danger-foreground: oklch(98% 0.0200 25.29);
-  --default: oklch(94.00% 0.0020 148.67);
-  --default-foreground: oklch(21.03% 0.0059 148.67);
-  --field-background: oklch(100.00% 0.0010 148.67);
-  --field-foreground: oklch(21.03% 0.0020 148.67);
-  --field-placeholder: oklch(55.17% 0.0040 148.67);
-  --focus: oklch(76.97% 0.2124 148.67);
-  --foreground: oklch(21.03% 0.0020 148.67);
-  --muted: oklch(95.24% 0.0016 148.67);
-  --muted-foreground: oklch(42.00% 0.0050 148.67);
-  --overlay: oklch(100.00% 0.0006 148.67);
-  --overlay-foreground: oklch(21.03% 0.0020 148.67);
+  /* Theme Colors (Light Mode): client palette from optrizo.com */
+  --brand-soft: #dcfbe8;
+  --brand-deep: #0b7a3e;
+  --accent: #17e86a;
+  --accent-foreground: #0b0f14;
+  --background: #fafbfa;
+  --border: #e8ecea;
+  --danger: #dc2626;
+  --danger-foreground: #ffffff;
+  --default: #f4f6f5;
+  --default-foreground: #0b0f14;
+  --field-background: #ffffff;
+  --field-foreground: #0b0f14;
+  --field-placeholder: #68736e;
+  --focus: #0b7a3e;
+  --foreground: #0b0f14;
+  --muted: #f4f6f5;
+  --muted-foreground: #68736e;
+  --overlay: #ffffff;
+  --overlay-foreground: #0b0f14;
   --scrollbar: oklch(87.10% 0.0020 148.67);
   --segment: oklch(100.00% 0.0020 148.67);
   --segment-foreground: oklch(21.03% 0.0020 148.67);
-  --separator: oklch(92.00% 0.0020 148.67);
-  --success: oklch(0.6072 0.1647 149.02);
-  --success-foreground: oklch(98% 0.0165 149.02);
-  --surface: oklch(100.00% 0.0010 148.67);
-  --surface-foreground: oklch(21.03% 0.0020 148.67);
-  --surface-secondary: oklch(95.24% 0.0016 148.67);
-  --surface-secondary-foreground: oklch(21.03% 0.0020 148.67);
-  --surface-tertiary: oklch(93.73% 0.0016 148.67);
-  --surface-tertiary-foreground: oklch(21.03% 0.0020 148.67);
+  --separator: #e8ecea;
+  --success: #0b7a3e;
+  --success-foreground: #ffffff;
+  --surface: #ffffff;
+  --surface-foreground: #0b0f14;
+  --surface-secondary: #f4f6f5;
+  --surface-secondary-foreground: #0b0f14;
+  --surface-tertiary: #eef1ef;
+  --surface-tertiary-foreground: #0b0f14;
   --warning: oklch(0.6972 0.1687 54.22);
   --warning-foreground: oklch(15% 0.0500 54.22);
 
@@ -144,36 +148,38 @@
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  /* Theme Colors (Dark Mode) */
-  --accent: oklch(76.97% 0.2124 148.67);
-  --accent-foreground: oklch(15% 0.0300 148.67);
-  --background: oklch(12.00% 0.0020 148.67);
-  --border: oklch(28.00% 0.0020 148.67);
-  --danger: oklch(0.5931 0.2338 25.42);
-  --danger-foreground: oklch(98% 0.0200 25.42);
-  --default: oklch(27.40% 0.0020 148.67);
-  --default-foreground: oklch(99.11% 0 0);
-  --field-background: oklch(21.03% 0.0040 148.67);
-  --field-foreground: oklch(99.11% 0.0020 148.67);
-  --field-placeholder: oklch(70.50% 0.0040 148.67);
-  --focus: oklch(76.97% 0.2124 148.67);
-  --foreground: oklch(99.11% 0.0020 148.67);
-  --muted: oklch(21.03% 0.0040 148.67);
-  --muted-foreground: oklch(72.00% 0.0040 148.67);
-  --overlay: oklch(21.03% 0.0040 148.67);
-  --overlay-foreground: oklch(99.11% 0.0020 148.67);
+  /* Theme Colors (Dark Mode): client palette from optrizo.com */
+  --brand-soft: #143526;
+  --brand-deep: #3ef08a;
+  --accent: #17e86a;
+  --accent-foreground: #0b0f14;
+  --background: #0b0f14;
+  --border: #2a3530;
+  --danger: #f87171;
+  --danger-foreground: #0b0f14;
+  --default: #1a211d;
+  --default-foreground: #f2f5f3;
+  --field-background: #141d18;
+  --field-foreground: #f2f5f3;
+  --field-placeholder: #9aa8a1;
+  --focus: #17e86a;
+  --foreground: #f2f5f3;
+  --muted: #1a211d;
+  --muted-foreground: #9aa8a1;
+  --overlay: #141d18;
+  --overlay-foreground: #f2f5f3;
   --scrollbar: oklch(70.50% 0.0020 148.67);
   --segment: oklch(39.64% 0.0020 148.67);
   --segment-foreground: oklch(99.11% 0.0020 148.67);
-  --separator: oklch(25.00% 0.0020 148.67);
-  --success: oklch(0.7697 0.2124 148.67);
-  --success-foreground: oklch(15% 0.0500 148.67);
-  --surface: oklch(21.03% 0.0040 148.67);
-  --surface-foreground: oklch(99.11% 0.0020 148.67);
-  --surface-secondary: oklch(25.70% 0.0030 148.67);
-  --surface-secondary-foreground: oklch(99.11% 0.0020 148.67);
-  --surface-tertiary: oklch(27.21% 0.0030 148.67);
-  --surface-tertiary-foreground: oklch(99.11% 0.0020 148.67);
+  --separator: #2a3530;
+  --success: #3ef08a;
+  --success-foreground: #0b0f14;
+  --surface: #141d18;
+  --surface-foreground: #f2f5f3;
+  --surface-secondary: #1a211d;
+  --surface-secondary-foreground: #f2f5f3;
+  --surface-tertiary: #202924;
+  --surface-tertiary-foreground: #f2f5f3;
   --warning: oklch(0.7921 0.1626 67.42);
   --warning-foreground: oklch(15% 0.0488 67.42);
 
@@ -184,8 +190,8 @@
   --stage-closed: oklch(77% 0.18 149);
   
   /* Shadcn Aliases Setup */
-  --card: var(--surface-secondary);
-  --card-foreground: var(--surface-secondary-foreground);
+  --card: var(--surface);
+  --card-foreground: var(--surface-foreground);
   --popover: var(--surface);
   --popover-foreground: var(--surface-foreground);
   --primary: var(--accent);
@@ -493,3 +499,5 @@ body {
 .column-scroll {
   mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
 }
+
+/* palette: client optrizo.com (2026-11-06) */

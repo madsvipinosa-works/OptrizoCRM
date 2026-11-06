@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Layers, ShieldAlert, LogOut, ChevronDown, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LogoutConfirmDialog } from '@/components/auth/LogoutConfirmDialog';
 
 interface UserNavProps {
     user: {
@@ -30,6 +31,7 @@ interface UserNavProps {
 
 export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
     const [open, setOpen] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleMouseEnter = () => {
@@ -160,9 +162,10 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
 
                     <DropdownMenuItem
                         className="focus:bg-destructive/10 focus:text-destructive hover:bg-destructive/10 hover:text-destructive text-destructive rounded-lg cursor-pointer text-xs py-2 px-2.5 font-medium transition-colors"
-                        onClick={() => {
+                        onSelect={() => {
                             setOpen(false);
-                            onSignOut();
+                            // Open after the menu has closed, so focus and pointer locks hand over cleanly.
+                            setTimeout(() => setConfirmOpen(true), 0);
                         }}
                         disabled={isPending}
                     >
@@ -171,6 +174,14 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
+            <LogoutConfirmDialog
+                open={confirmOpen}
+                onOpenChange={setConfirmOpen}
+                email={user?.email}
+                onConfirm={async () => {
+                    await onSignOut();
+                }}
+            />
         </div>
     );
 }
