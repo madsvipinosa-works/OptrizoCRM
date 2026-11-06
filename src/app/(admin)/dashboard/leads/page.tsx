@@ -2,7 +2,6 @@ import { db } from "@/db";
 import { leads, users, leadAssignees } from "@/db/schema";
 import { desc, like, eq, and, or, inArray, isNull, sql } from "drizzle-orm";
 import { LeadsBoard } from "@/features/crm/components/LeadsBoard"; 
-import { CreateLeadModal } from "@/features/crm/components/CreateLeadModal";
 import { auth, hasRole } from "@/auth";
 import { redirect } from "next/navigation";
 
@@ -122,7 +121,7 @@ export default async function LeadsPage({
             query={query}
             status={status}
             isAdmin={isSales}
-            headerActions={isSales ? <CreateLeadModal assignableUsers={assignableUsers} /> : undefined}
+            canCreate={isSales}
         />
     );
 }

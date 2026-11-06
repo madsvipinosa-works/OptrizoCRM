@@ -201,25 +201,25 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
     <div className="space-y-6">
       {/* Metric Cards Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="glass-card border-border p-4">
-          <p className="text-xs uppercase font-mono text-muted-foreground">Total Errors</p>
+        <Card className="border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Total Errors</p>
           <p className="text-2xl font-bold text-foreground mt-1">{metrics.total}</p>
         </Card>
-        <Card className="glass-card border-border p-4">
-          <p className="text-xs uppercase font-mono text-muted-foreground">Unresolved</p>
+        <Card className="border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Unresolved</p>
           <p className="text-2xl font-bold text-amber-500 mt-1">{metrics.unresolved}</p>
         </Card>
-        <Card className="glass-card border-border p-4">
-          <p className="text-xs uppercase font-mono text-muted-foreground">Critical Unresolved</p>
+        <Card className="border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Critical Unresolved</p>
           <p className="text-2xl font-bold text-destructive mt-1">{metrics.critical}</p>
         </Card>
-        <Card className="glass-card border-border p-4">
-          <p className="text-xs uppercase font-mono text-muted-foreground">High Unresolved</p>
+        <Card className="border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">High Unresolved</p>
           <p className="text-2xl font-bold text-orange-400 mt-1">{metrics.high}</p>
         </Card>
       </div>
 
-      <Card className="glass-card border-border">
+      <Card className="border-border bg-card">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2 text-xl text-foreground">
@@ -309,13 +309,13 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
             <Table>
               <TableHeader className="bg-muted/40 border-b border-border">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Timestamp</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Severity</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Code</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Message & Source</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Status</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase">Actor</TableHead>
-                  <TableHead className="text-muted-foreground font-mono text-xs uppercase text-right">Actions</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-medium">Timestamp</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-medium">Severity</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-medium">Code</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-medium">Message & Source</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-medium">Status</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-medium">Actor</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-medium text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -328,13 +328,13 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
                 ) : (
                   logs.map((log) => (
                     <TableRow key={log.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
                         {format(new Date(log.createdAt), "MMM d, yyyy HH:mm:ss")}
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={`text-[10px] font-mono font-bold ${
+                          className={`text-xs font-mono font-bold ${
                             severityStyles[log.severity] || severityStyles.MEDIUM
                           }`}
                         >
@@ -349,30 +349,30 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
                           <span className="text-xs text-foreground font-medium truncate" title={log.message}>
                             {log.message}
                           </span>
-                          <span className="text-[10px] text-muted-foreground font-mono truncate" title={log.source}>
+                          <span className="text-xs text-muted-foreground font-mono truncate" title={log.source}>
                             src: {log.source}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         {log.isResolved ? (
-                          <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-500 border-green-500/20">
+                          <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500 border-green-500/20">
                             Resolved
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] bg-red-500/10 text-destructive border-destructive/20">
+                          <Badge variant="outline" className="text-xs bg-red-500/10 text-destructive border-destructive/20">
                             Unresolved
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
                         {log.user ? (
                           <div className="flex flex-col">
                             <span className="font-sans text-foreground">{log.user.name || log.user.email}</span>
-                            <span className="text-[10px] text-muted-foreground">{log.user.role}</span>
+                            <span className="text-xs text-muted-foreground">{log.user.role}</span>
                           </div>
                         ) : (
-                          <span className="italic text-[11px]">System / Anonymous</span>
+                          <span className="italic text-xs">System / Anonymous</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
@@ -450,9 +450,9 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
       {/* Inspector Modal */}
       {selectedLog && (
         <Dialog open={inspectOpen} onOpenChange={setInspectOpen}>
-          <DialogContent className="w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[88vh] flex flex-col p-0 overflow-hidden bg-card border-border text-foreground shadow-2xl rounded-2xl focus:outline-none">
+          <DialogContent className="w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[88vh] flex flex-col p-0 overflow-hidden bg-card border-border text-foreground rounded-2xl focus:outline-none">
             {/* Pinned Header */}
-            <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-border bg-card/95 backdrop-blur z-10 text-left">
+            <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-border bg-card z-10 text-left">
               <div className="flex flex-wrap items-center justify-between gap-3 pr-6">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge
@@ -508,13 +508,13 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
               {/* Error Message */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-xs font-bold uppercase tracking-wider font-mono text-muted-foreground">
+                  <h4 className="text-sm font-semibold text-foreground">
                     Error Message
                   </h4>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => handleCopy("message", selectedLog.message)}
                   >
                     {copiedKey === "message" ? (
@@ -539,16 +539,16 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
               {selectedLog.stackTrace && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <h4 className="text-xs font-bold uppercase tracking-wider font-mono text-muted-foreground flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                       <span>Stack Trace</span>
-                      <span className="text-[10px] font-normal text-muted-foreground/80 lowercase">
+                      <span className="text-xs font-normal text-muted-foreground/80 lowercase">
                         ({selectedLog.stackTrace.split("\n").length} lines)
                       </span>
                     </h4>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => handleCopy("trace", selectedLog.stackTrace || "")}
                     >
                       {copiedKey === "trace" ? (
@@ -574,13 +574,13 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
               {selectedLog.context && Object.keys(selectedLog.context).length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <h4 className="text-xs font-bold uppercase tracking-wider font-mono text-muted-foreground">
+                    <h4 className="text-sm font-semibold text-foreground">
                       Contextual Metadata
                     </h4>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => handleCopy("context", JSON.stringify(selectedLog.context, null, 2))}
                     >
                       {copiedKey === "context" ? (
@@ -629,7 +629,7 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
                 {!selectedLog.isResolved ? (
                   <Button
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs"
+                    className="font-semibold"
                     onClick={() => {
                       setInspectOpen(false);
                       handleOpenResolve(selectedLog);

@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 function renderAccessBadge(level: PermissionAccessLevel) {
   if (level === "Edit") {
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#e0f0f3] text-[#0e6b7e] dark:bg-[#0e6b7e]/20 dark:text-[#5cc8dc] whitespace-nowrap">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-soft text-brand-deep whitespace-nowrap">
         Edit
       </span>
     );
@@ -20,7 +20,7 @@ function renderAccessBadge(level: PermissionAccessLevel) {
 
   if (level === "View") {
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-foreground border border-border whitespace-nowrap">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-foreground whitespace-nowrap">
         View
       </span>
     );
@@ -29,10 +29,10 @@ function renderAccessBadge(level: PermissionAccessLevel) {
   if (level === "View + export") {
     return (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-foreground border border-border">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-foreground">
           View
         </span>
-        <span className="text-xs text-muted-foreground">+ export</span>
+        <span className="text-sm text-muted-foreground">+ export</span>
       </span>
     );
   }
@@ -55,12 +55,12 @@ export default async function RolesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Roles
-        </h2>
-        <p className="text-muted-foreground mt-1">
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           What each role can do in the system.
         </p>
       </div>
@@ -87,7 +87,7 @@ export default async function RolesPage() {
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-muted/50 border-b border-border text-muted-foreground font-medium">
+            <thead className="bg-muted/40 border-b border-border text-muted-foreground font-medium">
               <tr>
                 <th className="py-2.5 px-4 min-w-[180px]">Area</th>
                 {ROLE_COLUMN_ORDER.map((col) => (
@@ -126,7 +126,7 @@ export default async function RolesPage() {
         </div>
       </div>
 
-      <div className="rounded-xl bg-[#e0f0f3] dark:bg-[#0e6b7e]/15 border border-[#0e6b7e]/20 px-4 py-3 text-sm text-[#0b4f5d] dark:text-[#bce8f1]">
+      <div className="rounded-xl border border-brand-deep/20 bg-brand-soft px-4 py-3 text-sm text-foreground">
         <strong className="font-semibold">
           Super Admin stays out of the work.
         </strong>{" "}
@@ -141,22 +141,22 @@ export default async function RolesPage() {
         assigned to them.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+      <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2 xl:grid-cols-3">
         {ROLE_DEFINITIONS.map((def) => (
           <div
             key={def.role}
             className="rounded-xl border border-border bg-card p-5 space-y-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-base font-bold text-foreground">
+              <h3 className="text-base font-semibold text-foreground">
                 {def.label}
               </h3>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {def.landsOn}
               </span>
             </div>
             <p className="text-sm text-muted-foreground">{def.summary}</p>
-            <div className="space-y-1.5 text-xs">
+            <div className="space-y-1.5 text-sm">
               <div className="font-semibold text-foreground">Can do:</div>
               <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                 {def.canDo.map((item) => (
@@ -164,7 +164,7 @@ export default async function RolesPage() {
                 ))}
               </ul>
             </div>
-            <div className="space-y-1.5 text-xs">
+            <div className="space-y-1.5 text-sm">
               <div className="font-semibold text-foreground">Cannot do:</div>
               <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                 {def.cannotDo.map((item) => (

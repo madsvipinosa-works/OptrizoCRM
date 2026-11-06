@@ -78,11 +78,6 @@
       "count": 4
     }
   },
-  "src/components/admin/AdminSidebar.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/components/base/dropdown/dropdown.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3

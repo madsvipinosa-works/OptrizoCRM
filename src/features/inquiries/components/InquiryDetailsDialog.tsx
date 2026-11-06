@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { cloneElement, isValidElement, useState, useTransition, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
     Dialog,
@@ -48,10 +48,23 @@ export function InquiryDetailsDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent className="max-w-2xl bg-card border-border text-foreground shadow-2xl rounded-xl">
+            {/* A table row is not focusable by default: give it a tab stop and Enter / Space. */}
+            <DialogTrigger asChild>
+                {isValidElement(trigger)
+                    ? cloneElement(trigger as ReactElement<Record<string, unknown>>, {
+                          tabIndex: 0,
+                          onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  event.currentTarget.click();
+                              }
+                          },
+                      })
+                    : trigger}
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl rounded-xl border-border bg-card text-foreground">
                 <DialogHeader>
-                    <DialogTitle className="text-foreground">Inquiry Details</DialogTitle>
+                    <DialogTitle className="text-foreground">Inquiry</DialogTitle>
                     <DialogDescription className="text-muted-foreground">
                         {description}
                     </DialogDescription>

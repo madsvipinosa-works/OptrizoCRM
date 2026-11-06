@@ -24,12 +24,12 @@ export default async function NewStaffPage() {
             <div>
                 <Link
                     href="/dashboard/team"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0e6b7e] hover:underline mb-3"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:underline mb-3"
                 >
                     <ArrowLeft className="w-4 h-4" />
                     Back to team
                 </Link>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">Add staff account</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Add staff account</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                     Clients create their own accounts. Super Admin accounts are not created here.
                 </p>

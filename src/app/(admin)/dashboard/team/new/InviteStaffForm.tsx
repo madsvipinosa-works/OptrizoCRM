@@ -159,7 +159,7 @@ export function InviteStaffForm() {
                     <Button
                         type="submit"
                         disabled={isLoading}
-                        className="bg-[#0e6b7e] hover:bg-[#0e6b7e]/90 text-white font-semibold"
+                        className="font-semibold"
                     >
                         {isLoading ? (
                             <>

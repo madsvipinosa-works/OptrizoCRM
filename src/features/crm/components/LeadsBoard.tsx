@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { LeadsPipelineView } from "./LeadsPipelineView";
 import type { LeadItem } from "./LeadsDataTable";
 
@@ -12,7 +11,7 @@ interface LeadsBoardProps {
     status?: string;
     isAdmin?: boolean;
     initialLeadId?: string;
-    headerActions?: ReactNode;
+    canCreate?: boolean;
 }
 
 export function LeadsBoard({
@@ -23,7 +22,7 @@ export function LeadsBoard({
     status,
     isAdmin,
     initialLeadId,
-    headerActions,
+    canCreate,
 }: LeadsBoardProps) {
     return (
         <LeadsPipelineView
@@ -34,7 +33,7 @@ export function LeadsBoard({
             initialLeadId={initialLeadId}
             initialQuery={query}
             initialStatus={status}
-            headerActions={headerActions}
+            canCreate={canCreate}
         />
     );
 }

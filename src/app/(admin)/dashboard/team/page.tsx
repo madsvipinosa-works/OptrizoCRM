@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UserActiveToggle } from "@/features/cms/team/components/UserActiveToggle";
 import { UserPlus, Search } from "lucide-react";
-import { users } from "@/db/schema";
-import { ilike, or, and, eq, isNull } from "drizzle-orm";
+import { auditLogs, users } from "@/db/schema";
+import { ilike, or, and, eq, isNull, max } from "drizzle-orm";
+import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -92,26 +93,34 @@ export default async function TeamPage({
     orderBy: (u, { asc }) => [asc(u.name), asc(u.email)],
   });
 
+  // Last sign-in comes from the audit log (one LOGIN row per sign-in).
+  const lastSignIns = await db
+    .select({ userId: auditLogs.userId, last: max(auditLogs.createdAt) })
+    .from(auditLogs)
+    .where(eq(auditLogs.action, "LOGIN"))
+    .groupBy(auditLogs.userId);
+  const lastByUser = new Map(lastSignIns.map((r) => [r.userId, r.last]));
+
   const hasFilters = Boolean(query || roleFilter || statusFilter);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Users
-          </h2>
-          <p className="text-muted-foreground mt-1">
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Staff and client accounts. Clients create their own; staff accounts
             are created here.
           </p>
         </div>
-        <Link href="/dashboard/team/new">
-          <Button className="bg-[#0e6b7e] hover:bg-[#0e6b7e]/90 text-white font-semibold gap-1.5 shadow-sm">
-            <UserPlus className="w-4 h-4" />
-            + Add staff account
-          </Button>
-        </Link>
+        <Button asChild>
+          <Link href="/dashboard/team/new">
+            <UserPlus className="size-4" aria-hidden="true" />
+            Add staff account
+          </Link>
+        </Button>
       </div>
 
       <form
@@ -120,13 +129,13 @@ export default async function TeamPage({
         className="flex flex-wrap items-center gap-2.5"
       >
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             type="search"
             name="q"
             defaultValue={query}
             placeholder="Search name or email"
-            className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0e6b7e]"
+            className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
 
@@ -134,7 +143,7 @@ export default async function TeamPage({
           name="role"
           defaultValue={roleFilter ?? ""}
           aria-label="Filter by role"
-          className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0e6b7e]"
+          className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="">All roles</option>
           <option value="sales">Sales</option>
@@ -149,7 +158,7 @@ export default async function TeamPage({
           name="status"
           defaultValue={statusFilter ?? ""}
           aria-label="Filter by status"
-          className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0e6b7e]"
+          className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="">All statuses</option>
           <option value="active">Active</option>
@@ -175,24 +184,23 @@ export default async function TeamPage({
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-muted/50 border-b border-border text-muted-foreground font-medium">
+            <thead className="bg-muted/40 border-b border-border text-muted-foreground font-medium">
               <tr>
                 <th className="py-2.5 px-4">Name</th>
                 <th className="py-2.5 px-4">Email</th>
                 <th className="py-2.5 px-4">Role</th>
                 <th className="py-2.5 px-4">Status</th>
                 <th className="py-2.5 px-4">Last sign-in</th>
-                <th className="py-2.5 px-4 text-right">Actions</th>
-              </tr>
+                              </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {accountRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
-                    className="py-8 px-4 text-center text-muted-foreground italic"
+                    colSpan={5}
+                    className="py-12 px-4 text-center text-muted-foreground"
                   >
-                    No users found.
+                    No accounts match. Clear the search or filters to see everyone.
                   </td>
                 </tr>
               ) : (
@@ -203,18 +211,23 @@ export default async function TeamPage({
                   >
                     <td className="py-2.5 px-4 font-semibold text-foreground">
                       <div className="flex items-center gap-2">
-                        <span>{user.name || "—"}</span>
+                        <Link
+                          href={`/dashboard/team/${user.id}`}
+                          className="rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {user.name || user.email}
+                        </Link>
                         {user.id === currentUserId && (
                           <Badge
                             variant="secondary"
-                            className="text-[10px] h-5"
+                            className="h-5 text-xs"
                           >
                             You
                           </Badge>
                         )}
                       </div>
                       {user.jobTitle && (
-                        <div className="text-xs font-normal text-muted-foreground">
+                        <div className="text-sm font-normal text-muted-foreground">
                           {user.jobTitle}
                         </div>
                       )}
@@ -236,16 +249,8 @@ export default async function TeamPage({
                         mode="invite-only"
                       />
                     </td>
-                    <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
-                      Not tracked
-                    </td>
-                    <td className="py-2.5 px-4 text-right whitespace-nowrap">
-                      <Link
-                        href={`/dashboard/team/${user.id}`}
-                        className="text-sm font-semibold text-[#0e6b7e] hover:underline"
-                      >
-                        View
-                      </Link>
+                    <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap tabular-nums">
+                      {lastByUser.get(user.id) ? format(lastByUser.get(user.id)!, "MMM d, h:mm a") : "No record"}
                     </td>
                   </tr>
                 ))
@@ -253,7 +258,7 @@ export default async function TeamPage({
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-xs text-muted-foreground bg-muted/20">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm text-muted-foreground">
           <span>
             Showing {accountRows.length}{" "}
             {accountRows.length === 1 ? "account" : "accounts"} (max 100)

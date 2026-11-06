@@ -2,7 +2,6 @@ import { getAuditLogs, getSystemErrorLogs, getErrorSummaryMetrics } from "@/feat
 import { AuditLogsTable } from "@/features/audit/components/AuditLogsTable";
 import { ErrorLogsTable, SystemErrorLog } from "@/features/audit/components/ErrorLogsTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShieldCheck, Bug } from "lucide-react";
 import { auth, hasRole } from "@/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -24,39 +23,31 @@ export default async function AuditLogsPage() {
     getErrorSummaryMetrics(),
   ]);
 
+  const unresolved = metricsRes.success ? metricsRes.metrics.unresolved : 0;
+
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
-          Security, Audit & Diagnostics
-        </h1>
-        <p className="text-muted-foreground">
-          Monitor system transactions, review user activity audit trails, and inspect real-time application error logs.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Audit log</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Who did what, newest first. Entries cannot be edited or deleted.</p>
       </div>
 
-      <Tabs defaultValue="audit" className="w-full space-y-6">
-        <TabsList className="bg-muted/40 p-1 border border-border">
-          <TabsTrigger value="audit" className="flex items-center gap-2 data-[state=active]:bg-card">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            Audit Trail
+      <Tabs defaultValue="audit" className="w-full space-y-4">
+        <TabsList className="h-auto rounded-lg bg-muted p-1 ring-1 ring-inset ring-border/60">
+          <TabsTrigger value="audit" className="h-8 rounded-md px-3 text-sm font-medium data-[state=active]:bg-card data-[state=active]:ring-1 data-[state=active]:ring-border/70">
+            Audit trail
           </TabsTrigger>
-          <TabsTrigger value="errors" className="flex items-center gap-2 data-[state=active]:bg-card">
-            <Bug className="h-4 w-4 text-destructive" />
-            System Errors & Diagnostics
-            {metricsRes.success && metricsRes.metrics.unresolved > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] rounded-full bg-destructive text-destructive-foreground font-mono font-bold">
-                {metricsRes.metrics.unresolved}
-              </span>
+          <TabsTrigger value="errors" className="h-8 gap-1.5 rounded-md px-3 text-sm font-medium data-[state=active]:bg-card data-[state=active]:ring-1 data-[state=active]:ring-border/70">
+            System errors
+            {unresolved > 0 && (
+              <span className="rounded-full bg-destructive px-1.5 text-xs font-semibold leading-5 tabular-nums text-destructive-foreground">{unresolved}</span>
             )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="audit" className="space-y-4 m-0">
+        <TabsContent value="audit" className="m-0 space-y-4">
           {!auditRes.success ? (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-md">
-              Failed to load audit logs: {auditRes.message}
-            </div>
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">Failed to load audit logs: {auditRes.message}</div>
           ) : (
             <AuditLogsTable
               initialData={{
@@ -67,22 +58,16 @@ export default async function AuditLogsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="errors" className="space-y-4 m-0">
+        <TabsContent value="errors" className="m-0 space-y-4">
           {!errorRes.success ? (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-md">
-              Failed to load error logs: {errorRes.message}
-            </div>
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">Failed to load error logs: {errorRes.message}</div>
           ) : (
             <ErrorLogsTable
               initialData={{
                 logs: (errorRes.logs as SystemErrorLog[]) || [],
                 pagination: errorRes.pagination || { page: 1, totalPages: 1, total: 0, limit: 20 },
               }}
-              initialMetrics={
-                metricsRes.success
-                  ? metricsRes.metrics
-                  : { total: 0, unresolved: 0, critical: 0, high: 0 }
-              }
+              initialMetrics={metricsRes.success ? metricsRes.metrics : { total: 0, unresolved: 0, critical: 0, high: 0 }}
             />
           )}
         </TabsContent>

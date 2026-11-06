@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Clock, CheckCircle, ArrowRight, Activity, Plus, LayoutTemplate, Briefcase, Calendar } from "lucide-react";
 import { format, isToday, isTomorrow, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { SalesDashboard } from "@/features/crm/components/SalesDashboard";
+import { AdminDashboard } from "@/features/analytics/components/AdminDashboard";
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +32,16 @@ export default async function DashboardPage() {
     const isSales = hasRole(session, ["sales"]);
     const isDelivery = hasRole(session, ["manager", "developer"]);
     const canSeeAllLeads = hasRole(session, ["manager"]);
+
+    // Super Admin monitors only (mockup "Super Admin · Dashboard").
+    if (hasRole(session, ["superadmin"])) {
+        return <AdminDashboard />;
+    }
+
+    // Sales has its own home page (mockup "Ref · Sales: dashboard").
+    if (isSales && !isDelivery) {
+        return <SalesDashboard userId={currentUserId!} />;
+    }
 
     // ==========================================
     // 1. FETCH SALES & CRM DATA

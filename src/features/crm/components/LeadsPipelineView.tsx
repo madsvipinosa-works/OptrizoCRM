@@ -1,5 +1,6 @@
 "use client";
 
+import { CreateLeadModal } from "./CreateLeadModal";
 import { useState, startTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LeadsDataTable, type LeadItem } from "./LeadsDataTable";
@@ -31,7 +32,8 @@ interface LeadsPipelineViewProps {
     initialLeadId?: string;
     initialQuery?: string;
     initialStatus?: string;
-    headerActions?: ReactNode;
+    /** Sales can add an opportunity. The modal is built here, in the client tree, not passed in from the server page. */
+    canCreate?: boolean;
 }
 
 // Display names follow the mockups (step 2 / 2a); values are the stored stage names.
@@ -99,7 +101,7 @@ export function LeadsPipelineView({
     isAdmin,
     initialQuery = "",
     initialStatus = "all",
-    headerActions,
+    canCreate = false,
 }: LeadsPipelineViewProps) {
     const [leadsList, setLeadsList] = useState<LeadItem[]>(initialLeads);
     const [viewLayout, setViewLayout] = useState<"kanban" | "table">(
@@ -271,7 +273,7 @@ export function LeadsPipelineView({
                             { value: "table", label: <><LayoutList className="size-4" aria-hidden="true" />Table</> },
                         ]}
                     />
-                    {headerActions}
+                    {canCreate && <CreateLeadModal assignableUsers={assignableUsers} />}
                 </div>
             </div>
 
