@@ -169,9 +169,9 @@ export async function updateProjectStatus(projectId: string, status: "Kickoff" |
         const { notifyProjectClients } = await import("@/features/notifications/send");
         await notifyProjectClients(
             projectId,
-            `Project Status Update: "${oldProject?.title || 'Your project'}" has moved to status '${status}'.`,
+            `Your project "${oldProject?.title || "Your project"}" moved to "${status}". Open the project to see the latest progress.`,
             "project",
-            "/portal"
+            `/portal/projects/${projectId}`
         );
 
         revalidatePath("/dashboard/pm");
@@ -207,7 +207,7 @@ export async function updateProjectSettings(
             .update(agencyProjects)
             .set(updatePayload)
             .where(eq(agencyProjects.id, projectId))
-            .returning({ id: agencyProjects.id });
+            .returning({ id: agencyProjects.id, title: agencyProjects.title });
 
         await logAction(
             "UPDATE",
@@ -221,9 +221,9 @@ export async function updateProjectSettings(
             const { notifyProjectClients } = await import("@/features/notifications/send");
             await notifyProjectClients(
                 projectId,
-                `Staging Environment Updated: New preview & staging links are available for your project.`,
+                `New preview links are available for your project "${updatedProject?.title || "your project"}". Open the project to view them.`,
                 "project",
-                "/portal"
+                `/portal/projects/${projectId}`
             );
         }
 
@@ -277,7 +277,7 @@ export async function addProjectDocument(projectId: string, newDoc: ProjectDocum
                 updatedAt: new Date()
             })
             .where(eq(agencyProjects.id, projectId))
-            .returning({ id: agencyProjects.id });
+            .returning({ id: agencyProjects.id, title: agencyProjects.title });
 
         await logAction(
             "CREATE",
@@ -291,14 +291,14 @@ export async function addProjectDocument(projectId: string, newDoc: ProjectDocum
             const { notifyProjectClients } = await import("@/features/notifications/send");
             await notifyProjectClients(
                 projectId,
-                `New Resource Uploaded: The agency uploaded "${doc.title}" to your project resources.`,
+                `The team uploaded "${doc.title}" to your project "${updatedProject?.title || "your project"}". Open the project to view it.`,
                 "document",
-                "/portal"
+                `/portal/projects/${projectId}`
             );
         } else {
             const { notifyAllAdmins } = await import("@/features/notifications/send");
             await notifyAllAdmins(
-                `Client uploaded document "${doc.title}" to project resources`,
+                `The client uploaded "${doc.title}" to the project "${updatedProject?.title || "your project"}". Open the project to view it.`,
                 "document",
                 `/dashboard/pm/${projectId}`
             );

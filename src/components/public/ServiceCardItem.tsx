@@ -2,6 +2,8 @@
 
 import { useState, useActionState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { servicePageHref } from "@/lib/service-links";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -285,11 +287,23 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                     </ol>
                   </div>
 
-                  <DialogFooter className="pt-2">
+                  <DialogFooter className="pt-2 gap-2 sm:gap-2">
+                    {/* Only when they picked a service from the list ("Other" has no page). */}
+                    {servicePageHref(state.inquiryData?.serviceSlug) && (
+                      <Button
+                        asChild
+                        className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg px-6"
+                      >
+                        <Link href={servicePageHref(state.inquiryData?.serviceSlug) as string} onClick={() => setIsOpen(false)}>
+                          View your availed service
+                        </Link>
+                      </Button>
+                    )}
                     <Button
                       type="button"
+                      variant="outline"
                       onClick={() => setIsOpen(false)}
-                      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg px-6"
+                      className="w-full sm:w-auto font-semibold rounded-lg px-6"
                     >
                       Back to Services
                     </Button>

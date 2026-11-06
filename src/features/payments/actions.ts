@@ -29,6 +29,8 @@ export async function uploadPaymentProof(
     try {
         let projectId = "";
         let leadId: string | null = null;
+        let projectTitle = "the project";
+        let paymentLabelForNotice = "a payment";
 
         const txResult = await db.transaction(async (tx) => {
             // Row lock on payment
@@ -43,11 +45,12 @@ export async function uploadPaymentProof(
             }
 
             projectId = payment.projectId;
+            paymentLabelForNotice = payment.label;
 
             // Verify caller is the client for this project
             const project = await tx.query.agencyProjects.findFirst({
                 where: eq(agencyProjects.id, payment.projectId),
-                columns: { id: true, leadId: true, isArchived: true },
+                columns: { id: true, leadId: true, isArchived: true, title: true },
                 with: {
                     lead: { columns: { clientId: true } },
                     stakeholders: { columns: { userId: true } },
@@ -59,6 +62,7 @@ export async function uploadPaymentProof(
             }
 
             leadId = project.leadId;
+            projectTitle = project.title;
 
             const isClientOwner =
                 project.lead?.clientId === session.user.id ||
@@ -104,7 +108,7 @@ export async function uploadPaymentProof(
             if (leadId) {
                 await notifyLeadPms(
                     leadId,
-                    `Payment proof uploaded for project. Please review and confirm receipt.`,
+                    `The client uploaded proof for "${paymentLabelForNotice}" on the project "${projectTitle}". Open the payments page to review it and confirm receipt.`,
                     "payment",
                     `/dashboard/pm/${projectId}/payments`
                 );

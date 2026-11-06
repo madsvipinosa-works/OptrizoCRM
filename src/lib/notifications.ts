@@ -1,6 +1,17 @@
 import { db } from "@/db";
 import { logSystemError } from "@/features/audit/error-logger";
 import { sendMail } from "@/lib/mailer";
+import {
+    buildInquiryReceivedEmail,
+    buildMeetingCancelledEmail,
+    buildMeetingInviteEmail,
+    buildMeetingRescheduledEmail,
+    buildProposalSentEmail,
+    formatManilaDateTime,
+    meetingFormatLabel,
+    type ClientEmail,
+    type MeetingFormat,
+} from "@/lib/email-templates";
 
 // Email Template for New Leads
 export async function sendLeadNotification(leadData: {
@@ -255,117 +266,59 @@ export async function sendTaskBlockedEmail(clientEmails: string[], projectName: 
 }
 
 
-// Email Template for Public Inquiry Confirmation (Mockup 011-1c)
+// Public inquiry confirmation (mockup 011-1c). Content lives in src/lib/email-templates.ts.
 export async function sendInquiryConfirmationEmail(data: {
     clientName: string;
     email: string;
     businessName: string;
     serviceName: string;
+    /** Public page of the service they picked, when they picked one from the list. */
+    serviceUrl?: string | null;
+    /** Sales person's name, when one is already assigned. */
+    contactName?: string | null;
 }) {
-    try {
-        const result = await sendMail({
-            to: data.email,
-            subject: `Inquiry Received - ${data.serviceName} | Optrizo Digital Solutions`,
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #d3dce1; border-radius: 12px; background: #ffffff; color: #14202b;">
-                    <div style="font-size: 14px; font-weight: 600; color: #1c7742; background: #ddf2e6; padding: 4px 12px; border-radius: 999px; display: inline-block; margin-bottom: 16px;">
-                        Inquiry received
-                    </div>
-                    <h2 style="margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #14202b;">
-                        Thank you, ${data.businessName || data.clientName}.
-                    </h2>
-                    <p style="margin: 0 0 20px; font-size: 16px; color: #4b5a67; line-height: 1.5;">
-                        We received your request for <strong>${data.serviceName}</strong>.
-                    </p>
-                    <div style="background: #f7f9fa; border: 1px solid #d3dce1; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-                        <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600; color: #14202b;">What happens next</h3>
-                        <ol style="margin: 0; padding-left: 20px; font-size: 15px; color: #4b5a67; line-height: 1.6;">
-                            <li>Our team reviews your request.</li>
-                            <li>We contact you to set up a short meeting.</li>
-                            <li>After we meet, we send you a proposal.</li>
-                        </ol>
-                    </div>
-                    <p style="font-size: 13px; color: #7a8b98; margin: 0;">
-                        Optrizo Digital Solutions &bull; High-Performance Software Development
-                    </p>
-                </div>
-            `,
-        });
-
-        if (!result.ok && !result.skipped) {
-            console.error("Email Error sending inquiry confirmation:", result.error);
-            return { success: false, error: result.error };
-        }
-
-        return { success: true, mock: result.skipped };
-    } catch (err) {
-        console.error("Inquiry Confirmation Email Failed:", err);
-        return { success: false, error: err };
-    }
+    return sendClientEmail(
+        data.email,
+        buildInquiryReceivedEmail({
+            clientName: data.clientName,
+            businessName: data.businessName,
+            serviceName: data.serviceName,
+            serviceUrl: data.serviceUrl,
+            contactName: data.contactName,
+        }),
+        "inquiry confirmation",
+    );
 }
 
+// Meeting invite (mockup 025-4a, spec step 4). Content lives in src/lib/email-templates.ts.
+export async function sendMeetingInviteEmail(data: Parameters<typeof buildMeetingInviteEmail>[0]) {
+    return sendClientEmail(data.email, buildMeetingInviteEmail(data), "meeting invite");
+}
 
-// Meeting Invite Email (Mockup 025-4a & Spec Section 4)
-export async function sendMeetingInviteEmail(data: {
-    clientName: string;
-    email: string;
-    meetingType: string;
-    format: string;
-    startsAt: Date;
-    agenda?: string | null;
-}) {
+export async function sendMeetingRescheduledEmail(data: Parameters<typeof buildMeetingRescheduledEmail>[0]) {
+    return sendClientEmail(data.email, buildMeetingRescheduledEmail(data), "meeting rescheduled");
+}
+
+export async function sendMeetingCancelledEmail(data: Parameters<typeof buildMeetingCancelledEmail>[0]) {
+    return sendClientEmail(data.email, buildMeetingCancelledEmail(data), "meeting cancelled");
+}
+
+export async function sendProposalSentEmail(data: Parameters<typeof buildProposalSentEmail>[0] & { email: string }) {
+    return sendClientEmail(data.email, buildProposalSentEmail(data), "proposal sent");
+}
+
+async function sendClientEmail(to: string, email: ClientEmail, label: string) {
     try {
-        const formattedDate = new Intl.DateTimeFormat("en-US", {
-            dateStyle: "full",
-            timeStyle: "short",
-        }).format(data.startsAt);
-
-        const portalBaseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-        const loginUrl = `${portalBaseUrl}/login?email=${encodeURIComponent(data.email)}`;
-        const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
-
-        const result = await sendMail({
-            to: data.email,
-            subject: `Invitation: ${data.meetingType} with Optrizo (${formattedDate})`,
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #d3dce1; border-radius: 12px; background: #ffffff; color: #14202b;">
-                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #14202b;">
-                        Meeting Invitation: ${data.meetingType}
-                    </h2>
-                    <p style="margin: 0 0 16px; font-size: 15px; color: #4b5a67;">
-                        Hello ${data.clientName}, you have been invited to a ${data.meetingType.toLowerCase()} meeting with the Optrizo team.
-                    </p>
-                    <div style="background: #f7f9fa; border: 1px solid #d3dce1; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-                        <p style="margin: 0 0 8px; font-size: 14px;"><strong>Date & Time:</strong> ${formattedDate}</p>
-                        <p style="margin: 0 0 8px; font-size: 14px;"><strong>Format:</strong> ${data.format}</p>
-                        ${data.agenda ? `<p style="margin: 0; font-size: 14px;"><strong>Agenda:</strong> ${data.agenda}</p>` : ""}
-                    </div>
-                    <p style="font-size: 14px; color: #4b5a67; margin-bottom: 20px;">
-                        To confirm this meeting, suggest another time, or view your appointments online, visit the Optrizo Client Portal:
-                    </p>
-                    <div style="margin-bottom: 24px;">
-                        <a href="${appointmentsUrl}" style="background: #0e6b7e; color: #ffffff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin-right: 12px;">
-                            View in Client Portal
-                        </a>
-                        <a href="${loginUrl}" style="color: #0e6b7e; text-decoration: underline; font-size: 14px; display: inline-block; padding: 10px 0;">
-                            Create an account with this email &rarr;
-                        </a>
-                    </div>
-                    <p style="font-size: 12px; color: #7a8b98; margin: 0;">
-                        Optrizo Digital Solutions &bull; High-Performance Software Development
-                    </p>
-                </div>
-            `,
-        });
+        const result = await sendMail({ to, subject: email.subject, html: email.html, text: email.text });
 
         if (!result.ok && !result.skipped) {
-            console.error("Email Error sending meeting invite:", result.error);
+            console.error(`Email Error sending ${label}:`, result.error);
             return { success: false, error: result.error };
         }
 
         return { success: true, mock: result.skipped };
     } catch (err) {
-        console.error("Meeting Invite Email Failed:", err);
+        console.error(`Email failed (${label}):`, err);
         return { success: false, error: err };
     }
 }
@@ -375,14 +328,11 @@ export async function sendMeetingReminderEmail(data: {
     clientName: string;
     email: string;
     meetingType: string;
-    format: string;
+    format: MeetingFormat;
     startsAt: Date;
 }) {
     try {
-        const formattedDate = new Intl.DateTimeFormat("en-US", {
-            dateStyle: "full",
-            timeStyle: "short",
-        }).format(data.startsAt);
+        const formattedDate = formatManilaDateTime(data.startsAt);
 
         const portalBaseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
         const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
@@ -403,7 +353,7 @@ export async function sendMeetingReminderEmail(data: {
                     </p>
                     <div style="background: #f7f9fa; border: 1px solid #d3dce1; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                         <p style="margin: 0 0 8px; font-size: 14px;"><strong>Date & Time:</strong> ${formattedDate}</p>
-                        <p style="margin: 0; font-size: 14px;"><strong>Format:</strong> ${data.format}</p>
+                        <p style="margin: 0; font-size: 14px;"><strong>Format:</strong> ${meetingFormatLabel(data.format)}</p>
                     </div>
                     <p style="font-size: 14px; margin-bottom: 20px;">
                         <a href="${appointmentsUrl}" style="color: #0e6b7e; font-weight: 600; text-decoration: underline;">

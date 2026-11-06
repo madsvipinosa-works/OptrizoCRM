@@ -9,6 +9,8 @@ import { sendInquiryConfirmationEmail } from "@/lib/notifications";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 import { getPublishedServices as getPublishedServicesCms } from "@/features/cms/content/public-queries";
+import { getBaseUrl } from "@/lib/email-templates";
+import { servicePageHref } from "@/lib/service-links";
 
 export type IntakeFormValues = {
     businessName?: string;
@@ -38,6 +40,8 @@ export type IntakeState = {
         businessName?: string;
         clientName?: string;
         serviceName?: string;
+        /** Slug of the published service they picked. Missing when they chose "Other". */
+        serviceSlug?: string | null;
         email?: string;
     };
 };
@@ -79,12 +83,14 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             // Resolve service title - re-check serviceId against published AND showInInquiry
             let serviceTitle = data.otherServiceText || "Other";
             let validServiceId: string | null = null;
+            let serviceSlug: string | null = null;
             if (data.serviceId && data.serviceId !== "other") {
                 const inquiryServices = await getPublishedServicesCms({ forInquiry: true });
                 const foundService = inquiryServices.find((svc) => svc.id === data.serviceId);
                 if (foundService) {
                     serviceTitle = foundService.title;
                     validServiceId = foundService.id;
+                    serviceSlug = foundService.slug ?? null;
                 } else {
                     // Fall back to "Other" with otherServiceText (do not trust the client)
                     serviceTitle = data.otherServiceText || "Other";
@@ -131,11 +137,13 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             });
 
             // Send confirmation email
+            const serviceHref = servicePageHref(serviceSlug);
             await sendInquiryConfirmationEmail({
                 clientName: data.clientName,
                 email: data.email,
                 businessName: data.businessName,
                 serviceName: serviceTitle,
+                serviceUrl: serviceHref ? `${getBaseUrl()}${serviceHref}` : null,
             });
 
             return {
@@ -146,6 +154,7 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
                     businessName: data.businessName,
                     clientName: data.clientName,
                     serviceName: serviceTitle,
+                    serviceSlug,
                     email: data.email,
                 },
             };
