@@ -41,7 +41,7 @@ export default async function StaffProposalViewPage({
         redirect("/login");
     }
 
-    if (!hasRole(session, ["manager", "sales", "superadmin"])) {
+    if (!hasRole(session, ["manager", "sales"])) {
         redirect("/dashboard");
     }
 
