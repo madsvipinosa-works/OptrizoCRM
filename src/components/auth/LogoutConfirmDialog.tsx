@@ -9,7 +9,7 @@
  * the dialog cannot be dismissed and the button shows progress.
  */
 
-import { useState, useTransition } from "react";
+import { useRef, useTransition } from "react";
 import { signOut as clientSignOut } from "next-auth/react";
 import { Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ interface LogoutConfirmDialogProps {
 
 export function LogoutConfirmDialog({ open, onOpenChange, email, onConfirm = signOutEverywhere }: LogoutConfirmDialogProps) {
     const [isPending, startTransition] = useTransition();
+    const returnFocus = useRef<HTMLElement | null>(null);
 
     const confirm = () => {
         startTransition(async () => {
@@ -63,6 +64,17 @@ export function LogoutConfirmDialog({ open, onOpenChange, email, onConfirm = sig
             <DialogContent
                 showCloseButton={false}
                 className="gap-0 p-6 sm:max-w-[380px]"
+                onOpenAutoFocus={() => {
+                    // Remember what opened the dialog, to give focus back when it closes.
+                    const active = document.activeElement;
+                    returnFocus.current = active instanceof HTMLElement && active !== document.body ? active : null;
+                }}
+                onCloseAutoFocus={(e) => {
+                    if (returnFocus.current?.isConnected) {
+                        e.preventDefault();
+                        returnFocus.current.focus();
+                    }
+                }}
                 onEscapeKeyDown={(e) => isPending && e.preventDefault()}
                 onPointerDownOutside={(e) => isPending && e.preventDefault()}
             >
@@ -83,7 +95,6 @@ export function LogoutConfirmDialog({ open, onOpenChange, email, onConfirm = sig
                 <DialogFooter className="mt-6 flex-row gap-2 sm:justify-end">
                     <Button
                         variant="outline"
-                        autoFocus
                         disabled={isPending}
                         onClick={() => onOpenChange(false)}
                         className="h-10 flex-1 sm:flex-none active:scale-[0.97]"

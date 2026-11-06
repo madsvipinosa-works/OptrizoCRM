@@ -1,33 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore, type ReactElement } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-    FileText,
-    Calendar,
-    Settings,
-    Mail,
     BarChart3,
-    Users,
-    KanbanSquare,
-    Menu,
-    Shield,
-    ShieldAlert,
-    LogOut,
-    HelpCircle,
-    Monitor,
-    Layers,
-    FolderGit2,
-    Search,
-    Sparkles,
+    CalendarDays,
     CheckCircle2,
+    ContactRound,
+    FileBarChart,
+    FileText,
+    Files,
+    FolderGit2,
+    FolderKanban,
+    KanbanSquare,
+    Layers,
+    LayoutDashboard,
+    LogOut,
+    Mail,
+    Menu,
+    Monitor,
+    PanelLeftClose,
+    PanelLeftOpen,
+    Settings,
+    Shield,
+    ScrollText,
+    Users,
+    type LucideIcon,
 } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
-import { UserWidget } from "@/components/admin/UserWidget";
+import { NotificationsNavLink } from "@/components/admin/NotificationsNavLink";
+import { UserWidget, getRoleLabel } from "@/components/admin/UserWidget";
 import { CommandPalette } from "@/components/admin/CommandPalette";
 import { LogoutConfirmDialog } from "@/components/auth/LogoutConfirmDialog";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -35,7 +43,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 interface NavItem {
     href: string;
     label: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: LucideIcon;
     allowedRoles: string[];
 }
 
@@ -48,55 +56,90 @@ const navGroups: NavGroup[] = [
     {
         title: "Overview",
         items: [
-            { href: "/dashboard", label: "Dashboard", icon: Sparkles, allowedRoles: ["sales", "manager"] },
+            { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, allowedRoles: ["superadmin", "sales", "manager"] },
             { href: "/dashboard/my-tasks", label: "My tasks", icon: CheckCircle2, allowedRoles: ["developer"] },
         ],
     },
     {
         title: "Growth & CRM",
         items: [
-            { href: "/dashboard/analytics", label: "Analytics & Reports", icon: BarChart3, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/reports", label: "Reports", icon: FileBarChart, allowedRoles: ["superadmin"] },
             { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["sales"] },
-            { href: "/dashboard/contacts", label: "Contacts", icon: Users, allowedRoles: ["sales"] },
+            { href: "/dashboard/contacts", label: "Contacts", icon: ContactRound, allowedRoles: ["sales"] },
             { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["sales"] },
-            { href: "/dashboard/meetings", label: "Meetings", icon: Calendar, allowedRoles: ["sales", "manager"] },
+            { href: "/dashboard/meetings", label: "Meetings", icon: CalendarDays, allowedRoles: ["sales", "manager"] },
             { href: "/dashboard/proposals", label: "Proposals & SOWs", icon: FileText, allowedRoles: ["sales", "manager"] },
         ],
     },
     {
-        title: "Operations & Content",
+        title: "Operations & content",
         items: [
-            { href: "/dashboard/pm", label: "Projects", icon: KanbanSquare, allowedRoles: ["manager", "developer"] },
+            { href: "/dashboard/pm", label: "Projects", icon: FolderKanban, allowedRoles: ["manager", "developer"] },
             { href: "/dashboard/cms", label: "Content Home", icon: Monitor, allowedRoles: ["content_editor"] },
             { href: "/dashboard/services", label: "Services", icon: Layers, allowedRoles: ["content_editor"] },
             { href: "/dashboard/portfolio", label: "Portfolio", icon: FolderGit2, allowedRoles: ["content_editor"] },
-            { href: "/dashboard/pages", label: "Pages", icon: FileText, allowedRoles: ["content_editor"] },
+            { href: "/dashboard/pages", label: "Pages", icon: Files, allowedRoles: ["content_editor"] },
         ],
     },
     {
-        title: "System Administration",
+        title: "System administration",
         items: [
-            { href: "/dashboard/team", label: "Team", icon: Users, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/team", label: "Users", icon: Users, allowedRoles: ["superadmin"] },
             { href: "/dashboard/roles", label: "Roles", icon: Shield, allowedRoles: ["superadmin"] },
-            { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ["superadmin"] },
-            { href: "/dashboard/audit", label: "Audit Logs", icon: ShieldAlert, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/audit", label: "Audit Logs", icon: ScrollText, allowedRoles: ["superadmin"] },
         ],
     },
 ];
 
-export function AdminSidebar({ user }: { user?: { name?: string | null; email?: string | null; image?: string | null; role?: string | null } }) {
+/** Account-level utilities live in the footer, beside dark mode and log out. */
+const footerLinks: NavItem[] = [
+    { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ["superadmin"] },
+];
+
+const subscribeNoop = () => () => {};
+
+/** Row styles shared by nav links, footer links and footer buttons. 44px on touch, 36px with a mouse. */
+const rowBase =
+    "relative flex h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium outline-none transition-[color,background-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] md:h-9";
+const rowIdle = "text-muted-foreground hover:bg-muted hover:text-foreground";
+/** The rail: a 36px square, centred. */
+const rowRail = "md:mx-auto md:w-9 md:justify-center md:px-0";
+
+/** A tooltip that only opens while the sidebar is a rail, where the label is hidden. */
+function RailTip({ label, enabled, children }: { label: string; enabled: boolean; children: ReactElement }) {
+    return (
+        <Tooltip open={enabled ? undefined : false}>
+            <TooltipTrigger asChild>{children}</TooltipTrigger>
+            {/* 20px: clears the panel's own 12px padding and border so the tooltip floats beside the rail. */}
+            <TooltipContent side="right" sideOffset={20}>
+                {label}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
+
+export function AdminSidebar({
+    user,
+    expanded = true,
+    onToggleExpanded,
+}: {
+    user?: { name?: string | null; email?: string | null; image?: string | null; role?: string | null };
+    /** Open (labels shown) or a narrow icon rail. Changed only by the toggle button; the page moves with it. */
+    expanded?: boolean;
+    onToggleExpanded?: () => void;
+}) {
     const pathname = usePathname();
+    const reduceMotion = useReducedMotion();
     const [open, setOpen] = useState(false);
+    // The palette stays mounted for its Ctrl/Cmd + K shortcut. The sidebar no longer has a button for it.
     const [cmdOpen, setCmdOpen] = useState(false);
     const [logoutOpen, setLogoutOpen] = useState(false);
-    const [isMounted, setIsMounted] = useState(false);
+    const isMounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
+
     const userRole = user?.role || "user";
 
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    // Filter items and exclude empty groups dynamically based on RBAC
+    // Filter items and exclude empty groups based on the role (the server enforces access too).
     const filteredNavGroups = navGroups
         .map((group) => ({
             ...group,
@@ -104,133 +147,202 @@ export function AdminSidebar({ user }: { user?: { name?: string | null; email?: 
         }))
         .filter((group) => group.items.length > 0);
 
-    const renderNavContent = () => (
-        <div className="px-3 py-6 h-full flex flex-col bg-card dark:bg-[#070907] border-r border-border text-foreground transition-colors duration-300">
-            {/* Top User Widget */}
-            <div className="mb-6 px-1 shrink-0 flex items-center justify-between gap-2 min-w-0 overflow-hidden">
-                <UserWidget user={user} />
-                <div className="hidden md:block shrink-0">
-                    <NotificationBell />
-                </div>
-            </div>
+    // Whole path segments only: /dashboard/pm must not light up for /dashboard/pmx.
+    const isActive = (href: string) =>
+        href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 
-            {/* Command Palette Trigger Button */}
-            <div className="px-1 mb-4">
-                <button
-                    onClick={() => setCmdOpen(true)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 border border-border rounded-xl text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer"
-                >
-                    <span className="flex items-center gap-2">
-                        <Search className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                        <span>Quick Search...</span>
-                    </span>
-                    <kbd className="inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground group-hover:text-foreground">
-                        ⌘K
-                    </kbd>
-                </button>
-            </div>
+    /**
+     * The panel's contents. `scope` keeps the sliding marker of the desktop and mobile copies apart.
+     * Only the desktop copy can be a rail; the phone sheet is always full.
+     */
+    const renderNavContent = (scope: "desktop" | "mobile") => {
+        const rail = scope === "desktop" && !expanded;
+        const railRow = rail ? rowRail : "";
 
-            {/* Categorized Navigation Groups */}
-            <nav className="space-y-6 flex-1 overflow-y-auto override-scrollbar pr-1">
-                {filteredNavGroups.map((group) => (
-                    <div key={group.title} className="space-y-1">
-                        <div className="px-3 mb-2 text-[10px] font-mono font-bold tracking-[0.18em] text-muted-foreground uppercase">
-                            {group.title}
-                        </div>
-                        {group.items.map((item) => {
-                            const isActive = item.href === "/dashboard"
-                                ? pathname === "/dashboard"
-                                : pathname.startsWith(item.href);
-
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    onClick={() => setOpen(false)}
-                                    className={cn(
-                                        "flex items-center gap-3.5 px-3.5 py-2.5 text-sm font-semibold rounded-xl transition-all group border-l-2",
-                                        isActive
-                                            ? "border-primary bg-primary/10 text-foreground shadow-[inset_0_0_20px_rgba(0,214,57,0.05)]"
-                                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                                    )}
+        return (
+            <div className="flex h-full min-h-0 flex-col text-foreground">
+                {/* The signed-in user stays at the top. The toggle sits beside it (Linear and Vercel keep theirs there); in the rail it drops under the avatar. */}
+                <div className={cn("flex shrink-0 p-3 pb-2", rail ? "flex-col items-center gap-0.5" : "items-center gap-1")}>
+                    {rail ? (
+                        <RailTip label={`${user?.name || user?.email || "Account"} · ${getRoleLabel(user?.role)}`} enabled>
+                            <div>
+                                <UserWidget user={user} compact />
+                            </div>
+                        </RailTip>
+                    ) : (
+                        <UserWidget user={user} />
+                    )}
+                    {scope === "desktop" && onToggleExpanded && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    type="button"
+                                    onClick={onToggleExpanded}
+                                    aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+                                    className={cn("flex shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground outline-none transition-[color,background-color,transform] duration-150 ease-out hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]", rail ? "size-9" : "size-8")}
                                 >
-                                    <item.icon
-                                        className={cn(
-                                            "h-4 w-4 transition-colors",
-                                            isActive
-                                                ? "text-primary"
-                                                : "text-muted-foreground group-hover:text-foreground"
+                                    {expanded ? (
+                                        <PanelLeftClose className="size-4" strokeWidth={1.75} aria-hidden="true" />
+                                    ) : (
+                                        <PanelLeftOpen className="size-4" strokeWidth={1.75} aria-hidden="true" />
+                                    )}
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side={rail ? "right" : "bottom"} sideOffset={rail ? 20 : 4}>
+                                {expanded ? "Collapse sidebar" : "Expand sidebar"}
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+                </div>
+
+                <nav aria-label="Main" className="override-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
+                    {/* Notifications sits first, unlabelled: one row does not need a heading. A count (a dot in the rail) shows when something is new. */}
+                    <div>
+                        {rail && <div aria-hidden="true" className="mx-2 mb-1 mt-1 h-px bg-border" />}
+                        <NotificationsNavLink
+                            rail={rail}
+                            active={isActive("/dashboard/notifications")}
+                            scope={scope}
+                            onNavigate={() => setOpen(false)}
+                            rowClass={cn(rowBase, railRow)}
+                            idleClass={rowIdle}
+                        />
+                    </div>
+                    {filteredNavGroups.map((group) => {
+                        return (
+                            <div key={group.title}>
+                                {rail ? (
+                                    <div aria-hidden="true" className="mx-2 my-1.5 h-px bg-border" />
+                                ) : (
+                                    <p className="px-2.5 pb-1.5 pt-4 text-xs font-medium text-muted-foreground">{group.title}</p>
+                                )}
+                                <div className={cn("space-y-0.5", rail && "pt-1")}>
+                                    {group.items.map((item) => {
+                                        const active = isActive(item.href);
+                                        return (
+                                            <RailTip key={item.href} label={item.label} enabled={rail}>
+                                                <Link
+                                                    href={item.href}
+                                                    aria-current={active ? "page" : undefined}
+                                                    onClick={() => setOpen(false)}
+                                                    className={cn(rowBase, railRow, active ? "text-foreground" : rowIdle)}
+                                                >
+                                                    {/* The active tint takes the group's hue, like the stage chips on the board. It slides between rows. */}
+                                                    {active && (
+                                                        <motion.span
+                                                            layoutId={`sidebar-active-${scope}`}
+                                                            aria-hidden="true"
+                                                            transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                                                            className="absolute inset-0 rounded-lg bg-brand-soft"
+                                                        />
+                                                    )}
+                                                    <item.icon className={cn("relative size-4 shrink-0", active && "text-brand-deep")} strokeWidth={1.75} aria-hidden="true" />
+                                                    {/* Hidden visually in the rail, but still the link's accessible name. */}
+                                                    <span className={cn("truncate", rail ? "sr-only" : "relative")}>{item.label}</span>
+                                                </Link>
+                                            </RailTip>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </nav>
+
+                <div className="shrink-0 space-y-0.5 border-t border-border p-3">
+                    {footerLinks
+                        .filter((item) => item.allowedRoles.includes(userRole))
+                        .map((item) => {
+                            const active = isActive(item.href);
+                            return (
+                                <RailTip key={item.href} label={item.label} enabled={rail}>
+                                    <Link
+                                        href={item.href}
+                                        aria-current={active ? "page" : undefined}
+                                        onClick={() => setOpen(false)}
+                                        className={cn(rowBase, railRow, active ? "text-foreground" : rowIdle)}
+                                    >
+                                        {active && (
+                                            <motion.span
+                                                layoutId={`sidebar-active-${scope}`}
+                                                aria-hidden="true"
+                                                transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                                                className="absolute inset-0 rounded-lg bg-brand-soft"
+                                            />
                                         )}
-                                    />
-                                    <span>{item.label}</span>
-                                </Link>
+                                        <item.icon className={cn("relative size-4 shrink-0", active && "text-brand-deep")} strokeWidth={1.75} aria-hidden="true" />
+                                        <span className={cn("truncate", rail ? "sr-only" : "relative")}>{item.label}</span>
+                                    </Link>
+                                </RailTip>
                             );
                         })}
-                    </div>
-                ))}
-            </nav>
-
-            {/* Bottom Actions & Theme Switcher */}
-            <div className="mt-auto shrink-0 space-y-1.5 pt-4 pb-2 border-t border-border mx-1">
-                {/* Tactical Alabaster / Noir Theme Toggle */}
-                <ThemeToggle variant="pill" className="mb-1" />
-
-                <Link
-                    href="/portal/services"
-                    className="flex items-center gap-3.5 px-3.5 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group rounded-xl hover:bg-muted/50 border-l-2 border-transparent"
-                >
-                    <HelpCircle className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                    Client Portal
-                </Link>
-                <button
-                        type="button"
-                        onClick={() => setLogoutOpen(true)}
-                        className="flex w-full items-center gap-3.5 px-3.5 py-2.5 text-sm font-semibold text-muted-foreground hover:text-red-500 transition-colors focus:outline-none group rounded-xl hover:bg-red-500/10 border-l-2 border-transparent cursor-pointer"
-                    >
-                        <LogOut className="h-4 w-4 scale-x-[-1] text-muted-foreground group-hover:text-red-500 transition-colors" />
-                        Log out
-                    </button>
+                    <RailTip label="Dark mode" enabled={rail}>
+                        <div className={cn(rail && "flex justify-center")}>
+                            <ThemeToggle variant="row" compact={rail} />
+                        </div>
+                    </RailTip>
+                    <RailTip label="Log out" enabled={rail}>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setOpen(false);
+                                setLogoutOpen(true);
+                            }}
+                            className={cn(rowBase, rowIdle, railRow, "cursor-pointer")}
+                        >
+                            <LogOut className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                            <span className={cn("truncate", rail && "sr-only")}>Log out</span>
+                        </button>
+                    </RailTip>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <>
-            <LogoutConfirmDialog open={logoutOpen} onOpenChange={setLogoutOpen} />
+            <LogoutConfirmDialog open={logoutOpen} onOpenChange={setLogoutOpen} email={user?.email} />
 
-            {/* Command Palette Modal */}
+            {/* Command palette: opens with Ctrl/Cmd + K */}
             <CommandPalette open={cmdOpen} setOpen={setCmdOpen} userRole={userRole} />
 
-            {/* Desktop Sidebar */}
-            <aside className="w-64 border-r border-border bg-card dark:bg-[#070907] h-screen fixed left-0 top-0 hidden md:block z-40 transition-colors duration-300">
-                {renderNavContent()}
+            {/* Desktop: a panel inset 12px from the window. 232px open, 62px as an icon rail. The toggle button switches it. */}
+            <aside
+                aria-label="Sidebar"
+                className={cn(
+                    "fixed bottom-3 left-3 top-3 z-40 hidden overflow-hidden rounded-2xl border border-border bg-card md:block print:hidden",
+                    "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                    expanded ? "w-[232px]" : "w-[62px]"
+                )}
+            >
+                {renderNavContent("desktop")}
             </aside>
 
-            {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 left-0 w-full h-16 border-b border-border bg-card dark:bg-[#070907] z-50 flex items-center px-4 justify-between transition-colors duration-300">
+            {/* Mobile header */}
+            <div className="fixed left-0 top-0 z-50 flex h-16 w-full items-center justify-between border-b border-border bg-card px-4 md:hidden print:hidden">
                 <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#00D639]" />
-                    <h2 className="text-base font-bold tracking-tight text-foreground">Optrizo CRM</h2>
+                    <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
+                    <h2 className="text-base font-semibold tracking-tight text-foreground">Optrizo CRM</h2>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                     <NotificationBell />
                     {isMounted ? (
                         <Sheet open={open} onOpenChange={setOpen}>
                             <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon" className="shrink-0 text-foreground hover:bg-muted">
-                                    <Menu className="h-5 w-5" />
-                                    <span className="sr-only">Toggle navigation menu</span>
+                                <Button variant="ghost" size="icon" className="size-11 shrink-0 text-foreground hover:bg-muted">
+                                    <Menu className="size-5" />
+                                    <span className="sr-only">Open navigation menu</span>
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="left" className="w-64 p-0 bg-card dark:bg-[#070907] border-r border-border">
-                                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-                                {renderNavContent()}
+                            <SheetContent side="left" className="w-72 border-r border-border bg-card p-0">
+                                <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+                                {renderNavContent("mobile")}
                             </SheetContent>
                         </Sheet>
                     ) : (
-                        <Button variant="ghost" size="icon" className="shrink-0 text-foreground hover:bg-muted">
-                            <Menu className="h-5 w-5" />
-                            <span className="sr-only">Toggle navigation menu</span>
+                        <Button variant="ghost" size="icon" className="size-11 shrink-0 text-foreground hover:bg-muted">
+                            <Menu className="size-5" />
+                            <span className="sr-only">Open navigation menu</span>
                         </Button>
                     )}
                 </div>

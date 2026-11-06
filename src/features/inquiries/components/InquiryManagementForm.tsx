@@ -83,13 +83,13 @@ export function InquiryManagementForm({ inquiry, teamMembers }: InquiryManagemen
     };
 
     return (
-        <div className="space-y-4 pt-4 border-t border-border mt-4">
-            <h4 className="text-sm font-medium text-foreground uppercase tracking-wider mb-2">Internal Management</h4>
+        <div className="mt-4 space-y-4 border-t border-border pt-4">
+            <h3 className="text-sm font-semibold text-foreground">Internal management</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground flex items-center gap-1">
-                        <User className="w-3 h-3" /> Assign To
+                    <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <User className="size-3.5" aria-hidden="true" /> Assigned to
                     </label>
                     <Select value={ownerId} onValueChange={handleAssign} disabled={isPending}>
                         <SelectTrigger className="w-full">
@@ -112,8 +112,8 @@ export function InquiryManagementForm({ inquiry, teamMembers }: InquiryManagemen
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Activity className="w-3 h-3" /> Next Action
+                    <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Activity className="size-3.5" aria-hidden="true" /> Next action
                     </label>
                     <div className="flex gap-2">
                         <Textarea 
@@ -142,12 +142,12 @@ export function InquiryManagementForm({ inquiry, teamMembers }: InquiryManagemen
                         variant={isHandled ? "outline" : "default"}
                         onClick={handleToggleHandled}
                         disabled={isPending || inquiry.status === "Archived"}
-                        className={isHandled ? "text-muted-foreground" : "bg-green-600 hover:bg-green-700 text-white"}
+                        className={isHandled ? "text-muted-foreground" : undefined}
                     >
                         <Check className="w-4 h-4 mr-2" />
                         {inquiry.status === "Archived" ? "Converted / archived" : isHandled ? "Reopen inquiry" : "Mark as handled"}
                     </Button>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         {inquiry.status === "Archived"
                             ? "This inquiry was converted to a lead and remains in the handled / converted tab."
                             : "Handled means no further action is currently needed. You can reopen it later."}

@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
-import { ChevronLeft, ChevronRight, RefreshCw, ShieldAlert, FilterX } from "lucide-react";
+import { FilterX, RefreshCw } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
 type AuditLog = {
@@ -74,172 +72,122 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
         setDateRange(undefined);
     };
 
-    const actionColors: Record<string, string> = {
-        CREATE: "bg-green-500/10 text-green-500 border-green-500/20",
-        UPDATE: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-        DELETE: "bg-red-500/10 text-red-500 border-red-500/20",
-        LOGIN: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-        OTHER: "bg-gray-500/10 text-gray-500 border-gray-500/20"
+    const VERB: Record<string, string> = { CREATE: "Created", UPDATE: "Updated", DELETE: "Deleted", LOGIN: "Signed in", OTHER: "Activity" };
+    const ROLE: Record<string, string> = {
+        superadmin: "Super admin",
+        sales: "Sales",
+        manager: "Project manager",
+        developer: "Developer",
+        content_editor: "Content editor",
+        client: "Client",
     };
+    const filtered = actionFilter !== "ALL" || roleFilter !== "ALL" || dateRange !== undefined;
+    const first = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
+    const last = Math.min(pagination.page * pagination.limit, pagination.total);
 
     return (
-        <Card className="glass-card border-border mt-6">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <CardTitle className="flex items-center gap-2 text-xl text-foreground">
-                        <ShieldAlert className="h-5 w-5 text-destructive" /> System Audit Trail
-                    </CardTitle>
-                    <CardDescription className="text-muted-foreground">
-                        Immutable ledger of all system transactions and administrative actions.
-                    </CardDescription>
-                </div>
-                <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => fetchLogs(pagination.page)}
-                    disabled={loading}
-                    className="border-border hover:bg-muted text-foreground"
-                >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2.5">
+                <Select value={actionFilter} onValueChange={setActionFilter}>
+                    <SelectTrigger aria-label="Filter by action" className="h-10 w-full bg-card sm:w-[160px]">
+                        <SelectValue placeholder="Action" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ALL">All actions</SelectItem>
+                        <SelectItem value="CREATE">Created</SelectItem>
+                        <SelectItem value="UPDATE">Updated</SelectItem>
+                        <SelectItem value="DELETE">Deleted</SelectItem>
+                        <SelectItem value="LOGIN">Signed in</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger aria-label="Filter by role" className="h-10 w-full bg-card sm:w-[170px]">
+                        <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ALL">All roles</SelectItem>
+                        {Object.entries(ROLE).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                                {label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                <DatePickerWithRange date={dateRange} setDate={setDateRange} className="w-full sm:w-auto" />
+
+                {filtered && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+                        <FilterX className="mr-1 size-4" aria-hidden="true" /> Clear
+                    </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => fetchLogs(pagination.page)} disabled={loading} className="ml-auto h-10">
+                    <RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
                     Refresh
                 </Button>
-            </CardHeader>
-            <CardContent>
-                
-                {/* Advanced Filters */}
-                <div className="flex flex-wrap items-center gap-3 mb-6 p-4 rounded-lg bg-muted/20 border border-border">
-                    <div className="w-full sm:w-auto">
-                        <Select value={actionFilter} onValueChange={setActionFilter}>
-                            <SelectTrigger className="w-full sm:w-[150px] bg-background border-border text-foreground">
-                                <SelectValue placeholder="Action" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-card border-border text-foreground">
-                                <SelectItem value="ALL">All Actions</SelectItem>
-                                <SelectItem value="CREATE">Create</SelectItem>
-                                <SelectItem value="UPDATE">Update</SelectItem>
-                                <SelectItem value="DELETE">Delete</SelectItem>
-                                <SelectItem value="LOGIN">Login</SelectItem>
-                                <SelectItem value="OTHER">Other</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+            </div>
 
-                    <div className="w-full sm:w-auto">
-                        <Select value={roleFilter} onValueChange={setRoleFilter}>
-                            <SelectTrigger className="w-full sm:w-[160px] bg-background border-border text-foreground">
-                                <SelectValue placeholder="Role" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-card border-border text-foreground">
-                                <SelectItem value="ALL">All Roles</SelectItem>
-                                <SelectItem value="superadmin">Superadmin</SelectItem>
-                                <SelectItem value="manager">Manager</SelectItem>
-                                <SelectItem value="sales">Sales</SelectItem>
-                                <SelectItem value="developer">Developer</SelectItem>
-                                <SelectItem value="client">Client</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="w-full sm:w-auto min-w-0">
-                        <DatePickerWithRange date={dateRange} setDate={setDateRange} className="w-full sm:w-auto" />
-                    </div>
-
-                    {(actionFilter !== "ALL" || roleFilter !== "ALL" || dateRange !== undefined) && (
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={clearFilters}
-                            className="text-muted-foreground hover:text-foreground hover:bg-muted"
-                        >
-                            <FilterX className="h-4 w-4 mr-1" /> Clear
-                        </Button>
-                    )}
-                </div>
-
-                {/* Table */}
-                <div className="rounded-md border border-border overflow-hidden bg-card/60">
-                    <Table>
-                        <TableHeader className="bg-muted/40 border-b border-border">
-                            <TableRow className="hover:bg-transparent">
-                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Timestamp</TableHead>
-                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Actor</TableHead>
-                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Action</TableHead>
-                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Entity</TableHead>
-                                <TableHead className="text-muted-foreground font-mono text-xs uppercase">Details</TableHead>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="border-border bg-muted/40 hover:bg-muted/40">
+                            <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">When</TableHead>
+                            <TableHead className="h-11 text-xs font-medium text-muted-foreground">Who</TableHead>
+                            <TableHead className="h-11 text-xs font-medium text-muted-foreground">Action</TableHead>
+                            <TableHead className="hidden h-11 pr-5 text-xs font-medium text-muted-foreground md:table-cell">Details</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {logs.map((log) => (
+                            <TableRow key={log.id} className="border-border">
+                                <TableCell className="whitespace-nowrap py-3 pl-5 text-sm tabular-nums text-muted-foreground">
+                                    <time dateTime={new Date(log.createdAt).toISOString()}>{format(new Date(log.createdAt), "MMM d, h:mm a")}</time>
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap py-3 text-sm text-foreground">
+                                    {log.user ? (
+                                        <>
+                                            {log.user.name || "Unknown"}
+                                            {log.user.role && <span className="text-muted-foreground"> · {ROLE[log.user.role] ?? log.user.role}</span>}
+                                        </>
+                                    ) : (
+                                        <span className="text-muted-foreground">System · automatic</span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="py-3 text-sm">
+                                    <span className={log.action === "DELETE" ? "font-semibold text-destructive" : "font-semibold text-foreground"}>{VERB[log.action] ?? "Activity"}</span>
+                                    <span className="text-muted-foreground"> · {log.entity}</span>
+                                </TableCell>
+                                <TableCell className="hidden max-w-[360px] truncate py-3 pr-5 text-sm text-muted-foreground md:table-cell" title={log.details || ""}>
+                                    {log.details || "–"}
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {logs.map((log) => (
-                                <TableRow key={log.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                        {format(new Date(log.createdAt), "MMM d, yyyy HH:mm:ss")}
-                                    </TableCell>
-                                    <TableCell className="font-medium text-sm whitespace-nowrap text-foreground">
-                                        {log.user ? (
-                                            <div className="flex flex-col gap-0.5">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span>{log.user.name || "Unknown Admin"}</span>
-                                                    {log.user.role && (
-                                                        <Badge variant="secondary" className="text-[9px] uppercase h-4 px-1">{log.user.role}</Badge>
-                                                    )}
-                                                </div>
-                                                <span className="text-[10px] text-muted-foreground font-mono">{log.user.email}</span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground italic text-xs">System / Deleted User</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className={`text-[10px] font-mono ${actionColors[log.action] || actionColors.OTHER}`}>
-                                            {log.action}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-xs font-semibold text-foreground font-mono">
-                                        {log.entity}
-                                    </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate" title={log.details || ""}>
-                                        {log.details || "-"}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {logs.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                                        No audit records found matching the current filters.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                {/* Pagination Controls */}
-                <div className="flex items-center justify-between mt-4">
-                    <div className="text-xs text-muted-foreground">
-                        Showing page {pagination.page} of {pagination.totalPages || 1} ({pagination.total} total records)
-                    </div>
+                        ))}
+                        {logs.length === 0 && (
+                            <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={4} className="px-5 py-14 text-center">
+                                    <p className="text-sm font-medium text-foreground">{filtered ? "No entries match these filters." : "Nothing has been recorded yet."}</p>
+                                    {filtered && <p className="mt-1 text-sm text-muted-foreground">Clear the filters to see everything.</p>}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+                <div className="flex items-center justify-between border-t border-border px-5 py-3">
+                    <p className="text-sm text-muted-foreground">
+                        {first}–{last} of {pagination.total} entries
+                    </p>
                     <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fetchLogs(pagination.page - 1)}
-                            disabled={pagination.page <= 1 || loading}
-                            className="border-border hover:bg-muted text-foreground h-8"
-                        >
-                            <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                        <Button variant="outline" size="sm" onClick={() => fetchLogs(pagination.page - 1)} disabled={pagination.page <= 1 || loading}>
+                            Previous
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fetchLogs(pagination.page + 1)}
-                            disabled={pagination.page >= pagination.totalPages || loading}
-                            className="border-border hover:bg-muted text-foreground h-8"
-                        >
-                            Next <ChevronRight className="h-4 w-4 ml-1" />
+                        <Button variant="outline" size="sm" onClick={() => fetchLogs(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages || loading}>
+                            Next
                         </Button>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }

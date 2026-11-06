@@ -9,9 +9,8 @@ import { useActionState, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { Plus, X, Trash2, HelpCircle, Sparkles, ExternalLink, Mail, ShieldCheck, ArrowRight, Info } from "lucide-react";
+import { Plus, X, Trash2, HelpCircle, Mail, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 
 interface SiteSettings {
     logoUrl?: string | null;
@@ -100,47 +99,11 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
     };
 
     return (
-        <div className="space-y-8 max-w-5xl">
-            {/* Quick Content Navigation Shortcuts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between gap-4 group hover:border-primary/40 transition-all">
-                    <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                            <h4 className="text-sm font-semibold text-foreground">Homepage Hero & Media</h4>
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                            Hero headline, tagline, and homepage demo video are managed in the CMS module.
-                        </p>
-                    </div>
-                    <Button asChild size="sm" variant="outline" className="border-border text-foreground shrink-0 group-hover:border-primary/50">
-                        <Link href="/dashboard/cms">
-                            Open CMS <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                        </Link>
-                    </Button>
-                </div>
-
-                <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between gap-4 group hover:border-primary/40 transition-all">
-                    <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <Info className="w-4 h-4 text-purple-400 shrink-0" />
-                            <h4 className="text-sm font-semibold text-foreground">About Section & Bento Layout</h4>
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                            Company stats, mission statement, tech stack, and core values are managed in Content Manager.
-                        </p>
-                    </div>
-                    <Button asChild size="sm" variant="outline" className="border-border text-foreground shrink-0 group-hover:border-purple-400/50">
-                        <Link href="/dashboard/cms">
-                            Open CMS <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                        </Link>
-                    </Button>
-                </div>
-            </div>
+        <div className="space-y-6">
 
             <form action={formAction} className="space-y-8">
                 {/* Branding & Contact Settings Card */}
-                <Card className="glass-card border-border">
+                <Card className="border-border bg-card">
                     <CardHeader>
                         <CardTitle className="text-foreground flex items-center gap-2">
                             <ShieldCheck className="w-5 h-5 text-primary" />
@@ -237,7 +200,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                 </Card>
 
                 {/* Contact Page FAQs Card */}
-                <Card className="glass-card border-border">
+                <Card className="border-border bg-card">
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                             <CardTitle className="text-foreground flex items-center gap-2">
@@ -248,7 +211,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                                 These questions and answers are presented in the dedicated FAQ accordion below the contact form on <code className="text-primary font-mono text-xs">/contact</code>.
                             </CardDescription>
                         </div>
-                        <Badge variant="outline" className="border-border w-fit font-mono text-xs">
+                        <Badge variant="outline" className="border-border w-fit text-xs">
                             {faqs.length} / 10 FAQs
                         </Badge>
                     </CardHeader>
@@ -257,12 +220,12 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
 
                         {faqs.map((faq, index) => (
                             <div key={index} className="flex gap-4 items-start border border-border p-4 rounded-xl bg-card/60 relative group">
-                                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 text-primary font-mono text-xs font-bold shrink-0 mt-1">
-                                    {String(index + 1).padStart(2, "0")}
+                                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-soft text-brand-deep text-xs font-semibold tabular-nums shrink-0 mt-1">
+                                    {index + 1}
                                 </div>
                                 <div className="flex-1 space-y-3">
                                     <div className="space-y-1.5">
-                                        <Label className="text-foreground text-xs font-semibold uppercase tracking-wider">Question</Label>
+                                        <Label className="text-foreground text-sm font-medium">Question</Label>
                                         <Input
                                             value={faq.question}
                                             onChange={(e) => updateFaq(index, "question", e.target.value)}
@@ -271,7 +234,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label className="text-foreground text-xs font-semibold uppercase tracking-wider">Answer</Label>
+                                        <Label className="text-foreground text-sm font-medium">Answer</Label>
                                         <Textarea
                                             value={faq.answer}
                                             onChange={(e) => updateFaq(index, "answer", e.target.value)}
@@ -312,7 +275,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                 </Card>
 
                 <div className="flex justify-end pt-2">
-                    <Button type="submit" size="lg" disabled={isPending} className="bg-primary text-black font-bold hover:bg-primary/90 min-w-[200px] shadow-lg shadow-primary/20">
+                    <Button type="submit" size="lg" disabled={isPending} className="min-w-[200px] font-semibold">
                         {isPending ? "Saving Settings..." : "Save System Settings"}
                     </Button>
                 </div>

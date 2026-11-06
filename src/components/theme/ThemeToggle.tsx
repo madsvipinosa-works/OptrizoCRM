@@ -5,11 +5,13 @@ import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
-    variant?: "icon" | "pill";
+    variant?: "icon" | "pill" | "row";
+    /** Row variant only: show just the icon (for a collapsed sidebar). */
+    compact?: boolean;
     className?: string;
 }
 
-export function ThemeToggle({ variant = "icon", className }: ThemeToggleProps) {
+export function ThemeToggle({ variant = "icon", compact = false, className }: ThemeToggleProps) {
     const [isDark, setIsDark] = useState<boolean>(false);
     const [mounted, setMounted] = useState<boolean>(false);
 
@@ -86,6 +88,9 @@ export function ThemeToggle({ variant = "icon", className }: ThemeToggleProps) {
 
     if (!mounted) {
         // Render neutral placeholder to prevent layout shift during SSR
+        if (variant === "row") {
+            return <div className={cn("h-9 opacity-0", compact ? "w-9" : "w-full", className)} />;
+        }
         if (variant === "pill") {
             return (
                 <div
@@ -103,6 +108,42 @@ export function ThemeToggle({ variant = "icon", className }: ThemeToggleProps) {
                     className
                 )}
             />
+        );
+    }
+
+    if (variant === "row") {
+        // A plain settings-style row: icon, label, and a switch that shows the state.
+        return (
+            <button
+                type="button"
+                role="switch"
+                aria-checked={isDark}
+                aria-label={compact ? "Dark mode" : undefined}
+                onClick={toggleTheme}
+                className={cn(
+                    "group flex h-11 items-center gap-2.5 rounded-lg text-sm font-medium text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:h-9",
+                    compact ? "w-11 justify-center px-0 md:w-9" : "w-full px-2.5",
+                    className
+                )}
+            >
+                {isDark ? <Moon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" /> : <Sun className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />}
+                {!compact && <span className="flex-1 text-left">Dark mode</span>}
+                <span
+                    aria-hidden="true"
+                    className={cn(
+                        compact && "hidden",
+                        "relative h-[18px] w-8 shrink-0 rounded-full transition-colors duration-200 ease-out",
+                        isDark ? "bg-brand-deep" : "bg-foreground/20"
+                    )}
+                >
+                    <span
+                        className={cn(
+                            "absolute left-0.5 top-0.5 size-3.5 rounded-full bg-background transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                            isDark ? "translate-x-[14px]" : "translate-x-0"
+                        )}
+                    />
+                </span>
+            </button>
         );
     }
 

@@ -79,7 +79,7 @@ export default async function TeamMemberDetailPage({
       <div>
         <Link
           href="/dashboard/team"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0e6b7e] hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:underline"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to users
@@ -88,19 +88,19 @@ export default async function TeamMemberDetailPage({
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex flex-wrap items-center gap-3">
             <span>{user.name || user.email}</span>
             <span className="text-sm font-semibold px-3 py-0.5 rounded-full bg-muted text-foreground border border-border">
               {roleLabel}
             </span>
-          </h2>
+          </h1>
           <p className="text-muted-foreground mt-1">{roleLabel} account</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-5 items-stretch">
         <div className="rounded-xl border border-border bg-card p-6 space-y-1">
-          <h3 className="text-lg font-bold text-foreground mb-3">Account</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground mb-3">Account</h3>
 
           <div className="grid grid-cols-[130px_1fr] gap-3 items-center py-2.5 border-b border-border text-sm">
             <span className="text-muted-foreground">Name</span>
@@ -182,7 +182,7 @@ export default async function TeamMemberDetailPage({
 
         <div className="rounded-xl border border-border bg-card p-6 flex flex-col justify-between gap-4">
           <div className="space-y-4">
-            <h3 className="text-lg font-bold text-foreground">Manage access</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">Manage access</h3>
             <p className="text-sm text-muted-foreground">
               Change account status or manage pending invitations for this
               account.

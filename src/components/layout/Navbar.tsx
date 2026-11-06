@@ -22,17 +22,17 @@ export async function Navbar() {
             settings={settings || null}
             navLinks={navLinks}
             authSlot={
-                <Suspense fallback={<NavbarAuthFallback settings={settings} />}>
+                <Suspense key="auth-desktop" fallback={<NavbarAuthFallback settings={settings} />}>
                     <NavbarAuthDesktop settings={settings} />
                 </Suspense>
             }
             mobileBellSlot={
-                <Suspense fallback={null}>
+                <Suspense key="mobile-bell" fallback={null}>
                     <NavbarMobileBell />
                 </Suspense>
             }
             mobileAuthSlot={
-                <Suspense fallback={<NavbarAuthFallback mobile settings={settings} />}>
+                <Suspense key="auth-mobile" fallback={<NavbarAuthFallback mobile settings={settings} />}>
                     <NavbarAuthMobile settings={settings} />
                 </Suspense>
             }

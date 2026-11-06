@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone, HelpCircle, Sparkles } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
 import { ContactForm } from "@/components/public/ContactForm";
 import { getSiteSettings } from "@/features/cms/actions";
 import { getPublishedPage } from "@/features/cms/content/public-queries";
@@ -53,119 +53,99 @@ export default async function ContactPage() {
     const officeHours = fields?.officeHours || "Mon - Fri from 9am to 6pm PST";
 
     return (
-        <div className="container mx-auto px-4 py-16 sm:py-20 lg:py-24 relative">
-            {/* Ambient Lighting Glows */}
-            <div className="absolute top-12 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none -z-10" />
-            <div className="absolute top-1/3 right-10 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
-
-            {/* Primary Grid (items-start prevents contact card stretching).
-                Mobile order: intro + contact cards, form, FAQ.
-                Desktop: intro and FAQ stack in the left column, form spans both rows on the right. */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-x-16 lg:gap-y-8 items-start">
-                {/* Left Column, Row 1: Direct Outreach */}
-                <div className="lg:col-span-6 lg:col-start-1 lg:row-start-1 space-y-8 min-w-0">
+        <div className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-28 sm:px-10 sm:pb-20 sm:pt-32 lg:pb-24 lg:pt-36">
+            {/* Mobile order: intro and contact details, form, FAQ.
+                Desktop: intro and FAQ stack in the left column, the form spans both rows on the right. */}
+            <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12 lg:gap-x-16 lg:gap-y-14">
+                {/* Left column, row 1: intro and direct contact */}
+                <div className="min-w-0 space-y-8 lg:col-span-6 lg:col-start-1 lg:row-start-1">
                     <div className="space-y-4">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                            <Sparkles className="w-3.5 h-3.5" /> Direct Communications
-                        </div>
-                        <h1 className="whitespace-pre-line text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+                        <h1 className="whitespace-pre-line text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
                             {heading}
                         </h1>
-                        <p className="whitespace-pre-line text-base sm:text-lg text-muted-foreground leading-relaxed">
+                        <p className="max-w-prose whitespace-pre-line text-base leading-relaxed text-muted-foreground sm:text-lg">
                             {intro}
                         </p>
                     </div>
 
-                    {/* Direct Contact Cards */}
-                    <div className="space-y-3.5">
-                        <a
-                            href={`mailto:${email}`}
-                            className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/50 hover:bg-card/90 transition-all group"
-                        >
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors shrink-0">
-                                <Mail className="h-5 w-5" />
-                            </div>
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-semibold text-foreground">Email Us</h3>
-                                    <span className="text-[10px] font-medium text-primary px-1.5 py-0.2 rounded-full bg-primary/10 border border-primary/20">Replies in 24h</span>
+                    <ul className="space-y-3">
+                        <li>
+                            <a
+                                href={`mailto:${email}`}
+                                className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 outline-none transition-colors duration-150 hover:border-brand-deep/40 focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-deep">
+                                    <Mail className="size-5" strokeWidth={1.75} aria-hidden="true" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-foreground">Email us</span>
+                                    <span className="mt-0.5 block truncate text-base text-foreground">{email}</span>
+                                    <span className="block text-sm text-muted-foreground">We reply within 24 hours. Careers: careers@optrizo.com</span>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <div className="flex items-start gap-4 rounded-xl border border-border bg-card p-4">
+                                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-deep">
+                                    <MapPin className="size-5" strokeWidth={1.75} aria-hidden="true" />
+                                </span>
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Visit us</p>
+                                    <p className="mt-0.5 whitespace-pre-line text-base leading-relaxed text-foreground">{address}</p>
                                 </div>
-                                <p className="text-sm text-foreground/90 font-medium truncate mt-0.5">{email}</p>
-                                <p className="text-xs text-muted-foreground">careers@optrizo.com</p>
                             </div>
-                        </a>
+                        </li>
+                        <li>
+                            <a
+                                href={`tel:${phone.replace(/\s+/g, "")}`}
+                                className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 outline-none transition-colors duration-150 hover:border-brand-deep/40 focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-deep">
+                                    <Phone className="size-5" strokeWidth={1.75} aria-hidden="true" />
+                                </span>
+                                <span>
+                                    <span className="block text-sm font-semibold text-foreground">Call us</span>
+                                    <span className="mt-0.5 block text-base text-foreground">{phone}</span>
+                                    <span className="block whitespace-pre-line text-sm text-muted-foreground">{officeHours}</span>
+                                </span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
 
-                        <div className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm">
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                <MapPin className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-semibold text-foreground">Visit Us</h3>
-                                <p className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed mt-0.5">
-                                    {address}
-                                </p>
-                            </div>
-                        </div>
+                {/* Right column: the form. Natural height, sticky on desktop, never stretches. */}
+                <div className="h-fit w-full self-start lg:sticky lg:top-28 lg:col-span-6 lg:col-start-7 lg:row-span-2 lg:row-start-1">
+                    <ContactForm className="h-fit w-full self-start" />
+                </div>
 
-                        <a
-                            href={`tel:${phone.replace(/\s+/g, "")}`}
-                            className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/50 hover:bg-card/90 transition-all group"
-                        >
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-colors shrink-0">
-                                <Phone className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-semibold text-foreground">Call Us Directly</h3>
-                                <p className="text-sm text-foreground/90 font-medium mt-0.5">{phone}</p>
-                                <p className="whitespace-pre-line text-xs text-muted-foreground">{officeHours}</p>
-                            </div>
-                        </a>
+                {/* Left column, row 2: common questions */}
+                <section aria-labelledby="faq-heading" className="min-w-0 lg:col-span-6 lg:col-start-1 lg:row-start-2">
+                    <div className="space-y-1">
+                        <h2 id="faq-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+                            Common questions
+                        </h2>
+                        <p className="text-sm text-muted-foreground sm:text-base">
+                            Timelines, billing, ownership and the stack we build with.
+                        </p>
                     </div>
-                </div>
 
-                {/* Right Column: Contact Form (Fixed natural height, sticky on desktop, NEVER stretches) */}
-                <div className="lg:col-span-6 lg:col-start-7 lg:row-start-1 lg:row-span-2 w-full h-fit self-start lg:sticky lg:top-28">
-                    <ContactForm className="w-full h-fit self-start" />
-                </div>
-
-                {/* Left Column, Row 2: Frequently Asked Questions */}
-                <div className="lg:col-span-6 lg:col-start-1 lg:row-start-2 min-w-0">
-                    <div className="pt-6 border-t border-border/80 space-y-4">
-                        <div className="space-y-1">
-                            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
-                                <HelpCircle className="w-3.5 h-3.5" /> Frequently Asked Questions
-                            </div>
-                            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                                Common Questions
-                            </h2>
-                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                Clear answers about our technical engagement models, billing, timelines, and deliverables.
-                            </p>
-                        </div>
-
-                        <Accordion type="single" collapsible className="w-full space-y-2.5 pt-1">
-                            {faqs.map((faq, index) => (
-                                <AccordionItem
-                                    key={index}
-                                    value={`item-${index}`}
-                                    className="border border-border/70 bg-card/50 backdrop-blur-sm rounded-xl px-4 transition-all hover:border-primary/40 data-[state=open]:border-primary/40 data-[state=open]:bg-card/80"
-                                >
-                                    <AccordionTrigger className="text-left font-semibold text-sm sm:text-base text-foreground hover:text-primary hover:no-underline py-3.5">
-                                        <div className="flex items-center gap-2.5 pr-2">
-                                            <span className="font-mono text-[11px] font-bold text-primary/90 px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 shrink-0">
-                                                {String(index + 1).padStart(2, "0")}
-                                            </span>
-                                            <span>{faq.question}</span>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="text-muted-foreground whitespace-pre-wrap text-sm leading-relaxed pl-8 pr-2 pb-4 pt-0">
-                                        {faq.answer}
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
-                    </div>
-                </div>
+                    <Accordion type="single" collapsible className="mt-5 w-full space-y-2.5">
+                        {faqs.map((faq, index) => (
+                            <AccordionItem
+                                key={index}
+                                value={`item-${index}`}
+                                className="rounded-xl border border-border bg-card px-4 transition-colors duration-150 data-[state=open]:border-brand-deep/40"
+                            >
+                                <AccordionTrigger className="py-3.5 text-left text-base font-medium text-foreground hover:no-underline">
+                                    {faq.question}
+                                </AccordionTrigger>
+                                <AccordionContent className="whitespace-pre-wrap pb-4 pr-2 pt-0 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                                    {faq.answer}
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                </section>
             </div>
         </div>
     );

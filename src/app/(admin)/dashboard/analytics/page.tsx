@@ -1,25 +1,23 @@
-import { getUnifiedDashboardData } from "@/features/crm/actions";
-import { AnalyticsReportsContainer } from "./AnalyticsReportsContainer";
+import { redirect } from "next/navigation";
+import { auth, hasRole } from "@/auth";
+import { BusinessAnalytics, SystemAnalytics } from "@/features/analytics/components/AnalyticsView";
+import type { BusinessPeriod, SystemPeriod } from "@/features/analytics/queries";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export default async function AnalyticsPage() {
-    const data = await getUnifiedDashboardData();
+const BUSINESS: BusinessPeriod[] = [1, 3, 6, 12];
+const SYSTEM: SystemPeriod[] = [7, 30, 90];
 
-    if (!data) {
-        return (
-            <div className="p-12 text-center glass-card border border-border rounded-xl max-w-lg mx-auto my-12">
-                <h3 className="text-lg font-semibold text-foreground mb-2">Unable to load telemetry</h3>
-                <p className="text-sm text-muted-foreground">
-                    Ensure you are logged in with Admin or Editor credentials to access executive telemetry.
-                </p>
-            </div>
-        );
+/** Super Admin analytics (mockups 108 and 109): Business and System tabs, read-only counts and rates. */
+export default async function AnalyticsPage({ searchParams }: { searchParams?: Promise<{ tab?: string; period?: string }> }) {
+    const session = await auth();
+    if (!hasRole(session, ["superadmin"])) redirect("/dashboard");
+
+    const params = await searchParams;
+    const period = Number(params?.period);
+
+    if (params?.tab === "system") {
+        return <SystemAnalytics days={SYSTEM.find((d) => d === period) ?? 30} />;
     }
-
-    return (
-        <div className="p-6 md:p-8 max-w-7xl mx-auto">
-            <AnalyticsReportsContainer data={data} />
-        </div>
-    );
+    return <BusinessAnalytics months={BUSINESS.find((m) => m === period) ?? 6} />;
 }
