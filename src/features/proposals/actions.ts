@@ -8,7 +8,9 @@ import {
     leads,
     users,
     discoveryForms,
+    services,
 } from "@/db/schema";
+import { todayInManila } from "@/features/sprints/sprint-status";
 import { eq, and, isNull, isNotNull, ne, inArray } from "drizzle-orm";
 import { moveLeadToProposalSent, moveLeadToClosedLost } from "@/features/crm/stage-rules";
 import { auth, hasRole } from "@/auth";
@@ -61,6 +63,40 @@ export interface ProposalData {
     currency?: "PHP" | "USD";
     totalPrice?: number | null;
     needsGoals?: string | { needs: string; goals: string } | null;
+    exclusions?: string | null;
+    projectName?: string | null;
+}
+
+type EditableDraft =
+    | { ok: true; proposal: typeof proposals.$inferSelect }
+    | { ok: false; message: string };
+
+/**
+ * Shared guard for the three drafting actions (updateProposal, updateProposalMilestones, savePaymentSchedule).
+ * Only a draft can be edited. A sent proposal is locked: typos are fixed with createProposalRevision.
+ * Ownership follows claimOrAssignLeadPm: when the lead has an assigned PM, only that PM edits; when none is
+ * assigned yet, any manager can.
+ */
+async function requireEditableDraft(proposalId: string, userId: string): Promise<EditableDraft> {
+    const proposal = await db.query.proposals.findFirst({
+        where: eq(proposals.id, proposalId),
+        with: { lead: true },
+    });
+    if (!proposal) return { ok: false, message: "Proposal not found" };
+
+    if (proposal.status !== "draft") {
+        return {
+            ok: false,
+            message: `This proposal is ${proposal.status} and can no longer be edited. Create a new version to make changes.`,
+        };
+    }
+
+    const assignedPmId = proposal.lead?.assignedPmId ?? null;
+    if (assignedPmId && assignedPmId !== userId) {
+        return { ok: false, message: "Only the Project Manager assigned to this lead can edit this proposal." };
+    }
+
+    return { ok: true, proposal };
 }
 
 export async function createDraftProposalForLead(leadId: string) {
@@ -119,6 +155,15 @@ export async function createDraftProposalForLead(leadId: string) {
             const priceMode: "priced" | "to_be_discussed" =
                 lead.clientType === "international" ? "priced" : "to_be_discussed";
 
+            // Project name: service title (or the visitor's own "Other" text) plus the business name.
+            let serviceTitle: string | null = null;
+            if (lead.serviceId) {
+                const svc = await tx.query.services.findFirst({ where: eq(services.id, lead.serviceId) });
+                serviceTitle = svc?.title ?? null;
+            }
+            const serviceLabel = serviceTitle || lead.otherServiceText?.trim() || "Custom project";
+            const projectName = (lead.businessName ? `${serviceLabel} for ${lead.businessName}` : serviceLabel).slice(0, 120);
+
             const proposalCode = `OPT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
             const [newProposal] = await tx.insert(proposals).values({
@@ -133,6 +178,7 @@ export async function createDraftProposalForLead(leadId: string) {
                     "Full-Stack Application Development",
                     "Quality Assurance, Performance & Security Audit",
                 ],
+                projectName,
                 priceMode,
                 currency: "PHP",
                 totalPrice: null,
@@ -144,24 +190,29 @@ export async function createDraftProposalForLead(leadId: string) {
 
             createdProposalId = newProposal.id;
 
-            // Insert 5 default milestones with null dates
-            const defaultMilestoneNames: Array<"requirements" | "design" | "development" | "uat_testing" | "handover"> = [
-                "requirements",
-                "design",
-                "development",
-                "uat_testing",
-                "handover",
+            // Insert the 5 default milestones with contiguous dates that start today (Manila calendar day).
+            // Dates are stored as UTC midnight, the same as dates typed into the milestone dialog.
+            const defaultMilestoneDurations: Array<{
+                name: "requirements" | "design" | "development" | "uat_testing" | "handover";
+                days: number;
+            }> = [
+                { name: "requirements", days: 7 },
+                { name: "design", days: 14 },
+                { name: "development", days: 42 },
+                { name: "uat_testing", days: 14 },
+                { name: "handover", days: 7 },
             ];
 
-            await tx.insert(proposalMilestones).values(
-                defaultMilestoneNames.map((name) => ({
-                    id: crypto.randomUUID(),
-                    proposalId: newProposal.id,
-                    name,
-                    startDate: null,
-                    endDate: null,
-                }))
-            );
+            const DAY_MS = 24 * 60 * 60 * 1000;
+            let cursor = new Date(`${todayInManila()}T00:00:00.000Z`).getTime();
+            const seededMilestones = defaultMilestoneDurations.map(({ name, days }) => {
+                const startDate = new Date(cursor);
+                const endDate = new Date(cursor + (days - 1) * DAY_MS);
+                cursor += days * DAY_MS;
+                return { id: crypto.randomUUID(), proposalId: newProposal.id, name, startDate, endDate };
+            });
+
+            await tx.insert(proposalMilestones).values(seededMilestones);
 
             // Insert default 30/30/40 payment schedule
             await tx.insert(paymentScheduleItems).values([
@@ -261,7 +312,7 @@ export async function createProposal(leadId: string, data: ProposalData) {
     }
 }
 
-export async function updateProposal(id: string, data: ProposalData, _deprecatedStatus?: string) {
+export async function updateProposal(id: string, data: ProposalData) {
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
         return { success: false, message: "Unauthorized: Only managers can update proposals" };
@@ -273,13 +324,11 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
     }
 
     try {
-        const oldProposal = await db.query.proposals.findFirst({ where: eq(proposals.id, id) });
-        if (!oldProposal) return { success: false, message: "Proposal not found" };
+        const guard = await requireEditableDraft(id, authz.session.user.id);
+        if (!guard.ok) return { success: false, message: guard.message };
+        const oldProposal = guard.proposal;
 
         const updatePayload: any = { ...data, updatedAt: new Date() };
-        if (false as boolean) {
-            updatePayload.status = status;
-        }
         if (data.validUntil !== undefined) {
             updatePayload.validUntil = data.validUntil ? new Date(data.validUntil) : null;
         }
@@ -301,27 +350,6 @@ export async function updateProposal(id: string, data: ProposalData, _deprecated
         revalidatePath(`/dashboard/analytics`);
         revalidatePath(`/dashboard/proposals/builder/${id}`);
         revalidatePath(`/proposal/${id}`);
-
-        if (false as boolean) {
-            const { transitionLeadStage } = await import("@/features/crm/actions");
-            await transitionLeadStage({ leadId: updated.leadId, newStatus: "Proposal Sent" });
-
-            const { notifyLeadClient } = await import("@/features/notifications/send");
-            await notifyLeadClient(
-                updated.leadId,
-                `Your Project Proposal (${updated.proposalCode || 'Agreement'}) has been published and is ready for your digital signature.`,
-                "proposal",
-                `/proposal/${id}`
-            );
-        } else if (oldProposal.status === "sent" && (data.total !== undefined || data.scope || data.deliverables)) {
-            const { notifyLeadClient } = await import("@/features/notifications/send");
-            await notifyLeadClient(
-                updated.leadId,
-                `Proposal Revisions: Updated terms and scope have been published for your project proposal.`,
-                "proposal",
-                `/proposal/${id}`
-            );
-        }
 
         // Custom Audit Log Logic for Scope & Pricing
         let auditMsg = `Proposal ${id} updated (Status: ${updated.status})`;
@@ -697,10 +725,9 @@ export async function updateProposalMilestones(
     }
 
     try {
-        const proposal = await db.query.proposals.findFirst({
-            where: eq(proposals.id, proposalId),
-        });
-        if (!proposal) return { success: false, message: "Proposal not found" };
+        const guard = await requireEditableDraft(proposalId, authz.session.user.id);
+        if (!guard.ok) return { success: false, message: guard.message };
+        const proposal = guard.proposal;
 
         for (const item of milestonesData) {
             const mName = (item.name || item.key) as (typeof DEFAULT_PROPOSAL_MILESTONES)[number]["name"];
@@ -911,10 +938,9 @@ export async function savePaymentSchedule(
     }
 
     try {
-        const proposal = await db.query.proposals.findFirst({
-            where: eq(proposals.id, proposalId),
-        });
-        if (!proposal) return { success: false, message: "Proposal not found" };
+        const guard = await requireEditableDraft(proposalId, authz.session.user.id);
+        if (!guard.ok) return { success: false, message: guard.message };
+        const proposal = guard.proposal;
 
         await db.delete(paymentScheduleItems).where(eq(paymentScheduleItems.proposalId, proposalId));
 

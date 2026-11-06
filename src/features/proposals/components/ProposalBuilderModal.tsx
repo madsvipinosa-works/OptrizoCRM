@@ -116,7 +116,7 @@ export function ProposalBuilderModal({ leadId, leadName, proposalId }: Props) {
 
         let res;
         if (proposalId) {
-            res = await updateProposal(proposalId, data, "Draft");
+            res = await updateProposal(proposalId, data);
         } else {
             res = await createProposal(leadId, data);
         }

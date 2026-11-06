@@ -246,7 +246,10 @@ export const SaveProposalSchema = z.object({
     technicalApproach: z.string().trim().max(5000).optional().nullable(),
     timeline: z.string().trim().max(100).optional().nullable(),
     deliverables: z.array(z.string().trim().max(250)).optional(),
-    pricingStructure: z.array(ProposalLineItemSchema).min(1, "At least one line item is required").optional(),
+    // Line items are optional. A "price to be discussed" proposal has none, so an empty array is valid.
+    pricingStructure: z.array(ProposalLineItemSchema).optional(),
+    exclusions: z.string().trim().max(2000, "Exclusions are too long (2000 characters max)").optional().nullable(),
+    projectName: z.string().trim().max(120, "Project name is too long (120 characters max)").optional().nullable(),
     subtotal: z.coerce.number().min(0).max(100_000_000).optional(),
     discount: z.coerce.number().min(0, "Discount cannot be negative").max(10_000_000, "Discount exceeds maximum allowed").default(0),
     tax: z.coerce.number().min(0, "Tax cannot be negative").max(10_000_000, "Tax exceeds maximum allowed").default(0),

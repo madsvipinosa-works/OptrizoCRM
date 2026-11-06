@@ -85,6 +85,8 @@ interface ProposalBuilderStudioProps {
         currency?: "PHP" | "USD" | null;
         totalPrice?: number | null;
         needsGoals?: string | { needs?: string; goals?: string } | null;
+        exclusions?: string | null;
+        projectName?: string | null;
         milestones?: Array<{
             key: string;
             title: string;
@@ -276,6 +278,8 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
         proposal.lead?.businessName || proposal.lead?.client?.name || "Valued Client"
     );
     const [scope, setScope] = useState(proposal.scope || "");
+    const [exclusions, setExclusions] = useState(proposal.exclusions || "");
+    const [projectName, setProjectName] = useState(proposal.projectName || "");
     const [technicalApproach, setTechnicalApproach] = useState(proposal.technicalApproach || "");
     const [deliverables, setDeliverables] = useState<string[]>(initialDeliverables);
     const [timeline, setTimeline] = useState(proposal.timeline || "4 - 6 Weeks");
@@ -387,13 +391,8 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
     const handleSaveMilestones = async () => {
         setIsSavingMilestones(true);
         try {
+            // Dates only. The payment schedule is saved from its own dialog.
             const res = await updateProposalMilestones(proposal.id, milestones);
-            if (totalSchedulePercent === 100) {
-                await savePaymentSchedule(proposal.id, paymentSchedule);
-            } else if (priceMode === "priced") {
-                toast.error(`Payment schedule total is ${totalSchedulePercent}%. It must be exactly 100%.`);
-                return;
-            }
             if (res.success) {
                 toast.success("Milestone dates updated!");
                 setIsMilestonesModalOpen(false);
@@ -541,28 +540,39 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
             currency,
             totalPrice: priceMode === "priced" ? (totalPrice !== null ? Number(totalPrice) : null) : null,
             needsGoals,
+            exclusions,
+            projectName,
             terms,
             validUntil: validUntil ? new Date(validUntil) : null,
             contractSettings,
         };
 
         try {
-            const res = await updateProposal(proposal.id, payload, statusOverride);
-            if (res.success) {
-                setLastSavedAt(new Date());
-                if (statusOverride) {
-                    setCurrentStatus(statusOverride);
-                }
-                if (isSentAction) {
-                    toast.success("Proposal published and marked as Sent!");
-                    setIsPublishModalOpen(true);
-                } else {
-                    toast.success("Proposal draft saved successfully.");
-                }
-                router.refresh();
-            } else {
+            const res = await updateProposal(proposal.id, payload);
+            if (!res.success) {
                 toast.error(res.message || "Failed to save proposal");
+                return;
             }
+            setLastSavedAt(new Date());
+
+            if (!isSentAction) {
+                toast.success("Proposal draft saved successfully.");
+                router.refresh();
+                return;
+            }
+
+            // "Publish & Send": the draft is saved, now really send it. sendProposal checks the 5 milestone
+            // dates and the payment schedule, moves the lead stage and notifies the client.
+            const sent = await sendProposal(proposal.id);
+            if (!sent.success) {
+                toast.error(`Draft saved, but not sent: ${sent.message || "Failed to send proposal."}`);
+                router.refresh();
+                return;
+            }
+            setCurrentStatus("sent");
+            toast.success("Proposal sent to the client.");
+            setIsPublishModalOpen(true);
+            router.refresh();
         } catch (e) {
             console.error(e);
             toast.error("System error while saving proposal");
@@ -798,7 +808,8 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     <Button
                         variant="secondary"
                         size="sm"
-                        disabled={isSaving || isPublishing}
+                        disabled={isSaving || isPublishing || currentStatus !== "draft"}
+                        title={currentStatus !== "draft" ? "Only a draft can be edited. Create a new version to make changes." : undefined}
                         onClick={() => handleSave("draft")}
                         className="items-center gap-1.5"
                     >
@@ -809,12 +820,13 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     {/* Publish / Mark Sent */}
                     <Button
                         size="sm"
-                        disabled={isSaving || isPublishing}
+                        disabled={isSaving || isPublishing || currentStatus !== "draft"}
+                        title={currentStatus !== "draft" ? "This proposal was already sent. Create a new version to change it." : undefined}
                         onClick={() => handleSave("sent")}
                         className="bg-primary text-black font-semibold hover:bg-primary/90 items-center gap-1.5 shadow-sm"
                     >
                         {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                        {currentStatus === "sent" ? "Update & Re-send" : "Publish & Send"}
+                        {currentStatus === "draft" ? "Publish & Send" : "Sent"}
                     </Button>
                 </div>
             </header>
@@ -827,6 +839,16 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground uppercase tracking-wider font-mono">
                             <FileText className="h-4 w-4 text-primary" /> General Info & Validity
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="projectName" className="text-xs">Project name</Label>
+                            <Input
+                                id="projectName"
+                                value={projectName}
+                                maxLength={120}
+                                onChange={(e) => setProjectName(e.target.value)}
+                                placeholder="e.g. Delivery Tracking App"
+                            />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-1.5 sm:col-span-1">
@@ -909,6 +931,18 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                                     value={technicalApproach}
                                     onChange={(e) => setTechnicalApproach(e.target.value)}
                                     placeholder="Outline the tech stack, security standards, and deployment pipelines..."
+                                    className="leading-relaxed text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="exclusions" className="text-xs">Exclusions</Label>
+                                <Textarea
+                                    id="exclusions"
+                                    rows={2}
+                                    maxLength={2000}
+                                    value={exclusions}
+                                    onChange={(e) => setExclusions(e.target.value)}
+                                    placeholder="What is not included, e.g. payment gateway integration, hosting costs"
                                     className="leading-relaxed text-sm"
                                 />
                             </div>
@@ -1035,6 +1069,24 @@ export function ProposalBuilderStudio({ proposal, settings }: ProposalBuilderStu
                                             className="pl-8 font-mono text-sm"
                                         />
                                     </div>
+                                </div>
+                                <div className="sm:col-span-2 flex items-start justify-between gap-3 border-t border-border/60 pt-3">
+                                    <div className="space-y-0.5">
+                                        <div className="text-sm font-semibold text-foreground">Payment schedule</div>
+                                        <div className="text-xs text-muted-foreground">{scheduleSummaryText}</div>
+                                        {totalSchedulePercent !== 100 && (
+                                            <div className="text-xs text-destructive">Percents must total 100% (now {totalSchedulePercent}%).</div>
+                                        )}
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsScheduleModalOpen(true)}
+                                        className="text-xs font-semibold shrink-0"
+                                    >
+                                        Edit schedule
+                                    </Button>
                                 </div>
                             </div>
                         ) : (

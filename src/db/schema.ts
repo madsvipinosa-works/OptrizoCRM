@@ -584,6 +584,8 @@ export const proposals = pgTable("proposal", {
     currency: currencyEnum("currency").default("PHP").notNull(),
     totalPrice: integer("total_price"),
     needsGoals: jsonb("needs_goals").$type<{ needs: string; goals: string }>(),
+    exclusions: text("exclusions"),
+    projectName: text("project_name"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     fileUrl: text("fileUrl"),
     rejectionReason: text("rejection_reason"),
