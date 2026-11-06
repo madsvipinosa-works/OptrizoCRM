@@ -41,7 +41,8 @@ export default async function ProposalsPage() {
 
     const currentUserId = session.user.id;
 
-    if (!hasRole(session, ["sales", "manager", "superadmin"])) {
+    // Super Admin never opens proposals (spec section 6): only Sales and the PM.
+    if (!hasRole(session, ["sales", "manager"])) {
         redirect("/dashboard");
     }
 

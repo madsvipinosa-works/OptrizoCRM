@@ -20,6 +20,7 @@ import { proposalMilestones, proposals } from "@/db/schema";
 import { SaveProposalSchema } from "@/lib/schemas";
 import {
     createDraftProposalForLead,
+    resetProposalNeedsGoals,
     savePaymentSchedule,
     sendProposal,
     updateProposal,
@@ -111,12 +112,13 @@ describe("updateProposal", () => {
     });
 });
 
-describe("draft-only guard on updateProposal, updateProposalMilestones and savePaymentSchedule", () => {
+describe("draft-only guard on updateProposal, updateProposalMilestones, savePaymentSchedule and resetProposalNeedsGoals", () => {
     const calls: Record<string, () => Promise<{ success: boolean; message?: string }>> = {
         updateProposal: () => updateProposal("p-1", { scope: "x" }),
         updateProposalMilestones: () =>
             updateProposalMilestones("p-1", [{ name: "requirements", startDate: "2026-11-06", endDate: "2026-11-12" }]),
         savePaymentSchedule: () => savePaymentSchedule("p-1", validSchedule),
+        resetProposalNeedsGoals: () => resetProposalNeedsGoals("p-1"),
     };
 
     for (const [name, run] of Object.entries(calls)) {
@@ -191,15 +193,14 @@ describe("milestone dates and the payment schedule are separate", () => {
         expect(mockDb.insert).not.toHaveBeenCalled();
     });
 
-    it("the Studio milestone dialog save does not call savePaymentSchedule", () => {
-        const source = readFileSync(
-            resolve(process.cwd(), "src/features/proposals/components/ProposalBuilderStudio.tsx"),
-            "utf8",
-        );
-        const start = source.indexOf("const handleSaveMilestones");
-        const end = source.indexOf("const [priceMode", start);
+    it("the milestone dialog saves dates only and does not call savePaymentSchedule", () => {
+        const source = readFileSync(resolve(process.cwd(), "src/features/proposals/components/draft-dialogs.tsx"), "utf8");
+        const start = source.indexOf("export function MilestonesDialog");
+        const end = source.indexOf("export function ScopeTimelineDialog", start);
         expect(start).toBeGreaterThan(-1);
-        expect(source.slice(start, end)).not.toContain("savePaymentSchedule");
+        const body = source.slice(start, end);
+        expect(body).toContain("updateProposalMilestones(");
+        expect(body).not.toContain("savePaymentSchedule(");
     });
 });
 
@@ -226,22 +227,19 @@ describe("sendProposal surfaces its errors", () => {
         expect(mockDb.transaction).not.toHaveBeenCalled();
     });
 
-    it("the Studio Publish & Send saves the draft, then calls sendProposal and shows its message", () => {
-        const source = readFileSync(
-            resolve(process.cwd(), "src/features/proposals/components/ProposalBuilderStudio.tsx"),
-            "utf8",
-        );
-        const start = source.indexOf("const handleSave");
-        const end = source.indexOf("const handleSendEmail", start);
+    it("the editor saves the draft, then calls sendProposal and shows its message", () => {
+        const source = readFileSync(resolve(process.cwd(), "src/features/proposals/components/ProposalDraftEditor.tsx"), "utf8");
+        const start = source.indexOf("async function handleSend");
+        const end = source.indexOf("async function handleCreateVersion", start);
         const body = source.slice(start, end);
 
-        const saveAt = body.indexOf("await updateProposal(");
+        const saveAt = body.indexOf("await saveDraft()");
         const sendAt = body.indexOf("await sendProposal(");
         expect(saveAt).toBeGreaterThan(-1);
         expect(sendAt).toBeGreaterThan(saveAt);
-        expect(body).toContain("sent.message");
-        // The sent state is set only after sendProposal succeeded, never from the button click.
-        expect(body.indexOf('setCurrentStatus("sent")')).toBeGreaterThan(sendAt);
+        // The real error from sendProposal is shown, and the page only refreshes after success.
+        expect(body).toContain("res.message");
+        expect(body.indexOf("router.refresh()")).toBeGreaterThan(sendAt);
     });
 });
 

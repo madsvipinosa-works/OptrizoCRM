@@ -60,6 +60,8 @@ export function generateSOWHtml(data: {
     businessName: string;
     clientEmail?: string | null;
     scope?: string | null;
+    /** What is not included in the scope. */
+    exclusions?: string | null;
     technicalApproach?: string | null;
     deliverables: string[];
     timeline?: string | null;
@@ -651,6 +653,7 @@ export function generateSOWHtml(data: {
         <div class="section">
             <div class="section-title">${nextNum()}. Project Objectives &amp; Scope of Work</div>
             <div class="section-content">${safeScope}</div>
+            ${data.exclusions && data.exclusions.trim() ? `<div class="section-content"><strong>Not included:</strong> ${escapeHtml(data.exclusions)}</div>` : ""}
         </div>
 
         <!-- Needs & Strategic Objectives -->

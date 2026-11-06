@@ -653,6 +653,10 @@ export async function resetProposalNeedsGoals(proposalId: string) {
         return { success: false, message: "Unauthorized: Only managers can reset proposal needs and goals" };
     }
 
+    // Only a draft can be edited, and only by the lead's PM (same guard as the other drafting actions).
+    const guard = await requireEditableDraft(proposalId, authz.session.user.id);
+    if (!guard.ok) return { success: false, message: guard.message };
+
     try {
         const proposal = await db.query.proposals.findFirst({
             where: eq(proposals.id, proposalId),

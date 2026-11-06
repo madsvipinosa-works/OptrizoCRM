@@ -125,6 +125,7 @@ export async function GET(
             businessName,
             clientEmail: proposal.lead?.client?.email,
             scope: proposal.scope,
+            exclusions: proposal.exclusions,
             technicalApproach: proposal.technicalApproach,
             deliverables,
             timeline: proposal.timeline,
