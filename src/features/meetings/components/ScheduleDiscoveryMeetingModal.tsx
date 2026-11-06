@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { scheduleDiscoveryMeeting, getActiveLeadsForMeeting } from "@/features/meetings/actions";
+import { scheduleDiscoveryMeeting, getActiveLeadsForMeeting, getManagersForMeeting } from "@/features/meetings/actions";
 import { toast } from "sonner";
 import { Calendar, Users, FileText } from "lucide-react";
 
@@ -37,7 +37,9 @@ export function ScheduleDiscoveryMeetingModal({
         return tomorrow.toISOString().split("T")[0];
     });
     const [time, setTime] = useState("10:00");
-    const [attendees, setAttendees] = useState("Sales (required), Project Manager (optional)");
+    // Optional PM attendee. "none" means no PM. Defaults to the lead's assigned PM when it has one.
+    const [pmId, setPmId] = useState("none");
+    const [managers, setManagers] = useState<Array<{ id: string; name: string }>>([]);
     const [agenda, setAgenda] = useState("Learn their goals, the features they need and their timeline.");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,6 +55,21 @@ export function ScheduleDiscoveryMeetingModal({
             });
         }
     }, [initialLeadId, isOpen, selectedLeadId]);
+
+    // Load the PM choices, and preselect the lead's assigned PM, whenever the chosen lead changes.
+    const pmLeadId = initialLeadId || selectedLeadId;
+    useEffect(() => {
+        if (!isOpen || !pmLeadId) return;
+        let cancelled = false;
+        getManagersForMeeting(pmLeadId).then((result) => {
+            if (cancelled) return;
+            setManagers(result.managers);
+            setPmId(result.defaultPmId ?? "none");
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, pmLeadId]);
 
     const activeLead = availableLeads.find((l) => l.id === selectedLeadId);
     const displayBusinessName = initialBusinessName || activeLead?.businessName || "Opportunity";
@@ -79,12 +96,11 @@ export function ScheduleDiscoveryMeetingModal({
 
         setIsSubmitting(true);
         try {
-            const attendeeList = attendees.split(",").map((s) => s.trim()).filter(Boolean);
             const res = await scheduleDiscoveryMeeting({
                 leadId: targetLeadId,
                 format,
                 startsAt,
-                attendees: attendeeList,
+                pmId: pmId === "none" ? null : pmId,
                 agenda,
             });
 
@@ -206,12 +222,23 @@ export function ScheduleDiscoveryMeetingModal({
                         <Label className="text-xs text-muted-foreground flex items-center gap-1">
                             <Users className="h-3 w-3" /> Attendees
                         </Label>
-                        <Input
-                            value={attendees}
-                            onChange={(e) => setAttendees(e.target.value)}
-                            placeholder="Sales (required), Project Manager (optional)"
-                            className="text-xs h-9 bg-card border-border"
-                        />
+                        <Input value="Sales (required)" disabled className="bg-muted text-xs h-9" />
+                        <Select value={pmId} onValueChange={setPmId}>
+                            <SelectTrigger className="text-xs h-9 bg-card border-border" aria-label="Project Manager (optional)">
+                                <SelectValue placeholder="Project Manager (optional)" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border-border">
+                                <SelectItem value="none" className="text-xs">No Project Manager</SelectItem>
+                                {managers.map((m) => (
+                                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                                        {m.name} (Project Manager, optional)
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[11px] text-muted-foreground">
+                            The Project Manager is optional. If you pick one, they are notified and can hear the requirements first-hand.
+                        </p>
                     </div>
 
                     <div className="space-y-1">

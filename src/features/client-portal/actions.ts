@@ -110,7 +110,7 @@ export async function addClientLeadDocument(
     if (isClient) {
         const { notifyAllAdmins } = await import("@/features/notifications/send");
         await notifyAllAdmins(
-            `Client uploaded resource '${cleanFileName}' to ${project.title}`,
+            `The client uploaded "${cleanFileName}" to the project "${project.title}". Open the project to view it.`,
             "document",
             `/dashboard/pm/${project.id}`
         );
@@ -118,9 +118,9 @@ export async function addClientLeadDocument(
         const { notifyProjectClients } = await import("@/features/notifications/send");
         await notifyProjectClients(
             project.id,
-            `New Resource Uploaded: The team uploaded "${cleanFileName}" to your project resources.`,
+            `The team uploaded "${cleanFileName}" to your project "${project.title}". Open the project to view it.`,
             "document",
-            "/portal"
+            `/portal/projects/${project.id}`
         );
     }
 

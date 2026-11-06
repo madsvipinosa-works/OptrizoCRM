@@ -463,8 +463,9 @@ export async function rejectProposalByClient(id: string, reason?: string) {
     }
 }
 
-import { sendMail } from "@/lib/mailer";
-
+import { sendProposalSentEmail } from "@/lib/notifications";
+import { getBaseUrl } from "@/lib/email-templates";
+import { loadProposalNoticeInfo } from "@/features/proposals/notice";
 
 export async function sendProposalEmail(proposalId: string) {
     const authz = await requireRole(["manager"]);
@@ -477,20 +478,27 @@ export async function sendProposalEmail(proposalId: string) {
         with: { lead: { with: { client: true } } }
     });
 
-    if (!p || !p.lead || !p.lead.client) return { success: false, message: "Proposal, lead, or client not found" };
+    if (!p || !p.lead) return { success: false, message: "Proposal or lead not found" };
+
+    // The linked portal account if there is one, otherwise the email the client gave in the inquiry.
+    const recipient = p.lead.client?.email || p.lead.contactEmail;
+    if (!recipient) return { success: false, message: "The client has no email address." };
 
     try {
-        const url = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000')}/proposal/${proposalId}`;
-
-        await sendMail({
-
-            to: p.lead.client.email,
-            subject: `Your Custom Proposal from Optrizo - ${p.lead.businessName || p.lead.client.name}`,
-            html: `<p>Hi ${p.lead.client.name},</p><p>We have prepared a custom proposal for your project.</p><p>You can view and accept it here: <br/><a href="${url}">${url}</a></p><p>Looking forward to working with you!</p><p>The Optrizo Team</p>`,
+        const info = await loadProposalNoticeInfo(proposalId);
+        const result = await sendProposalSentEmail({
+            email: recipient,
+            clientName: p.lead.client?.name || p.lead.contactName || "",
+            businessName: info.businessName,
+            projectName: info.projectName,
+            pmName: info.pmName || authz.session.user.name || null,
+            version: p.version,
+            validUntil: p.validUntil,
+            priceMode: p.priceMode,
+            proposalUrl: `${getBaseUrl()}/proposal/${proposalId}`,
         });
 
-        // Mark as sent
-        await updateProposal(proposalId, {});
+        if (!result.success) return { success: false, message: "Failed to send email." };
 
         return { success: true };
     } catch (e) {
@@ -1090,9 +1098,11 @@ export async function sendProposal(proposalId: string) {
         // Post-commit side-effects
         try {
             const { notifyLeadClient } = await import("@/features/notifications/send");
+            const info = await loadProposalNoticeInfo(proposalId);
+            const sender = info.pmName || authz.session.user.name || "Your Project Manager";
             await notifyLeadClient(
                 leadId,
-                `Your Project Proposal (${sentProposalCode}) has been published and is ready for your review.`,
+                `${sender} sent you ${proposalVersion > 1 ? `a revised proposal (version ${proposalVersion})` : "a proposal"} for ${info.projectName}. Open it to read it, then sign it online or ask for changes.`,
                 "proposal",
                 `/proposal/${proposalId}`
             );

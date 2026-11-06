@@ -1,13 +1,19 @@
 "use server";
 
 import { db } from "@/db";
-import { meetings, leads, leadActivityLogs, proposals } from "@/db/schema";
-import { eq, desc, and, gte, lte, or, inArray } from "drizzle-orm";
+import { meetings, leads, leadActivityLogs, proposals, users } from "@/db/schema";
+import { eq, desc, and, gte, lte, or, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
 import { createSystemNotification, notifyLeadClient, notifyLeadPms } from "@/features/notifications/send";
-import { sendMeetingInviteEmail, sendMeetingReminderEmail } from "@/lib/notifications";
+import {
+    sendMeetingCancelledEmail,
+    sendMeetingInviteEmail,
+    sendMeetingReminderEmail,
+    sendMeetingRescheduledEmail,
+} from "@/lib/notifications";
+import { meetingFormatLabel, meetingTypeLabel } from "@/lib/email-templates";
 import { advanceToDiscoveryIfNew } from "@/features/crm/actions";
 
 export interface MeetingItem {
@@ -43,13 +49,6 @@ export interface MeetingItem {
     } | null;
 }
 
-const FORMAT_LABEL: Record<MeetingItem["format"], string> = {
-    video: "video call",
-    phone: "phone call",
-    in_person: "in person",
-    on_site: "on site",
-};
-
 /** Date and time for in-app messages, always in Manila time. */
 function formatMeetingWhen(date: Date): string {
     return new Intl.DateTimeFormat("en-US", {
@@ -61,11 +60,40 @@ function formatMeetingWhen(date: Date): string {
     }).format(date);
 }
 
+type LeadForEmail = {
+    businessName: string | null;
+    contactName: string | null;
+    contactEmail: string | null;
+    clientId: string | null;
+    otherServiceText: string | null;
+    service?: { title: string } | null;
+};
+
+/** What the client emails need to know about the lead: names, the service they asked about, account link. */
+function leadEmailContext(lead: LeadForEmail) {
+    return {
+        clientName: lead.contactName || lead.businessName || "",
+        businessName: lead.businessName || lead.contactName || "your business",
+        serviceName: lead.service?.title || lead.otherServiceText || null,
+        hasAccount: !!lead.clientId,
+    };
+}
+
+/** "the discovery meeting with Santos Logistics", for staff notifications. */
+function describeMeeting(type: MeetingItem["type"], lead?: { businessName: string | null; contactName: string | null } | null) {
+    const who = lead?.businessName || lead?.contactName;
+    return who ? `the ${meetingTypeLabel(type)} with ${who}` : `the ${meetingTypeLabel(type)}`;
+}
+
 export async function scheduleDiscoveryMeeting(data: {
     leadId: string;
     format: "video" | "phone" | "in_person" | "on_site";
     startsAt: string | Date;
-    attendees?: string[];
+    /**
+     * Optional Project Manager attendee. `undefined` means "use the lead's assigned PM, if any";
+     * `null` means "no PM". The PM is never required for a discovery meeting.
+     */
+    pmId?: string | null;
     agenda?: string;
 }) {
     const authz = await requireRole(["sales"]);
@@ -84,15 +112,27 @@ export async function scheduleDiscoveryMeeting(data: {
 
     const lead = await db.query.leads.findFirst({
         where: eq(leads.id, data.leadId),
+        with: { service: true },
     });
 
     if (!lead) {
         return { success: false, message: "Lead not found" };
     }
 
-    const defaultAttendees = data.attendees && data.attendees.length > 0
-        ? data.attendees
-        : ["Sales (required)", "Project Manager (optional)"];
+    // Optional PM attendee: must be a Project Manager account. Default is the lead's assigned PM.
+    const requestedPmId = data.pmId === undefined ? lead.assignedPmId : data.pmId;
+    let pm: { id: string; name: string } | null = null;
+    if (requestedPmId) {
+        const found = await db.query.users.findFirst({
+            where: and(eq(users.id, requestedPmId), eq(users.role, "manager")),
+        });
+        if (!found) {
+            return { success: false, message: "Pick a Project Manager from the list, or leave the PM out." };
+        }
+        pm = { id: found.id, name: found.name || found.email };
+    }
+
+    const attendees = ["Sales (required)", pm ? `${pm.name} (Project Manager, optional)` : "Project Manager (optional)"];
 
     try {
         const [meeting] = await db.insert(meetings).values({
@@ -100,7 +140,7 @@ export async function scheduleDiscoveryMeeting(data: {
             type: "discovery",
             format: data.format,
             startsAt: meetingDate,
-            attendees: defaultAttendees,
+            attendees,
             agenda: data.agenda || "Learn their goals, the features they need and their timeline.",
             status: "awaiting_client",
             createdBy: session.user.id,
@@ -126,23 +166,38 @@ export async function scheduleDiscoveryMeeting(data: {
         // 3. Write audit log
         await logAction("CREATE", "Meeting", `Scheduled discovery meeting for lead ${lead.businessName || lead.contactName || data.leadId}`);
 
+        const context = leadEmailContext(lead);
+        const when = formatMeetingWhen(meetingDate);
+
         // 4. In-app notification for the client (only when the lead is linked to a client account).
         await notifyLeadClient(
             data.leadId,
-            `Optrizo scheduled a discovery meeting (${FORMAT_LABEL[data.format]}) for ${formatMeetingWhen(meetingDate)}. Please confirm or suggest a new time.`,
+            `${session.user.name || "Our sales team"} scheduled a discovery meeting with you about ${context.serviceName || context.businessName} on ${when} (Manila time, ${meetingFormatLabel(data.format).toLowerCase()}). Open Appointments to confirm it or suggest another time.`,
             "meeting",
             "/portal/appointments"
         );
 
-        // 5. Send email invite if contact email exists (with portal account sign-up link, no account creation)
+        // 5. In-app notification for the PM who was picked as an attendee.
+        if (pm) {
+            await createSystemNotification(
+                pm.id,
+                `${session.user.name || "Sales"} invited you to the discovery meeting with ${context.businessName} on ${when} (Manila time). Open Meetings to see the details.`,
+                "meeting",
+                "/dashboard/meetings"
+            );
+        }
+
+        // 6. Email invite (it links to the sign-up form when the client has no portal account yet)
         if (lead.contactEmail) {
             await sendMeetingInviteEmail({
-                clientName: lead.contactName || lead.businessName || "Client",
+                ...context,
                 email: lead.contactEmail,
-                meetingType: "Discovery",
-                format: data.format === "video" ? "Video call" : data.format === "phone" ? "Phone call" : data.format === "in_person" ? "In person" : "On site",
+                meetingType: "discovery",
+                format: data.format,
                 startsAt: meetingDate,
                 agenda: data.agenda || null,
+                organizerName: session.user.name || null,
+                organizerRole: "sales",
             });
         }
 
@@ -179,7 +234,7 @@ export async function scheduleBudgetPricingMeeting(data: {
 
     const proposal = await db.query.proposals.findFirst({
         where: eq(proposals.id, data.proposalId),
-        with: { lead: true },
+        with: { lead: { with: { service: true } } },
     });
 
     if (!proposal) {
@@ -228,24 +283,30 @@ export async function scheduleBudgetPricingMeeting(data: {
             });
         }
 
-        if (proposal.lead?.clientId) {
-            await createSystemNotification(
-                proposal.lead.clientId,
-                `A budget & pricing meeting has been scheduled for ${meetingDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}. Please confirm or suggest a new time.`,
-                "meeting",
-                "/portal/appointments"
-            );
-        }
+        if (proposal.lead) {
+            const context = leadEmailContext(proposal.lead);
 
-        if (proposal.lead?.contactEmail) {
-            await sendMeetingInviteEmail({
-                clientName: proposal.lead.contactName || proposal.lead.businessName || "Client",
-                email: proposal.lead.contactEmail,
-                meetingType: "Budget & Pricing",
-                format: data.format === "video" ? "Video call" : data.format === "phone" ? "Phone call" : "In person",
-                startsAt: meetingDate,
-                agenda: defaultAgenda,
-            });
+            if (proposal.lead.clientId) {
+                await createSystemNotification(
+                    proposal.lead.clientId,
+                    `${session.user.name || "Your Project Manager"} scheduled the budget and pricing meeting for your proposal on ${formatMeetingWhen(meetingDate)} (Manila time, ${meetingFormatLabel(data.format).toLowerCase()}). Open Appointments to confirm it or suggest another time.`,
+                    "meeting",
+                    "/portal/appointments"
+                );
+            }
+
+            if (proposal.lead.contactEmail) {
+                await sendMeetingInviteEmail({
+                    ...context,
+                    email: proposal.lead.contactEmail,
+                    meetingType: "budget_pricing",
+                    format: data.format,
+                    startsAt: meetingDate,
+                    agenda: defaultAgenda,
+                    organizerName: session.user.name || null,
+                    organizerRole: "manager",
+                });
+            }
         }
 
         await logAction("CREATE", "Meeting", `Scheduled budget & pricing meeting ${meeting.id} for proposal ${proposal.id}`);
@@ -298,6 +359,10 @@ export async function respondToMeeting(data: {
         return { success: false, message: "You are not authorized to respond to this meeting" };
     }
 
+    const clientLabel = meeting.lead?.contactName || meeting.lead?.businessName || "The client";
+    const meetingLabel = describeMeeting(meeting.type, meeting.lead);
+    const whenLabel = `${formatMeetingWhen(meeting.startsAt)} (Manila time)`;
+
     try {
         if (data.response === "confirm") {
             await db.update(meetings).set({
@@ -316,7 +381,7 @@ export async function respondToMeeting(data: {
             if (meeting.createdBy) {
                 await createSystemNotification(
                     meeting.createdBy,
-                    `Client confirmed meeting for ${meeting.lead?.businessName || meeting.lead?.contactName || "lead"}`,
+                    `${clientLabel} confirmed ${meetingLabel} on ${whenLabel}.`,
                     "meeting",
                     "/dashboard/meetings"
                 );
@@ -342,7 +407,7 @@ export async function respondToMeeting(data: {
             if (meeting.createdBy) {
                 await createSystemNotification(
                     meeting.createdBy,
-                    `Client requested a different time for meeting (${meeting.lead?.businessName || "lead"})`,
+                    `${clientLabel} asked to move ${meetingLabel} (now ${whenLabel})${suggestedDate ? ` to ${formatMeetingWhen(suggestedDate)}` : ""}. Open Meetings to pick a new time.`,
                     "meeting",
                     "/dashboard/meetings"
                 );
@@ -367,14 +432,14 @@ export async function respondToMeeting(data: {
             if (meeting.type === "budget_pricing" && meeting.leadId) {
                 await notifyLeadPms(
                     meeting.leadId,
-                    `Client declined budget & pricing meeting for ${meeting.lead?.businessName || "lead"}: ${data.declineReason || "No reason given"}`,
+                    `${clientLabel} declined ${meetingLabel} on ${whenLabel}: ${data.declineReason || "no reason given"}. Log an outside discussion or send a priced proposal.`,
                     "meeting",
                     meeting.proposalId ? `/dashboard/proposals/${meeting.proposalId}` : "/dashboard/meetings"
                 );
             } else if (meeting.createdBy) {
                 await createSystemNotification(
                     meeting.createdBy,
-                    `Client declined meeting invitation for ${meeting.lead?.businessName || "lead"}`,
+                    `${clientLabel} declined ${meetingLabel} on ${whenLabel}${data.declineReason ? `: ${data.declineReason}` : ""}. Open Meetings to book another time.`,
                     "meeting",
                     "/dashboard/meetings"
                 );
@@ -412,7 +477,7 @@ export async function rescheduleMeeting(data: {
     const meeting = await db.query.meetings.findFirst({
         where: eq(meetings.id, data.meetingId),
         with: {
-            lead: true,
+            lead: { with: { service: true } },
         },
     });
 
@@ -453,15 +518,29 @@ export async function rescheduleMeeting(data: {
 
         await logAction("UPDATE", "Meeting", `Meeting ${data.meetingId} rescheduled`);
 
-        if (meeting.lead?.contactEmail) {
-            await sendMeetingInviteEmail({
-                clientName: meeting.lead.contactName || meeting.lead.businessName || "Client",
-                email: meeting.lead.contactEmail,
-                meetingType: meeting.type === "discovery" ? "Discovery" : "Meeting",
-                format: meeting.format === "video" ? "Video call" : meeting.format === "phone" ? "Phone call" : "In person",
-                startsAt: newDate,
-                agenda: meeting.agenda,
-            });
+        if (meeting.lead) {
+            const organizerRole = authz.session.user.role === "manager" ? "manager" : "sales";
+
+            if (meeting.leadId) {
+                await notifyLeadClient(
+                    meeting.leadId,
+                    `${authz.session.user.name || "Optrizo"} moved your ${meetingTypeLabel(meeting.type)} to ${formatMeetingWhen(newDate)} (Manila time). Open Appointments to confirm the new time or suggest another one.`,
+                    "meeting",
+                    "/portal/appointments"
+                );
+            }
+
+            if (meeting.lead.contactEmail) {
+                await sendMeetingRescheduledEmail({
+                    ...leadEmailContext(meeting.lead),
+                    email: meeting.lead.contactEmail,
+                    meetingType: meeting.type,
+                    format: meeting.format,
+                    startsAt: newDate,
+                    organizerName: authz.session.user.name || null,
+                    organizerRole,
+                });
+            }
         }
 
         revalidatePath("/dashboard/meetings");
@@ -484,6 +563,9 @@ export async function cancelMeeting(data: {
 
     const meeting = await db.query.meetings.findFirst({
         where: eq(meetings.id, data.meetingId),
+        with: {
+            lead: { with: { service: true } },
+        },
     });
 
     if (!meeting) {
@@ -514,6 +596,33 @@ export async function cancelMeeting(data: {
         }
 
         await logAction("UPDATE", "Meeting", `Meeting ${data.meetingId} cancelled by organizer`);
+
+        // The client is told (mockup 047 notes: "Reschedule and Cancel meeting notify the client").
+        if (meeting.lead) {
+            const organizerRole = authz.session.user.role === "manager" ? "manager" : "sales";
+
+            if (meeting.leadId) {
+                await notifyLeadClient(
+                    meeting.leadId,
+                    `${authz.session.user.name || "Optrizo"} cancelled your ${meetingTypeLabel(meeting.type)} that was set for ${formatMeetingWhen(meeting.startsAt)} (Manila time)${data.reason?.trim() ? `. Reason: ${data.reason.trim()}` : ""}. We will contact you to find a new time.`,
+                    "meeting",
+                    "/portal/appointments"
+                );
+            }
+
+            if (meeting.lead.contactEmail) {
+                await sendMeetingCancelledEmail({
+                    ...leadEmailContext(meeting.lead),
+                    email: meeting.lead.contactEmail,
+                    meetingType: meeting.type,
+                    format: meeting.format,
+                    startsAt: meeting.startsAt,
+                    organizerName: authz.session.user.name || null,
+                    organizerRole,
+                    reason: data.reason ?? null,
+                });
+            }
+        }
 
         revalidatePath("/dashboard/meetings");
         revalidatePath("/portal/appointments");
@@ -753,7 +862,7 @@ export async function checkAndSendMeetingReminders() {
                     clientName: meeting.lead.contactName || meeting.lead.businessName || "Client",
                     email: meeting.lead.contactEmail,
                     meetingType: meeting.type === "discovery" ? "Discovery Meeting" : "Appointment",
-                    format: meeting.format === "video" ? "Video call" : meeting.format === "phone" ? "Phone call" : "In person",
+                    format: meeting.format,
                     startsAt: meeting.startsAt,
                 });
             }
@@ -771,6 +880,34 @@ export async function checkAndSendMeetingReminders() {
     }
 }
 
+
+/**
+ * Project Managers a Sales user can pick as an optional attendee of a discovery meeting.
+ * `defaultPmId` is the lead's assigned PM, when the lead has one.
+ */
+export async function getManagersForMeeting(leadId?: string): Promise<{
+    managers: Array<{ id: string; name: string }>;
+    defaultPmId: string | null;
+}> {
+    const authz = await requireRole(["sales", "manager"]);
+    if (!authz.ok) return { managers: [], defaultPmId: null };
+
+    const rows = await db.query.users.findMany({
+        where: and(eq(users.role, "manager"), eq(users.status, "active"), isNull(users.deletedAt)),
+        columns: { id: true, name: true, email: true },
+    });
+    const managers = rows
+        .map((row) => ({ id: row.id, name: row.name || row.email }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    let defaultPmId: string | null = null;
+    if (leadId) {
+        const lead = await db.query.leads.findFirst({ where: eq(leads.id, leadId), columns: { assignedPmId: true } });
+        defaultPmId = lead?.assignedPmId ?? null;
+    }
+
+    return { managers, defaultPmId };
+}
 
 export async function getActiveLeadsForMeeting(): Promise<Array<{ id: string; businessName: string | null; contactName: string | null; contactEmail: string | null }>> {
     const authz = await requireRole(["sales", "manager"]);

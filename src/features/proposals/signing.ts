@@ -9,6 +9,7 @@ import { notifyLeadPms, notifyLeadClient, notifyLeadSales } from "@/features/not
 import { logAction } from "@/features/audit/log";
 import { moveLeadToNegotiation } from "@/features/crm/stage-rules";
 import { executeProposalSignature } from "@/features/proposals/signing-core";
+import { loadProposalNoticeInfo } from "@/features/proposals/notice";
 import { headers } from "next/headers";
 
 /**
@@ -100,9 +101,10 @@ export async function requestPricingMeeting(
 
         // Notifications & Audit log post-commit
         try {
+            const info = await loadProposalNoticeInfo(proposalId);
             await notifyLeadPms(
                 result.leadId!,
-                "Client requested a pricing meeting for proposal",
+                `${info.clientName} (${info.businessName}) asked for a pricing meeting about ${info.projectName}. Open the proposal to book it.`,
                 "proposal",
                 `/dashboard/proposals/${proposalId}?book=pricing`
             );
@@ -229,9 +231,10 @@ export async function requestProposalChanges(
 
         // Post-commit: notifications & audit log
         try {
+            const info = await loadProposalNoticeInfo(proposalId);
             await notifyLeadPms(
                 result.leadId!,
-                `Client requested changes on proposal #${result.proposalCode || ""}`,
+                `${info.clientName} (${info.businessName}) asked for changes to ${info.projectName}: ${validTopics.join(", ")}. Open the proposal to read the request and reply.`,
                 "proposal",
                 `/dashboard/proposals/${proposalId}`
             );
@@ -292,9 +295,10 @@ export async function sendClientMessage(
         });
 
         try {
+            const info = await loadProposalNoticeInfo(proposalId);
             await notifyLeadPms(
                 proposal.leadId,
-                `New message from client on proposal #${proposal.proposalCode || ""}`,
+                `${info.clientName} (${info.businessName}) sent a message about ${info.projectName}. Open the proposal to reply.`,
                 "proposal",
                 `/dashboard/proposals/${proposalId}`
             );
@@ -351,9 +355,10 @@ export async function replyToClient(
         });
 
         try {
+            const info = await loadProposalNoticeInfo(proposalId);
             await notifyLeadClient(
                 proposal.leadId,
-                `Project Manager replied on proposal #${proposal.proposalCode || ""}`,
+                `${authz.session.user.name || info.pmName || "Your Project Manager"} replied about your proposal for ${info.projectName}. Open the proposal to read the reply.`,
                 "proposal",
                 `/proposal/${proposalId}`
             );
@@ -429,9 +434,10 @@ export async function logOutsideDiscussion(
         });
 
         try {
+            const info = await loadProposalNoticeInfo(proposalId);
             await notifyLeadSales(
                 proposal.leadId,
-                `Outside discussion logged by PM on proposal #${proposal.proposalCode || ""}`,
+                `${authz.session.user.name || info.pmName || "The Project Manager"} logged an outside discussion with ${info.clientName} (${info.businessName}) about ${info.projectName}. It is copied into the lead's activity log.`,
                 "proposal",
                 `/dashboard/proposals/${proposalId}`
             );

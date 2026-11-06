@@ -16,6 +16,10 @@ interface LoginPageProps {
     searchParams: Promise<{
         callbackUrl?: string;
         reason?: string;
+        /** `signup` opens the create-account form (used by the meeting invite email). */
+        mode?: string;
+        /** Prefills the email field. */
+        email?: string;
     }>;
 }
 
@@ -24,7 +28,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
     const callbackUrl = params.callbackUrl || "/dashboard";
     const isProposalReason = params.reason === "proposal_auth";
 
-    const [isLogin, setIsLogin] = useState(true);
+    const [isLogin, setIsLogin] = useState(params.mode !== "signup");
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -254,6 +258,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                         name="email"
                                         type="email"
                                         placeholder="you@company.com"
+                                        defaultValue={params.email ?? ""}
                                         required
                                         className={cn("bg-background border-border text-foreground rounded-xl", fieldErrors.email && "border-destructive")}
                                     />

@@ -12,6 +12,8 @@ vi.mock("@/features/notifications/send", () => ({
 vi.mock("@/lib/notifications", () => ({
     sendMeetingInviteEmail: vi.fn(),
     sendMeetingReminderEmail: vi.fn(),
+    sendMeetingRescheduledEmail: vi.fn(),
+    sendMeetingCancelledEmail: vi.fn(),
 }));
 vi.mock("@/features/crm/actions", () => ({ advanceToDiscoveryIfNew: vi.fn() }));
 
@@ -20,9 +22,12 @@ import { db } from "@/db";
 import { meetings } from "@/db/schema";
 import { logAction } from "@/features/audit/log";
 import { createSystemNotification, notifyLeadClient } from "@/features/notifications/send";
-import { sendMeetingInviteEmail } from "@/lib/notifications";
+import { sendMeetingCancelledEmail, sendMeetingInviteEmail, sendMeetingRescheduledEmail } from "@/lib/notifications";
 import {
+    cancelMeeting,
+    getManagersForMeeting,
     markMeetingDone,
+    rescheduleMeeting,
     scheduleBudgetPricingMeeting,
     scheduleDiscoveryMeeting,
 } from "@/features/meetings/actions";
@@ -79,6 +84,8 @@ beforeEach(() => {
     vi.mocked(notifyLeadClient).mockClear();
     vi.mocked(createSystemNotification).mockClear();
     vi.mocked(sendMeetingInviteEmail).mockClear();
+    vi.mocked(sendMeetingRescheduledEmail).mockClear();
+    vi.mocked(sendMeetingCancelledEmail).mockClear();
     vi.mocked(logAction).mockClear();
     signInAs(auth, "manager", "manager-1");
 });
@@ -242,7 +249,15 @@ describe("scheduleBudgetPricingMeeting: a Project Manager is required", () => {
         mockDb.query.proposals.findFirst.mockResolvedValue(proposalRow());
         captureInserts();
         await scheduleBudgetPricingMeeting(input);
-        expect(createSystemNotification).toHaveBeenCalledWith("client-1", expect.stringContaining("budget & pricing"), "meeting", "/portal/appointments");
+        expect(createSystemNotification).toHaveBeenCalledWith(
+            "client-1",
+            expect.stringMatching(/budget and pricing meeting.*Jan 1, 10:00\sAM \(Manila time, phone call\).*Open Appointments/),
+            "meeting",
+            "/portal/appointments",
+        );
+        expect(sendMeetingInviteEmail).toHaveBeenCalledWith(
+            expect.objectContaining({ meetingType: "budget_pricing", format: "phone", organizerRole: "manager" }),
+        );
     });
 });
 
@@ -268,9 +283,10 @@ describe("scheduleDiscoveryMeeting: the client gets an in-app notification", () 
         const [leadId, message, type, link] = vi.mocked(notifyLeadClient).mock.calls[0];
         expect(leadId).toBe("lead-1");
         expect(message).toContain("discovery meeting");
+        expect(message).toContain("Santos Logistics"); // names the business
         expect(message).toContain("video call");
-        expect(message).toMatch(/Jan 1, 10:00\sAM/); // Manila time
-        expect(message).toContain("confirm or suggest a new time");
+        expect(message).toMatch(/Jan 1, 10:00\sAM \(Manila time/); // Manila time
+        expect(message).toContain("confirm it or suggest another time");
         expect(type).toBe("meeting");
         expect(link).toBe("/portal/appointments");
     });
@@ -280,7 +296,16 @@ describe("scheduleDiscoveryMeeting: the client gets an in-app notification", () 
         captureInserts();
         await scheduleDiscoveryMeeting(input);
         expect(sendMeetingInviteEmail).toHaveBeenCalledTimes(1);
-        expect(sendMeetingInviteEmail).toHaveBeenCalledWith(expect.objectContaining({ email: "maria@example.com", meetingType: "Discovery" }));
+        expect(sendMeetingInviteEmail).toHaveBeenCalledWith(
+            expect.objectContaining({
+                email: "maria@example.com",
+                meetingType: "discovery",
+                format: "video", // the enum value, so on_site and in_person stay different
+                businessName: "Santos Logistics",
+                hasAccount: false,
+                organizerRole: "sales",
+            }),
+        );
     });
 
     it.each(ROLES.filter((role) => role !== "sales"))("does not notify anyone when %s tries", async (role) => {
@@ -301,5 +326,195 @@ describe("scheduleDiscoveryMeeting: the client gets an in-app notification", () 
 
         expect(notifyLeadClient).not.toHaveBeenCalled();
         expectNoWrites(mockDb);
+    });
+});
+
+describe("scheduleDiscoveryMeeting: optional Project Manager attendee", () => {
+    const input = { leadId: "lead-1", format: "video" as const, startsAt: FUTURE };
+
+    beforeEach(() => {
+        signInAs(auth, "sales", "sales-1");
+        mockDb.query.leads.findFirst.mockResolvedValue({
+            id: "lead-1",
+            businessName: "Santos Logistics",
+            contactName: "Maria",
+            contactEmail: "maria@example.com",
+            assignedPmId: null,
+        });
+    });
+
+    it("adds the picked PM as an attendee and notifies that PM in the app", async () => {
+        mockDb.query.users.findFirst.mockResolvedValue({ id: "pm-1", name: "Alex Cruz", email: "alex@example.com", role: "manager" });
+        const inserts = captureInserts();
+
+        const res = await scheduleDiscoveryMeeting({ ...input, pmId: "pm-1" });
+
+        expect(res).toMatchObject({ success: true });
+        const meeting = inserts.find((i) => i.table === meetings)?.values;
+        expect(meeting?.attendees).toEqual(["Sales (required)", "Alex Cruz (Project Manager, optional)"]);
+        expect(createSystemNotification).toHaveBeenCalledWith(
+            "pm-1",
+            expect.stringMatching(/invited you to the discovery meeting with Santos Logistics on Jan 1, 10:00\sAM \(Manila time\)/),
+            "meeting",
+            "/dashboard/meetings",
+        );
+    });
+
+    it("uses the lead's assigned PM when none is chosen", async () => {
+        mockDb.query.leads.findFirst.mockResolvedValue({
+            id: "lead-1",
+            businessName: "Santos Logistics",
+            contactName: "Maria",
+            contactEmail: null,
+            assignedPmId: "pm-2",
+        });
+        mockDb.query.users.findFirst.mockResolvedValue({ id: "pm-2", name: "Bea Lim", email: "bea@example.com", role: "manager" });
+        const inserts = captureInserts();
+
+        await scheduleDiscoveryMeeting(input); // pmId left out
+
+        expect(inserts.find((i) => i.table === meetings)?.values.attendees).toContain("Bea Lim (Project Manager, optional)");
+        expect(createSystemNotification).toHaveBeenCalledWith("pm-2", expect.any(String), "meeting", "/dashboard/meetings");
+    });
+
+    it("does not require a PM: pmId null means no PM and no PM notification", async () => {
+        mockDb.query.leads.findFirst.mockResolvedValue({
+            id: "lead-1",
+            businessName: "Santos Logistics",
+            contactName: "Maria",
+            contactEmail: null,
+            assignedPmId: "pm-2",
+        });
+        const inserts = captureInserts();
+
+        const res = await scheduleDiscoveryMeeting({ ...input, pmId: null });
+
+        expect(res).toMatchObject({ success: true });
+        expect(inserts.find((i) => i.table === meetings)?.values.attendees).toEqual(["Sales (required)", "Project Manager (optional)"]);
+        expect(createSystemNotification).not.toHaveBeenCalled();
+    });
+
+    it("rejects a pmId that is not a Project Manager account and writes nothing", async () => {
+        mockDb.query.users.findFirst.mockResolvedValue(undefined); // the query filters on role manager
+        const res = await scheduleDiscoveryMeeting({ ...input, pmId: "some-sales-user" });
+        expect(res).toMatchObject({ success: false, message: expect.stringMatching(/Project Manager/) });
+        expectNoWrites(mockDb);
+        expect(notifyLeadClient).not.toHaveBeenCalled();
+    });
+});
+
+describe("getManagersForMeeting", () => {
+    it("lists active Project Managers and the lead's assigned PM for sales", async () => {
+        signInAs(auth, "sales");
+        mockDb.query.users.findMany.mockResolvedValue([
+            { id: "pm-2", name: "Bea Lim", email: "bea@example.com" },
+            { id: "pm-1", name: null, email: "alex@example.com" },
+        ]);
+        mockDb.query.leads.findFirst.mockResolvedValue({ assignedPmId: "pm-2" });
+
+        const res = await getManagersForMeeting("lead-1");
+
+        expect(res.defaultPmId).toBe("pm-2");
+        expect(res.managers).toEqual([
+            { id: "pm-1", name: "alex@example.com" },
+            { id: "pm-2", name: "Bea Lim" },
+        ]);
+    });
+
+    it.each(ROLES.filter((role) => role !== "sales" && role !== "manager"))("returns nothing for %s", async (role) => {
+        signInAs(auth, role);
+        expect(await getManagersForMeeting("lead-1")).toEqual({ managers: [], defaultPmId: null });
+        expect(mockDb.query.users.findMany).not.toHaveBeenCalled();
+    });
+});
+
+describe("rescheduleMeeting and cancelMeeting tell the client", () => {
+    const meeting = (overrides: Record<string, unknown> = {}) => ({
+        id: "m-1",
+        leadId: "lead-1",
+        type: "discovery",
+        format: "on_site",
+        status: "confirmed",
+        startsAt: new Date("2099-02-03T02:00:00.000Z"),
+        lead: {
+            id: "lead-1",
+            businessName: "Santos Logistics",
+            contactName: "Maria Santos",
+            contactEmail: "maria@example.com",
+            clientId: "client-1",
+            otherServiceText: null,
+            service: { title: "Mobile App" },
+        },
+        ...overrides,
+    });
+
+    beforeEach(() => {
+        signInAs(auth, "sales", "sales-1");
+    });
+
+    it("reschedule: in-app notification and a rescheduled email with the enum format", async () => {
+        setMeeting(meeting());
+        const res = await rescheduleMeeting({ meetingId: "m-1", startsAt: FUTURE });
+
+        expect(res).toMatchObject({ success: true });
+        expect(notifyLeadClient).toHaveBeenCalledWith(
+            "lead-1",
+            expect.stringMatching(/moved your discovery meeting to Jan 1, 10:00\sAM \(Manila time\)/),
+            "meeting",
+            "/portal/appointments",
+        );
+        expect(sendMeetingRescheduledEmail).toHaveBeenCalledWith(
+            expect.objectContaining({
+                email: "maria@example.com",
+                meetingType: "discovery",
+                format: "on_site",
+                startsAt: FUTURE,
+                serviceName: "Mobile App",
+                hasAccount: true,
+                organizerRole: "sales",
+            }),
+        );
+        expect(sendMeetingInviteEmail).not.toHaveBeenCalled();
+    });
+
+    it("cancel: in-app notification (with the reason) and a cancelled email", async () => {
+        setMeeting(meeting());
+        const res = await cancelMeeting({ meetingId: "m-1", reason: "We need to move the kickoff" });
+
+        expect(res).toMatchObject({ success: true });
+        expect(notifyLeadClient).toHaveBeenCalledWith(
+            "lead-1",
+            expect.stringMatching(/cancelled your discovery meeting.*Feb 3, 10:00\sAM \(Manila time\).*Reason: We need to move the kickoff/),
+            "meeting",
+            "/portal/appointments",
+        );
+        expect(sendMeetingCancelledEmail).toHaveBeenCalledWith(
+            expect.objectContaining({
+                email: "maria@example.com",
+                meetingType: "discovery",
+                format: "on_site",
+                reason: "We need to move the kickoff",
+            }),
+        );
+    });
+
+    it("cancel and reschedule send nothing when the caller does not own the meeting", async () => {
+        signInAs(auth, "manager"); // a PM cannot manage a discovery meeting
+        setMeeting(meeting());
+
+        expect((await cancelMeeting({ meetingId: "m-1" })).success).toBe(false);
+        expect((await rescheduleMeeting({ meetingId: "m-1", startsAt: FUTURE })).success).toBe(false);
+
+        expect(notifyLeadClient).not.toHaveBeenCalled();
+        expect(sendMeetingCancelledEmail).not.toHaveBeenCalled();
+        expect(sendMeetingRescheduledEmail).not.toHaveBeenCalled();
+        expectNoWrites(mockDb);
+    });
+
+    it("does not email a lead that has no email address, but still notifies in the app", async () => {
+        setMeeting(meeting({ lead: { ...meeting().lead, contactEmail: null } }));
+        await cancelMeeting({ meetingId: "m-1" });
+        expect(sendMeetingCancelledEmail).not.toHaveBeenCalled();
+        expect(notifyLeadClient).toHaveBeenCalledTimes(1);
     });
 });
