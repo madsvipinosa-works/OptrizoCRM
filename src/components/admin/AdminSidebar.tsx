@@ -138,6 +138,8 @@ export function AdminSidebar({
     const isMounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
     const userRole = user?.role || "user";
+    // Only roles that receive hand-offs have a notification list. Super Admin only monitors and nothing is sent to the Content Editor.
+    const hasNotifications = ["sales", "manager", "developer"].includes(userRole);
 
     // Filter items and exclude empty groups based on the role (the server enforces access too).
     const filteredNavGroups = navGroups
@@ -197,17 +199,19 @@ export function AdminSidebar({
 
                 <nav aria-label="Main" className="override-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
                     {/* Notifications sits first, unlabelled: one row does not need a heading. A count (a dot in the rail) shows when something is new. */}
-                    <div>
-                        {rail && <div aria-hidden="true" className="mx-2 mb-1 mt-1 h-px bg-border" />}
-                        <NotificationsNavLink
-                            rail={rail}
-                            active={isActive("/dashboard/notifications")}
-                            scope={scope}
-                            onNavigate={() => setOpen(false)}
-                            rowClass={cn(rowBase, railRow)}
-                            idleClass={rowIdle}
-                        />
-                    </div>
+                    {hasNotifications && (
+                        <div>
+                            {rail && <div aria-hidden="true" className="mx-2 mb-1 mt-1 h-px bg-border" />}
+                            <NotificationsNavLink
+                                rail={rail}
+                                active={isActive("/dashboard/notifications")}
+                                scope={scope}
+                                onNavigate={() => setOpen(false)}
+                                rowClass={cn(rowBase, railRow)}
+                                idleClass={rowIdle}
+                            />
+                        </div>
+                    )}
                     {filteredNavGroups.map((group) => {
                         return (
                             <div key={group.title}>
@@ -325,7 +329,7 @@ export function AdminSidebar({
                     <h2 className="text-base font-semibold tracking-tight text-foreground">Optrizo CRM</h2>
                 </div>
                 <div className="flex items-center gap-1">
-                    <NotificationBell />
+                    {hasNotifications && <NotificationBell />}
                     {isMounted ? (
                         <Sheet open={open} onOpenChange={setOpen}>
                             <SheetTrigger asChild>

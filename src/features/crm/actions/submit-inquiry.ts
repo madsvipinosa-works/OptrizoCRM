@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { inquiries } from "@/db/schema";
 import { headers } from "next/headers";
 import { checkRateLimit, formatRetryAfter, getClientIp } from "@/lib/rate-limit";
-import { notifyAllAdmins } from "@/features/notifications/send";
+import { notifyAllSales } from "@/features/notifications/send";
 export type ContactFormValues = {
     firstName?: string;
     lastName?: string;
@@ -73,7 +73,8 @@ export async function submitContactForm(prevState: ContactState, formData: FormD
 
         console.log(`[Contact] Inquiry saved from ${email}`);
 
-        await notifyAllAdmins(`New website inquiry from ${name}`, "system", "/dashboard/inquiries");
+        // Sales owns the Inquiries inbox (spec step 1). This used to go to Project Managers, who cannot open that page.
+        await notifyAllSales(`New website inquiry from ${name}`, "lead", "/dashboard/inquiries");
 
         // 5. Return success
         return {
