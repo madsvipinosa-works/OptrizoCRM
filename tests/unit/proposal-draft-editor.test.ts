@@ -122,9 +122,9 @@ describe("dates", () => {
     });
 
     it("milestoneRangeSummary shows the first and last date", () => {
-        expect(milestoneRangeSummary(goodMilestones)).toBe("5 default milestones · Nov 6 – Jan 28");
+        expect(milestoneRangeSummary(goodMilestones)).toBe("5 milestones · Nov 6 – Jan 28");
         expect(milestoneRangeSummary(goodMilestones.map((m) => ({ ...m, startDate: "", endDate: "" })))).toBe(
-            "5 default milestones · Dates not set",
+            "5 milestones · Dates not set",
         );
     });
 });
@@ -325,11 +325,13 @@ describe("the editor (source checks, because components are not rendered here)",
         }
     });
 
-    it("milestones can only change dates: the dialog has no add or remove for milestones", () => {
+    it("milestones: the PM can add their own and rename any; only added ones can be removed (decision 2026-11-08)", () => {
         const start = dialogs.indexOf("export function MilestonesDialog");
         const end = dialogs.indexOf("export function ScopeTimelineDialog");
         const body = dialogs.slice(start, end);
-        expect(body).not.toMatch(/Add milestone|Remove|\.filter\(\(_, i\)/);
+        expect(body).toContain("addAfter(");
+        // Remove sits inside the `m.custom &&` guard: the 5 standard milestones can be renamed but never removed.
+        expect(body.indexOf("Remove")).toBeGreaterThan(body.indexOf("{m.custom && ("));
         expect(body).toContain("validateMilestoneDates(");
     });
 

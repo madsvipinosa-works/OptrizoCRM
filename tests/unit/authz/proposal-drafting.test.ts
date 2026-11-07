@@ -209,7 +209,7 @@ describe("sendProposal surfaces its errors", () => {
         mockDb.setSelectRows([{ id: "p-1", leadId: "lead-1", status: "draft", proposalCode: "OPT-1", version: 1, priceMode: "to_be_discussed" }]);
         const res = await sendProposal("p-1");
         expect(res.success).toBe(false);
-        expect(res.message).toMatch(/all 5 default milestones must have valid start and end dates/);
+        expect(res.message).toMatch(/all 5 default milestones must have valid start and end dates/); // still the first check
     });
 
     it("returns an error for a proposal that is not a draft", async () => {

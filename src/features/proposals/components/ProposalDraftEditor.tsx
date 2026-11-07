@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -212,12 +211,8 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
         priceMode: fields.priceMode,
         currency: fields.currency,
         totalPrice: priced ? fields.totalPrice : null,
-        needsGoals: [
-            fields.needs ? `Client Needs:\n${fields.needs}` : "",
-            fields.goals ? `Goals:\n${fields.goals}` : "",
-        ]
-            .filter(Boolean)
-            .join("\n\n"),
+        needsGoals: { needs: fields.needs, goals: fields.goals },
+        version: data.version,
         milestones: milestones.map((m) => ({
             key: m.key,
             title: m.title,
@@ -287,31 +282,28 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
 
     if (view === "preview") {
         return (
-            <div className="min-h-screen bg-muted/30">
+            <div className="-mx-4 -mt-24 min-h-dvh bg-muted/40 sm:-mx-8 md:-mt-8">
                 <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-6 py-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-sm font-semibold">
-                            Proposal {data.proposalCode} · v{data.version} · {fields.projectName.trim() || "Untitled project"}
+                    <div className="flex min-w-0 flex-wrap items-center gap-3">
+                        <span className="min-w-0 break-words text-sm font-semibold text-foreground">
+                            Proposal {data.proposalCode} v{data.version} · {fields.projectName.trim() || "Untitled project"}
                         </span>
-                        <Badge variant="outline">{editable ? "Preview, not sent yet" : "Preview"}</Badge>
+                        <span className="rounded-full bg-stage-negotiation/15 px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                            {editable ? "Preview, not sent yet" : "Preview"}
+                        </span>
                     </div>
                     <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => setView("edit")}>
+                        <Button type="button" variant="outline" className="bg-card active:scale-[0.97]" onClick={() => setView("edit")}>
                             Back to editing
                         </Button>
                         {editable && (
-                            <Button type="button" onClick={() => setDialog("send")}>
+                            <Button type="button" className="font-semibold active:scale-[0.97]" onClick={() => setDialog("send")}>
                                 Send to client
                             </Button>
                         )}
                     </div>
                 </div>
-                <div className="space-y-4 px-4 py-6">
-                    {!priced && (
-                        <p className="mx-auto max-w-[850px] rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-                            This version has no price and cannot be signed.
-                        </p>
-                    )}
+                <div className="px-4 py-8">
                     <ProposalDocumentSheet data={previewData} agencyLogoUrl={data.document.agencyLogoUrl} agencyFaviconUrl={data.document.agencyFaviconUrl} />
                 </div>
                 {sendDialog}
@@ -320,36 +312,25 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
     }
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 pb-16">
-            <Link href="/dashboard/proposals" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
-                <ArrowLeft className="h-3.5 w-3.5" /> Back to proposals
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
+            <Link
+                href="/dashboard/proposals"
+                className="inline-flex items-center gap-1 rounded-md text-sm text-muted-foreground outline-none underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <ArrowLeft className="size-3.5" aria-hidden="true" /> Back to proposals
             </Link>
 
-            {/* 1. Header */}
-            <header className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0 flex-1 space-y-1">
+            {/* 1. Header (mockup 10): who it is for, then the project name and version as the page title */}
+            <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <div className="min-w-[min(100%,22rem)] flex-1">
                     <p className="text-sm text-muted-foreground">
                         Business name: {data.businessName} · Client name: {data.clientName}
                     </p>
-                    <Label htmlFor="project-name" className="sr-only">
-                        Project name
-                    </Label>
-                    <Input
-                        id="project-name"
-                        value={fields.projectName}
-                        disabled={!editable}
-                        placeholder="Project name"
-                        onChange={(e) => set("projectName", e.target.value)}
-                        className="h-auto border-0 border-b border-transparent bg-transparent px-0 py-1 text-2xl font-bold shadow-none focus-visible:border-input focus-visible:ring-0 md:text-3xl"
-                    />
-                    <div className="flex justify-between">
-                        {fieldErrors.projectName ? (
-                            <p role="alert" className="text-xs text-destructive">{fieldErrors.projectName}</p>
-                        ) : (
-                            <span />
-                        )}
-                        <Counter value={fields.projectName} max={LIMITS.projectName} />
-                    </div>
+                    {/* Wraps instead of scrolling, so the whole project name always shows. */}
+                    <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight text-foreground">
+                        Project name: {fields.projectName.trim() || "Not named yet"}
+                        {data.version > 1 && <span className="text-muted-foreground"> · v{data.version}</span>}
+                    </h1>
                 </div>
                 <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label="Proposal progress">
                     {stepper.map((step, index) => (
@@ -358,15 +339,15 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                                 aria-current={step.state === "current" ? "step" : undefined}
                                 className={
                                     step.state === "current"
-                                        ? "rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground"
+                                        ? "rounded-full bg-brand-deep px-3 py-1 font-semibold text-background"
                                         : step.state === "done"
-                                          ? "rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-800"
+                                          ? "rounded-full bg-brand-soft px-3 py-1 font-semibold text-brand-deep"
                                           : "rounded-full bg-muted px-3 py-1 font-semibold text-muted-foreground"
                                 }
                             >
                                 {step.label}
                             </span>
-                            {index < stepper.length - 1 && <span aria-hidden="true">&rarr;</span>}
+                            {index < stepper.length - 1 && <span aria-hidden="true" className="text-muted-foreground">&rarr;</span>}
                         </li>
                     ))}
                 </ol>
@@ -374,7 +355,7 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
 
             {/* Read-only mode */}
             {message && (
-                <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stage-negotiation/30 bg-stage-negotiation/10 px-4 py-3 text-sm text-foreground">
                     <p>{message}</p>
                     {canCreateRevision(data.status) && (
                         <Button type="button" size="sm" disabled={creatingVersion} onClick={handleCreateVersion}>
@@ -390,7 +371,22 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                 <div className="space-y-6">
                     {/* 2. Proposal */}
                     <section className={cardClass} aria-labelledby="proposal-card">
-                        <h2 id="proposal-card" className="text-lg font-semibold">Proposal</h2>
+                        <h2 id="proposal-card" className="text-lg font-semibold tracking-tight">Proposal</h2>
+                        <div className="space-y-1.5">
+                            <div className="flex items-baseline justify-between">
+                                <Label htmlFor="project-name">Project name</Label>
+                                <Counter value={fields.projectName} max={LIMITS.projectName} />
+                            </div>
+                            <Input
+                                id="project-name"
+                                value={fields.projectName}
+                                disabled={!editable}
+                                placeholder="e.g. Delivery Tracking App"
+                                onChange={(e) => set("projectName", e.target.value)}
+                                aria-invalid={fieldErrors.projectName ? true : undefined}
+                            />
+                            {fieldErrors.projectName && <p role="alert" className="text-xs text-destructive">{fieldErrors.projectName}</p>}
+                        </div>
                         <div className="space-y-1.5">
                             <div className="flex items-baseline justify-between">
                                 <Label htmlFor="overview">Project overview</Label>
@@ -420,19 +416,20 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                     {/* 3. Milestones */}
                     <section className={`${cardClass} flex flex-wrap items-center justify-between gap-3`} aria-labelledby="milestones-card">
                         <div>
-                            <h2 id="milestones-card" className="text-lg font-semibold">Milestones</h2>
+                            <h2 id="milestones-card" className="text-lg font-semibold tracking-tight">Milestones</h2>
                             <p className="text-sm text-muted-foreground">{milestoneRangeSummary(milestones)}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">The 5 standard milestones, plus any you add between them.</p>
                         </div>
                         {editable && (
                             <Button type="button" variant="outline" size="sm" onClick={() => setDialog("milestones")}>
-                                Edit dates
+                                Edit milestones
                             </Button>
                         )}
                     </section>
 
                     {/* 4. Other document sections */}
                     <section className={cardClass} aria-labelledby="sections-card">
-                        <h2 id="sections-card" className="text-lg font-semibold">Other document sections</h2>
+                        <h2 id="sections-card" className="text-lg font-semibold tracking-tight">Other document sections</h2>
                         <ul className="divide-y divide-border">
                             <li className="flex items-center justify-between gap-3 py-2.5">
                                 <div>
@@ -470,22 +467,22 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                     {/* 5. Price */}
                     <section className={cardClass} aria-labelledby="price-card">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h2 id="price-card" className="text-lg font-semibold">Price</h2>
+                            <h2 id="price-card" className="text-lg font-semibold tracking-tight">Price</h2>
                             {data.clientType && (
-                                <Badge variant="secondary" className="capitalize">{data.clientType} client</Badge>
+                                <span className="rounded-full bg-stage-negotiation/15 px-2.5 py-0.5 text-xs font-semibold capitalize text-foreground">{data.clientType} client</span>
                             )}
                             <span className="text-xs text-muted-foreground">
                                 {data.clientType ? "set in the discovery form" : "client type not set yet"}
                             </span>
                         </div>
 
-                        <div role="group" aria-label="Price mode" className="grid grid-cols-2 rounded-lg border border-border bg-muted/30 p-1">
+                        <div role="group" aria-label="Price mode" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 ring-1 ring-inset ring-border/60">
                             <button
                                 type="button"
                                 disabled={!editable}
                                 aria-pressed={priced}
                                 onClick={() => set("priceMode", "priced")}
-                                className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${priced ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                                className={`rounded-md px-3 py-2 text-sm font-medium transition-[color,background-color] duration-150 ease-out disabled:cursor-not-allowed ${priced ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"}`}
                             >
                                 Include price
                             </button>
@@ -494,7 +491,7 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                                 disabled={!editable}
                                 aria-pressed={!priced}
                                 onClick={() => set("priceMode", "to_be_discussed")}
-                                className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${!priced ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                                className={`rounded-md px-3 py-2 text-sm font-medium transition-[color,background-color] duration-150 ease-out disabled:cursor-not-allowed ${!priced ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"}`}
                             >
                                 Price to be discussed
                             </button>
@@ -579,7 +576,7 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                     {/* 7. Buttons */}
                     <div className="space-y-2">
                         {editable && (
-                            <Button type="button" className="h-11 w-full text-base font-semibold" disabled={saving || sending} onClick={() => { setSendError(null); setDialog("send"); }}>
+                            <Button type="button" className="h-11 w-full text-base font-semibold active:scale-[0.97]" disabled={saving || sending} onClick={() => { setSendError(null); setDialog("send"); }}>
                                 Send to client
                             </Button>
                         )}

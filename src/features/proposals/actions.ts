@@ -11,7 +11,7 @@ import {
     services,
 } from "@/db/schema";
 import { todayInManila } from "@/features/sprints/sprint-status";
-import { eq, and, isNull, isNotNull, ne, inArray } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, ne, inArray, notInArray } from "drizzle-orm";
 import { moveLeadToProposalSent, moveLeadToClosedLost } from "@/features/crm/stage-rules";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 import { notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
+import { CUSTOM_MILESTONE_LIMITS, customMilestoneError, orderMilestones, validateMilestoneDates } from "@/features/proposals/draft-logic";
 import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
 
 export interface ContractSettings {
@@ -598,10 +599,13 @@ export async function getProposalRequestsQueue() {
         return [];
     }
 
+    // Only open requests: a declined (Closed Lost) or signed (Closed Won) lead leaves the queue.
     const requests = await db.query.leads.findMany({
         where: and(
             isNotNull(leads.proposalRequestedAt),
-            isNull(leads.archivedAt)
+            isNull(leads.archivedAt),
+            eq(leads.isArchived, false),
+            notInArray(leads.status, ["Closed Won", "Closed Lost"])
         ),
         with: {
             assignedPm: true,
@@ -643,6 +647,9 @@ export async function getProposalRequestsQueue() {
             id: p.id,
             status: p.status,
             version: (p as unknown as { version?: number | null }).version ?? 1,
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt,
+            sentAt: p.sentAt,
         })),
     }));
 }
@@ -710,71 +717,101 @@ export async function getProposalMilestones(proposalId: string) {
     const rows = await db.query.proposalMilestones.findMany({
         where: eq(proposalMilestones.proposalId, proposalId),
     });
-
-    const map = new Map(rows.map((r) => [r.name, r]));
-    return DEFAULT_PROPOSAL_MILESTONES.map((def) => {
-        const found = map.get(def.name);
-        return {
-            id: found?.id || "",
-            proposalId,
-            name: def.name,
-            key: def.key,
-            title: def.title,
-            description: def.description,
-            startDate: found?.startDate ? new Date(found.startDate).toISOString().split("T")[0] : null,
-            endDate: found?.endDate ? new Date(found.endDate).toISOString().split("T")[0] : null,
-        };
-    });
+    // The 5 defaults and any milestones the PM added, in order (draft-logic orderMilestones).
+    return orderMilestones(rows);
 }
 
 export async function updateProposalMilestones(
     proposalId: string,
-    milestonesData: Array<{ name?: string; key?: string; startDate?: string | null; endDate?: string | null }>
+    milestonesData: Array<{
+        name?: string;
+        key?: string;
+        custom?: boolean;
+        title?: string;
+        description?: string;
+        sortOrder?: number;
+        startDate?: string | null;
+        endDate?: string | null;
+    }>
 ) {
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
-        return { success: false, message: "Unauthorized: Only managers can update milestone dates" };
+        return { success: false, message: "Unauthorized: Only managers can update milestones" };
+    }
+
+    // Added milestones: same limits as the dialog, checked here because this is the trust boundary.
+    const added = milestonesData.filter((m) => m.custom);
+    if (added.length > CUSTOM_MILESTONE_LIMITS.count) {
+        return { success: false, message: `At most ${CUSTOM_MILESTONE_LIMITS.count} added milestones.` };
+    }
+    // Every milestone's name and description (defaults can be renamed too); positions only for added ones.
+    for (const m of milestonesData) {
+        if (m.title === undefined && m.description === undefined) continue;
+        const problem = customMilestoneError({ title: m.title ?? "", description: m.description ?? "" });
+        if (problem) return { success: false, message: problem };
+    }
+    for (const m of added) {
+        if (!Number.isInteger(m.sortOrder) || (m.sortOrder ?? 0) < 1 || (m.sortOrder ?? 0) > 100000) {
+            return { success: false, message: "Invalid milestone position." };
+        }
     }
 
     try {
         const guard = await requireEditableDraft(proposalId, authz.session.user.id);
         if (!guard.ok) return { success: false, message: guard.message };
         const proposal = guard.proposal;
+        const toDate = (v?: string | null) => (v ? new Date(v) : null);
 
-        for (const item of milestonesData) {
-            const mName = (item.name || item.key) as (typeof DEFAULT_PROPOSAL_MILESTONES)[number]["name"];
+        const rows = await db.query.proposalMilestones.findMany({
+            where: eq(proposalMilestones.proposalId, proposalId),
+        });
+
+        // The 5 defaults: dates, plus a name and description for this proposal. Unchanged text is stored as
+        // null so the standard wording keeps applying; the name key never changes (payments key on it).
+        for (const item of milestonesData.filter((m) => !m.custom)) {
+            const mName = item.name || item.key;
             const def = DEFAULT_PROPOSAL_MILESTONES.find((d) => d.name === mName || d.key === mName);
             if (!def) continue;
-
-            const existing = await db.query.proposalMilestones.findFirst({
-                where: and(
-                    eq(proposalMilestones.proposalId, proposalId),
-                    eq(proposalMilestones.name, def.name)
-                ),
-            });
-
-            const sDate = item.startDate ? new Date(item.startDate) : null;
-            const eDate = item.endDate ? new Date(item.endDate) : null;
-
+            const title = item.title?.trim();
+            const description = item.description?.trim();
+            const values = {
+                title: title && title !== def.title ? title : null,
+                description: description !== undefined && description !== def.description ? description : null,
+                startDate: toDate(item.startDate),
+                endDate: toDate(item.endDate),
+            };
+            const existing = rows.find((r) => r.name === def.name);
             if (existing) {
-                await db.update(proposalMilestones)
-                    .set({
-                        startDate: sDate,
-                        endDate: eDate,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(proposalMilestones.id, existing.id));
+                await db.update(proposalMilestones).set({ ...values, updatedAt: new Date() }).where(eq(proposalMilestones.id, existing.id));
             } else {
-                await db.insert(proposalMilestones).values({
-                    proposalId,
-                    name: def.name,
-                    startDate: sDate,
-                    endDate: eDate,
-                });
+                await db.insert(proposalMilestones).values({ proposalId, name: def.name, ...values });
             }
         }
 
-        await logAction("UPDATE", "Proposal", `Updated milestone dates for proposal ${proposal.proposalCode || proposalId}`);
+        // Added milestones: update the ones that exist on this proposal, insert new ones, remove the rest.
+        const existingAdded = rows.filter((r) => !r.name);
+        const keep = new Set<string>();
+        for (const item of added) {
+            const values = {
+                title: (item.title ?? "").trim(),
+                description: (item.description ?? "").trim(),
+                sortOrder: item.sortOrder ?? null,
+                startDate: toDate(item.startDate),
+                endDate: toDate(item.endDate),
+            };
+            const existing = existingAdded.find((r) => r.id === item.key);
+            if (existing) {
+                keep.add(existing.id);
+                await db.update(proposalMilestones).set({ ...values, updatedAt: new Date() }).where(eq(proposalMilestones.id, existing.id));
+            } else {
+                await db.insert(proposalMilestones).values({ proposalId, name: null, ...values });
+            }
+        }
+        for (const r of existingAdded) {
+            if (!keep.has(r.id)) await db.delete(proposalMilestones).where(eq(proposalMilestones.id, r.id));
+        }
+
+        await logAction("UPDATE", "Proposal", `Updated milestones for proposal ${proposal.proposalCode || proposalId} (${added.length} added)`);
         revalidatePath(`/dashboard/proposals/builder/${proposalId}`);
         revalidatePath(`/dashboard/proposals/${proposalId}`);
         revalidatePath(`/proposal/${proposalId}`);
@@ -782,7 +819,7 @@ export async function updateProposalMilestones(
         const updated = await getProposalMilestones(proposalId);
         return { success: true, milestones: updated };
     } catch (error) {
-        console.error("Failed to update milestone dates:", error);
+        console.error("Failed to update milestones:", error);
         return { success: false, message: "Database Error" };
     }
 }
@@ -857,6 +894,9 @@ export async function createProposalRevision(leadId: string) {
                 await db.insert(proposalMilestones).values({
                     proposalId: revision.id,
                     name: m.name,
+                    title: m.title,
+                    description: m.description,
+                    sortOrder: m.sortOrder,
                     startDate: m.startDate,
                     endDate: m.endDate,
                 });
@@ -1041,6 +1081,9 @@ export async function sendProposal(proposalId: string) {
                 if (isNaN(startTime) || isNaN(endTime) || endTime < startTime) {
                     throw new Error(`Cannot send proposal: milestone "${k}" end date must be on or after start date.`);
                 }
+            }
+            if (!validateMilestoneDates(orderMilestones(milestones)).ok) {
+                throw new Error("Cannot send proposal: every milestone needs a start and end date, in order.");
             }
 
             // For priced proposals use totalPrice only (> 0), never the legacy total

@@ -36,6 +36,7 @@ import {
     PricingLineItem,
 } from "@/features/proposals/components/ProposalDocumentSheet";
 import { AcceptProposalDialog } from "@/features/proposals/components/AcceptProposalDialog";
+import { orderMilestones } from "@/features/proposals/draft-logic";
 import { RequestChangesDialog } from "@/features/proposals/components/RequestChangesDialog";
 import { ProposalThread, type ProposalMessageItem } from "@/features/proposals/components/ProposalThread";
 
@@ -50,9 +51,12 @@ interface Props {
         totalPrice?: number | null;
         needsGoals?: string | { needs?: string; goals?: string } | null;
         milestones?: Array<{
-            name?: string;
+            id?: string | null;
+            name?: string | null;
             key?: string;
-            title?: string;
+            title?: string | null;
+            description?: string | null;
+            sortOrder?: number | null;
             startDate?: string | Date | null;
             endDate?: string | Date | null;
         }> | null;
@@ -225,15 +229,13 @@ export function ProposalClientView({
         discount: proposal.discount || parsedPricing.discount || 0,
         tax: proposal.tax || parsedPricing.tax || 0,
         total: grandTotal,
-        needsGoals: typeof proposal.needsGoals === "object" && proposal.needsGoals !== null
-            ? [proposal.needsGoals.needs ? `Client Needs:\n${proposal.needsGoals.needs}` : "", proposal.needsGoals.goals ? `Goals:\n${proposal.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
-            : (proposal.needsGoals as string | undefined),
-        milestones: (proposal.milestones || []).map((m) => ({
-            key: m.name || m.key || "milestone",
-            title: m.title || m.name || "Milestone",
-            startDate: m.startDate ? String(m.startDate).split("T")[0] : null,
-            endDate: m.endDate ? String(m.endDate).split("T")[0] : null,
-        })),
+        needsGoals: proposal.needsGoals ?? null,
+        version: proposal.version ?? 1,
+        priceMode: proposal.priceMode,
+        currency: proposal.currency,
+        totalPrice: proposal.totalPrice ?? null,
+        // The 5 default milestones and any the PM added, in order, with this proposal's dates.
+        milestones: orderMilestones(proposal.milestones || []).map((m) => ({ ...m, startDate: m.startDate || null, endDate: m.endDate || null })),
         paymentScheduleItems: (proposal.paymentScheduleItems || []).map((p) => ({
             label: p.label,
             percent: p.percent,
@@ -337,13 +339,13 @@ export function ProposalClientView({
 
             {/* Discussion & Negotiation Thread */}
             {!isPreview && (
-                <div className="max-w-[850px] mx-auto bg-card border border-border rounded-2xl shadow-sm p-4 sm:p-6 no-print">
+                <section aria-labelledby="negotiation-heading" className="no-print mx-auto max-w-[850px] overflow-hidden rounded-xl border border-border bg-card">
                     <ProposalThread
                         proposalId={proposal.id}
                         messages={messages || []}
                         userRole="client"
                     />
-                </div>
+                </section>
             )}
 
             {/* Status Callout (Approved / Rejected) */}

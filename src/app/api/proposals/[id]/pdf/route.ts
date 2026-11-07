@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { proposals } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { getPuppeteerBrowser, generateSOWHtml, escapeHtml } from "@/lib/pdf-generator";
+import { orderMilestones } from "@/features/proposals/draft-logic";
 import { getSiteSettings } from "@/features/cms/actions";
 import fs from "fs";
 import path from "path";
@@ -47,6 +48,7 @@ export async function GET(
         const proposal = await db.query.proposals.findFirst({
             where: or(eq(proposals.id, id), eq(proposals.proposalCode, id)),
             with: {
+                milestones: true,
                 lead: {
                     with: {
                         client: true,
@@ -138,6 +140,8 @@ export async function GET(
             currency: proposal.currency,
             totalPrice: proposal.totalPrice,
             needsGoals: proposal.needsGoals,
+            // The 5 defaults and any milestones the PM added, in order (the PDF had none before).
+            milestones: orderMilestones(proposal.milestones ?? []),
             terms: proposal.terms,
             status: proposal.status,
             acceptedByName: proposal.acceptedByName,

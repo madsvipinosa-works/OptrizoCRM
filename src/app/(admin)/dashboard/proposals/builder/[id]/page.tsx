@@ -5,8 +5,7 @@ import { proposals } from "@/db/schema";
 import { requireRole } from "@/lib/authz";
 import { getSiteSettings } from "@/features/cms/actions";
 import { todayInManila } from "@/features/sprints/sprint-status";
-import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
-import { toDateInput, type MilestoneDraft, type ScheduleDraftItem } from "@/features/proposals/draft-logic";
+import { orderMilestones, toDateInput, type MilestoneDraft, type ScheduleDraftItem } from "@/features/proposals/draft-logic";
 import { ProposalDraftEditor, type ProposalDraftEditorData } from "@/features/proposals/components/ProposalDraftEditor";
 import type { ContractSettings } from "@/features/proposals/actions";
 import type { PricingLineItem } from "@/features/proposals/components/ProposalDocumentSheet";
@@ -107,14 +106,8 @@ export default async function ProposalBuilderPage({ params }: { params: Promise<
     const needs = typeof needsGoals === "object" && needsGoals !== null ? needsGoals.needs ?? "" : typeof needsGoals === "string" ? needsGoals : "";
     const goals = typeof needsGoals === "object" && needsGoals !== null ? needsGoals.goals ?? "" : "";
 
-    const milestoneByName = new Map((proposal.milestones ?? []).map((m) => [m.name, m]));
-    const milestones: MilestoneDraft[] = DEFAULT_PROPOSAL_MILESTONES.map((def) => ({
-        key: def.key,
-        title: def.title,
-        description: def.description,
-        startDate: toDateInput(milestoneByName.get(def.name)?.startDate),
-        endDate: toDateInput(milestoneByName.get(def.name)?.endDate),
-    }));
+    // The 5 defaults and any milestones the PM added, in order.
+    const milestones: MilestoneDraft[] = orderMilestones(proposal.milestones ?? []);
 
     const schedule: ScheduleDraftItem[] = [...(proposal.paymentScheduleItems ?? [])]
         .sort((a, b) => a.sortOrder - b.sortOrder)
