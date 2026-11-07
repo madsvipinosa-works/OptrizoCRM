@@ -76,7 +76,7 @@ export function DiscoveryTracker({
 
                     {doneMeetingNotes && (
                         <div className="bg-muted/40 rounded-lg p-3 text-xs text-foreground space-y-1">
-                            <span className="font-semibold text-muted-foreground block text-[11px]">Meeting Outcome Notes</span>
+                            <span className="font-semibold text-muted-foreground block text-xs">Meeting Outcome Notes</span>
                             <p>{doneMeetingNotes}</p>
                         </div>
                     )}
@@ -98,7 +98,7 @@ export function DiscoveryTracker({
                             <Lock className="h-3.5 w-3.5 mr-1" />
                             Request proposal (locked)
                         </Button>
-                        <p className="text-[11px] text-muted-foreground text-center">
+                        <p className="text-xs text-muted-foreground text-center">
                             Meeting done. Submit the discovery form to unlock.
                         </p>
                     </div>
@@ -127,23 +127,23 @@ export function DiscoveryTracker({
                     {discoveryForm && (
                         <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 rounded-lg p-3 border border-border">
                             <div className="col-span-2">
-                                <span className="text-muted-foreground block text-[11px]">Goals</span>
+                                <span className="text-muted-foreground block text-xs">Goals</span>
                                 <span className="font-medium text-foreground">{discoveryForm.goals}</span>
                             </div>
                             <div className="col-span-2">
-                                <span className="text-muted-foreground block text-[11px]">Required features</span>
+                                <span className="text-muted-foreground block text-xs">Required features</span>
                                 <span className="font-medium text-foreground">{discoveryForm.requiredFeatures}</span>
                             </div>
                             <div>
-                                <span className="text-muted-foreground block text-[11px]">Timeline</span>
+                                <span className="text-muted-foreground block text-xs">Timeline</span>
                                 <span className="font-medium text-foreground">{discoveryForm.targetTimeline}</span>
                             </div>
                             <div>
-                                <span className="text-muted-foreground block text-[11px]">Budget range</span>
+                                <span className="text-muted-foreground block text-xs">Budget range</span>
                                 <span className="font-medium text-foreground">{discoveryForm.budgetRange}</span>
                             </div>
                             <div className="col-span-2">
-                                <span className="text-muted-foreground block text-[11px]">Client type</span>
+                                <span className="text-muted-foreground block text-xs">Client type</span>
                                 <span className="font-semibold text-foreground capitalize">
                                     {discoveryForm.clientType === "local" ? "Local (Philippines)" : "International"}
                                 </span>
@@ -163,7 +163,7 @@ export function DiscoveryTracker({
                             >
                                 Proposal requested (waiting for PM)
                             </Button>
-                            <p className="text-[11px] text-muted-foreground text-center">
+                            <p className="text-xs text-muted-foreground text-center">
                                 Waiting for the Project Manager to draft it. You will be notified when it is sent.
                             </p>
                         </div>
@@ -189,7 +189,7 @@ export function DiscoveryTracker({
                         <Lock className="h-3.5 w-3.5 mr-1" />
                         Request proposal (locked)
                     </Button>
-                    <p className="text-[11px] text-muted-foreground text-center">
+                    <p className="text-xs text-muted-foreground text-center">
                         Complete the discovery meeting and form first.
                     </p>
                 </div>

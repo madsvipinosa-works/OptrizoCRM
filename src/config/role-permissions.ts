@@ -240,7 +240,7 @@ export const ROLE_DEFINITIONS: readonly RoleDefinition[] = [
   {
     role: "superadmin",
     label: "Super Admin",
-    landsOn: "Super Admin analytics (/dashboard/analytics)",
+    landsOn: "Super Admin dashboard (/dashboard)",
     summary:
       "Oversees and monitors only. Manages accounts and roles, and reads analytics, reports, and the audit log.",
     canDo: [

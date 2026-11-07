@@ -65,24 +65,23 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
                     <Button
                         variant="ghost"
                         className={cn(
-                            'relative flex items-center gap-2.5 h-10 px-2.5 rounded-xl border transition-all duration-200 cursor-pointer select-none',
-                            'border-border bg-muted/40 hover:bg-muted/70 hover:border-border/80 text-foreground shadow-xs',
-                            'focus-visible:ring-1 focus-visible:ring-ring',
-                            open && 'bg-muted border-border'
+                            'relative flex h-10 cursor-pointer select-none items-center gap-2 rounded-xl border border-border bg-card pl-1.5 pr-2.5 text-foreground transition-colors duration-150 hover:bg-muted',
+                            'focus-visible:ring-2 focus-visible:ring-ring',
+                            open && 'bg-muted'
                         )}
                     >
-                        <Avatar className="h-7 w-7 border border-border ring-1 ring-border/50">
+                        <Avatar className="size-7">
                             {user.image && <AvatarImage src={user.image} alt={user.name || 'User'} className="object-cover" />}
-                            <AvatarFallback className="text-[10px] font-bold bg-primary text-black">
+                            <AvatarFallback className="bg-brand-soft text-xs font-semibold text-brand-deep">
                                 {initials}
                             </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs font-semibold text-foreground truncate max-w-[130px]">
+                        <span className="max-w-36 truncate text-sm font-semibold text-foreground">
                             {user.name || user.email || 'Account'}
                         </span>
                         <ChevronDown
                             className={cn(
-                                'w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-200',
+                                'size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out',
                                 open && 'rotate-180'
                             )}
                         />
@@ -90,57 +89,50 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent
-                    className={cn(
-                        'w-56 p-1.5 rounded-xl shadow-2xl z-50 transition-colors duration-200',
-                        'bg-popover border border-border text-popover-foreground backdrop-blur-xl shadow-xl'
-                    )}
+                    className="w-60"
                     align="end"
                     sideOffset={8}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                 >
-                    <DropdownMenuLabel className="font-normal px-2.5 py-2">
-                        <div className="flex flex-col space-y-1">
-                            <p className="text-xs font-bold leading-none text-foreground">{user.name || 'Client'}</p>
-                            {user.email && (
-                                <p className="text-[11px] leading-none text-muted-foreground truncate">{user.email}</p>
-                            )}
-                        </div>
+                    <DropdownMenuLabel className="font-normal">
+                        <p className="truncate text-sm font-semibold text-foreground">{user.name || 'Client'}</p>
+                        {user.email && <p className="truncate text-sm text-muted-foreground">{user.email}</p>}
                     </DropdownMenuLabel>
 
-                    <DropdownMenuSeparator className="bg-border my-1" />
+                    <DropdownMenuSeparator />
 
                     <DropdownMenuGroup>
                         <DropdownMenuItem
                             asChild
                             onClick={() => setOpen(false)}
-                            className="hover:bg-muted focus:bg-muted text-foreground rounded-lg cursor-pointer text-xs py-2 px-2.5 font-medium transition-colors"
+                            className="cursor-pointer"
                         >
                             <Link href="/portal" className="flex items-center w-full">
-                                <LayoutDashboard className="mr-2.5 h-4 w-4 text-primary" />
-                                <span>My Dashboard</span>
+                                <LayoutDashboard className="size-4" strokeWidth={1.75} />
+                                <span>Client portal</span>
                             </Link>
                         </DropdownMenuItem>
 
                         <DropdownMenuItem
                             asChild
                             onClick={() => setOpen(false)}
-                            className="hover:bg-muted focus:bg-muted text-foreground rounded-lg cursor-pointer text-xs py-2 px-2.5 font-medium transition-colors"
+                            className="cursor-pointer"
                         >
                             <Link href="/portal/settings" className="flex items-center w-full">
-                                <Settings className="mr-2.5 h-4 w-4 text-primary" />
-                                <span>Account Settings</span>
+                                <Settings className="size-4" strokeWidth={1.75} />
+                                <span>Settings</span>
                             </Link>
                         </DropdownMenuItem>
 
                         <DropdownMenuItem
                             asChild
                             onClick={() => setOpen(false)}
-                            className="hover:bg-muted focus:bg-muted text-foreground rounded-lg cursor-pointer text-xs py-2 px-2.5 font-medium transition-colors"
+                            className="cursor-pointer"
                         >
-                            <Link href="/portal/services" className="flex items-center w-full">
-                                <Layers className="mr-2.5 h-4 w-4 text-primary" />
-                                <span>Availed Services</span>
+                            <Link href="/portal/projects" className="flex items-center w-full">
+                                <Layers className="size-4" strokeWidth={1.75} />
+                                <span>Availed services</span>
                             </Link>
                         </DropdownMenuItem>
 
@@ -148,20 +140,20 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
                             <DropdownMenuItem
                                 asChild
                                 onClick={() => setOpen(false)}
-                                className="hover:bg-muted focus:bg-muted text-foreground rounded-lg cursor-pointer text-xs py-2 px-2.5 font-medium transition-colors"
+                                className="cursor-pointer"
                             >
                                 <Link href="/dashboard" className="flex items-center w-full">
-                                    <ShieldAlert className="mr-2.5 h-4 w-4 text-amber-500" />
+                                    <ShieldAlert className="size-4" strokeWidth={1.75} />
                                     <span>Admin Panel</span>
                                 </Link>
                             </DropdownMenuItem>
                         )}
                     </DropdownMenuGroup>
 
-                    <DropdownMenuSeparator className="bg-border my-1" />
+                    <DropdownMenuSeparator />
 
                     <DropdownMenuItem
-                        className="focus:bg-destructive/10 focus:text-destructive hover:bg-destructive/10 hover:text-destructive text-destructive rounded-lg cursor-pointer text-xs py-2 px-2.5 font-medium transition-colors"
+                        className="cursor-pointer"
                         onSelect={() => {
                             setOpen(false);
                             // Open after the menu has closed, so focus and pointer locks hand over cleanly.
@@ -169,7 +161,7 @@ export function UserNav({ user, isAdmin, onSignOut, isPending }: UserNavProps) {
                         }}
                         disabled={isPending}
                     >
-                        <LogOut className="mr-2.5 h-4 w-4 text-rose-600 dark:text-rose-400" />
+                        <LogOut className="size-4" strokeWidth={1.75} />
                         <span>{isPending ? 'Logging out...' : 'Log out'}</span>
                     </DropdownMenuItem>
                 </DropdownMenuContent>

@@ -98,11 +98,11 @@ function getLandingPageForRole(role?: string | null): string {
         case "manager":
             return "/dashboard";
         case "developer":
-            return "/dashboard/pm";
+            return "/dashboard/my-tasks";
         case "content_editor":
             return "/dashboard/cms";
         case "superadmin":
-            return "/dashboard/analytics";
+            return "/dashboard";
         case "client":
         default:
             return "/portal";

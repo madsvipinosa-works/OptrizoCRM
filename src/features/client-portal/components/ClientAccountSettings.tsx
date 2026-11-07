@@ -12,10 +12,14 @@ export function ClientAccountSettings({ name, email }: Props) {
     const [displayName, setDisplayName] = useState(name);
     const [nameMessage, setNameMessage] = useState("");
     const [passwordMessage, setPasswordMessage] = useState("");
+    // Errors show in red; success stays quiet.
+    const [nameFailed, setNameFailed] = useState(false);
+    const [passwordFailed, setPasswordFailed] = useState(false);
     const [isPending, startTransition] = useTransition();
 
     const saveName = () => startTransition(async () => {
         const result = await updateAccountName(displayName);
+        setNameFailed(!result.success);
         setNameMessage(result.message ?? (result.success ? "Name updated." : "Could not update name."));
     });
 
@@ -24,6 +28,7 @@ export function ClientAccountSettings({ name, email }: Props) {
             String(formData.get("currentPassword") ?? ""),
             String(formData.get("newPassword") ?? ""),
         );
+        setPasswordFailed(!result.success);
         setPasswordMessage(result.message ?? (result.success ? "Password updated." : "Could not update password."));
         if (result.success) (document.getElementById("account-password-form") as HTMLFormElement)?.reset();
     });
@@ -41,7 +46,7 @@ export function ClientAccountSettings({ name, email }: Props) {
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                     <Button type="button" onClick={saveName} disabled={isPending || displayName.trim() === name}>{isPending ? "Saving…" : "Save name"}</Button>
-                    {nameMessage && <p role="status" className="text-sm text-muted-foreground">{nameMessage}</p>}
+                    {nameMessage && <p role={nameFailed ? "alert" : "status"} className={nameFailed ? "text-sm font-medium text-destructive" : "text-sm text-brand-deep"}>{nameMessage}</p>}
                 </div>
             </section>
 
@@ -55,7 +60,7 @@ export function ClientAccountSettings({ name, email }: Props) {
                     <label className="block space-y-2 text-sm font-medium">New password<Input name="newPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
                     <div className="flex flex-wrap items-center gap-3">
                         <Button type="submit" disabled={isPending}>{isPending ? "Updating…" : "Update password"}</Button>
-                        {passwordMessage && <p role="status" className="text-sm text-muted-foreground">{passwordMessage}</p>}
+                        {passwordMessage && <p role={passwordFailed ? "alert" : "status"} className={passwordFailed ? "text-sm font-medium text-destructive" : "text-sm text-brand-deep"}>{passwordMessage}</p>}
                     </div>
                 </form>
                 <p className="mt-4 text-xs text-muted-foreground">Forgot your current password? <a className="underline underline-offset-4 hover:text-foreground" href="/reset-password">Reset it by email</a>.</p>

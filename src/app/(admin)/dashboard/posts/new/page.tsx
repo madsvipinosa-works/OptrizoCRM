@@ -10,7 +10,7 @@ export default async function NewPostPage() {
     return (
         <div className="max-w-4xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Create New Post</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Create New Post</h1>
                 <p className="text-muted-foreground">Share your thoughts with the world.</p>
             </div>
             <PostForm isAdmin={isAdmin} />

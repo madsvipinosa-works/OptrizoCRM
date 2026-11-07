@@ -103,7 +103,7 @@ export default async function PmProjectCompletePage({
                     <div>
                         <div className="flex items-center gap-2">
                             <Award className="w-5 h-5 text-primary" />
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                                 Project Completion & Handover
                             </h1>
                         </div>

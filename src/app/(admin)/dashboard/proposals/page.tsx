@@ -4,267 +4,212 @@ import { proposals } from "@/db/schema";
 import { desc, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { FileText, Edit3, Eye } from "lucide-react";
+import { Lock, Search } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { AutoFilterForm } from "@/components/ui/auto-filter-form";
 import { PmProposalQueue } from "@/features/proposals/components/PmProposalQueue";
 import { getProposalRequestsQueue } from "@/features/proposals/actions";
 
 export const metadata = {
-    title: "Proposals & SOWs | Optrizo",
-    description: "Manage client statements of work, executive contracts, and digital proposals.",
+    title: "Proposals | Optrizo",
+    description: "Every proposal for your leads, and every version the client received.",
 };
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-type ProposalRowWithExtras = {
-    totalPrice?: number | string | null;
-    currency?: string | null;
-    version?: number | null;
-};
-
-export default async function ProposalsPage() {
-    const session = await auth();
-    if (!session?.user?.id) {
-        redirect("/login");
+/** Plain-language status (mockup 038). "tone" picks the chip colour from the Optrizo tokens. */
+function statusOf(status: string, version: number, nextVersion: number | null) {
+    switch (status) {
+        case "draft":
+            return { label: "Drafting by PM", tone: "muted" as const };
+        case "sent":
+            return { label: version > 1 ? "Revised, sent" : "Sent", tone: "info" as const };
+        case "pricing_meeting_requested":
+            return { label: "Pricing meeting", tone: "info" as const };
+        case "changes_requested":
+            return { label: "Changes requested", tone: "warn" as const };
+        case "signed":
+            return { label: "Signed", tone: "good" as const };
+        case "declined":
+            return { label: "Declined", tone: "bad" as const };
+        case "replaced":
+            return { label: nextVersion ? `Replaced by v${nextVersion}` : "Replaced", tone: "muted" as const };
+        default:
+            return { label: status.replace(/_/g, " "), tone: "muted" as const };
     }
+}
+
+const TONE = {
+    muted: "bg-muted text-muted-foreground",
+    info: "bg-stage-discovery/15 text-foreground",
+    warn: "bg-stage-negotiation/15 text-foreground",
+    good: "bg-brand-soft text-brand-deep",
+    bad: "bg-destructive/10 text-destructive",
+};
+
+const STATUS_FILTERS = [
+    { value: "", label: "All statuses" },
+    { value: "draft", label: "Drafting by PM" },
+    { value: "sent", label: "Sent" },
+    { value: "pricing_meeting_requested", label: "Pricing meeting" },
+    { value: "changes_requested", label: "Changes requested" },
+    { value: "signed", label: "Signed" },
+    { value: "declined", label: "Declined" },
+    { value: "replaced", label: "Replaced" },
+];
+
+const money = (amount: number, currency: string) => (currency === "USD" ? `$${amount.toLocaleString("en-US")}` : `₱${amount.toLocaleString("en-PH")}`);
+
+/** Proposals list (mockup 038). Sales: view only. PM: the same list plus the request queue and the editor link. */
+export default async function ProposalsPage({ searchParams }: { searchParams?: Promise<{ q?: string; status?: string }> }) {
+    const session = await auth();
+    if (!session?.user?.id) redirect("/login");
+    // Super Admin never opens proposals (spec section 6): only Sales and the PM.
+    if (!hasRole(session, ["sales", "manager"])) redirect("/dashboard");
 
     const currentUserId = session.user.id;
-
-    // Super Admin never opens proposals (spec section 6): only Sales and the PM.
-    if (!hasRole(session, ["sales", "manager"])) {
-        redirect("/dashboard");
-    }
-
     const isManager = hasRole(session, ["manager"]);
+    const params = await searchParams;
+    const q = (params?.q ?? "").trim().toLowerCase();
+    const statusFilter = STATUS_FILTERS.some((s) => s.value === params?.status) ? params?.status ?? "" : "";
 
-    const rawProposals = await db.query.proposals.findMany({
+    const rows = await db.query.proposals.findMany({
         where: isNull(proposals.deletedAt),
-        with: {
-            lead: {
-                with: {
-                    client: true,
-                    assignees: true,
-                },
-            },
-        },
+        with: { lead: { with: { client: true, assignees: true } } },
         orderBy: [desc(proposals.createdAt)],
     });
 
-    const allProposals = isManager
-        ? rawProposals
-        : rawProposals.filter((p) => {
-            if (!p.lead) return false;
-            const assignees = p.lead.assignees || [];
-            return assignees.length === 0 || assignees.some((a) => a.userId === currentUserId);
-        });
+    // Sales sees proposals for its own leads and unclaimed ones.
+    const visible = isManager
+        ? rows
+        : rows.filter((p) => p.lead && (p.lead.assignees.length === 0 || p.lead.assignees.some((a) => a.userId === currentUserId)));
+
+    const list = visible.filter((p) => {
+        if (statusFilter && p.status !== statusFilter) return false;
+        if (!q) return true;
+        return [p.lead?.businessName, p.lead?.contactName, p.projectName].some((v) => v?.toLowerCase().includes(q));
+    });
 
     const queueItems = isManager ? await getProposalRequestsQueue() : [];
 
-    const totalValue = allProposals.reduce((sum, p) => sum + (Number((p as unknown as ProposalRowWithExtras).totalPrice ?? p.total) || 0), 0);
-    const approvedCount = allProposals.filter(p => p.status === "signed").length;
-    const sentCount = allProposals.filter(p => p.status === "sent").length;
-    const draftCount = allProposals.filter(p => p.status === "draft").length;
-
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <FileText className="w-5 h-5 text-primary" />
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                            Proposals &amp; Statements of Work
-                        </h1>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                        {isManager
-                            ? "Review scoped requests, author technical SOWs, and track proposal lifecycles."
-                            : "Track issued proposals and client statements of work."}
-                    </p>
-                </div>
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
+            <div>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Proposals</h1>
+                <p className="mt-1 text-sm text-muted-foreground">Every proposal for your leads, and every version the client received.</p>
             </div>
 
-            {/* PM Step 9 Proposal Requests Queue */}
-            {isManager && (
+            {isManager ? (
                 <PmProposalQueue items={queueItems} currentUserId={currentUserId} />
+            ) : (
+                <div className="flex items-start gap-3 rounded-xl border border-brand-deep/20 bg-brand-soft px-4 py-3 text-sm text-foreground">
+                    <Lock className="mt-0.5 size-4 shrink-0 text-brand-deep" strokeWidth={1.75} aria-hidden="true" />
+                    <p>
+                        <span className="font-semibold">View only.</span> The Project Manager writes, prices and sends proposals. Use this to answer client
+                        questions about scope, price or which version they have.
+                    </p>
+                </div>
             )}
 
-            {/* Section Heading for All Proposals */}
-            <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold text-foreground">
-                            {isManager ? "All Proposals" : "My Assigned Proposals"}
-                        </h2>
-                        <p className="text-xs text-muted-foreground">
-                            {isManager
-                                ? "Complete repository of active drafts, sent proposals, and executed contracts."
-                                : "Proposals for leads assigned to you (read-only view)."}
-                        </p>
-                    </div>
+            <AutoFilterForm className="flex flex-wrap items-center gap-2.5">
+                <div className="relative w-full sm:w-72">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <Input name="q" type="search" defaultValue={params?.q ?? ""} placeholder="Search business or project" aria-label="Search business or project" className="h-10 bg-card pl-9" />
                 </div>
+                <select
+                    name="status"
+                    defaultValue={statusFilter}
+                    aria-label="Filter by status"
+                    className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                    {STATUS_FILTERS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                            {s.label}
+                        </option>
+                    ))}
+                </select>
+                {(q || statusFilter) && (
+                    <Link href="/dashboard/proposals" className="rounded-md px-2 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+                        Clear
+                    </Link>
+                )}
+            </AutoFilterForm>
 
-                {/* Summary KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="glass-card border-border shadow-xs">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Total Proposals</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold font-mono text-foreground">{allProposals.length}</div>
-                            <p className="text-xs text-muted-foreground mt-1">{draftCount} Drafts, {sentCount} Sent</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="glass-card border-border shadow-xs">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Total SOW Value</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-emerald-500 dark:text-emerald-400 font-mono">${totalValue.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground mt-1">Across all authoring stages</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="glass-card border-border shadow-xs">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Approved Contracts</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold font-mono text-primary">{approvedCount}</div>
-                            <p className="text-xs text-muted-foreground mt-1">Executed client contracts</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="glass-card border-border shadow-xs">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-xs uppercase font-mono font-semibold text-muted-foreground">Approval Rate</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold font-mono text-foreground">
-                                {allProposals.length > 0 ? `${Math.round((approvedCount / allProposals.length) * 100)}%` : "0%"}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">Win rate across issued SOWs</p>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Proposals Table */}
-                <div className="rounded-xl border border-border glass-card overflow-hidden shadow-xs">
-                    <Table>
-                        <TableHeader className="bg-muted/40">
-                            <TableRow className="border-border">
-                                <TableHead className="text-muted-foreground">SOW Code</TableHead>
-                                <TableHead className="text-muted-foreground">Client / Opportunity</TableHead>
-                                <TableHead className="text-muted-foreground">Status</TableHead>
-                                <TableHead className="text-muted-foreground">Total</TableHead>
-                                <TableHead className="text-muted-foreground">Timeline</TableHead>
-                                <TableHead className="text-muted-foreground">Created</TableHead>
-                                <TableHead className="text-right text-muted-foreground">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {allProposals.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs">
-                                        No proposals found.
-                                    </TableCell>
-                                </TableRow>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+                                <th scope="col" className="px-5 py-2.5 font-medium">Business name</th>
+                                <th scope="col" className="px-3 py-2.5 font-medium">Project</th>
+                                <th scope="col" className="px-3 py-2.5 font-medium">Version</th>
+                                <th scope="col" className="px-3 py-2.5 font-medium">Status</th>
+                                <th scope="col" className="hidden px-3 py-2.5 font-medium md:table-cell">Sent</th>
+                                <th scope="col" className="px-3 py-2.5 font-medium">Price</th>
+                                <th scope="col" className="px-5 py-2.5"><span className="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {list.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-5 py-14 text-center">
+                                        <p className="font-medium text-foreground">{q || statusFilter ? "No proposals match." : "No proposals yet."}</p>
+                                        <p className="mt-1 text-muted-foreground">
+                                            {q || statusFilter ? "Clear the search or filter to see everything." : "A proposal appears here once the PM starts one for your lead."}
+                                        </p>
+                                    </td>
+                                </tr>
                             ) : (
-                                allProposals.map((proposal) => {
-                                    const clientName = proposal.lead?.businessName || proposal.lead?.contactName || proposal.lead?.client?.name || "Unnamed Opportunity";
-                                    const rowExtras = proposal as unknown as ProposalRowWithExtras;
-                                    const price = Number(rowExtras.totalPrice ?? proposal.total);
-                                    const currencySymbol = rowExtras.currency === "PHP" ? "₱" : "$";
-                                    const displayPrice = isNaN(price) || price === 0 ? "TBD" : `${currencySymbol}${price.toLocaleString()}`;
-
+                                list.map((p) => {
+                                    const next = p.status === "replaced" ? visible.find((o) => o.leadId === p.leadId && o.version === p.version + 1)?.version ?? null : null;
+                                    const s = statusOf(p.status, p.version, next);
+                                    const isDraft = p.status === "draft";
+                                    const amount = p.totalPrice ?? p.total ?? 0;
+                                    const price = isDraft ? "–" : p.priceMode === "to_be_discussed" || !amount ? "To be discussed" : money(amount, p.currency);
+                                    const name = p.lead?.businessName || p.lead?.client?.name || "Unnamed lead";
                                     return (
-                                        <TableRow key={proposal.id} className="border-border hover:bg-muted/40 transition-colors">
-                                            <TableCell className="font-mono text-xs font-semibold text-primary">
-                                                {proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`}
-                                                {rowExtras.version ? ` (v${rowExtras.version})` : ""}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="font-semibold text-foreground text-xs">{clientName}</span>
-                                                    <span className="text-[11px] text-muted-foreground">{proposal.lead?.contactEmail || proposal.lead?.client?.email}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className={getStatusBadge(proposal.status)}>
-                                                    {proposal.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-xs font-bold text-emerald-500 dark:text-emerald-400">
-                                                {displayPrice}
-                                            </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground">
-                                                {proposal.timeline || "4-6 Weeks"}
-                                            </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground">
-                                                {format(new Date(proposal.createdAt), "MMM d, yyyy")}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                        <tr key={p.id} className="border-b border-border last:border-b-0">
+                                            <td className="px-5 py-3">
+                                                <p className="font-semibold text-foreground">{name}</p>
+                                                {p.lead?.contactName && <p className="text-muted-foreground">{p.lead.contactName}</p>}
+                                            </td>
+                                            <td className="px-3 py-3 text-foreground">{p.projectName || "–"}</td>
+                                            <td className="px-3 py-3 tabular-nums text-foreground">{isDraft ? "–" : `v${p.version}`}</td>
+                                            <td className="px-3 py-3">
+                                                <span className={cn("inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", TONE[s.tone])}>{s.label}</span>
+                                            </td>
+                                            <td className="hidden px-3 py-3 tabular-nums text-muted-foreground md:table-cell">
+                                                {p.sentAt ? format(p.sentAt, "MMM d") : "Not sent yet"}
+                                            </td>
+                                            <td className="px-3 py-3 tabular-nums text-foreground">{price}</td>
+                                            <td className="px-5 py-3">
+                                                <div className="flex justify-end gap-2">
                                                     {isManager && (
-                                                        <Link
-                                                            href={`/dashboard/proposals/builder/${proposal.id}`}
-                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold border border-primary/20 transition-colors"
-                                                        >
-                                                            <Edit3 className="h-3 w-3" /> Studio
-                                                        </Link>
+                                                        <Button asChild variant="outline" size="sm">
+                                                            <Link href={`/dashboard/proposals/builder/${p.id}`}>Edit<span className="sr-only"> proposal for {name}</span></Link>
+                                                        </Button>
                                                     )}
-                                                    <Link
-                                                        href={`/dashboard/proposals/${proposal.id}`}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold border border-border transition-colors"
-                                                    >
-                                                        <Eye className="h-3 w-3" /> View
-                                                    </Link>
+                                                    {/* Sales cannot open a draft: it is not what the client received. */}
+                                                    {isDraft && !isManager ? (
+                                                        <span className="px-3 text-muted-foreground" aria-label="Not available yet">–</span>
+                                                    ) : (
+                                                        <Button asChild variant="outline" size="sm">
+                                                            <Link href={`/dashboard/proposals/${p.id}`}>View<span className="sr-only"> proposal for {name}</span></Link>
+                                                        </Button>
+                                                    )}
                                                 </div>
-                                            </TableCell>
-                                        </TableRow>
+                                            </td>
+                                        </tr>
                                     );
                                 })
                             )}
-                        </TableBody>
-                    </Table>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     );
-}
-
-function getStatusBadge(status: string) {
-    const s = status.toLowerCase();
-    switch (s) {
-        case "draft":
-            return "bg-muted text-muted-foreground border-border text-[10px]";
-        case "sent":
-            return "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/30 text-[10px]";
-        case "pricing_meeting_requested":
-            return "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30 text-[10px]";
-        case "changes_requested":
-            return "bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/30 text-[10px]";
-        case "approved":
-        case "signed":
-            return "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/30 text-[10px]";
-        case "rejected":
-        case "declined":
-            return "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30 text-[10px]";
-        case "replaced":
-            return "bg-zinc-500/10 text-zinc-400 border-zinc-500/30 text-[10px]";
-        default:
-            return "bg-muted text-muted-foreground border-border text-[10px]";
-    }
 }

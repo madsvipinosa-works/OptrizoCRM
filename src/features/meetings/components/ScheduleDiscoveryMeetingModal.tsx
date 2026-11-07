@@ -176,7 +176,7 @@ export function ScheduleDiscoveryMeetingModal({
                                 disabled
                                 className="bg-muted text-xs h-9 font-semibold"
                             />
-                            <p className="text-[11px] text-muted-foreground">Pricing meetings are booked by the PM.</p>
+                            <p className="text-xs text-muted-foreground">Pricing meetings are booked by the PM.</p>
                         </div>
 
                         <div className="space-y-1">
@@ -236,7 +236,7 @@ export function ScheduleDiscoveryMeetingModal({
                                 ))}
                             </SelectContent>
                         </Select>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                             The Project Manager is optional. If you pick one, they are notified and can hear the requirements first-hand.
                         </p>
                     </div>

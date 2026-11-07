@@ -2,7 +2,7 @@ import { auth, hasRole } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getClientProject } from "@/features/client-portal/queries";
 import Link from "next/link";
-import { CreditCard, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClientPaymentsList, ClientPaymentRecord } from "@/features/payments/components/ClientPaymentsList";
 
@@ -52,7 +52,7 @@ export default async function ClientProjectPaymentsPage({
     const currency = paymentRecords[0]?.currency || "PHP";
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto py-2 animate-in fade-in duration-500">
+        <div className="space-y-6 max-w-5xl mx-auto py-2">
             <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" asChild>
                     <Link href={`/portal/projects/${project.id}`}>
@@ -61,8 +61,7 @@ export default async function ClientProjectPaymentsPage({
                 </Button>
                 <div>
                     <div className="flex items-center gap-2">
-                        <CreditCard className="w-5 h-5 text-primary" />
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                             Payments & Billing
                         </h1>
                     </div>
@@ -75,20 +74,20 @@ export default async function ClientProjectPaymentsPage({
             {/* Financial Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase font-mono text-muted-foreground">Contract Total</div>
-                    <div className="text-xl sm:text-2xl font-bold font-mono text-foreground mt-1">
+                    <div className="text-xs uppercase tabular-nums text-muted-foreground">Contract Total</div>
+                    <div className="text-xl sm:text-2xl font-bold tabular-nums text-foreground mt-1">
                         {currency} {totalAmount.toLocaleString()}
                     </div>
                 </div>
                 <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase font-mono text-emerald-600 dark:text-emerald-400">Total Paid</div>
-                    <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                    <div className="text-xs uppercase tabular-nums text-emerald-600 dark:text-emerald-400">Total Paid</div>
+                    <div className="text-xl sm:text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
                         {currency} {paidAmount.toLocaleString()}
                     </div>
                 </div>
                 <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase font-mono text-amber-600 dark:text-amber-400">Balance Remaining</div>
-                    <div className="text-xl sm:text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">
+                    <div className="text-xs uppercase tabular-nums text-amber-600 dark:text-amber-400">Balance Remaining</div>
+                    <div className="text-xl sm:text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400 mt-1">
                         {currency} {pendingAmount.toLocaleString()}
                     </div>
                 </div>

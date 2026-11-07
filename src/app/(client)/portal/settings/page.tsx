@@ -10,8 +10,8 @@ export default async function ClientSettingsPage() {
     return (
         <div className="space-y-6">
             <header>
-                <p className="text-xs font-mono font-bold uppercase tracking-[0.2em] text-primary">Your account</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight">Account settings</h1>
+                <p className="text-xs tabular-nums font-bold uppercase tracking-[0.2em] text-primary">Your account</p>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-2">Account settings</h1>
                 <p className="mt-2 text-sm text-muted-foreground">Manage your profile and sign-in details.</p>
             </header>
             <ClientAccountSettings name={session.user.name ?? ""} email={session.user.email ?? ""} />

@@ -127,7 +127,7 @@ export function ContactProfile({ data }: { data: ContactProfileData }) {
                         <ArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" aria-hidden="true" />
                         Contacts
                     </Link>
-                    <h1 className="mt-1 flex flex-wrap items-center gap-2.5 text-[28px] font-bold leading-tight tracking-[-0.025em] text-foreground">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-1 flex flex-wrap items-center gap-2.5">
                         {data.name}
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-normal text-foreground ring-1 ring-inset ${type.chip}`}>{type.label}</span>
                     </h1>

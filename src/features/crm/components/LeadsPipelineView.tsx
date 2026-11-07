@@ -249,7 +249,7 @@ export function LeadsPipelineView({
                 fixed breakpoint squeezed the title. The actions drop below when they don't fit. */}
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
                 <div className="min-w-[min(100%,22rem)] flex-1">
-                    <h1 className="text-2xl font-bold tracking-[-0.025em] text-foreground sm:text-[28px]">Sales pipeline</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sales pipeline</h1>
                     <p className="mt-1 max-w-[72ch] text-sm text-muted-foreground">
                         {viewLayout === "kanban"
                             ? "Cards move on their own. Log a call, email, or meeting to start discovery."

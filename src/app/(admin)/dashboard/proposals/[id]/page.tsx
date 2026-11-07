@@ -65,6 +65,11 @@ export default async function StaffProposalViewPage({
         notFound();
     }
 
+    // Sales sees only what the client received (mockup 038): a draft stays with the PM.
+    if (!isManager && proposal.status === "draft") {
+        redirect("/dashboard/proposals");
+    }
+
     async function handleClosePricingBooking() {
         "use server";
         redirect(`/dashboard/proposals/${id}`);
@@ -193,11 +198,11 @@ export default async function StaffProposalViewPage({
 
     const statusBadgeClass =
         proposal.status === "signed"
-            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+            ? "bg-brand-soft text-brand-deep border-brand-deep/20"
             : proposal.status === "sent"
-            ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+            ? "bg-stage-new/10 text-stage-new border-stage-new/20"
             : proposal.status === "declined"
-            ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+            ? "bg-destructive/10 text-destructive border-destructive/20"
             : "bg-muted text-muted-foreground border-border";
 
     return (

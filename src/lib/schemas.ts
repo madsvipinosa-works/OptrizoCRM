@@ -29,7 +29,23 @@ export const publicInquirySchema = z.object({
     businessName: z.string().min(2, { message: "Business name must be at least 2 characters." }),
     clientName: z.string().min(2, { message: "Client name must be at least 2 characters." }),
     email: z.string().email({ message: "Please enter a valid email address." }),
-    phone: z.string().optional().nullable(),
+    // International format from the country picker: "+" then 7 to 15 digits (E.164 limits).
+    phone: z
+        .string()
+        .trim()
+        .refine(
+            (v) =>
+                v === "" ||
+                (/^\+[\d ()-]+$/.test(v) &&
+                    /^\d{7,15}$/.test(v.replace(/\D/g, "")) &&
+                    // PH mobile: +63 then 10 digits starting with 9.
+                    (!v.startsWith("+63") || /^639\d{9}$/.test(v.replace(/\D/g, "")))),
+            {
+                message: "Enter a valid phone number for the selected country.",
+            }
+        )
+        .optional()
+        .nullable(),
     industry: z.string().min(1, { message: "Please select or enter your industry." }),
     roleInCompany: z.string().min(1, { message: "Role in the company is required." }),
     contactPreference: z.enum(["Phone call", "Email", "Video meeting"], {

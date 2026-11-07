@@ -83,7 +83,6 @@ export function HeroSection({
                 ]}
             />
             {/* Bento ambient grid mask */}
-            <div className="pointer-events-none absolute inset-0 bento-mask opacity-15 z-[5]" />
 
             {/* Seamless Bottom Transition Gradient: dissolves bento mask and canvas into the page background */}
             <div

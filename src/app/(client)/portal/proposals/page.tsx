@@ -42,11 +42,10 @@ export default async function ClientProposalsPage() {
     );
 
     return (
-        <div className="space-y-6 max-w-6xl animate-in fade-in duration-500">
+        <div className="space-y-6 max-w-6xl">
             <div>
                 <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                         Project Proposals
                     </h1>
                 </div>
@@ -56,7 +55,7 @@ export default async function ClientProposalsPage() {
             </div>
 
             {clientProposals.length === 0 ? (
-                <div className="glass-card rounded-2xl border border-border p-12 text-center space-y-2">
+                <div className="rounded-xl bg-card border border-border p-12 text-center space-y-2">
                     <FileText className="w-10 h-10 mx-auto text-muted-foreground/60" />
                     <h3 className="font-semibold text-foreground text-lg">No proposals available</h3>
                     <p className="text-xs text-muted-foreground max-w-md mx-auto">
@@ -86,11 +85,11 @@ export default async function ClientProposalsPage() {
                                     <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                                         <td className="px-4 py-3.5">
                                             <div className="font-semibold text-foreground">{p.title}</div>
-                                            <div className="text-xs font-mono text-muted-foreground mt-0.5">
+                                            <div className="text-xs tabular-nums text-muted-foreground mt-0.5">
                                                 {p.proposalCode || "PROPOSAL"}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3.5 font-mono font-medium text-foreground">
+                                        <td className="px-4 py-3.5 tabular-nums font-medium text-foreground">
                                             {p.totalPrice !== null ? `PHP ${p.totalPrice.toLocaleString()}` : "Custom Scope"}
                                         </td>
                                         <td className="px-4 py-3.5 text-xs text-muted-foreground">
@@ -101,10 +100,10 @@ export default async function ClientProposalsPage() {
                                                 variant="outline"
                                                 className={
                                                     p.status === "signed"
-                                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px]"
+                                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs"
                                                         : isActionRequired
-                                                        ? "border-primary/30 text-primary bg-primary/10 text-[10px]"
-                                                        : "text-muted-foreground text-[10px]"
+                                                        ? "border-primary/30 text-primary bg-primary/10 text-xs"
+                                                        : "text-muted-foreground text-xs"
                                                 }
                                             >
                                                 {p.status.replace(/_/g, " ")}

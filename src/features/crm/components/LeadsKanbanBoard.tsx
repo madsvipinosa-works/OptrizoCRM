@@ -170,7 +170,7 @@ function BoardColumn({
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ type: "spring", duration: 0.3, bounce: 0.2 }}
-                        className={`ml-auto min-w-6 rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold tabular-nums text-foreground ring-1 ring-inset ${column.tone.count}`}
+                        className={`ml-auto min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-foreground ring-1 ring-inset ${column.tone.count}`}
                         aria-label={`${leads.length} ${leads.length === 1 ? "lead" : "leads"}`}
                     >
                         {leads.length}
@@ -217,7 +217,7 @@ const SUB_STATUS_STYLE: Record<string, { chip: string; dot: string }> = {
 export function SubStatusChip({ status }: { status: string }) {
     const style = SUB_STATUS_STYLE[status] ?? SUB_STATUS_STYLE["No contact yet"];
     return (
-        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-snug text-foreground ${style.chip}`}>
+        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium leading-snug text-foreground ${style.chip}`}>
             <span className={`size-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
             {status}
         </span>
@@ -366,15 +366,15 @@ function PipelineCard({
             <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
                 {owner ? (
                     <span className="flex min-w-0 items-center gap-1.5" title={`Owner: ${owner.name || "Sales"}`}>
-                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-foreground">
+                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-foreground">
                             {initialsOf(owner.name)}
                         </span>
-                        <span className="truncate text-[11px] text-muted-foreground">{owner.name || "Sales"}</span>
+                        <span className="truncate text-xs text-muted-foreground">{owner.name || "Sales"}</span>
                     </span>
                 ) : (
-                    <span className="text-[11px] text-muted-foreground">Unclaimed</span>
+                    <span className="text-xs text-muted-foreground">Unclaimed</span>
                 )}
-                <span className="shrink-0 text-[11px] font-medium tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
                     {days === 0 ? "Today" : `${days}d in stage`}
                 </span>
             </div>

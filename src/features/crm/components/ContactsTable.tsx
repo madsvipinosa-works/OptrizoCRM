@@ -169,7 +169,7 @@ export function ContactsTable({ rows }: { rows: ContactRow[] }) {
             {/* Header */}
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
                 <div className="min-w-[min(100%,22rem)] flex-1">
-                    <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em] text-foreground">Contacts</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">Contacts</h1>
                     <p className="mt-1 max-w-[72ch] text-sm text-muted-foreground">
                         Every lead and client in one list. Open a contact for their details and interaction history.
                     </p>

@@ -34,7 +34,7 @@ export default async function PortfolioListPage() {
         <div className="max-w-6xl mx-auto space-y-6 pb-12">
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">Portfolio</h1>
                     <p className="text-muted-foreground">Finished projects shown on the website.</p>
                 </div>
                 <Button asChild>

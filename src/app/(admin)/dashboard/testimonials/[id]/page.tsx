@@ -23,7 +23,7 @@ export default async function EditTestimonialPage({ params }: Props) {
     return (
         <div className="max-w-2xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Edit Testimonial</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Edit Testimonial</h1>
                 <p className="text-muted-foreground">Update client feedback.</p>
             </div>
             <TestimonialForm initialData={testimonial} />

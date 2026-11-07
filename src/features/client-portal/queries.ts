@@ -166,11 +166,23 @@ export async function getClientHome(userId: string) {
         limit: 5,
     });
 
+    // 5. Files Optrizo shared in the last 14 days (the client's own uploads are not news to them)
+    const since = new Date(Date.now() - 14 * 86400000);
+    const newFiles = projectIds.length > 0
+        ? await db.query.document.findMany({
+              where: and(inArray(document.projectId, projectIds), sql`${document.createdAt} >= ${since}`, sql`${document.uploadedBy} is distinct from ${userId}`),
+              orderBy: [desc(document.createdAt)],
+              limit: 3,
+              columns: { id: true, title: true, projectId: true, createdAt: true },
+          })
+        : [];
+
     return {
         pendingProposals,
         activeProjects: projectsWithStats,
         duePayments,
         recentNotifications,
+        newFiles,
     };
 }
 
@@ -318,4 +330,80 @@ export async function getClientDocuments(userId: string) {
         proposals: proposalsList,
         handoverDocuments: handoverList,
     };
+}
+
+/**
+ * Steps from request to customer, in order. The last one means the client signed: the service is theirs.
+ * Delivery after signing is shown by the project's own milestone progress (mockup 29), not here.
+ */
+export const REQUEST_STEPS = ["Request received", "Reviewing", "Proposal sent", "Signed"] as const;
+
+export type RequestEvent = { at: Date; text: string };
+
+/**
+ * The client's requests (their leads) with how far each one has come and the updates they may see.
+ * Client-safe only: no lead notes, no activity log, no internal tasks (mockup "Client: portal home").
+ */
+export async function getClientRequests(userId: string, email?: string | null) {
+    // Same rule as linkLeadsByEmail: a request sent with this verified email belongs to this client,
+    // even if it was sent before sign-up or while signed out. Never show a lead linked to someone else.
+    const byEmail = email ? and(isNull(leads.clientId), sql`lower(${leads.contactEmail}) = ${email.trim().toLowerCase()}`) : undefined;
+    const rows = await db.query.leads.findMany({
+        where: and(byEmail ? or(eq(leads.clientId, userId), byEmail) : eq(leads.clientId, userId), isNull(leads.archivedAt)),
+        orderBy: [desc(leads.createdAt)],
+        columns: { id: true, businessName: true, otherServiceText: true, status: true, createdAt: true },
+        with: {
+            service: { columns: { title: true } },
+            meetings: { columns: { type: true, startsAt: true, status: true, createdAt: true } },
+            proposals: {
+                where: (p, { isNull: none, ne }) => and(none(p.deletedAt), ne(p.status, "draft")),
+                columns: { id: true, version: true, status: true, sentAt: true, signedAt: true },
+                with: { messages: { where: (m, { eq: is }) => is(m.kind, "reply"), columns: { createdAt: true } } },
+            },
+        },
+    });
+    if (rows.length === 0) return [];
+
+    const projects = await db.query.agencyProjects.findMany({
+        where: and(inArray(agencyProjects.leadId, rows.map((r) => r.id)), isNull(agencyProjects.deletedAt)),
+        columns: { id: true, leadId: true, status: true, createdAt: true, completedAt: true },
+    });
+
+    return rows.map((lead) => {
+        const project = projects.find((p) => p.leadId === lead.id);
+        const signed = lead.proposals.find((p) => p.status === "signed");
+        const sent = lead.proposals.filter((p) => p.sentAt);
+
+        const events: RequestEvent[] = [{ at: lead.createdAt, text: "We received your request" }];
+        for (const m of lead.meetings) {
+            if (m.status === "cancelled") continue;
+            const what = m.type === "discovery" ? "Discovery meeting" : m.type === "budget_pricing" ? "Pricing meeting" : "Meeting";
+            events.push({ at: m.createdAt, text: `${what} ${m.status === "done" ? "held" : "booked"} for ${m.startsAt.toLocaleDateString("en-PH", { month: "short", day: "numeric" })}` });
+        }
+        for (const p of sent) {
+            events.push({ at: p.sentAt!, text: `Proposal v${p.version} sent to you` });
+            for (const r of p.messages) events.push({ at: r.createdAt, text: "Optrizo sent you a message" });
+        }
+        if (signed?.signedAt) events.push({ at: signed.signedAt, text: "You signed the proposal. The service is yours." });
+        if (project) events.push({ at: project.createdAt, text: "Your project started" });
+        if (project?.completedAt) events.push({ at: project.completedAt, text: "Your project is complete" });
+        events.sort((a, b) => b.at.getTime() - a.at.getTime());
+
+        // Furthest step reached, 0-based into REQUEST_STEPS.
+        const step = signed || project || lead.status === "Closed Won" ? 3 : sent.length ? 2 : lead.status !== "New Lead" || lead.meetings.length ? 1 : 0;
+        // The proposal the client still has to answer, if any.
+        const waiting = lead.proposals.find((p) => ["sent", "pricing_meeting_requested", "changes_requested"].includes(p.status));
+
+        return {
+            id: lead.id,
+            service: lead.service?.title || lead.otherServiceText || "Service request",
+            business: lead.businessName,
+            closed: lead.status === "Closed Lost",
+            availed: step >= 3,
+            projectId: project?.id ?? null,
+            waitingProposalId: waiting?.id ?? null,
+            step,
+            events: events.slice(0, 5),
+        };
+    });
 }

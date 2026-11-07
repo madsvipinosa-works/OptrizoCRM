@@ -17,8 +17,6 @@ export default async function AdminLayout({
     return (
         <RoleGuard allowedRoles={["superadmin", "sales", "manager", "developer", "content_editor"]}>
             <div className="flex min-h-screen bg-background text-foreground w-full overflow-x-hidden relative">
-                {/* Bento ambient grid mask matching Hero page */}
-                <div className="pointer-events-none fixed inset-0 bento-mask opacity-25 dark:opacity-15 z-0" />
 
                 <AdminShell user={session?.user} initialExpanded={sidebarExpanded}>
                     {children}

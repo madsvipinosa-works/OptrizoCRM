@@ -22,11 +22,10 @@ export default async function ClientProjectsPage() {
     const projects = await getClientProjects(session.user.id);
 
     return (
-        <div className="space-y-6 max-w-6xl animate-in fade-in duration-500">
+        <div className="space-y-6 max-w-6xl">
             <div>
                 <div className="flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-primary" />
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                         Your Projects
                     </h1>
                 </div>
@@ -36,7 +35,7 @@ export default async function ClientProjectsPage() {
             </div>
 
             {projects.length === 0 ? (
-                <div className="glass-card rounded-2xl border border-border p-12 text-center space-y-2">
+                <div className="rounded-xl bg-card border border-border p-12 text-center space-y-2">
                     <Layers className="w-10 h-10 mx-auto text-muted-foreground/60" />
                     <h3 className="font-semibold text-foreground text-lg">No active projects</h3>
                     <p className="text-xs text-muted-foreground max-w-md mx-auto">
@@ -55,7 +54,7 @@ export default async function ClientProjectsPage() {
                         return (
                             <div
                                 key={p.id}
-                                className="glass-card rounded-2xl border border-border p-5 flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
+                                className="rounded-xl bg-card border border-border p-5 flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
                             >
                                 <div className="space-y-2">
                                     <div className="flex items-start justify-between gap-2">
@@ -66,8 +65,8 @@ export default async function ClientProjectsPage() {
                                             variant="outline"
                                             className={
                                                 isCompleted
-                                                    ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px]"
-                                                    : "text-foreground text-[10px]"
+                                                    ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs"
+                                                    : "text-foreground text-xs"
                                             }
                                         >
                                             {p.status}
@@ -94,7 +93,7 @@ export default async function ClientProjectsPage() {
                                         <span className="text-muted-foreground font-medium">
                                             Milestones ({p.stats.completed}/{p.stats.total})
                                         </span>
-                                        <span className="font-mono font-semibold text-foreground">
+                                        <span className="tabular-nums font-semibold text-foreground">
                                             {completedPercent}%
                                         </span>
                                     </div>
@@ -107,7 +106,7 @@ export default async function ClientProjectsPage() {
                                 </div>
 
                                 <div className="pt-2 flex items-center justify-between border-t border-border/60">
-                                    <span className="text-[11px] text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground">
                                         Started {new Date(p.createdAt).toLocaleDateString()}
                                     </span>
                                     <Button size="sm" asChild className="h-8 text-xs font-semibold">

@@ -350,6 +350,17 @@ export async function respondToMeeting(data: {
         return { success: false, message: "Meeting is not awaiting client response" };
     }
 
+    // A meeting whose time has passed can no longer be confirmed or moved; the team books a new one.
+    if (data.response !== "decline" && meeting.startsAt.getTime() <= Date.now()) {
+        return { success: false, message: "This meeting time has already passed. Optrizo will send you a new time." };
+    }
+    if (data.response === "suggest_time") {
+        const suggested = data.suggestedAt ? new Date(data.suggestedAt) : null;
+        if (!suggested || Number.isNaN(suggested.getTime()) || suggested.getTime() <= Date.now()) {
+            return { success: false, message: "Pick a date and time in the future." };
+        }
+    }
+
     // Verify caller is the client linked to this lead (by clientId or email)
     const isOwner =
         (meeting.lead?.clientId && meeting.lead.clientId === session.user.id) ||

@@ -119,7 +119,7 @@ export default async function ContentHomePage() {
     return (
         <div className="max-w-5xl mx-auto space-y-8 pb-12">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Website content</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Website content</h1>
                 <p className="text-muted-foreground">What visitors see on the Optrizo website.</p>
             </div>
 

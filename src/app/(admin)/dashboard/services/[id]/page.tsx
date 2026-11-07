@@ -26,7 +26,7 @@ export default async function EditServicePage({ params }: Props) {
                 <Link href="/dashboard/services" className="text-sm text-muted-foreground hover:underline">
                     ← Back to services
                 </Link>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">Edit service</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-2">Edit service</h1>
             </div>
             <ServiceEditorForm
                 service={{
