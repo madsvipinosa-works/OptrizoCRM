@@ -165,16 +165,16 @@ export function ContactsTable({ rows }: { rows: ContactRow[] }) {
     ];
 
     return (
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 pb-12">
             {/* Header */}
-            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
                 <div className="min-w-[min(100%,22rem)] flex-1">
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">Contacts</h1>
                     <p className="mt-1 max-w-[72ch] text-sm text-muted-foreground">
                         Every lead and client in one list. Open a contact for their details and interaction history.
                     </p>
                 </div>
-                <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0} className="h-10 gap-1.5 bg-card active:scale-[0.97]">
+                <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0} className="gap-1.5 bg-card active:scale-[0.97]">
                     <Download className="size-4" aria-hidden="true" />
                     Export CSV
                 </Button>
@@ -187,7 +187,7 @@ export function ContactsTable({ rows }: { rows: ContactRow[] }) {
                     <Input
                         type="search"
                         aria-label="Search contacts"
-                        placeholder="Search name, business, email or phone"
+                        placeholder="Search name, email or phone"
                         value={query}
                         onChange={(e) => {
                             setQuery(e.target.value);
@@ -223,7 +223,7 @@ export function ContactsTable({ rows }: { rows: ContactRow[] }) {
                                     resetPage();
                                 }}
                                 className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium outline-none transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring ${
-                                    active ? "bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                    active ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
                                 }`}
                             >
                                 {option.label}
@@ -255,18 +255,18 @@ export function ContactsTable({ rows }: { rows: ContactRow[] }) {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden rounded-2xl bg-card shadow-[0_0_0_1px_var(--border),0_1px_2px_rgba(0,0,0,0.03)]">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <div className="override-scrollbar overflow-x-auto">
                     {/* Five columns: who, type, how to reach, where they are, when last contacted.
                         Phone, role, source, service and log counts live on the profile. */}
                     <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                         <thead>
-                            <tr className="border-b border-border bg-muted text-xs text-muted-foreground">
-                                <th scope="col" className="sticky left-0 z-[1] bg-muted px-5 py-3 font-medium shadow-[1px_0_0_var(--border)]">Contact</th>
-                                <th scope="col" className="px-4 py-3 font-medium">Type</th>
-                                <th scope="col" className="px-4 py-3 font-medium">Email</th>
-                                <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                                <th scope="col" aria-sort={sortDir === "desc" ? "descending" : "ascending"} className="px-5 py-3 text-right font-medium">
+                            <tr className="border-b border-border bg-muted/40 text-left text-sm text-muted-foreground">
+                                <th scope="col" className="sticky left-0 z-[1] bg-[color-mix(in_oklab,var(--muted)_40%,var(--card))] px-5 py-2.5 font-medium shadow-[1px_0_0_var(--border)]">Contact</th>
+                                <th scope="col" className="px-4 py-2.5 font-medium">Type</th>
+                                <th scope="col" className="px-4 py-2.5 font-medium">Email</th>
+                                <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
+                                <th scope="col" aria-sort={sortDir === "desc" ? "descending" : "ascending"} className="px-5 py-2.5 text-right font-medium">
                                     <button
                                         type="button"
                                         onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}

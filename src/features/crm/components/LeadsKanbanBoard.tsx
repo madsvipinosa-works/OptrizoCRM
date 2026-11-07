@@ -155,14 +155,14 @@ function BoardColumn({
     return (
         <section
             aria-labelledby={headingId}
-            className="flex h-full min-h-0 min-w-0 flex-col rounded-2xl bg-muted/50 p-2 ring-1 ring-inset ring-border/50 dark:bg-muted/30"
+            className="flex h-full min-h-0 min-w-0 flex-col rounded-xl bg-muted/50 p-2 ring-1 ring-inset ring-border/50 dark:bg-muted/30"
         >
             <header className="px-2 pb-3 pt-1.5">
                 <div className="flex items-center gap-2">
                     <span className={`grid size-6 shrink-0 place-items-center rounded-md ${column.tone.tile}`}>
                         <column.icon className="size-3.5" aria-hidden="true" />
                     </span>
-                    <h3 id={headingId} className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+                    <h3 id={headingId} className="text-sm font-semibold tracking-tight text-foreground">
                         {column.title}
                     </h3>
                     <motion.span
@@ -317,7 +317,7 @@ function PipelineCard({
             aria-label={`Open ${title}`}
             onClick={open}
             onKeyDown={onKeyDown}
-            className="group relative flex cursor-pointer flex-col gap-2 rounded-[14px] bg-card p-3 text-left shadow-[0_0_0_1px_var(--border),0_1px_2px_rgba(0,0,0,0.04),0_2px_6px_rgba(0,0,0,0.03)] outline-none transition-shadow duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_0_0_1px_var(--border),0_4px_12px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.06)] focus-visible:shadow-[0_0_0_2px_var(--ring)]"
+            className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none transition-colors duration-150 ease-out hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring"
         >
             <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">

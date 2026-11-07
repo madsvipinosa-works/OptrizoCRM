@@ -141,7 +141,7 @@ function SortableHead({
             <button
                 type="button"
                 onClick={() => onSort(field)}
-                className={`-ml-1.5 inline-flex h-8 items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors hover:bg-muted hover:text-foreground ${
+                className={`-ml-1.5 inline-flex h-8 items-center gap-1 rounded-md px-1.5 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground ${
                     active ? "text-foreground" : "text-muted-foreground"
                 }`}
             >
@@ -246,7 +246,7 @@ export function LeadsDataTable({
         <div className="space-y-4">
             {/* Bulk Action Bar */}
             {selectedLeadIds.length > 0 && (
-                <div className="flex items-center justify-between rounded-xl bg-card px-3 py-2 shadow-[0_0_0_1px_var(--border),0_4px_12px_rgba(0,0,0,0.06)] animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                         <span className="min-w-6 rounded-full bg-primary px-2 py-0.5 text-center text-xs font-bold tabular-nums text-primary-foreground">
                             {selectedLeadIds.length}
@@ -326,11 +326,11 @@ export function LeadsDataTable({
             )}
 
             {/* Leads table (mockup step 2a): sorted by stage by default */}
-            <div className="overflow-hidden rounded-2xl bg-card shadow-[0_0_0_1px_var(--border),0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <div className="overflow-x-auto override-scrollbar">
                 <Table className="min-w-[900px]">
                     <TableHeader>
-                        <TableRow className="border-border hover:bg-transparent">
+                        <TableRow className="border-border bg-muted/40 hover:bg-muted/40">
                             <TableHead className="w-[44px] px-4">
                                 <Checkbox
                                     checked={isCurrentPageAllSelected}
@@ -339,10 +339,10 @@ export function LeadsDataTable({
                                 />
                             </TableHead>
                             <SortableHead label="Business name" field="businessName" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} className="min-w-[200px]" />
-                            <TableHead className="text-xs font-medium text-muted-foreground">Service</TableHead>
+                            <TableHead className="text-sm font-medium text-muted-foreground">Service</TableHead>
                             <SortableHead label="Stage" field="stage" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} />
-                            <TableHead className="text-xs font-medium text-muted-foreground">Status</TableHead>
-                            <TableHead className="text-xs font-medium text-muted-foreground">Client type</TableHead>
+                            <TableHead className="text-sm font-medium text-muted-foreground">Status</TableHead>
+                            <TableHead className="text-sm font-medium text-muted-foreground">Client type</TableHead>
                             <SortableHead label="Last contact" field="lastContact" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} />
                             <SortableHead label="In stage" field="daysInStage" sortField={sortField} sortOrder={sortOrder} onSort={toggleSort} />
                             <TableHead className="w-[76px]"><span className="sr-only">Actions</span></TableHead>

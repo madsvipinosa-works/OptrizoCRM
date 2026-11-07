@@ -5,7 +5,7 @@
  *
  * Copy is plain and only states what is true: who is signed in and that they
  * will need to sign in again. Logging out is not destructive, so the confirm
- * button is neutral (not red) and Cancel gets focus first. While signing out,
+ * button is Optrizo ink (not green, not red) and Cancel gets focus first. While signing out,
  * the dialog cannot be dismissed and the button shows progress.
  */
 
@@ -63,7 +63,9 @@ export function LogoutConfirmDialog({ open, onOpenChange, email, onConfirm = sig
         >
             <DialogContent
                 showCloseButton={false}
-                className="gap-0 p-6 sm:max-w-[380px]"
+                // Card surface so it lifts off the page in dark mode; 12px like every Optrizo dialog.
+                // Opens 200ms with a strong ease-out, closes faster (150ms): the system answering.
+                className="gap-0 rounded-xl border-border bg-card p-6 ease-[cubic-bezier(0.23,1,0.32,1)] data-[state=closed]:duration-150 sm:max-w-[400px]"
                 onOpenAutoFocus={() => {
                     // Remember what opened the dialog, to give focus back when it closes.
                     const active = document.activeElement;
@@ -78,33 +80,40 @@ export function LogoutConfirmDialog({ open, onOpenChange, email, onConfirm = sig
                 onEscapeKeyDown={(e) => isPending && e.preventDefault()}
                 onPointerDownOutside={(e) => isPending && e.preventDefault()}
             >
-                <DialogHeader className="gap-1.5 text-left">
-                    <span aria-hidden="true" className="mb-2 grid size-10 place-items-center rounded-xl bg-muted text-foreground">
-                        <LogOut className="size-[18px]" />
+                <DialogHeader className="flex-row items-start gap-4 text-left">
+                    <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-foreground">
+                        <LogOut className="size-[18px]" strokeWidth={1.75} />
                     </span>
-                    <DialogTitle className="text-lg font-semibold tracking-[-0.01em]">Log out?</DialogTitle>
-                    <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-                        {email ? (
-                            <>
-                                You&apos;re signed in as <span className="font-medium text-foreground">{email}</span>.{" "}
-                            </>
-                        ) : null}
-                        You&apos;ll need to sign in again to use Optrizo CRM.
-                    </DialogDescription>
+                    <div className="min-w-0 space-y-1">
+                        <DialogTitle className="text-lg font-semibold leading-snug tracking-tight text-foreground">Log out?</DialogTitle>
+                        <DialogDescription className="text-pretty text-sm leading-relaxed text-muted-foreground">
+                            You&apos;ll need to sign in again to use Optrizo CRM.
+                        </DialogDescription>
+                    </div>
                 </DialogHeader>
-                <DialogFooter className="mt-6 flex-row gap-2 sm:justify-end">
+                {email && (
+                    // Which account is being left, on its own line so a long address never splits a sentence.
+                    <p className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-lg bg-muted px-3 py-2.5 text-sm">
+                        <span className="shrink-0 text-muted-foreground">Signed in as</span>
+                        <span className="truncate font-medium text-foreground" title={email}>{email}</span>
+                    </p>
+                )}
+                {/* Two equal buttons fill the row: balanced, and both easy to hit on a phone. */}
+                <DialogFooter className="mt-6 grid grid-cols-2 gap-2 sm:flex-none">
                     <Button
                         variant="outline"
                         disabled={isPending}
                         onClick={() => onOpenChange(false)}
-                        className="h-10 flex-1 sm:flex-none active:scale-[0.97]"
+                        // The default dark outline vanished on the card; a muted fill keeps Cancel looking like a button.
+                        className="h-10 rounded-lg border-border bg-card hover:bg-muted dark:border-border dark:bg-muted dark:hover:bg-muted/70 active:scale-[0.97]"
                     >
                         Cancel
                     </Button>
                     <Button
                         onClick={confirm}
                         disabled={isPending}
-                        className="h-10 flex-1 gap-1.5 bg-foreground font-semibold text-background hover:bg-foreground/90 sm:flex-none active:scale-[0.97]"
+                        // Optrizo ink, not brand green (reads as success) or red (logging out loses nothing).
+                        className="h-10 gap-1.5 rounded-lg bg-foreground font-semibold text-background hover:bg-foreground/90 active:scale-[0.97]"
                     >
                         {isPending ? (
                             <>

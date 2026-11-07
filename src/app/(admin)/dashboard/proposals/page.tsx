@@ -90,7 +90,7 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
     const list = visible.filter((p) => {
         if (statusFilter && p.status !== statusFilter) return false;
         if (!q) return true;
-        return [p.lead?.businessName, p.lead?.contactName, p.projectName].some((v) => v?.toLowerCase().includes(q));
+        return [p.lead?.businessName, p.lead?.contactName, p.projectName, p.proposalCode].some((v) => v?.toLowerCase().includes(q));
     });
 
     const queueItems = isManager ? await getProposalRequestsQueue() : [];
@@ -115,9 +115,9 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
             )}
 
             <AutoFilterForm className="flex flex-wrap items-center gap-2.5">
-                <div className="relative w-full sm:w-72">
+                <div className="relative w-full sm:w-80">
                     <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                    <Input name="q" type="search" defaultValue={params?.q ?? ""} placeholder="Search business or project" aria-label="Search business or project" className="h-10 bg-card pl-9" />
+                    <Input name="q" type="search" defaultValue={params?.q ?? ""} placeholder="Search business, project or no." aria-label="Search business, project or proposal number" className="h-10 bg-card pl-9" />
                 </div>
                 <select
                     name="status"
@@ -176,7 +176,11 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
                                                 <p className="font-semibold text-foreground">{name}</p>
                                                 {p.lead?.contactName && <p className="text-muted-foreground">{p.lead.contactName}</p>}
                                             </td>
-                                            <td className="px-3 py-3 text-foreground">{p.projectName || "–"}</td>
+                                            <td className="px-3 py-3">
+                                                <p className="text-foreground">{p.projectName || "–"}</p>
+                                                {/* The number the client sees on their copy ("Proposal no."); drafts have not reached the client yet. */}
+                                                {!isDraft && p.proposalCode && <p className="text-xs tabular-nums text-muted-foreground">No. {p.proposalCode}</p>}
+                                            </td>
                                             <td className="px-3 py-3 tabular-nums text-foreground">{isDraft ? "–" : `v${p.version}`}</td>
                                             <td className="px-3 py-3">
                                                 <span className={cn("inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", TONE[s.tone])}>{s.label}</span>

@@ -74,14 +74,14 @@ export default function NotificationsPage() {
     };
 
     return (
-        <div className="mx-auto max-w-3xl space-y-4">
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">Notifications</h1>
                 <p className="mt-1 text-sm text-muted-foreground">Updates from the system. A dot marks an unread update.</p>
             </div>
 
             {loading ? (
-                <div className="space-y-px overflow-hidden rounded-2xl border border-border bg-card" aria-busy="true" aria-label="Loading notifications">
+                <div className="space-y-px overflow-hidden rounded-xl border border-border bg-card" aria-busy="true" aria-label="Loading notifications">
                     {[0, 1, 2].map((i) => (
                         <div key={i} className="flex items-center gap-3 px-5 py-4">
                             <span className="size-2 rounded-full bg-muted" />
@@ -90,7 +90,7 @@ export default function NotificationsPage() {
                     ))}
                 </div>
             ) : items.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card px-6 py-14 text-center">
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-6 py-14 text-center">
                     <span className="flex size-10 items-center justify-center rounded-full bg-brand-soft text-brand-deep">
                         <Bell className="size-5" strokeWidth={1.75} aria-hidden="true" />
                     </span>
@@ -101,7 +101,7 @@ export default function NotificationsPage() {
                 </div>
             ) : (
                 <>
-                    <ul className="overflow-hidden rounded-2xl border border-border bg-card">
+                    <ul className="overflow-hidden rounded-xl border border-border bg-card">
                         {items.map((item) => (
                             <li key={item.id} className="border-b border-border last:border-b-0">
                                 <button

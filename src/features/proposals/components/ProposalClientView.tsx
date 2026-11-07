@@ -248,9 +248,11 @@ export function ProposalClientView({
         agencyFaviconUrl: settings?.faviconUrl || null,
     };
 
-    const currencyFormatter = new Intl.NumberFormat("en-US", {
+    // Show the price in the proposal's own currency (PHP by default); never convert it.
+    const currency = proposal.currency ?? "PHP";
+    const currencyFormatter = new Intl.NumberFormat(currency === "PHP" ? "en-PH" : "en-US", {
         style: "currency",
-        currency: "USD",
+        currency,
         minimumFractionDigits: 0,
     });
 
@@ -525,6 +527,7 @@ export function ProposalClientView({
                 proposalId={proposal.id}
                 proposalCode={proposal.proposalCode}
                 totalAmount={grandTotal}
+                currency={currency}
                 defaultName={proposal.lead?.client?.name || ""}
                 contractSettings={proposal.contractSettings}
             />
