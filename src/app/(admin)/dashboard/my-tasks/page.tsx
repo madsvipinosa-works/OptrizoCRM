@@ -63,7 +63,7 @@ export default async function MyTasksPage() {
         }));
 
     return (
-        <div className="space-y-6 w-full animate-in fade-in duration-500">
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                     My tasks

@@ -129,7 +129,7 @@ export function ProjectTeamDrawer({
                     {/* Header */}
                     <div className="flex items-center justify-between p-5 border-b border-border bg-card">
                         <div>
-                            <DialogTitle className="text-lg font-bold text-foreground">
+                            <DialogTitle className="text-lg font-semibold text-foreground">
                                 Project team
                             </DialogTitle>
                             <DialogDescription className="sr-only">
@@ -150,12 +150,12 @@ export function ProjectTeamDrawer({
                     <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
                         {/* Project Manager Section */}
                         <div className="space-y-1.5">
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <h4 className="text-xs font-semibold text-muted-foreground">
                                 Project Manager
                             </h4>
                             <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/40 border border-border/50 text-sm">
                                 <span className="font-medium text-foreground">You</span>
-                                <Badge variant="secondary" className="text-[11px] font-normal">
+                                <Badge variant="secondary" className="text-xs font-normal">
                                     PM
                                 </Badge>
                             </div>
@@ -163,7 +163,7 @@ export function ProjectTeamDrawer({
 
                         {/* Developers Section */}
                         <div className="space-y-2">
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <h4 className="text-xs font-semibold text-muted-foreground">
                                 Developers
                             </h4>
                             {teamMembers.length === 0 ? (
@@ -211,7 +211,7 @@ export function ProjectTeamDrawer({
                         {/* Add a developer (Managers only) */}
                         {isManager && (
                             <div className="space-y-2 pt-2 border-t border-border">
-                                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                <h4 className="text-xs font-semibold text-muted-foreground">
                                     Add a developer
                                 </h4>
                                 <div className="flex items-center gap-2">
@@ -263,7 +263,7 @@ export function ProjectTeamDrawer({
 
                         {/* Read-only client line */}
                         <div className="space-y-1.5 pt-2 border-t border-border">
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <h4 className="text-xs font-semibold text-muted-foreground">
                                 Client
                             </h4>
                             <div className="py-2 px-3 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground">

@@ -56,7 +56,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
         <span className="inline-flex items-center gap-1.5">
           <span
             aria-hidden="true"
-            className="w-3.5 h-2.5 rounded-[3px] bg-emerald-700 inline-block"
+            className="w-3.5 h-2.5 rounded-[3px] bg-brand-deep inline-block"
           />
           <span>Done</span>
         </span>
@@ -65,7 +65,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
             aria-hidden="true"
             className="w-5 h-2.5 rounded-[3px] inline-block overflow-hidden"
             style={{
-              background: "linear-gradient(90deg, #0e6b7e 50%, #a9d6df 50%)",
+              background: "linear-gradient(90deg, var(--brand-deep) 50%, var(--brand-soft) 50%)",
             }}
           />
           <span>In progress (dark part = tasks done)</span>
@@ -73,14 +73,14 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
         <span className="inline-flex items-center gap-1.5">
           <span
             aria-hidden="true"
-            className="w-3.5 h-2.5 rounded-[3px] bg-slate-300 dark:bg-slate-600 inline-block"
+            className="w-3.5 h-2.5 rounded-[3px] bg-muted dark:bg-muted inline-block"
           />
           <span>Planned</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span
             aria-hidden="true"
-            className="w-2.5 h-2.5 bg-amber-800 rotate-45 inline-block"
+            className="w-2.5 h-2.5 bg-stage-negotiation rotate-45 inline-block"
           />
           <span>Key date</span>
         </span>
@@ -99,7 +99,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
           <div className="min-w-[720px]">
             {/* Header Row: Left column label + Month scale */}
             <div className="grid grid-cols-[220px_1fr] border-b border-border pb-2">
-              <div className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
+              <div className="px-3 text-xs font-semibold text-muted-foreground flex items-center">
                 Milestone / Sprint
               </div>
               <div className="relative h-7">
@@ -140,10 +140,10 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                   {todayPosition.inRange && todayPosition.leftPercent !== null && (
                     <div
                       data-testid="gantt-today-line"
-                      className="absolute top-0 bottom-0 border-l-2 border-dashed border-red-600"
+                      className="absolute top-0 bottom-0 border-l-2 border-dashed border-destructive/30"
                       style={{ left: `${todayPosition.leftPercent}%` }}
                     >
-                      <span className="absolute bottom-0.5 left-1.5 whitespace-nowrap text-[11px] font-semibold text-red-600 bg-card/90 px-1 rounded">
+                      <span className="absolute bottom-0.5 left-1.5 whitespace-nowrap text-xs font-semibold text-destructive bg-card/90 px-1 rounded">
                         Today · {formatShortDate(todayPosition.date)}
                       </span>
                     </div>
@@ -165,8 +165,8 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                     {/* Label Column */}
                     <div
                       className={`pr-3 py-2 truncate flex items-center gap-1.5 ${
-                        row.indented
-                          ? "pl-7 text-xs sm:text-sm text-muted-foreground font-medium"
+ row.indented
+ ? "pl-7 text-xs sm:text-sm text-muted-foreground font-medium"
                           : "pl-3 text-sm font-semibold text-foreground"
                       }`}
                       title={row.label}
@@ -174,7 +174,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                       {row.indented && (
                         <span
                           aria-hidden="true"
-                          className="text-[11px] text-muted-foreground shrink-0"
+                          className="text-xs text-muted-foreground shrink-0"
                         >
                           ▸
                         </span>
@@ -182,7 +182,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                       <span
                         className={
                           row.indented && active
-                            ? "font-bold text-foreground truncate"
+                            ? "font-semibold text-foreground truncate"
                             : "truncate"
                         }
                       >
@@ -203,13 +203,13 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                         <div
                           title={tooltip}
                           className={`absolute rounded-[6px] overflow-hidden transition-all ${
-                            row.kind === "sprint" ? "h-4" : "h-5"
+ row.kind === "sprint" ? "h-4" : "h-5"
                           } ${
                             done
-                              ? "bg-emerald-700"
+                              ? "bg-brand-deep"
                               : active
-                                ? "bg-[#a9d6df]"
-                                : "bg-slate-300 dark:bg-slate-600"
+                                ? "bg-[var(--brand-soft)]"
+                                : "bg-muted dark:bg-muted"
                           }`}
                           style={{
                             left: `${row.leftPercent}%`,
@@ -219,7 +219,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                           {/* Progress fill inside bar */}
                           {!done && row.progressPercent > 0 && (
                             <div
-                              className="h-full bg-[#0e6b7e]"
+                              className="h-full bg-[var(--brand-deep)]"
                               style={{ width: `${row.progressPercent}%` }}
                             />
                           )}
@@ -228,10 +228,10 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                           {row.kind === "milestone" && row.totalTasks > 0 && (
                             <div className="absolute inset-0 flex items-center justify-end pr-2 pointer-events-none">
                               <span
-                                className={`text-[11px] font-bold whitespace-nowrap ${
-                                  done
-                                    ? "text-white"
-                                    : "text-[#0a3f4a] dark:text-slate-900"
+                                className={`text-xs font-semibold whitespace-nowrap ${
+ done
+ ? "text-white"
+                                    : "text-foreground"
                                 }`}
                               >
                                 {row.doneTasks} of {row.totalTasks} tasks done
@@ -244,7 +244,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                       {/* Sprint task ratio label beside sprint bar */}
                       {row.hasDates && row.kind === "sprint" && row.totalTasks > 0 && (
                         <span
-                          className="absolute text-[11px] font-bold text-[#0a3f4a] dark:text-teal-300 whitespace-nowrap pl-1.5 pointer-events-none"
+                          className="absolute text-xs font-semibold text-foreground whitespace-nowrap pl-1.5 pointer-events-none"
                           style={{
                             left: `calc(${row.leftPercent + row.widthPercent}%)`,
                           }}
@@ -259,7 +259,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
 
               {/* Key Dates Row */}
               <div className="grid grid-cols-[220px_1fr] items-center border-t border-border min-h-[42px]">
-                <div className="pl-3 pr-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-400 whitespace-nowrap">
+                <div className="pl-3 pr-3 py-2 text-sm font-semibold text-stage-negotiation dark:text-stage-negotiation whitespace-nowrap">
                   Key dates
                 </div>
                 <div className="relative h-9 flex items-center">
@@ -272,7 +272,7 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                       <div
                         key={`${kd.kind}-${kd.date}`}
                         title={`${kd.label} · ${formatFullDate(kd.date)}`}
-                        className="absolute -translate-x-1/2 w-3.5 h-3.5 bg-amber-800 rotate-45 ring-4 ring-amber-800/20 cursor-default z-20"
+                        className="absolute -translate-x-1/2 w-3.5 h-3.5 bg-stage-negotiation rotate-45 ring-4 ring-stage-negotiation/30 cursor-default z-20"
                         style={{ left: `${kd.leftPercent}%` }}
                       />
                     ))
@@ -288,11 +288,11 @@ export function GanttTimeline({ layout }: { layout: GanttLayoutResult }) {
                   <span
                     key={`chip-${kd.kind}-${kd.date}`}
                     title={`${kd.label} · ${formatFullDate(kd.date)}`}
-                    className="inline-flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-3 py-1 text-xs sm:text-sm text-foreground"
+                    className="inline-flex items-center gap-2 rounded-full bg-stage-negotiation/15 dark:bg-stage-negotiation/40 border border-stage-negotiation/30 dark:border-stage-negotiation/30 px-3 py-1 text-xs sm:text-sm text-foreground"
                   >
                     <span
                       aria-hidden="true"
-                      className="w-2.5 h-2.5 bg-amber-800 rotate-45 inline-block shrink-0"
+                      className="w-2.5 h-2.5 bg-stage-negotiation rotate-45 inline-block shrink-0"
                     />
                     <strong className="font-semibold">{kd.label}</strong>
                     <span className="text-muted-foreground">

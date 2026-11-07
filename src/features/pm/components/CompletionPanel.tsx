@@ -169,13 +169,13 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
     return (
         <div className="space-y-6">
             {isCompleted ? (
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6 space-y-4">
+                <div className="rounded-xl border border-brand-deep/30 bg-brand-soft p-6 space-y-4">
                     <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-brand-soft text-brand-deep flex items-center justify-center shrink-0">
                             <Award className="w-6 h-6" />
                         </div>
                         <div className="space-y-1">
-                            <h2 className="text-xl font-bold text-foreground">Project Officially Completed</h2>
+                            <h2 className="text-xl font-semibold text-foreground">Project Officially Completed</h2>
                             <p className="text-sm text-muted-foreground">
                                 All deliverables handed over, client sign-off recorded, and final payment cleared.
                             </p>
@@ -183,17 +183,17 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        <div className="glass-card rounded-xl border border-border p-3.5 space-y-0.5">
-                            <div className="text-xs uppercase font-mono text-muted-foreground">Completion Date</div>
+                        <div className="bg-card rounded-xl border border-border p-3.5 space-y-0.5">
+                            <div className="text-xs tabular-nums text-muted-foreground">Completion Date</div>
                             <div className="text-sm font-semibold text-foreground">
                                 {data.completedAt ? new Date(data.completedAt).toLocaleDateString() : "N/A"}
                             </div>
                         </div>
-                        <div className="glass-card rounded-xl border border-border p-3.5 space-y-0.5">
-                            <div className="text-xs uppercase font-mono text-muted-foreground flex items-center gap-1">
+                        <div className="bg-card rounded-xl border border-border p-3.5 space-y-0.5">
+                            <div className="text-xs tabular-nums text-muted-foreground flex items-center gap-1">
                                 <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Warranty Period Ends
                             </div>
-                            <div className="text-sm font-semibold text-foreground font-mono">
+                            <div className="text-sm font-semibold text-foreground tabular-nums">
                                 {data.warrantyEndsAt ? new Date(data.warrantyEndsAt).toLocaleDateString() : "N/A"}
                             </div>
                         </div>
@@ -202,20 +202,20 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
             ) : null}
 
             {/* Quality & Completion Gates Checklist */}
-            <div className="glass-card rounded-2xl border border-border p-5 space-y-4">
+            <div className="bg-card rounded-xl border border-border p-5 space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="text-lg font-bold text-foreground">Completion Gates</h3>
+                        <h3 className="text-lg font-semibold text-foreground">Completion Gates</h3>
                         <p className="text-xs text-muted-foreground">
                             All 4 conditions must be met to close out and complete the project.
                         </p>
                     </div>
                     {allGatesPassed && !isCompleted ? (
-                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                        <Badge className="bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30">
                             Ready to Complete
                         </Badge>
                     ) : isCompleted ? (
-                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                        <Badge className="bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30">
                             Completed
                         </Badge>
                     ) : (
@@ -230,7 +230,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                     <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
                         <div className="flex items-start gap-3">
                             {data.allMilestonesCompleted ? (
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
                                 <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                             )}
@@ -251,7 +251,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                     <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
                         <div className="flex items-start gap-3">
                             {data.finalPaymentPaid ? (
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
                                 <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                             )}
@@ -272,7 +272,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                     <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
                         <div className="flex items-start gap-3">
                             {hasHandoverFiles ? (
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
                                 <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                             )}
@@ -303,7 +303,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                     <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
                         <div className="flex items-start gap-3">
                             {hasSignOff ? (
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
                                 <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                             )}
@@ -353,7 +353,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                 {/* Handover Documents List */}
                 {data.handoverDocuments.length > 0 && (
                     <div className="pt-3 border-t border-border">
-                        <h4 className="text-xs uppercase font-mono text-muted-foreground font-semibold mb-2">
+                        <h4 className="text-xs tabular-nums text-muted-foreground font-semibold mb-2">
                             Uploaded Handover Files
                         </h4>
                         <div className="space-y-1.5">
@@ -435,7 +435,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                 onChange={(e) => setDocFileUrl(e.target.value)}
                                 required
                             />
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 Allowed storage: /api/private-file, /uploads/, or .blob.vercel-storage.com
                             </p>
                         </div>
@@ -475,7 +475,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                 onChange={(e) => setSignOffUrl(e.target.value)}
                                 required
                             />
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 Allowed storage: /api/private-file, /uploads/, or .blob.vercel-storage.com
                             </p>
                         </div>
@@ -512,7 +512,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-amber-500" /> Confirm Project Completion
+                            <AlertTriangle className="w-5 h-5 text-stage-negotiation" /> Confirm Project Completion
                         </DialogTitle>
                         <DialogDescription>
                             Are you sure you want to mark &quot;{data.projectTitle}&quot; as Completed?
@@ -539,7 +539,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                         <Button
                             onClick={handleExecuteCompletion}
                             disabled={isLoading}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="bg-brand-deep hover:bg-brand-deep text-white"
                         >
                             {isLoading ? "Completing..." : "Confirm & Complete"}
                         </Button>

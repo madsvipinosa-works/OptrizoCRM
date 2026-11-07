@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore, type ReactElement } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -69,7 +70,7 @@ const navGroups: NavGroup[] = [
             { href: "/dashboard/contacts", label: "Contacts", icon: ContactRound, allowedRoles: ["sales"] },
             { href: "/dashboard/leads", label: "Sales Pipeline", icon: KanbanSquare, allowedRoles: ["sales"] },
             { href: "/dashboard/meetings", label: "Meetings", icon: CalendarDays, allowedRoles: ["sales", "manager"] },
-            { href: "/dashboard/proposals", label: "Proposals & SOWs", icon: FileText, allowedRoles: ["sales", "manager"] },
+            { href: "/dashboard/proposals", label: "Proposals", icon: FileText, allowedRoles: ["sales", "manager"] },
         ],
     },
     {
@@ -97,6 +98,15 @@ const footerLinks: NavItem[] = [
     { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ["superadmin"] },
 ];
 
+/** Menus this short show as one list with no headings. */
+const FLAT_MENU_MAX = 5;
+/** Flat-list order from the PM mockups: the day starts with proposals, then meetings, then delivery. */
+const FLAT_ORDER = ["/dashboard", "/dashboard/my-tasks", "/dashboard/proposals", "/dashboard/meetings", "/dashboard/pm"];
+const flatRank = (href: string) => {
+    const i = FLAT_ORDER.indexOf(href);
+    return i === -1 ? FLAT_ORDER.length : i;
+};
+
 const subscribeNoop = () => () => {};
 
 /** Row styles shared by nav links, footer links and footer buttons. 44px on touch, 36px with a mouse. */
@@ -122,8 +132,15 @@ function RailTip({ label, enabled, children }: { label: string; enabled: boolean
 export function AdminSidebar({
     user,
     expanded = true,
+    instant = false,
     onToggleExpanded,
+    logoUrl,
+    logoDarkUrl,
 }: {
+    logoUrl?: string | null;
+    logoDarkUrl?: string | null;
+    /** True right after a keyboard toggle: the width changes without the slide. */
+    instant?: boolean;
     user?: { name?: string | null; email?: string | null; image?: string | null; role?: string | null };
     /** Open (labels shown) or a narrow icon rail. Changed only by the toggle button; the page moves with it. */
     expanded?: boolean;
@@ -142,12 +159,21 @@ export function AdminSidebar({
     const hasNotifications = ["sales", "manager", "developer"].includes(userRole);
 
     // Filter items and exclude empty groups based on the role (the server enforces access too).
-    const filteredNavGroups = navGroups
+    const roleGroups = navGroups
         .map((group) => ({
             ...group,
             items: group.items.filter((item) => item.allowedRoles.includes(userRole)),
         }))
         .filter((group) => group.items.length > 0);
+    // A short menu (PM, developer, content editor) is one flat list in the mockups' order: headings over
+    // one or two links add more to read than they explain. Sales and Super Admin keep their groups.
+    const roleItems = roleGroups.flatMap((group) => group.items);
+    const flat = roleItems.length <= FLAT_MENU_MAX;
+    const filteredNavGroups = flat
+        ? [{ title: "", items: [...roleItems].sort((a, b) => flatRank(a.href) - flatRank(b.href)) }]
+        : roleGroups;
+
+    const shortcut = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
 
     // Whole path segments only: /dashboard/pm must not light up for /dashboard/pmx.
     const isActive = (href: string) =>
@@ -164,7 +190,7 @@ export function AdminSidebar({
         return (
             <div className="flex h-full min-h-0 flex-col text-foreground">
                 {/* The signed-in user stays at the top. The toggle sits beside it (Linear and Vercel keep theirs there); in the rail it drops under the avatar. */}
-                <div className={cn("flex shrink-0 p-3 pb-2", rail ? "flex-col items-center gap-0.5" : "items-center gap-1")}>
+                <div className={cn("flex shrink-0 p-3 pb-4", rail ? "flex-col items-center gap-2" : "items-center gap-1")}>
                     {rail ? (
                         <RailTip label={`${user?.name || user?.email || "Account"} · ${getRoleLabel(user?.role)}`} enabled>
                             <div>
@@ -192,6 +218,7 @@ export function AdminSidebar({
                             </TooltipTrigger>
                             <TooltipContent side={rail ? "right" : "bottom"} sideOffset={rail ? 20 : 4}>
                                 {expanded ? "Collapse sidebar" : "Expand sidebar"}
+                                <kbd className="ml-2 font-sans text-background/70">{shortcut}</kbd>
                             </TooltipContent>
                         </Tooltip>
                     )}
@@ -201,7 +228,7 @@ export function AdminSidebar({
                     {/* Notifications sits first, unlabelled: one row does not need a heading. A count (a dot in the rail) shows when something is new. */}
                     {hasNotifications && (
                         <div>
-                            {rail && <div aria-hidden="true" className="mx-2 mb-1 mt-1 h-px bg-border" />}
+                            {rail && <div aria-hidden="true" className="mx-2 mb-2 h-px bg-border" />}
                             <NotificationsNavLink
                                 rail={rail}
                                 active={isActive("/dashboard/notifications")}
@@ -214,11 +241,13 @@ export function AdminSidebar({
                     )}
                     {filteredNavGroups.map((group) => {
                         return (
-                            <div key={group.title}>
+                            <div key={group.title || "menu"}>
                                 {rail ? (
                                     <div aria-hidden="true" className="mx-2 my-1.5 h-px bg-border" />
-                                ) : (
+                                ) : group.title ? (
                                     <p className="px-2.5 pb-1.5 pt-4 text-xs font-medium text-muted-foreground">{group.title}</p>
+                                ) : (
+                                    <div aria-hidden="true" className="pt-2" />
                                 )}
                                 <div className={cn("space-y-0.5", rail && "pt-1")}>
                                     {group.items.map((item) => {
@@ -315,7 +344,7 @@ export function AdminSidebar({
                 aria-label="Sidebar"
                 className={cn(
                     "fixed bottom-3 left-3 top-3 z-40 hidden overflow-hidden rounded-2xl border border-border bg-card md:block print:hidden",
-                    "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                    instant ? "transition-none" : "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                     expanded ? "w-[232px]" : "w-[62px]"
                 )}
             >
@@ -324,10 +353,17 @@ export function AdminSidebar({
 
             {/* Mobile header */}
             <div className="fixed left-0 top-0 z-50 flex h-16 w-full items-center justify-between border-b border-border bg-card px-4 md:hidden print:hidden">
-                <div className="flex items-center gap-2">
-                    <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-                    <h2 className="text-base font-semibold tracking-tight text-foreground">Optrizo CRM</h2>
-                </div>
+                {/* Same logo as the website and the client portal (site settings), light and dark versions. */}
+                <Link href="/dashboard" aria-label="Optrizo CRM, dashboard" className="flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    {logoUrl || logoDarkUrl ? (
+                        <span className="relative block h-8 w-28 shrink-0">
+                            {logoUrl && <Image src={logoUrl} alt="" fill priority sizes="112px" className={cn("object-contain object-left", logoDarkUrl && "dark:hidden")} />}
+                            {logoDarkUrl && <Image src={logoDarkUrl} alt="" fill priority sizes="112px" className={cn("object-contain object-left", logoUrl && "hidden dark:block")} />}
+                        </span>
+                    ) : (
+                        <span className="text-base font-semibold tracking-tight text-foreground">Optrizo</span>
+                    )}
+                </Link>
                 <div className="flex items-center gap-1">
                     {hasNotifications && <NotificationBell />}
                     {isMounted ? (

@@ -23,7 +23,7 @@ export function ProjectArchiveButton({ projectId, isArchived = false }: { projec
     }
 
     return (
-        <Button size="sm" variant="ghost" className={`h-8 hover:bg-muted ${isArchived ? 'text-primary/80 hover:text-primary' : 'text-red-500/80 hover:text-red-500'}`} onClick={handleArchive} disabled={loading}>
+        <Button size="sm" variant="ghost" className={`h-8 hover:bg-muted ${isArchived ? 'text-primary/80 hover:text-primary' : 'text-destructive hover:text-destructive'}`} onClick={handleArchive} disabled={loading}>
             {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : (
                 isArchived ? <ArchiveRestore className="w-3 h-3 mr-1.5" /> : <Archive className="w-3 h-3 mr-1.5" />
             )}

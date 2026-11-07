@@ -124,7 +124,7 @@ export function BacklogPanel({
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-foreground">Backlog</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-foreground">Backlog</h3>
           <p className="text-xs sm:text-sm text-muted-foreground">
             {backlogTasks.length} Development task{backlogTasks.length === 1 ? "" : "s"} not in an
             active sprint yet
@@ -213,7 +213,7 @@ export function BacklogPanel({
                         {isCarried && (
                           <Badge
                             variant="secondary"
-                            className="text-[10px] font-semibold px-2 py-0 bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                            className="text-xs font-semibold px-2 py-0 bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30"
                           >
                             Carried over
                           </Badge>

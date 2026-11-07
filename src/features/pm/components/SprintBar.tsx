@@ -41,7 +41,7 @@ function getStatusLabel(status: SprintWithCounts["status"]): {
     return { label: "Current", colorClass: "text-primary font-semibold" };
   }
   if (status === "ended") {
-    return { label: "Done", colorClass: "text-emerald-600 dark:text-emerald-400 font-semibold" };
+    return { label: "Done", colorClass: "text-brand-deep dark:text-brand-deep font-semibold" };
   }
   return { label: "Planned", colorClass: "text-muted-foreground font-medium" };
 }
@@ -102,7 +102,7 @@ export function SprintBar({
               <div
                 role="listbox"
                 aria-label="Sprints"
-                className="absolute left-0 top-11 w-80 bg-card border border-border rounded-xl shadow-lg p-1.5 flex flex-col gap-0.5 z-30"
+                className="absolute left-0 top-11 w-80 bg-card border border-border rounded-xl p-1.5 flex flex-col gap-0.5 z-30"
               >
                 {sprints.map((s) => {
                   const isCurrent = s.id === selectedSprint.id;

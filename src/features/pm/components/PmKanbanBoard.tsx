@@ -101,22 +101,22 @@ const COLUMNS: {
     {
         id: "in_progress",
         title: "In Progress",
-        dotColor: "bg-blue-500",
-        badgeColor: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
+        dotColor: "bg-stage-new",
+        badgeColor: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
         subtitle: "Developer starts work",
     },
     {
         id: "in_review",
         title: "In Review",
-        dotColor: "bg-amber-500",
-        badgeColor: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
+        dotColor: "bg-stage-negotiation",
+        badgeColor: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
         subtitle: "Developer submits for PM review",
     },
     {
         id: "done",
         title: "Done",
-        dotColor: "bg-emerald-500",
-        badgeColor: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+        dotColor: "bg-brand-deep",
+        badgeColor: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
         subtitle: "PM approves task",
     },
 ];
@@ -201,8 +201,8 @@ export function PmKanbanBoard({
                             <span>{col.title}</span>
                             <span
                                 className={cn(
-                                    "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
-                                    isSelected ? "bg-primary-foreground/20 text-primary-foreground font-bold" : "bg-muted text-foreground"
+                                    "text-xs px-1.5 py-0.2 rounded-full tabular-nums",
+                                    isSelected ? "bg-primary-foreground/20 text-primary-foreground font-semibold" : "bg-muted text-foreground"
                                 )}
                             >
                                 {count}
@@ -289,7 +289,7 @@ function PmKanbanColumn({
         <div
             id={`pm-column-${column.id}`}
             className={cn(
-                "bg-card/75 border border-border rounded-2xl p-3.5 sm:p-4 flex flex-col h-full min-h-[460px] transition-all shadow-xs",
+                "bg-card/75 border border-border rounded-xl p-3.5 sm:p-4 flex flex-col h-full min-h-[460px] transition-all shadow-xs",
                 "w-[84vw] max-w-[320px] min-w-[270px] shrink-0 snap-center md:w-auto md:max-w-none md:min-w-0 md:shrink"
             )}
         >
@@ -297,10 +297,10 @@ function PmKanbanColumn({
             <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
                     <span className={cn("w-2.5 h-2.5 rounded-full shrink-0 shadow-sm", column.dotColor)} />
-                    <h3 className="font-bold text-foreground text-sm tracking-tight">
+                    <h3 className="font-semibold text-foreground text-sm tracking-tight">
                         {column.title}
                     </h3>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full font-mono font-semibold border", column.badgeColor)}>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full tabular-nums font-semibold border", column.badgeColor)}>
                         {tasks.length}
                     </span>
                 </div>
@@ -379,7 +379,7 @@ function TaskCard({
             className={cn(
                 "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-xl border shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer p-3.5 gap-2.5",
                 isChangesRequested
-                    ? "bg-rose-500/[0.06] border-rose-500/50 hover:border-rose-500/80 shadow-rose-950/10"
+                    ? "bg-destructive/15 border-destructive/30 hover:border-destructive/30 shadow-rose-950/10"
                     : "bg-card border-border hover:border-primary/40 text-foreground"
             )}
         >
@@ -392,7 +392,7 @@ function TaskCard({
                             {isChangesRequested && (
                                 <Badge
                                     variant="destructive"
-                                    className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-rose-500 text-white shrink-0 whitespace-nowrap"
+                                    className="text-xs font-semibold px-2 py-0.5 bg-destructive text-white shrink-0 whitespace-nowrap"
                                 >
                                     Changes Requested
                                 </Badge>
@@ -400,7 +400,7 @@ function TaskCard({
                             {isCarriedOver && (
                                 <Badge
                                     variant="secondary"
-                                    className="text-[10px] font-semibold px-2 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 shrink-0 whitespace-nowrap"
+                                    className="text-xs font-semibold px-2 py-0.5 bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30 shrink-0 whitespace-nowrap"
                                 >
                                     Carried over
                                 </Badge>
@@ -411,7 +411,7 @@ function TaskCard({
                     <h4
                         className={cn(
                             "font-semibold text-sm leading-snug break-words line-clamp-2",
-                            isChangesRequested ? "text-rose-700 dark:text-rose-300" : "text-foreground"
+                            isChangesRequested ? "text-destructive dark:text-destructive" : "text-foreground"
                         )}
                         title={task.title}
                     >
@@ -446,7 +446,7 @@ function TaskCard({
 
             {/* Review Note Callout if Changes Requested */}
             {isChangesRequested && task.reviewNote && (
-                <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-800 dark:text-rose-300 line-clamp-2">
+                <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive dark:text-destructive line-clamp-2">
                     <span className="font-semibold">Note: </span>
                     {task.reviewNote}
                 </div>
@@ -462,26 +462,26 @@ function TaskCard({
                             {task.assignees.slice(0, 3).map((a) => (
                                 <Avatar key={a.user.id} className="w-5 h-5 border-2 border-background ring-1 ring-border shrink-0">
                                     <AvatarImage src={a.user.image || ""} />
-                                    <AvatarFallback className="text-[9px] font-bold">
+                                    <AvatarFallback className="text-xs font-semibold">
                                         {(a.user.name || a.user.email || "U")[0].toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
                             ))}
                             {task.assignees.length > 3 && (
-                                <span className="text-[10px] text-muted-foreground pl-1 font-mono">
+                                <span className="text-xs text-muted-foreground pl-1 tabular-nums">
                                     +{task.assignees.length - 3}
                                 </span>
                             )}
                         </div>
                     ) : (
-                        <span className="text-[10px] text-muted-foreground italic shrink-0">Unassigned</span>
+                        <span className="text-xs text-muted-foreground italic shrink-0">Unassigned</span>
                     )}
 
                     {/* Due Date */}
                     {task.dueDate && (
                         <span
                             className={cn(
-                                "inline-flex items-center gap-1 text-[11px] whitespace-nowrap shrink-0",
+                                "inline-flex items-center gap-1 text-xs whitespace-nowrap shrink-0",
                                 isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
                             )}
                         >
@@ -493,7 +493,7 @@ function TaskCard({
                     {/* Prerequisite Indicator */}
                     {isLocked && (
                         <span
-                            className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap shrink-0"
+                            className="inline-flex items-center gap-1 text-xs text-stage-negotiation dark:text-stage-negotiation font-medium whitespace-nowrap shrink-0"
                             title={`Prerequisite task "${prerequisiteTask?.title}" must be completed first`}
                         >
                             <Lock className="w-3 h-3" />
@@ -504,7 +504,7 @@ function TaskCard({
 
                 {/* Right side: Weight */}
                 {task.weight != null && (
-                    <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap shrink-0">
+                    <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap shrink-0">
                         {task.weight} pts
                     </span>
                 )}
@@ -535,7 +535,7 @@ function TaskCard({
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg border-blue-500/30 text-blue-600 dark:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 shadow-xs"
+                                className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg border-stage-new/30 text-stage-new dark:text-stage-new bg-stage-new/10 hover:bg-stage-new/20 shadow-xs"
                                 onClick={() => onSubmitTask(task)}
                             >
                                 <Send className="w-3 h-3" />
@@ -550,7 +550,7 @@ function TaskCard({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 text-xs font-semibold gap-1 px-2 rounded-lg text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10 shadow-xs"
+                                    className="h-7 text-xs font-semibold gap-1 px-2 rounded-lg text-destructive dark:text-destructive border-destructive/30 hover:bg-destructive/10 shadow-xs"
                                     onClick={() => onRequestChanges(task)}
                                 >
                                     <RotateCcw className="w-3 h-3" />
@@ -560,7 +560,7 @@ function TaskCard({
                             {onApproveTask && (
                                 <Button
                                     size="sm"
-                                    className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                    className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg bg-brand-deep hover:bg-brand-deep text-white shadow-xs"
                                     onClick={() => onApproveTask(task.id)}
                                 >
                                     <CheckCircle2 className="w-3 h-3" />

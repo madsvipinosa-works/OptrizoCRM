@@ -154,7 +154,7 @@ export function PlanSprintDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[540px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-5 sm:p-6 pb-3 border-b border-border shrink-0">
-          <DialogTitle className="text-lg font-bold text-foreground">Plan sprint</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-foreground">Plan sprint</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
             {projectTitle} · Development
           </DialogDescription>
@@ -165,12 +165,12 @@ export function PlanSprintDialog({
             {!hasDevelopmentDates && (
               <div
                 role="note"
-                className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200"
+                className="flex items-start gap-2.5 rounded-lg border border-stage-negotiation/30 bg-stage-negotiation/10 p-3 text-xs text-stage-negotiation dark:text-stage-negotiation"
               >
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-stage-negotiation dark:text-stage-negotiation" />
                 <span>
                   The Development milestone has no start or end dates set
-                  (<code className="font-mono">no_development_dates</code>). Any valid sprint dates
+                  (<code className="tabular-nums">no_development_dates</code>). Any valid sprint dates
                   are allowed.
                 </span>
               </div>
@@ -289,7 +289,7 @@ export function PlanSprintDialog({
                           {isCarried && (
                             <Badge
                               variant="secondary"
-                              className="text-[10px] font-semibold px-1.5 py-0 bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 shrink-0"
+                              className="text-xs font-semibold px-1.5 py-0 bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30 shrink-0"
                             >
                               Carried over
                             </Badge>

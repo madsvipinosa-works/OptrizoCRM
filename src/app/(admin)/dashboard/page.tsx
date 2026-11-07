@@ -12,6 +12,7 @@ import { format, isToday, isTomorrow, startOfDay, endOfDay, addDays } from "date
 import { cn } from "@/lib/utils";
 import { SalesDashboard } from "@/features/crm/components/SalesDashboard";
 import { AdminDashboard } from "@/features/analytics/components/AdminDashboard";
+import { PmDashboard } from "@/features/pm/components/PmDashboard";
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,11 @@ export default async function DashboardPage() {
     // Sales has its own home page (mockup "Ref · Sales: dashboard").
     if (isSales && !isDelivery) {
         return <SalesDashboard userId={currentUserId!} />;
+    }
+
+    // The PM has its own home page (mockup "Ref · PM: dashboard").
+    if (hasRole(session, ["manager"])) {
+        return <PmDashboard userId={currentUserId!} />;
     }
 
     // ==========================================

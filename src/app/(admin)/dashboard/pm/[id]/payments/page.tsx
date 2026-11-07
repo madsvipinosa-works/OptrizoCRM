@@ -74,7 +74,7 @@ export default async function PmPaymentsPage({
     const currency = paymentItems[0]?.currency || "PHP";
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto py-2">
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" asChild>
@@ -98,21 +98,21 @@ export default async function PmPaymentsPage({
 
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase font-mono text-muted-foreground">Total Contract Value</div>
-                    <div className="text-2xl font-bold font-mono text-foreground mt-1">
+                <div className="bg-card rounded-xl border border-border p-4">
+                    <div className="text-xs tabular-nums text-muted-foreground">Total Contract Value</div>
+                    <div className="text-2xl font-semibold tabular-nums text-foreground mt-1">
                         {currency} {totalAmount.toLocaleString()}
                     </div>
                 </div>
-                <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase font-mono text-emerald-600 dark:text-emerald-400">Total Collected</div>
-                    <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                <div className="bg-card rounded-xl border border-border p-4">
+                    <div className="text-xs tabular-nums text-brand-deep dark:text-brand-deep">Total Collected</div>
+                    <div className="text-2xl font-semibold tabular-nums text-brand-deep dark:text-brand-deep mt-1">
                         {currency} {paidAmount.toLocaleString()}
                     </div>
                 </div>
-                <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase font-mono text-amber-600 dark:text-amber-400">Outstanding / Pending</div>
-                    <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">
+                <div className="bg-card rounded-xl border border-border p-4">
+                    <div className="text-xs tabular-nums text-stage-negotiation dark:text-stage-negotiation">Outstanding / Pending</div>
+                    <div className="text-2xl font-semibold tabular-nums text-stage-negotiation dark:text-stage-negotiation mt-1">
                         {currency} {pendingAmount.toLocaleString()}
                     </div>
                 </div>

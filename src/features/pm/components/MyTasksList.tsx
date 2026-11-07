@@ -62,23 +62,23 @@ const STATUS_DISPLAY: Record<
     },
     in_progress: {
         label: "In progress",
-        badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
-        dotClass: "bg-blue-500",
+        badgeClass: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
+        dotClass: "bg-stage-new",
     },
     changes_requested: {
         label: "Changes requested",
-        badgeClass: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
-        dotClass: "bg-rose-500",
+        badgeClass: "bg-destructive/15 text-destructive dark:text-destructive border-destructive/30",
+        dotClass: "bg-destructive",
     },
     in_review: {
         label: "In review",
-        badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
-        dotClass: "bg-amber-500",
+        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
+        dotClass: "bg-stage-negotiation",
     },
     done: {
         label: "Done",
-        badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
-        dotClass: "bg-emerald-500",
+        badgeClass: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
+        dotClass: "bg-brand-deep",
     },
 };
 
@@ -155,13 +155,13 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                     className={cn(
                         "rounded-xl p-3.5 sm:p-4 text-sm flex items-center justify-between gap-3 border shadow-xs",
                         normalizeStatus(alertTask.status) === "changes_requested"
-                            ? "bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200"
+                            ? "bg-destructive/10 border-destructive/30 text-destructive dark:text-destructive"
                             : "bg-primary/10 border-primary/25 text-foreground"
                     )}
                 >
                     <div className="flex items-center gap-2.5 min-w-0">
                         {normalizeStatus(alertTask.status) === "changes_requested" ? (
-                            <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                            <AlertTriangle className="w-5 h-5 text-destructive dark:text-destructive shrink-0" />
                         ) : (
                             <Clock className="w-5 h-5 text-primary shrink-0" />
                         )}
@@ -189,7 +189,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                 <div className="flex flex-wrap items-end gap-3 flex-1 min-w-0">
                     {/* Search */}
                     <div className="space-y-1.5 flex-1 min-w-[200px] max-w-sm">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <label className="text-xs font-semibold text-muted-foreground ">
                             Search
                         </label>
                         <div className="relative">
@@ -205,7 +205,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
 
                     {/* Project Filter */}
                     <div className="space-y-1.5 w-[180px] shrink-0">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <label className="text-xs font-semibold text-muted-foreground ">
                             Project
                         </label>
                         <Select value={projectFilter} onValueChange={setProjectFilter}>
@@ -225,7 +225,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
 
                     {/* Status Filter */}
                     <div className="space-y-1.5 w-[150px] shrink-0">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <label className="text-xs font-semibold text-muted-foreground ">
                             Status
                         </label>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -262,7 +262,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
             {/* Tasks List Table */}
             <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
                 {/* Table Header */}
-                <div className="hidden sm:grid grid-cols-12 gap-3 p-3.5 px-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border">
+                <div className="hidden sm:grid grid-cols-12 gap-3 p-3.5 px-5 text-xs font-semibold text-muted-foreground bg-muted/40 border-b border-border">
                     <span className="col-span-4">Task</span>
                     <span className="col-span-3">Project name</span>
                     <span className="col-span-2">Milestone</span>
@@ -303,7 +303,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                                             {isChangesRequested && (
                                                 <Badge
                                                     variant="destructive"
-                                                    className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 bg-rose-500 text-white shrink-0 whitespace-nowrap"
+                                                    className="text-xs font-semibold px-1.5 py-0 bg-destructive text-white shrink-0 whitespace-nowrap"
                                                 >
                                                     Changes requested
                                                 </Badge>
@@ -311,7 +311,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                                             {isToDo && (
                                                 <Badge
                                                     variant="secondary"
-                                                    className="text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0 bg-primary/15 text-primary border-primary/30 shrink-0 whitespace-nowrap"
+                                                    className="text-xs font-semibold px-1.5 py-0 bg-primary/15 text-primary border-primary/30 shrink-0 whitespace-nowrap"
                                                 >
                                                     New
                                                 </Badge>
