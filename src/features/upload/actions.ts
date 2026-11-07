@@ -184,8 +184,9 @@ export async function uploadSecureAsset(formData: FormData) {
     const uniqueBlobPath = `tenants/${session.user.id}/${Date.now()}-${sanitizedFilename}`;
 
     try {
+        // The Blob store is private: files are only readable through /api/private-file.
         const blob = await put(uniqueBlobPath, file, {
-            access: "public",
+            access: "private",
             addRandomSuffix: true,
         });
 

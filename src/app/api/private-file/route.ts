@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
+import { get } from "@vercel/blob";
 import path from "path";
 import { authorizeProject, fileBelongsToProject, requireSession } from "@/lib/authz";
 
@@ -89,22 +90,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Blob token not configured" }, { status: 500 });
         }
 
-        const response = await fetch(fileRef, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-            cache: "no-store",
-        });
-
-        if (!response.ok || !response.body) {
+        const result = await get(fileRef, { access: "private", token });
+        if (!result || result.statusCode !== 200) {
             return NextResponse.json({ error: "Not found" }, { status: 404 });
         }
 
-        const contentType = response.headers.get("content-type") || "application/octet-stream";
-
-        return new NextResponse(response.body, {
+        return new NextResponse(result.stream, {
             headers: {
-                "Content-Type": contentType,
+                "Content-Type": result.blob.contentType || "application/octet-stream",
                 "X-Content-Type-Options": "nosniff",
                 "Cache-Control": "no-store",
             },
