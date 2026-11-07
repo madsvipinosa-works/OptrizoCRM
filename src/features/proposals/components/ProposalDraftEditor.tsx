@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -563,13 +565,7 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                         <h2 id="validity-card" className="sr-only">Validity and terms</h2>
                         <div className="space-y-1.5">
                             <Label htmlFor="valid-until">Valid until</Label>
-                            <Input
-                                id="valid-until"
-                                type="date"
-                                disabled={!editable}
-                                value={fields.validUntil}
-                                onChange={(e) => set("validUntil", e.target.value)}
-                            />
+                            <DatePicker id="valid-until" disabled={!editable} value={fields.validUntil} onChange={(v) => set("validUntil", v)} min={todayYmd()} />
                             <p className="text-xs text-muted-foreground">After this date the client cannot sign this version.</p>
                         </div>
                         <div className="flex items-center justify-between gap-3 border-t border-border pt-3">

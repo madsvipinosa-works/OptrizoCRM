@@ -3,7 +3,7 @@
 import { useState, useActionState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { servicePageHref } from "@/lib/service-links";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -105,6 +104,7 @@ function parseStringArray(val: unknown): string[] {
 }
 
 export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   // Full number with dial code, e.g. "+63 917 555 0142". The picker limits digits per country.
@@ -156,11 +156,17 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
     targetAudience: service.targetAudience,
   };
 
-  const handleAvailFromDetail = () => {
+  // Sign-in is required before the inquiry form opens (the server action enforces it too).
+  const openInquiry = () => {
     setIsDetailOpen(false);
+    if (!sessionUser) {
+      router.push("/login?callbackUrl=/services&reason=inquiry_auth");
+      return;
+    }
     setSelectedServiceId(service.id);
     setIsOpen(true);
   };
+  const handleAvailFromDetail = openInquiry;
 
   const ActionButton = () => (
     <Button 
@@ -246,13 +252,11 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
             View Inclusions & Details
           </Button>
 
-          {/* Public Inquiry Form Modal (No login required - Mockups 008-1 to 011-1c) */}
+          {/* Inquiry Form Modal (sign-in required - Mockups 008-1 to 011-1c) */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <div className="w-full cursor-pointer" onClick={() => setSelectedServiceId(service.id)}>
-                <ActionButton />
-              </div>
-            </DialogTrigger>
+            <div className="w-full cursor-pointer" onClick={openInquiry}>
+              <ActionButton />
+            </div>
             <DialogContent className="sm:max-w-[660px] bg-card border-border text-card-foreground rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto override-scrollbar p-6 md:p-8">
               {state.success ? (
                 /* Mockup 011-1c: Thank-you card / Inquiry received confirmation */
@@ -291,17 +295,14 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                   </div>
 
                   <DialogFooter className="pt-2 gap-2 sm:gap-2">
-                    {/* Only when they picked a service from the list ("Other" has no page). */}
-                    {servicePageHref(state.inquiryData?.serviceSlug) && (
-                      <Button
-                        asChild
-                        className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg px-6"
-                      >
-                        <Link href={servicePageHref(state.inquiryData?.serviceSlug) as string} onClick={() => setIsOpen(false)}>
-                          View your availed service
-                        </Link>
-                      </Button>
-                    )}
+                    <Button
+                      asChild
+                      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg px-6"
+                    >
+                      <Link href="/portal" onClick={() => setIsOpen(false)}>
+                        View your availed service
+                      </Link>
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"

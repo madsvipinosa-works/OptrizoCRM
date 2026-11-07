@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { logSystemError } from "@/features/audit/error-logger";
 import { sendMail } from "@/lib/mailer";
+import { formatDate } from "@/lib/datetime";
 import {
     buildInquiryReceivedEmail,
     buildMeetingCancelledEmail,
@@ -444,7 +445,7 @@ export async function sendPaymentDueEmail(data: {
 }) {
     try {
         const formattedDate = data.dueDate
-            ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(data.dueDate))
+            ? formatDate(data.dueDate)
             : "Due Upon Receipt";
 
         const result = await sendMail({

@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Plus, Users, RotateCcw, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -887,12 +889,7 @@ export function KanbanBoard({
                                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                                     Due Date
                                 </Label>
-                                <Input
-                                    type="date"
-                                    value={newTaskDueDate}
-                                    onChange={(e) => setNewTaskDueDate(e.target.value)}
-                                    className="bg-background border-border focus:border-primary text-foreground text-xs"
-                                />
+                                <DatePicker value={newTaskDueDate} onChange={setNewTaskDueDate} min={todayYmd()} className="bg-background border-border text-xs" />
                             </div>
 
                             <div className="space-y-2">

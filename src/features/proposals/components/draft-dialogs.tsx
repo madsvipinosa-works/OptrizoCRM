@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { savePaymentSchedule, updateProposalMilestones } from "@/features/proposals/actions";
@@ -216,23 +218,11 @@ export function MilestonesDialog({
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
                                         <Label htmlFor={`ms-start-${m.key}`} className="text-xs text-muted-foreground">Start date</Label>
-                                        <Input
-                                            id={`ms-start-${m.key}`}
-                                            type="date"
-                                            value={m.startDate}
-                                            onChange={(e) => setDate(m.key, "startDate", e.target.value)}
-                                            className="h-8 font-mono text-xs"
-                                        />
+                                        <DatePicker id={`ms-start-${m.key}`} value={m.startDate} onChange={(v) => setDate(m.key, "startDate", v)} min={todayYmd()} className="h-8 text-xs" />
                                     </div>
                                     <div className="space-y-1">
                                         <Label htmlFor={`ms-end-${m.key}`} className="text-xs text-muted-foreground">End date</Label>
-                                        <Input
-                                            id={`ms-end-${m.key}`}
-                                            type="date"
-                                            value={m.endDate}
-                                            onChange={(e) => setDate(m.key, "endDate", e.target.value)}
-                                            className="h-8 font-mono text-xs"
-                                        />
+                                        <DatePicker id={`ms-end-${m.key}`} value={m.endDate} onChange={(v) => setDate(m.key, "endDate", v)} min={m.startDate || todayYmd()} className="h-8 text-xs" />
                                     </div>
                                 </div>
                                 {error && (

@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { scheduleBudgetPricingMeeting } from "@/features/meetings/actions";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
+import { isPastManila, manilaToDate, nowHm, todayYmd } from "@/lib/datetime";
 import { Users, FileText, Loader2, Video, Phone, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -33,11 +36,7 @@ export function BookPricingMeetingModal({
 }: BookPricingMeetingModalProps) {
     const router = useRouter();
     const [format, setFormat] = useState<"video" | "phone" | "in_person" | "on_site">("video");
-    const [date, setDate] = useState(() => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return tomorrow.toISOString().split("T")[0];
-    });
+    const [date, setDate] = useState(() => todayYmd(new Date(Date.now() + 24 * 60 * 60 * 1000)));
     const [time, setTime] = useState("10:00");
     const [agenda, setAgenda] = useState("Review proposed scope, deliverables, timeline, and discuss budget and pricing options.");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,12 +48,12 @@ export function BookPricingMeetingModal({
             return;
         }
 
-        const startsAt = new Date(`${date}T${time}:00`);
+        const startsAt = manilaToDate(date, time);
         if (isNaN(startsAt.getTime())) {
             toast.error("Invalid date or time");
             return;
         }
-        if (startsAt < new Date()) {
+        if (isPastManila(date, time)) {
             toast.error("Cannot schedule a meeting in the past");
             return;
         }
@@ -124,24 +123,11 @@ export function BookPricingMeetingModal({
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                                 <Label className="text-sm">Date</Label>
-                                <Input
-                                    type="date"
-                                    value={date}
-                                    onChange={(e) => setDate(e.target.value)}
-                                    min={new Date().toISOString().split("T")[0]}
-                                    required
-                                    className="h-9 text-sm"
-                                />
+                                <DatePicker value={date} onChange={setDate} min={todayYmd()} required />
                             </div>
                             <div className="space-y-1">
                                 <Label className="text-sm">Time</Label>
-                                <Input
-                                    type="time"
-                                    value={time}
-                                    onChange={(e) => setTime(e.target.value)}
-                                    required
-                                    className="h-9 text-sm"
-                                />
+                                <TimePicker value={time} onChange={setTime} min={date === todayYmd() ? nowHm() : undefined} />
                             </div>
                         </div>
 

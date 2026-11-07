@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { format } from "date-fns";
 import { claimOrAssignLeadPm, createDraftProposalForLead } from "@/features/proposals/actions";
 import { toast } from "sonner";
 import { FileText, ArrowRight, Loader2, UserCheck, Clock, CheckCircle2 } from "lucide-react";
+import { formatDateTime } from "@/lib/datetime";
 
 export interface ProposalQueueItem {
     id: string;
@@ -137,7 +137,7 @@ export function PmProposalQueue({
                                     <span>
                                         Requested:{" "}
                                         {lead.proposalRequestedAt
-                                            ? format(new Date(lead.proposalRequestedAt), "MMM d, h:mm a")
+                                            ? formatDateTime(lead.proposalRequestedAt)
                                             : "Recently"}
                                     </span>
                                 </div>

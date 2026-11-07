@@ -59,7 +59,7 @@ Step numbers match the mockup titles. See `docs/mockups/00-workflow-overview-sta
 
 | # | Who | What happens | System does automatically |
 |---|---|---|---|
-| 1 | Visitor | Sends an inquiry from the website (service, urgency, business name, client name, email (required), phone (optional), industry, role, contact preference, details). No budget field. No lead score. | Creates a lead with stage `new_lead`. Notifies Sales. Sends a confirmation email (1c). |
+| 1 | Visitor (signed in, Google or email) | Sends an inquiry from the website after signing in; a signed-out visitor is sent to sign in first and returned to `/services`. The lead is linked to the account (`clientId`). (service, urgency, business name, client name, email (required), phone (optional), industry, role, contact preference, details). No budget field. No lead score. | Creates a lead with stage `new_lead`. Notifies Sales. Sends a confirmation email (1c). |
 | 2 | Sales | Sees the new lead in the pipeline. May claim an unassigned lead. | Claiming sets `assignedSalesId` and writes a `system` interaction. A claim does not count as the first interaction for the stage change. |
 | 3 | Sales | Opens the lead, logs calls/emails/notes. | The stage moves to `discovery` on whichever comes first: a logged interaction or a booked meeting. |
 | 4 | Sales | Books the **discovery** meeting (4a). | Stage → `discovery` if not already. Client gets an invite (email + portal). The invite email includes a link to create a portal account (see "Client accounts" below). |

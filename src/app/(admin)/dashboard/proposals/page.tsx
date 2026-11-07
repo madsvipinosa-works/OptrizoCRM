@@ -5,13 +5,13 @@ import { desc, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Lock, Search } from "lucide-react";
-import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { AutoFilterForm } from "@/components/ui/auto-filter-form";
 import { PmProposalQueue } from "@/features/proposals/components/PmProposalQueue";
 import { getProposalRequestsQueue } from "@/features/proposals/actions";
+import { formatDate } from "@/lib/datetime";
 
 export const metadata = {
     title: "Proposals | Optrizo",
@@ -186,7 +186,7 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
                                                 <span className={cn("inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", TONE[s.tone])}>{s.label}</span>
                                             </td>
                                             <td className="hidden px-3 py-3 tabular-nums text-muted-foreground md:table-cell">
-                                                {p.sentAt ? format(p.sentAt, "MMM d") : "Not sent yet"}
+                                                {p.sentAt ? formatDate(p.sentAt) : "Not sent yet"}
                                             </td>
                                             <td className="px-3 py-3 tabular-nums text-foreground">{price}</td>
                                             <td className="px-5 py-3">

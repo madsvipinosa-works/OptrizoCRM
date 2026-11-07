@@ -15,6 +15,7 @@ import {
     sendMeetingRescheduledEmail,
 } from "@/lib/notifications";
 import { meetingFormatLabel, meetingTypeLabel } from "@/lib/email-templates";
+import { formatDateTime } from "@/lib/datetime";
 import { advanceToDiscoveryIfNew } from "@/features/crm/actions";
 
 export interface MeetingItem {
@@ -50,16 +51,8 @@ export interface MeetingItem {
     } | null;
 }
 
-/** Date and time for in-app messages, always in Manila time. */
-function formatMeetingWhen(date: Date): string {
-    return new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Manila",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    }).format(date);
-}
+/** Date and time for in-app messages, always in Manila time and the same as on screen. */
+const formatMeetingWhen = formatDateTime;
 
 type LeadForEmail = {
     businessName: string | null;
@@ -155,13 +148,7 @@ export async function scheduleDiscoveryMeeting(data: {
             leadId: data.leadId,
             authorId: session.user.id,
             activityType: "Meeting",
-            content: `Discovery meeting scheduled for ${meetingDate.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-            })} (${data.format})`,
+            content: `Discovery meeting scheduled for ${formatDateTime(meetingDate)} (${data.format})`,
         });
 
         // 3. Write audit log
@@ -274,13 +261,7 @@ export async function scheduleBudgetPricingMeeting(data: {
                 leadId: proposal.leadId,
                 authorId: session.user.id,
                 activityType: "Meeting",
-                content: `Budget & pricing meeting scheduled for ${meetingDate.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                })}`,
+                content: `Budget & pricing meeting scheduled for ${formatDateTime(meetingDate)}`,
             });
         }
 
@@ -412,7 +393,7 @@ export async function respondToMeeting(data: {
                 await db.insert(leadActivityLogs).values({
                     leadId: meeting.leadId,
                     activityType: "Meeting",
-                    content: `Client requested reschedule${suggestedDate ? ` to ${suggestedDate.toLocaleString()}` : ""}`,
+                    content: `Client requested reschedule${suggestedDate ? ` to ${formatDateTime(suggestedDate)}` : ""}`,
                 });
             }
 
@@ -518,13 +499,7 @@ export async function rescheduleMeeting(data: {
                 leadId: meeting.leadId,
                 authorId: authz.session.user.id,
                 activityType: "Meeting",
-                content: `Meeting rescheduled to ${newDate.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                })}`,
+                content: `Meeting rescheduled to ${formatDateTime(newDate)}`,
             });
         }
 

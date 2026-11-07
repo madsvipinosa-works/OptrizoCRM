@@ -13,7 +13,7 @@ export type MeetingType = "discovery" | "budget_pricing" | "project_review" | "u
 
 export type ClientEmail = { subject: string; html: string; text: string };
 
-const MANILA = "Asia/Manila";
+import { formatDate, formatDateTime } from "@/lib/datetime";
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -42,43 +42,19 @@ export function getBaseUrl(): string {
     return "http://localhost:3000";
 }
 
-/** "Friday, November 6, 2026 at 10:00 AM (Manila time)" */
+/** "Nov 6, 2026, 10:00 AM (Manila time)" */
 export function formatManilaDateTime(date: Date): string {
-    const day = new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-    }).format(date);
-    const time = new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        hour: "numeric",
-        minute: "2-digit",
-    }).format(date);
-    return `${day} at ${time} (Manila time)`;
+    return `${formatDateTime(date)} (Manila time)`;
 }
 
-/** "Fri, Nov 6, 10:00 AM", short enough for a subject line. */
+/** "Nov 6, 2026, 10:00 AM", the same as on screen. */
 export function formatManilaShort(date: Date): string {
-    return new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    }).format(date);
+    return formatDateTime(date);
 }
 
-/** "November 19, 2026" */
+/** "Nov 19, 2026" */
 export function formatManilaDate(date: Date): string {
-    return new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-    }).format(date);
+    return formatDate(date);
 }
 
 /** Matches the `meeting_format` enum. `on_site` and `in_person` stay different. */

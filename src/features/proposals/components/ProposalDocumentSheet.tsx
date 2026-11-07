@@ -5,6 +5,7 @@ import { CheckCircle2, Calendar, FileText, Building2, ShieldCheck, Briefcase, Ph
 import type { ContractSettings } from "@/features/proposals/actions";
 import { cn } from "@/lib/utils";
 import { ProposalDocumentFooter } from "./ProposalDocumentFooter";
+import { formatDate } from "@/lib/datetime";
 
 export interface PricingLineItem {
     name: string;
@@ -95,12 +96,12 @@ export function ProposalDocumentSheet({
     const activeLogoUrl = agencyLogoUrl || data.agencyLogoUrl || null;
     const activeFaviconUrl = agencyFaviconUrl || data.agencyFaviconUrl || null;
 
-    const safeFormatDate = (val: string | number | Date | null | undefined, options?: Intl.DateTimeFormatOptions, fallback: string = ""): string => {
+    const safeFormatDate = (val: string | number | Date | null | undefined, _options?: unknown, fallback: string = ""): string => {
         if (!val) return fallback;
         try {
             const d = new Date(val);
             if (isNaN(d.getTime())) return fallback;
-            return d.toLocaleDateString("en-US", options || { month: "short", day: "numeric", year: "numeric" });
+            return formatDate(d);
         } catch {
             return fallback;
         }
@@ -109,7 +110,7 @@ export function ProposalDocumentSheet({
     const formattedCreatedDate = safeFormatDate(
         data.createdAt,
         { month: "short", day: "numeric", year: "numeric" },
-        new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        formatDate(new Date())
     );
 
     const formattedValidDate = safeFormatDate(

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { FileText, ArrowRight, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,7 @@ export default async function ClientProposalsPage() {
                                             {p.totalPrice !== null ? `PHP ${p.totalPrice.toLocaleString()}` : "Custom Scope"}
                                         </td>
                                         <td className="px-4 py-3.5 text-xs text-muted-foreground">
-                                            {new Date(p.createdAt).toLocaleDateString()}
+                                            {formatDate(p.createdAt)}
                                         </td>
                                         <td className="px-4 py-3.5">
                                             <Badge

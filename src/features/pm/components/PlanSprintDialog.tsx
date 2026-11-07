@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { planSprint } from "@/features/sprints/actions";
@@ -205,28 +207,14 @@ export function PlanSprintDialog({
                 <Label htmlFor="sprint-start" className="text-xs font-semibold text-muted-foreground">
                   Start date
                 </Label>
-                <Input
-                  id="sprint-start"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                  className="h-9 text-sm"
-                />
+                <DatePicker id="sprint-start" value={startDate} onChange={setStartDate} min={todayYmd()} required />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="sprint-end" className="text-xs font-semibold text-muted-foreground">
                   End date
                 </Label>
-                <Input
-                  id="sprint-end"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
-                  className="h-9 text-sm"
-                />
+                <DatePicker id="sprint-end" value={endDate} onChange={setEndDate} min={startDate || todayYmd()} required />
               </div>
             </div>
 

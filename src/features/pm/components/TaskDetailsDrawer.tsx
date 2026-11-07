@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import {
     DropdownMenu,
@@ -287,8 +289,7 @@ export function TaskDetailsDrawer({
         await onUpdateTaskDetails(task.id, { assigneeIds: newIds });
     };
 
-    const handleDueDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
+    const handleDueDateChange = async (val: string) => {
         setDueDateInput(val);
         const dateObj = val ? new Date(val) : null;
         await onUpdateTaskDetails(task.id, { dueDate: dateObj });
@@ -892,12 +893,7 @@ export function TaskDetailsDrawer({
                                     </Label>
                                     {canManage ? (
                                         <div className="flex items-center gap-2">
-                                            <Input
-                                                type="date"
-                                                value={dueDateInput}
-                                                onChange={handleDueDateChange}
-                                                className="bg-background border-border text-foreground text-xs h-8"
-                                            />
+                                            <DatePicker value={dueDateInput} onChange={handleDueDateChange} min={todayYmd()} className="bg-background border-border text-xs h-8" />
                                             {dueDateInput && (
                                                 <Button
                                                     size="sm"

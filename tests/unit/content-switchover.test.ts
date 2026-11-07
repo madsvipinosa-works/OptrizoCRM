@@ -118,7 +118,7 @@ describe("submit-intake service resolution & fallback (STOP 3 follow-up)", () =>
     beforeEach(() => {
         mockDb.resetMocks();
         mockDb.setWriteRows([{ id: "lead-new-123" }]);
-        signInAs(auth, null);
+        signInAs(auth, "client"); // the inquiry needs a signed-in client
     });
 
     function makePublicFormData(overrides: Record<string, string> = {}) {
@@ -268,5 +268,16 @@ describe("sitemap exclusions (STOP 3 follow-up)", () => {
 
         // Draft portfolio is NOT in the sitemap
         expect(urls).not.toContain(`${baseUrl}/projects/draft-case-study`);
+    });
+});
+
+describe("public inquiry requires sign-in", () => {
+    it("refuses a signed-out visitor", async () => {
+        signInAs(auth, null);
+        const fd = new FormData();
+        fd.set("urgency", "ASAP");
+        const result = await submitIntakeForm(initialState, fd);
+        expect(result.success).toBe(false);
+        expect(result.message).toMatch(/sign in/i);
     });
 });
