@@ -24,9 +24,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { confirmPayment, rejectPaymentProof } from "@/features/payments/actions";
-import { CheckCircle2, Clock, FileText, AlertCircle, ExternalLink, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, FileText, AlertCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { ProofPreview } from "@/features/payments/components/ProofPreview";
 
 export interface PaymentItem {
     id: string;
@@ -253,28 +254,12 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                             )}
                                         </td>
                                         <td className="px-4 py-3.5 text-right space-x-2 whitespace-nowrap">
-                                            {p.proofFileUrl && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                    className="h-8 text-xs text-primary"
-                                                >
-                                                    <a
-                                                        href={p.proofFileUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1"
-                                                    >
-                                                        <ExternalLink className="w-3.5 h-3.5" /> Proof
-                                                    </a>
-                                                </Button>
-                                            )}
+                                            {p.proofFileUrl && <ProofPreview url={p.proofFileUrl} label="Proof" title={`Proof: ${p.label}`} />}
                                             {p.status === "proof_uploaded" && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-8 text-xs text-destructive hover:text-destructive border-destructive/20 hover:bg-destructive/10"
+                                                    className="h-8 cursor-pointer border-destructive/40 bg-transparent text-xs text-destructive transition-colors hover:border-destructive hover:bg-destructive hover:text-white focus-visible:ring-destructive/40 active:scale-[0.97] disabled:cursor-not-allowed"
                                                     onClick={() => openRejectModal(p)}
                                                 >
                                                     <XCircle className="w-3.5 h-3.5 mr-1" /> Reject

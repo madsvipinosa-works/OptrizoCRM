@@ -11,10 +11,10 @@ import {
     DialogFooter,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FileUpload } from "@/components/ui/file-upload";
+import { ProofPreview } from "@/features/payments/components/ProofPreview";
 import { uploadPaymentProof } from "@/features/payments/actions";
-import { CheckCircle2, Clock, AlertCircle, ExternalLink, UploadCloud } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -58,7 +58,7 @@ export function ClientPaymentsList({
         if (!selectedPayment) return;
 
         if (!proofFileUrl.trim()) {
-            toast.error("Please provide the payment proof URL or receipt link.");
+            toast.error("Please upload your receipt or deposit slip first.");
             return;
         }
 
@@ -168,23 +168,7 @@ export function ClientPaymentsList({
                                             )}
                                         </td>
                                         <td className="px-4 py-3.5 text-right space-x-2 whitespace-nowrap">
-                                            {p.proofFileUrl && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                    className="h-8 text-xs text-primary"
-                                                >
-                                                    <a
-                                                        href={p.proofFileUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1"
-                                                    >
-                                                        <ExternalLink className="w-3.5 h-3.5" /> View Proof
-                                                    </a>
-                                                </Button>
-                                            )}
+                                            {p.proofFileUrl && <ProofPreview url={p.proofFileUrl} label="View proof" title={`Proof: ${p.label}`} />}
                                             {p.status === "due" && (
                                                 <Button
                                                     size="sm"
@@ -218,19 +202,15 @@ export function ClientPaymentsList({
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleUploadSubmit} className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="proofUrl">Receipt / Proof URL *</Label>
-                            <Input
-                                id="proofUrl"
-                                placeholder="/uploads/receipt.pdf"
-                                value={proofFileUrl}
-                                onChange={(e) => setProofFileUrl(e.target.value)}
-                                required
-                            />
-                            <p className="text-[11px] text-muted-foreground">
-                                Allowed storage: /api/private-file, /uploads/, or .blob.vercel-storage.com
-                            </p>
-                        </div>
+                        <FileUpload
+                            label="Receipt or proof *"
+                            value={proofFileUrl}
+                            onChange={setProofFileUrl}
+                            projectId={selectedPayment?.projectId}
+                            accept="image/*,.pdf"
+                            hint="Photo or PDF of your receipt (max 15 MB)"
+                            showSuccessToast={false}
+                        />
 
                         <DialogFooter className="pt-2">
                             <Button
@@ -241,7 +221,7 @@ export function ClientPaymentsList({
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={isLoading}>
+                            <Button type="submit" disabled={isLoading || !proofFileUrl}>
                                 {isLoading ? "Submitting..." : "Submit Proof"}
                             </Button>
                         </DialogFooter>
