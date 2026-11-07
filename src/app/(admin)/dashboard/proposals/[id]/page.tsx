@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { meetings, proposalMessages, proposals } from "@/db/schema";
+import { agencyProjects, meetings, proposalMessages, proposals } from "@/db/schema";
 import { and, desc, eq, or } from "drizzle-orm";
 import { getSiteSettings } from "@/features/cms/actions";
 import {
@@ -15,12 +15,15 @@ import { PricingMeetingPanel } from "@/features/proposals/components/PricingMeet
 import { BookPricingMeetingModal } from "@/features/meetings/components/BookPricingMeetingModal";
 import { PaperSigningForm } from "@/features/proposals/components/PaperSigningForm";
 import { ProposalThread } from "@/features/proposals/components/ProposalThread";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit3, Printer, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ReviseProposalButton } from "@/features/proposals/components/ReviseProposalButton";
+import { canCreateRevision, orderMilestones } from "@/features/proposals/draft-logic";
+import { formatDateTime } from "@/lib/datetime";
 
 export const metadata = {
-    title: "Proposal Details | Optrizo",
-    description: "Read-only staff proposal overview and specifications.",
+    title: "Proposal | Optrizo",
+    description: "A sent proposal, its negotiation thread and the next step.",
 };
 
 export const dynamic = "force-dynamic";
@@ -168,6 +171,12 @@ export default async function StaffProposalViewPage({
 
     const settings = await getSiteSettings();
 
+    // Signed: the project was created from it; give the PM a way straight there (Sales cannot open projects).
+    const project =
+        isManager && proposal.status === "signed" && proposal.leadId
+            ? await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.leadId, proposal.leadId), columns: { id: true } })
+            : null;
+
     const documentData: ProposalDocumentData = {
         proposalCode: proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`,
         businessName: proposal.lead?.businessName || proposal.lead?.contactName || "Client Business",
@@ -177,7 +186,16 @@ export default async function StaffProposalViewPage({
         scope: proposal.scope || "",
         technicalApproach: proposal.technicalApproach || "",
         deliverables: parsedDeliverables,
-        timeline: proposal.timeline || "4-6 Weeks",
+        timeline: proposal.timeline || null,
+        version: proposal.version,
+        priceMode: proposal.priceMode,
+        currency: proposal.currency,
+        totalPrice: proposal.totalPrice,
+        needsGoals: proposal.needsGoals as ProposalDocumentData["needsGoals"],
+        milestones: orderMilestones(proposal.milestones ?? []).map((m) => ({ ...m, startDate: m.startDate || null, endDate: m.endDate || null })),
+        paymentScheduleItems: [...(proposal.paymentScheduleItems ?? [])]
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((item) => ({ id: item.id, label: item.label, percent: Number(item.percent) || 0, trigger: item.trigger })),
         pricingStructure: parsedPricingItems,
         subtotal: proposal.subtotal || proposal.total || 0,
         discount: proposal.discount || 0,
@@ -196,77 +214,77 @@ export default async function StaffProposalViewPage({
         agencyFaviconUrl: settings?.faviconUrl || null,
     };
 
-    const statusBadgeClass =
-        proposal.status === "signed"
-            ? "bg-brand-soft text-brand-deep border-brand-deep/20"
-            : proposal.status === "sent"
-            ? "bg-stage-new/10 text-stage-new border-stage-new/20"
-            : proposal.status === "declined"
-            ? "bg-destructive/10 text-destructive border-destructive/20"
-            : "bg-muted text-muted-foreground border-border";
+    const STATUS: Record<string, { label: string; tone: string }> = {
+        draft: { label: "Draft", tone: "bg-muted text-muted-foreground" },
+        sent: { label: "Sent", tone: "bg-stage-discovery/15 text-foreground" },
+        pricing_meeting_requested: { label: "Pricing meeting requested", tone: "bg-stage-discovery/15 text-foreground" },
+        changes_requested: { label: "Changes requested", tone: "bg-stage-negotiation/15 text-foreground" },
+        signed: { label: "Signed", tone: "bg-brand-soft text-brand-deep" },
+        declined: { label: "Declined", tone: "bg-destructive/10 text-destructive" },
+        replaced: { label: "Replaced by a newer version", tone: "bg-muted text-muted-foreground" },
+    };
+    const status = STATUS[proposal.status] ?? { label: proposal.status, tone: "bg-muted text-muted-foreground" };
+    const changesRequested = proposal.status === "changes_requested";
+    const lastRequest = [...messages].reverse().find((m) => m.kind === "change_request");
+    const canRevise = isManager && !!proposal.leadId && canCreateRevision(proposal.status);
+    const business = proposal.lead?.businessName || proposal.lead?.contactName || "Not given";
+    const client = proposal.lead?.contactName || proposal.lead?.client?.name || "Not given";
 
     return (
-        <div className="space-y-6 pb-16 max-w-5xl mx-auto">
-            {/* Top Bar with Navigation and Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-                <div className="flex items-center gap-3">
-                    <Link
-                        href="/dashboard/proposals"
-                        className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                        title="Back to Proposals"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-bold font-serif text-foreground">
-                                {proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`}
-                            </h1>
-                            <Badge variant="outline" className={statusBadgeClass}>
-                                {proposal.status}
-                            </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            {proposal.lead?.businessName || proposal.lead?.contactName || "Client Opportunity"}
-                        </p>
-                    </div>
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
+            <Link
+                href="/dashboard/proposals"
+                className="inline-flex items-center gap-1 rounded-md text-sm text-muted-foreground outline-none underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <ArrowLeft className="size-3.5" aria-hidden="true" /> Back to proposals
+            </Link>
+
+            {/* Header (mockups 18d-18g): who it is for, then the project name and version as the title */}
+            <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <div className="min-w-[min(100%,22rem)] flex-1">
+                    <p className="text-sm text-muted-foreground">
+                        Business name: {business} · Client name: {client}
+                    </p>
+                    <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight text-foreground">
+                        Project name: {proposal.projectName || "Not named"} · v{proposal.version}
+                    </h1>
+                    <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${status.tone}`}>{status.label}</span>
+                        <span className="tabular-nums">Proposal no. {proposal.proposalCode || proposal.id.slice(0, 8)}</span>
+                    </p>
                 </div>
-
-                <div className="flex items-center gap-2">
-                    <a
-                        href={`/api/proposals/${proposal.id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-xs font-medium text-foreground transition-colors"
-                    >
-                        <Printer className="h-3.5 w-3.5" />
-                        <span>Export PDF</span>
-                    </a>
-
-                    {isManager && (
-                        <Link
-                            href={`/dashboard/proposals/builder/${proposal.id}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-sm transition-colors"
-                        >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span>Edit in Studio</span>
-                        </Link>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {project && (
+                        <Button asChild className="font-semibold active:scale-[0.97]">
+                            <Link href={`/dashboard/pm/${project.id}`}>View project</Link>
+                        </Button>
+                    )}
+                    <Button asChild variant="outline" className="bg-card active:scale-[0.97]">
+                        <a href={`/api/proposals/${proposal.id}/pdf`} target="_blank" rel="noreferrer">
+                            Download PDF
+                        </a>
+                    </Button>
+                    {isManager && proposal.status === "draft" && (
+                        <Button asChild className="font-semibold active:scale-[0.97]">
+                            <Link href={`/dashboard/proposals/builder/${proposal.id}`}>Edit draft</Link>
+                        </Button>
                     )}
                 </div>
-            </div>
+            </header>
 
-            {/* View-Only Informational Alert for Staff */}
-            <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-3.5 text-xs text-muted-foreground">
-                <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <div>
-                    <span className="font-semibold text-foreground">Staff Read-Only View:</span>{" "}
-                    {isManager
-                        ? "You are viewing the document specifications. Click 'Edit in Studio' to make changes."
-                        : "The Project Manager writes, prices, and sends proposals. Use this view to review scope, deliverables, and financial terms with the client."}
+            {/* The client asked for changes: say so, and offer the next step right away (mockup 18d). */}
+            {isManager && changesRequested && (
+                <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-foreground">
+                    <p>
+                        <span className="font-semibold text-destructive">
+                            Client requested changes{lastRequest ? ` · ${formatDateTime(lastRequest.createdAt)}` : ""}.
+                        </span>{" "}
+                        The lead moved to Negotiation automatically. Reply, log any outside talk, then send a revised version.
+                    </p>
+                    {canRevise && <ReviseProposalButton leadId={proposal.leadId!} nextVersion={proposal.version + 1} />}
                 </div>
-            </div>
+            )}
 
-            {/* PM-Only Pricing Meeting Panel & Booking Modal */}
             {isManager && proposal.leadId && (
                 <div className="space-y-4">
                     <PricingMeetingPanel
@@ -295,33 +313,43 @@ export default async function StaffProposalViewPage({
                         />
                     )}
 
-                    {/* Paper Signature Execution Form */}
+                    {/* Only when the server would accept it: a sent, priced version (signing.ts recordPaperSignature). */}
+                    {proposal.status === "sent" && proposal.priceMode === "priced" && (
                     <PaperSigningForm
                         proposalId={proposal.id}
                         proposalStatus={proposal.status}
                         proposalCode={proposal.proposalCode}
                         clientName={proposal.lead?.client?.name || proposal.lead?.contactName}
                     />
+                    )}
                 </div>
             )}
 
-            {/* Document Sheet */}
-            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden p-4 sm:p-8">
-                <ProposalDocumentSheet
-                    data={documentData}
-                    agencyName={settings?.heroTitle || "Optrizo Digital Solutions"}
-                />
-            </div>
-
-            {/* PM-Only Discussion & Negotiation Thread */}
-            {isManager && (
-                <div className="bg-card border border-border rounded-2xl shadow-sm p-4 sm:p-6">
-                    <ProposalThread
-                        proposalId={proposal.id}
-                        messages={messages}
-                        userRole="manager"
-                    />
+            {/* PM: the document is the main column; the next step and the negotiation stay in view beside it.
+                Sales: the document only (view only, mockup 038). */}
+            {isManager ? (
+                <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+                    <div className="min-w-0">
+                        <ProposalDocumentSheet data={documentData} agencyName={settings?.heroTitle || "Optrizo Digital Solutions"} />
+                    </div>
+                    <aside className="min-w-0 space-y-4 xl:sticky xl:top-6">
+                        {canRevise && !changesRequested && (
+                            <div className="space-y-3 rounded-xl border border-border bg-card px-5 py-4">
+                                <p className="text-sm text-muted-foreground">Need to change scope, dates or price? Versions already sent stay saved.</p>
+                                <ReviseProposalButton
+                                    leadId={proposal.leadId!}
+                                    nextVersion={proposal.version + 1}
+                                    className="h-9 w-full gap-1.5 bg-card font-semibold text-foreground ring-1 ring-border hover:bg-muted active:scale-[0.97]"
+                                />
+                            </div>
+                        )}
+                        <section aria-labelledby="negotiation-heading" className="overflow-hidden rounded-xl border border-border bg-card">
+                            <ProposalThread proposalId={proposal.id} messages={messages} userRole="manager" />
+                        </section>
+                    </aside>
                 </div>
+            ) : (
+                <ProposalDocumentSheet data={documentData} agencyName={settings?.heroTitle || "Optrizo Digital Solutions"} />
             )}
         </div>
     );

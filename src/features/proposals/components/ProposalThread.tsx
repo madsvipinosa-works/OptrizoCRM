@@ -1,28 +1,25 @@
 "use client";
 
-import { useState } from "react";
+/**
+ * Negotiation thread on a proposal (mockups 18d, 18e, 18f), laid out as a conversation:
+ * avatar, name, role and time on each message; PM replies tinted green, change requests amber,
+ * talks held outside the system grey. The list scrolls inside the card and the reply box stays
+ * at the bottom. The client portal uses the same component with role "client".
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
-import { formatDate, formatDateTime, todayYmd } from "@/lib/datetime";
+import { FormSelect } from "@/components/ui/form-select";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatDate, formatDateTime, todayYmd } from "@/lib/datetime";
+import { cn } from "@/lib/utils";
 import { replyToClient, logOutsideDiscussion, sendClientMessage } from "@/features/proposals/signing";
-import { toast } from "sonner";
-import {
-    MessageSquare,
-    Send,
-    Phone,
-    Mail,
-    Users,
-    Loader2,
-    PlusCircle,
-    UserCheck,
-    AlertCircle,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
 
 export interface ProposalMessageItem {
     id: string;
@@ -34,12 +31,7 @@ export interface ProposalMessageItem {
     outsideType?: string | null;
     heldAt?: Date | string | null;
     createdAt: Date | string;
-    author?: {
-        id: string;
-        name: string | null;
-        role: string | null;
-        email: string;
-    } | null;
+    author?: { id: string; name: string | null; role: string | null; email: string } | null;
 }
 
 interface ProposalThreadProps {
@@ -49,321 +41,254 @@ interface ProposalThreadProps {
     onMessageSent?: () => void;
 }
 
-export function ProposalThread({
-    proposalId,
-    messages,
-    userRole,
-    onMessageSent,
-}: ProposalThreadProps) {
+const OUTSIDE_LABEL: Record<string, string> = { call: "Phone call", email: "Email", in_person: "In person" };
+
+const initials = (name: string) =>
+    name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join("") || "?";
+
+export function ProposalThread({ proposalId, messages, userRole, onMessageSent }: ProposalThreadProps) {
     const router = useRouter();
+    const isManager = userRole === "manager";
+    const isClient = userRole === "client";
+    const listRef = useRef<HTMLOListElement>(null);
+
     const [replyBody, setReplyBody] = useState("");
     const [isSending, setIsSending] = useState(false);
 
-    // Outside discussion modal state
-    const [showOutsideModal, setShowOutsideModal] = useState(false);
+    const [showOutside, setShowOutside] = useState(false);
     const [outsideType, setOutsideType] = useState<"call" | "email" | "in_person">("call");
-    const [outsideDate, setOutsideDate] = useState(() => new Date().toISOString().split("T")[0]);
+    const [outsideDate, setOutsideDate] = useState(() => todayYmd());
     const [outsideSummary, setOutsideSummary] = useState("");
-    const [isLoggingOutside, setIsLoggingOutside] = useState(false);
+    const [outsideError, setOutsideError] = useState<string | null>(null);
+    const [isLogging, setIsLogging] = useState(false);
 
-    const isManager = userRole === "manager";
-    const isClient = userRole === "client";
+    // Open at the newest message, like any conversation.
+    useEffect(() => {
+        const el = listRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+    }, [messages.length]);
 
-    const handleSendReply = async (e: React.FormEvent) => {
+    const sendReply = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!replyBody.trim()) return;
-
         setIsSending(true);
         try {
-            const res = isManager
-                ? await replyToClient(proposalId, replyBody.trim())
-                : await sendClientMessage(proposalId, replyBody.trim());
-
+            const res = isManager ? await replyToClient(proposalId, replyBody.trim()) : await sendClientMessage(proposalId, replyBody.trim());
             if (res.success) {
-                toast.success(isManager ? "Reply sent to client" : "Message sent to Project Manager");
+                toast.success(isManager ? "Reply sent. The client sees it in their portal." : "Message sent to your Project Manager.");
                 setReplyBody("");
                 onMessageSent?.();
                 router.refresh();
             } else {
-                toast.error(res.message || "Failed to send message");
+                toast.error(res.message || "Could not send the message.");
             }
         } catch {
-            toast.error("Failed to send message");
+            toast.error("Could not send the message.");
         } finally {
             setIsSending(false);
         }
     };
 
-    const handleLogOutsideSubmit = async (e: React.FormEvent) => {
+    const logOutside = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!outsideSummary.trim()) {
-            toast.error("Please provide a summary of the discussion");
+            setOutsideError("Write what was discussed.");
             return;
         }
-
-        setIsLoggingOutside(true);
+        setIsLogging(true);
         try {
             const res = await logOutsideDiscussion(proposalId, outsideType, outsideDate, outsideSummary.trim());
             if (res.success) {
-                toast.success("Outside discussion logged and notified to Sales");
+                toast.success("Saved to the negotiation log. Sales sees it in the activity log.");
                 setOutsideSummary("");
-                setShowOutsideModal(false);
+                setShowOutside(false);
                 onMessageSent?.();
                 router.refresh();
             } else {
-                toast.error(res.message || "Failed to log outside discussion");
+                setOutsideError(res.message || "Could not save the discussion.");
             }
         } catch {
-            toast.error("Failed to log outside discussion");
+            setOutsideError("Could not save the discussion.");
         } finally {
-            setIsLoggingOutside(false);
+            setIsLogging(false);
         }
     };
 
+    const canWrite = isManager || isClient;
+
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-bold text-foreground">Discussion & Negotiation Thread</h3>
-                    <Badge variant="outline" className="text-xs tabular-nums ml-1">
-                        {messages.length}
-                    </Badge>
-                </div>
-                {isManager && (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowOutsideModal(true)}
-                        className="h-7 text-xs gap-1 border-dashed"
-                    >
-                        <PlusCircle className="h-3.5 w-3.5" />
-                        Log Outside Discussion
-                    </Button>
-                )}
+        <div className="flex min-h-0 flex-col">
+            <div className="flex items-baseline justify-between gap-3 border-b border-border px-5 py-4">
+                <h2 id="negotiation-heading" className="text-lg font-semibold tracking-tight text-foreground">
+                    Negotiation
+                </h2>
+                <span className="text-sm tabular-nums text-muted-foreground">
+                    {messages.length} {messages.length === 1 ? "message" : "messages"}
+                </span>
             </div>
 
-            {/* Message List */}
             {messages.length === 0 ? (
-                <div className="p-6 text-center text-xs text-muted-foreground border border-dashed border-border/60 rounded-xl bg-card/40">
-                    No messages or change requests yet. The client can request revisions or send questions here.
-                </div>
+                <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                    No messages yet. Questions and change requests from the client appear here, with any talks logged from outside.
+                </p>
             ) : (
-                <div className="space-y-3">
+                <ol ref={listRef} className="max-h-[min(60vh,560px)] space-y-4 overflow-y-auto px-5 py-4">
                     {messages.map((msg) => {
-                        const isChangeRequest = msg.kind === "change_request";
-                        const isOutside = msg.kind === "outside_discussion";
-                        const isReply = msg.kind === "reply";
-                        const authorName = msg.author?.name || msg.author?.email || (isReply ? "Project Manager" : "Client");
+                        const outside = msg.kind === "outside_discussion";
+                        const request = msg.kind === "change_request";
+                        const fromPm = msg.kind === "reply" || outside || msg.author?.role === "manager";
+                        const who = msg.author?.name || msg.author?.email || (fromPm ? "Project Manager" : "Client");
+                        const role = fromPm ? "Project Manager" : "Client";
                         const topics = Array.isArray(msg.topics) ? (msg.topics as string[]) : [];
-
-                        const dateFormatted = formatDateTime(msg.createdAt);
-
-                        if (isOutside) {
-                            return (
-                                <div
-                                    key={msg.id}
-                                    className="p-3.5 rounded-xl border border-border bg-muted/30 text-xs space-y-1.5"
-                                >
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex items-center gap-1.5 font-medium text-foreground">
-                                            {msg.outsideType === "call" ? (
-                                                <Phone className="h-3.5 w-3.5 text-stage-new" />
-                                            ) : msg.outsideType === "email" ? (
-                                                <Mail className="h-3.5 w-3.5 text-stage-proposal" />
-                                            ) : (
-                                                <Users className="h-3.5 w-3.5 text-brand-deep" />
-                                            )}
-                                            <span>
-                                                Outside Discussion ({msg.outsideType || "Discussion"}) · logged by {authorName}
-                                            </span>
-                                            {msg.heldAt && (
-                                                <span className="text-xs text-muted-foreground">
-                                                    (Held {formatDate(msg.heldAt)})
-                                                </span>
-                                            )}
-                                        </div>
-                                        <span className="text-xs tabular-nums text-muted-foreground">{dateFormatted}</span>
-                                    </div>
-                                    <p className="text-foreground leading-relaxed whitespace-pre-wrap">{msg.body}</p>
-                                </div>
-                            );
-                        }
-
-                        if (isChangeRequest) {
-                            return (
-                                <div
-                                    key={msg.id}
-                                    className="p-3.5 rounded-xl border border-stage-negotiation/30 bg-stage-negotiation/5 text-xs space-y-2"
-                                >
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex items-center gap-1.5 font-bold text-stage-negotiation">
-                                            <AlertCircle className="h-3.5 w-3.5" />
-                                            <span>Change Request from {authorName}</span>
-                                        </div>
-                                        <span className="text-xs tabular-nums text-muted-foreground">{dateFormatted}</span>
-                                    </div>
-                                    {topics.length > 0 && (
-                                        <div className="flex flex-wrap gap-1">
-                                            {topics.map((t) => (
-                                                <Badge
-                                                    key={t}
-                                                    variant="outline"
-                                                    className="text-xs capitalize bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/20"
-                                                >
-                                                    {t}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <p className="text-foreground leading-relaxed whitespace-pre-wrap">{msg.body}</p>
-                                </div>
-                            );
-                        }
-
-                        // Regular message or reply
                         return (
-                            <div
-                                key={msg.id}
-                                className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
-                                    isReply
-                                        ? "border-primary/20 bg-primary/5 ml-4 sm:ml-8"
-                                        : "border-border bg-card"
-                                }`}
-                            >
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-1.5 font-medium text-foreground">
-                                        {isReply ? (
-                                            <UserCheck className="h-3.5 w-3.5 text-primary" />
-                                        ) : (
-                                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                        )}
-                                        <span>{authorName}</span>
-                                        {isReply && (
-                                            <Badge variant="outline" className="text-xs py-0 px-1 text-primary border-primary/30">
-                                                PM
-                                            </Badge>
-                                        )}
+                            <li key={msg.id} className="flex gap-3">
+                                <span
+                                    aria-hidden="true"
+                                    className={cn(
+                                        "grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                                        fromPm ? "bg-brand-soft text-brand-deep" : "bg-muted text-foreground"
+                                    )}
+                                >
+                                    {initials(who)}
+                                </span>
+                                <div className="min-w-0 flex-1 space-y-1">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                                        <p className="text-sm">
+                                            <span className="font-semibold text-foreground">{who}</span>{" "}
+                                            <span className="text-muted-foreground">· {role}</span>
+                                        </p>
+                                        <time className="text-xs tabular-nums text-muted-foreground" dateTime={new Date(msg.createdAt).toISOString()}>
+                                            {formatDateTime(msg.createdAt)}
+                                        </time>
                                     </div>
-                                    <span className="text-xs tabular-nums text-muted-foreground">{dateFormatted}</span>
+                                    <div
+                                        className={cn(
+                                            "space-y-1.5 rounded-lg px-3.5 py-2.5 text-sm",
+                                            outside ? "bg-muted" : request ? "bg-stage-negotiation/10 ring-1 ring-inset ring-stage-negotiation/25" : fromPm ? "bg-brand-soft/50" : "bg-muted/60"
+                                        )}
+                                    >
+                                        {(outside || request) && (
+                                            <p className="text-xs font-semibold text-muted-foreground">
+                                                {outside
+                                                    ? `Held outside · ${OUTSIDE_LABEL[msg.outsideType ?? ""] ?? "Discussion"}${msg.heldAt ? ` · ${formatDate(msg.heldAt)}` : ""}`
+                                                    : "Change request"}
+                                            </p>
+                                        )}
+                                        {topics.length > 0 && (
+                                            <p className="flex flex-wrap gap-1.5">
+                                                {topics.map((t) => (
+                                                    <span key={t} className="rounded-full bg-stage-negotiation/15 px-2 py-0.5 text-xs font-medium capitalize text-foreground">
+                                                        {t}
+                                                    </span>
+                                                ))}
+                                            </p>
+                                        )}
+                                        <p className="whitespace-pre-wrap break-words leading-relaxed text-foreground">{msg.body}</p>
+                                    </div>
                                 </div>
-                                <p className="text-foreground leading-relaxed whitespace-pre-wrap">{msg.body}</p>
-                            </div>
+                            </li>
                         );
                     })}
-                </div>
+                </ol>
             )}
 
-            {/* Reply Input Form (For PM or Client) */}
-            {(isManager || isClient) && (
-                <form onSubmit={handleSendReply} className="space-y-2 pt-2">
+            {canWrite && (
+                <form onSubmit={sendReply} className="space-y-2 border-t border-border px-5 py-4">
+                    <Label htmlFor={`reply-${proposalId}`} className="sr-only">
+                        {isManager ? "Reply to the client" : "Message your Project Manager"}
+                    </Label>
                     <Textarea
+                        id={`reply-${proposalId}`}
                         value={replyBody}
                         onChange={(e) => setReplyBody(e.target.value)}
-                        placeholder={
-                            isManager
-                                ? "Reply to the client about this proposal or revision..."
-                                : "Ask a question or reply to the Project Manager..."
-                        }
+                        onKeyDown={(e) => {
+                            // Ctrl/Cmd+Enter sends, as in most chat tools.
+                            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.currentTarget.form?.requestSubmit();
+                        }}
                         rows={2}
-                        className="text-xs leading-relaxed"
+                        className="min-h-[72px] resize-none bg-card text-sm leading-relaxed"
+                        placeholder={isManager ? "Reply to the client. They see it in their portal." : "Ask your Project Manager about this proposal."}
                     />
-                    <div className="flex justify-end">
-                        <Button
-                            type="submit"
-                            size="sm"
-                            disabled={isSending || !replyBody.trim()}
-                            className="h-8 text-xs font-semibold gap-1.5"
-                        >
-                            {isSending ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                                <Send className="h-3.5 w-3.5" />
-                            )}
-                            {isManager ? "Send Reply" : "Send Message"}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        {isManager ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                    setOutsideError(null);
+                                    setShowOutside(true);
+                                }}
+                                className="h-9 px-2.5 text-muted-foreground hover:text-foreground"
+                            >
+                                Log outside discussion
+                            </Button>
+                        ) : (
+                            <span />
+                        )}
+                        <Button type="submit" disabled={isSending || !replyBody.trim()} className="h-9 gap-1.5 font-semibold active:scale-[0.97]">
+                            {isSending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                            {isManager ? "Send reply" : "Send message"}
                         </Button>
                     </div>
                 </form>
             )}
 
-            {/* Log Outside Discussion Dialog */}
-            <Dialog open={showOutsideModal} onOpenChange={setShowOutsideModal}>
-                <DialogContent className="max-w-md w-full bg-card border-border text-foreground">
-                    <form onSubmit={handleLogOutsideSubmit} className="space-y-4">
-                        <DialogHeader>
-                            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                                <Phone className="h-5 w-5 text-primary" />
-                                Log Outside Discussion
-                            </DialogTitle>
+            <Dialog open={showOutside} onOpenChange={(open) => !isLogging && setShowOutside(open)}>
+                <DialogContent className="max-w-md rounded-xl border-border bg-card text-foreground">
+                    <form onSubmit={logOutside} className="space-y-4">
+                        <DialogHeader className="text-left">
+                            <DialogTitle className="text-lg font-semibold tracking-tight">Log a discussion held outside the system</DialogTitle>
+                            <DialogDescription className="text-sm text-muted-foreground">
+                                For example a call with the client or their lawyer. Saved to this thread and the Sales activity log.
+                            </DialogDescription>
                         </DialogHeader>
-
-                        <div className="space-y-3 py-2 text-xs">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Channel</Label>
-                                    <Select
-                                        value={outsideType}
-                                        onValueChange={(val: "call" | "email" | "in_person") => setOutsideType(val)}
-                                    >
-                                        <SelectTrigger className="h-9 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="call" className="text-xs">
-                                                Phone Call
-                                            </SelectItem>
-                                            <SelectItem value="email" className="text-xs">
-                                                Email Discussion
-                                            </SelectItem>
-                                            <SelectItem value="in_person" className="text-xs">
-                                                In-Person Meeting
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Date Held</Label>
-                                    <DatePicker value={outsideDate} onChange={setOutsideDate} max={todayYmd()} required className="h-9 text-xs" />
-                                </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="outside-type" className="text-sm text-muted-foreground">How</Label>
+                                <FormSelect id="outside-type" value={outsideType} onChange={(e) => setOutsideType(e.target.value as "call" | "email" | "in_person")}>
+                                    <option value="call">Phone call</option>
+                                    <option value="email">Email</option>
+                                    <option value="in_person">In person</option>
+                                </FormSelect>
                             </div>
-
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Discussion Summary</Label>
-                                <Textarea
-                                    value={outsideSummary}
-                                    onChange={(e) => setOutsideSummary(e.target.value)}
-                                    placeholder="Summarize key points agreed upon, client questions, or scope notes..."
-                                    rows={4}
-                                    required
-                                    className="text-xs leading-relaxed"
-                                />
+                            <div className="space-y-1.5">
+                                <Label htmlFor="outside-date" className="text-sm text-muted-foreground">Date</Label>
+                                <DatePicker id="outside-date" value={outsideDate} onChange={setOutsideDate} max={todayYmd()} required className="bg-card" />
                             </div>
                         </div>
-
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowOutsideModal(false)}
-                                disabled={isLoggingOutside}
-                            >
+                        <div className="space-y-1.5">
+                            <Label htmlFor="outside-summary" className="text-sm text-muted-foreground">What was discussed</Label>
+                            <Textarea
+                                id="outside-summary"
+                                value={outsideSummary}
+                                onChange={(e) => {
+                                    setOutsideSummary(e.target.value);
+                                    setOutsideError(null);
+                                }}
+                                rows={4}
+                                aria-invalid={outsideError ? true : undefined}
+                                aria-describedby={outsideError ? "outside-error" : undefined}
+                                className="bg-card text-sm leading-relaxed"
+                                placeholder="e.g. Called the client. They accept reports later as a separate phase. Target price around ₱260,000."
+                            />
+                            {outsideError && (
+                                <p id="outside-error" role="alert" className="text-sm text-destructive">
+                                    {outsideError}
+                                </p>
+                            )}
+                        </div>
+                        <DialogFooter className="gap-2">
+                            <Button type="button" variant="outline" className="bg-card" onClick={() => setShowOutside(false)} disabled={isLogging}>
                                 Cancel
                             </Button>
-                            <Button
-                                type="submit"
-                                size="sm"
-                                disabled={isLoggingOutside || !outsideSummary.trim()}
-                                className="font-semibold text-xs"
-                            >
-                                {isLoggingOutside ? (
-                                    <>
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                                        Logging...
-                                    </>
-                                ) : (
-                                    "Save Discussion Log"
-                                )}
+                            <Button type="submit" disabled={isLogging} className="gap-1.5 font-semibold active:scale-[0.97]">
+                                {isLogging && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                                Save to negotiation log
                             </Button>
                         </DialogFooter>
                     </form>

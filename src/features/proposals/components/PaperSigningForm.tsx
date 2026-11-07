@@ -143,7 +143,7 @@ export function PaperSigningForm({
                             ) : (
                                 <>
                                     <FileUp className="h-3.5 w-3.5" />
-                                    Confirm Paper Signature &amp; Initialize Project
+                                    Save and mark signed
                                 </>
                             )}
                         </Button>

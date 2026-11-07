@@ -12,8 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { savePaymentSchedule, updateProposalMilestones } from "@/features/proposals/actions";
 import {
+    CUSTOM_MILESTONE_LIMITS,
+    customMilestoneError,
     formatDayMonth,
     LIMITS,
+    sortOrderAfter,
     scheduleTotalPercent,
     validateMilestoneDates,
     validateSchedule,
@@ -21,6 +24,7 @@ import {
     type ScheduleDraftItem,
 } from "@/features/proposals/draft-logic";
 import { STANDARD_SECTIONS } from "@/features/proposals/standard-sections";
+import { PAYMENT_TRIGGERS } from "@/features/proposals/constants";
 import { FormSelect } from "@/components/ui/form-select";
 
 // ---------------------------------------------------------------------------
@@ -156,40 +160,67 @@ export function MilestonesDialog({
 }) {
     const [draft, setDraft] = useState(milestones);
     const [saving, setSaving] = useState(false);
-    const [showErrors, setShowErrors] = useState(false);
 
     const validation = validateMilestoneDates(draft);
+    const textErrors = Object.fromEntries(draft.map((m) => [m.key, customMilestoneError(m)]));
+    const addedCount = draft.filter((m) => m.custom).length;
+    const canAdd = addedCount < CUSTOM_MILESTONE_LIMITS.count;
+    const ok = validation.ok && Object.values(textErrors).every((e) => !e);
 
-    const setDate = (key: string, field: "startDate" | "endDate", value: string) =>
-        setDraft((current) => current.map((m) => (m.key === key ? { ...m, [field]: value } : m)));
+    const update = (key: string, patch: Partial<MilestoneDraft>) =>
+        setDraft((current) =>
+            current.map((m) => {
+                if (m.key !== key) return m;
+                const next = { ...m, ...patch };
+                // Moving a start past its own end pulls the end along, so one change never leaves the row invalid.
+                if (patch.startDate && next.endDate && next.endDate < patch.startDate) next.endDate = patch.startDate;
+                return next;
+            })
+        );
+
+    const addAfter = (index: number) =>
+        setDraft((current) => {
+            const added: MilestoneDraft = {
+                key: `new-${crypto.randomUUID()}`,
+                title: "",
+                description: "",
+                startDate: "",
+                endDate: "",
+                custom: true,
+                sortOrder: sortOrderAfter(current, index),
+            };
+            return [...current.slice(0, index + 1), added, ...current.slice(index + 1)];
+        });
+
+    const remove = (key: string) => setDraft((current) => current.filter((m) => m.key !== key));
 
     async function save() {
-        setShowErrors(true);
-        if (!validation.ok) return;
+        if (!ok) return;
         setSaving(true);
         try {
-            // Dates only: the 5 milestones, their names and descriptions are fixed for every proposal.
             const res = await updateProposalMilestones(
                 proposalId,
-                draft.map((m) => ({ name: m.key, startDate: m.startDate, endDate: m.endDate })),
+                draft.map((m) => ({
+                    key: m.key,
+                    name: m.custom ? undefined : m.key,
+                    custom: !!m.custom,
+                    title: m.title,
+                    description: m.description,
+                    sortOrder: m.sortOrder,
+                    startDate: m.startDate,
+                    endDate: m.endDate,
+                })),
             );
             if (!res.success) {
-                toast.error(res.message || "Could not save the milestone dates.");
+                toast.error(res.message || "Could not save the milestones.");
                 return;
             }
-            const saved = "milestones" in res && Array.isArray(res.milestones) ? res.milestones : null;
-            onSaved(
-                saved
-                    ? draft.map((m) => {
-                          const row = saved.find((s) => s.key === m.key);
-                          return { ...m, startDate: row?.startDate ?? m.startDate, endDate: row?.endDate ?? m.endDate };
-                      })
-                    : draft,
-            );
-            toast.success("Milestone dates saved.");
+            // The server returns the saved list in order, with ids for the new milestones.
+            onSaved("milestones" in res && Array.isArray(res.milestones) ? res.milestones : draft);
+            toast.success("Milestones saved.");
             onOpenChange(false);
         } catch {
-            toast.error("Could not save the milestone dates.");
+            toast.error("Could not save the milestones.");
         } finally {
             setSaving(false);
         }
@@ -197,48 +228,95 @@ export function MilestonesDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Edit milestone dates</DialogTitle>
-                    <DialogDescription>
-                        Only dates can change. The 5 milestones and their descriptions are the same for every project, and they run in order.
+            <DialogContent className="max-w-2xl rounded-xl border-border bg-card">
+                <DialogHeader className="text-left">
+                    <DialogTitle className="text-lg font-semibold tracking-tight">Edit milestones</DialogTitle>
+                    <DialogDescription className="text-sm text-muted-foreground">
+                        Rename or re-describe any milestone for this proposal, and add your own between them. The 5 standard milestones cannot be removed.
+                        Every milestone needs dates, and they run in order.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="max-h-[60vh] space-y-3 overflow-y-auto py-1">
-                    {draft.map((m) => {
-                        const error = showErrors ? validation.errors[m.key] : undefined;
+                <ol className="max-h-[60vh] space-y-2 overflow-y-auto py-1">
+                    {draft.map((m, i) => {
+                        // Shown as soon as a row conflicts, not only after pressing Save.
+                        const dateError = m.startDate && m.endDate ? validation.errors[m.key] : undefined;
+                        const textError = !m.custom || m.title || m.description ? textErrors[m.key] : undefined;
+                        // The picker only offers days that keep the order: not in the past, not before the previous milestone ends.
+                        const previousEnd = draft[i - 1]?.endDate ?? "";
+                        const startMin = [todayYmd(), previousEnd].sort().at(-1)!;
+                        const endMin = [todayYmd(), m.startDate].sort().at(-1)!;
                         return (
-                            <div key={m.key} className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3.5">
-                                <div>
-                                    <div className="text-sm font-semibold">{m.title}</div>
-                                    <div className="text-xs text-muted-foreground">{m.description}</div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <Label htmlFor={`ms-start-${m.key}`} className="text-xs text-muted-foreground">Start date</Label>
-                                        <DatePicker id={`ms-start-${m.key}`} value={m.startDate} onChange={(v) => setDate(m.key, "startDate", v)} min={todayYmd()} className="h-8 text-xs" />
+                            <li key={m.key}>
+                                <div className={m.custom ? "space-y-2 rounded-lg bg-brand-soft/40 p-3.5 ring-1 ring-inset ring-brand-deep/20" : "space-y-2 rounded-lg bg-muted/50 p-3.5"}>
+                                    {/* Every milestone can be renamed for this proposal; only added ones can be removed. */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <Label htmlFor={`ms-title-${m.key}`} className="text-sm text-muted-foreground">
+                                                {m.custom ? "Added milestone" : "Standard milestone"}
+                                            </Label>
+                                            {m.custom && (
+                                                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => remove(m.key)}>
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <Input
+                                            id={`ms-title-${m.key}`}
+                                            value={m.title}
+                                            maxLength={CUSTOM_MILESTONE_LIMITS.title}
+                                            onChange={(e) => update(m.key, { title: e.target.value })}
+                                            placeholder="e.g. Content migration"
+                                            aria-invalid={textError ? true : undefined}
+                                            className="h-9 bg-card text-sm"
+                                        />
+                                        <Input
+                                            aria-label={`What is done in ${m.title.trim() || "this milestone"}`}
+                                            value={m.description}
+                                            maxLength={CUSTOM_MILESTONE_LIMITS.description}
+                                            onChange={(e) => update(m.key, { description: e.target.value })}
+                                            placeholder="What is done (shown in the scope of work)"
+                                            className="h-9 bg-card text-sm"
+                                        />
                                     </div>
-                                    <div className="space-y-1">
-                                        <Label htmlFor={`ms-end-${m.key}`} className="text-xs text-muted-foreground">End date</Label>
-                                        <DatePicker id={`ms-end-${m.key}`} value={m.endDate} onChange={(v) => setDate(m.key, "endDate", v)} min={m.startDate || todayYmd()} className="h-8 text-xs" />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label htmlFor={`ms-start-${m.key}`} className="text-sm text-muted-foreground">Start date</Label>
+                                            <DatePicker id={`ms-start-${m.key}`} value={m.startDate} onChange={(v) => update(m.key, { startDate: v })} min={startMin} className="h-9 bg-card text-sm" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor={`ms-end-${m.key}`} className="text-sm text-muted-foreground">End date</Label>
+                                            <DatePicker id={`ms-end-${m.key}`} value={m.endDate} onChange={(v) => update(m.key, { endDate: v })} min={endMin} className="h-9 bg-card text-sm" />
+                                        </div>
                                     </div>
+                                    {(textError || dateError) && (
+                                        <p role="alert" className="text-sm text-destructive">
+                                            {textError || dateError}
+                                        </p>
+                                    )}
                                 </div>
-                                {error && (
-                                    <p role="alert" className="text-xs text-destructive">
-                                        {error}
-                                    </p>
+                                {canAdd && (
+                                    <button
+                                        type="button"
+                                        onClick={() => addAfter(i)}
+                                        className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground outline-none transition-colors duration-150 hover:text-brand-deep focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                                        <span>+ Add a milestone after {m.title.trim() || "this one"}</span>
+                                        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                                    </button>
                                 )}
-                            </div>
+                            </li>
                         );
                     })}
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                </ol>
+                {!canAdd && <p className="text-sm text-muted-foreground">You have added the most milestones allowed ({CUSTOM_MILESTONE_LIMITS.count}).</p>}
+                <DialogFooter className="gap-2">
+                    <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
-                    <Button type="button" disabled={saving} onClick={save}>
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save dates
+                    <Button type="button" disabled={saving || !ok} onClick={save} className="gap-1.5 font-semibold active:scale-[0.97]">
+                        {saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                        Save milestones
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -265,7 +343,7 @@ export function ScopeTimelineDialog({
                 <DialogHeader>
                     <DialogTitle>Scope of work and timeline</DialogTitle>
                     <DialogDescription>
-                        Built automatically from the 5 default milestones. To change dates, close this and use Edit dates on the Milestones card.
+                        Built from the milestones: the 5 standard ones and any you added. To change them, close this and use Edit milestones on the Milestones card.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="overflow-x-auto">
@@ -290,7 +368,7 @@ export function ScopeTimelineDialog({
                         </tbody>
                     </table>
                 </div>
-                <p className="text-xs text-muted-foreground">Read only. Milestone names and descriptions are the same for every project.</p>
+                <p className="text-xs text-muted-foreground">Read only here. Use Edit milestones on the Milestones card to rename, re-date or add milestones.</p>
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         Close
@@ -370,15 +448,7 @@ export function StandardSectionsDialog({ open, onOpenChange }: { open: boolean; 
 // Payment schedule
 // ---------------------------------------------------------------------------
 
-const TRIGGERS: Array<[value: string, label: string]> = [
-    ["on_signing", "On signing"],
-    ["requirements", "Requirements done"],
-    ["design", "Design done"],
-    ["development", "Development done"],
-    ["uat_testing", "UAT and testing done"],
-    ["handover", "Handover"],
-    ["before_completion", "Before completion"],
-];
+const TRIGGERS = PAYMENT_TRIGGERS;
 
 export function ScheduleDialog({
     open,

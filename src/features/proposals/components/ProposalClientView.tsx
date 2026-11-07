@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useState } from "react";
 import {
     CheckCircle2,
@@ -35,6 +36,7 @@ import {
     PricingLineItem,
 } from "@/features/proposals/components/ProposalDocumentSheet";
 import { AcceptProposalDialog } from "@/features/proposals/components/AcceptProposalDialog";
+import { orderMilestones } from "@/features/proposals/draft-logic";
 import { RequestChangesDialog } from "@/features/proposals/components/RequestChangesDialog";
 import { ProposalThread, type ProposalMessageItem } from "@/features/proposals/components/ProposalThread";
 
@@ -49,9 +51,12 @@ interface Props {
         totalPrice?: number | null;
         needsGoals?: string | { needs?: string; goals?: string } | null;
         milestones?: Array<{
-            name?: string;
+            id?: string | null;
+            name?: string | null;
             key?: string;
-            title?: string;
+            title?: string | null;
+            description?: string | null;
+            sortOrder?: number | null;
             startDate?: string | Date | null;
             endDate?: string | Date | null;
         }> | null;
@@ -102,6 +107,8 @@ interface Props {
     isExpired?: boolean;
     whatChanged?: string[];
     messages?: ProposalMessageItem[];
+    /** The project created when this proposal was signed, for the View project link. */
+    projectId?: string | null;
     settings?: {
         logoUrl?: string | null;
         logoDarkUrl?: string | null;
@@ -120,6 +127,7 @@ export function ProposalClientView({
     isExpired = false,
     whatChanged = [],
     messages = [],
+    projectId = null,
     settings,
 }: Props) {
     const router = useRouter();
@@ -221,15 +229,13 @@ export function ProposalClientView({
         discount: proposal.discount || parsedPricing.discount || 0,
         tax: proposal.tax || parsedPricing.tax || 0,
         total: grandTotal,
-        needsGoals: typeof proposal.needsGoals === "object" && proposal.needsGoals !== null
-            ? [proposal.needsGoals.needs ? `Client Needs:\n${proposal.needsGoals.needs}` : "", proposal.needsGoals.goals ? `Goals:\n${proposal.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
-            : (proposal.needsGoals as string | undefined),
-        milestones: (proposal.milestones || []).map((m) => ({
-            key: m.name || m.key || "milestone",
-            title: m.title || m.name || "Milestone",
-            startDate: m.startDate ? String(m.startDate).split("T")[0] : null,
-            endDate: m.endDate ? String(m.endDate).split("T")[0] : null,
-        })),
+        needsGoals: proposal.needsGoals ?? null,
+        version: proposal.version ?? 1,
+        priceMode: proposal.priceMode,
+        currency: proposal.currency,
+        totalPrice: proposal.totalPrice ?? null,
+        // The 5 default milestones and any the PM added, in order, with this proposal's dates.
+        milestones: orderMilestones(proposal.milestones || []).map((m) => ({ ...m, startDate: m.startDate || null, endDate: m.endDate || null })),
         paymentScheduleItems: (proposal.paymentScheduleItems || []).map((p) => ({
             label: p.label,
             percent: p.percent,
@@ -333,36 +339,36 @@ export function ProposalClientView({
 
             {/* Discussion & Negotiation Thread */}
             {!isPreview && (
-                <div className="max-w-[850px] mx-auto bg-card border border-border rounded-2xl shadow-sm p-4 sm:p-6 no-print">
+                <section aria-labelledby="negotiation-heading" className="no-print mx-auto max-w-[850px] overflow-hidden rounded-xl border border-border bg-card">
                     <ProposalThread
                         proposalId={proposal.id}
                         messages={messages || []}
                         userRole="client"
                     />
-                </div>
+                </section>
             )}
 
             {/* Status Callout (Approved / Rejected) */}
             {isApproved && (
-                <div className="max-w-[850px] mx-auto p-6 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2 no-print">
-                    <div className="mx-auto h-10 w-10 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500">
-                        <CheckCircle2 className="h-5 w-5" />
+                <div className="no-print mx-auto max-w-[850px] space-y-3 rounded-xl border border-brand-deep/20 bg-brand-soft px-6 py-5 text-center">
+                    <div className="mx-auto grid size-10 place-items-center rounded-full bg-card text-brand-deep">
+                        <CheckCircle2 className="size-5" aria-hidden="true" />
                     </div>
-                    <h3 className="text-lg font-bold text-foreground">Agreement Executed & Active</h3>
-                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                        This proposal has been accepted and digitally executed by{" "}
-                        <strong className="text-foreground">{proposal.acceptedByName || "Client"}</strong>. Project onboarding and sprint initialization are underway.
+                    {/* Mockup step 20 */}
+                    <h3 className="text-lg font-semibold tracking-tight text-foreground">Thank you. Your project has started.</h3>
+                    <p className="mx-auto max-w-md text-sm text-foreground/80">
+                        Signed by <strong className="font-semibold text-foreground">{proposal.acceptedByName || "you"}</strong>. Follow milestones, payments and files on
+                        your project page.
                     </p>
-                    <div className="pt-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDownloadPdf}
-                            disabled={isDownloadingPdf}
-                            className="items-center gap-1.5 font-mono text-xs"
-                        >
-                            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Printer className="h-3.5 w-3.5 mr-1" />}
-                            Download Signed SOW (PDF)
+                    <div className="flex flex-wrap justify-center gap-2 pt-1">
+                        {projectId && (
+                            <Button asChild className="font-semibold active:scale-[0.97]">
+                                <Link href={`/portal/projects/${projectId}`}>View project</Link>
+                            </Button>
+                        )}
+                        <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="gap-1.5 bg-card active:scale-[0.97]">
+                            {isDownloadingPdf ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Printer className="size-4" aria-hidden="true" />}
+                            Download signed proposal (PDF)
                         </Button>
                     </div>
                 </div>

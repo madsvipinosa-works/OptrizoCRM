@@ -2,11 +2,15 @@
  * Pure rules for the proposal draft editor: no React, no database. Kept separate so they can be tested.
  *
  * Spec rules this file mirrors:
- * - There are always exactly 5 milestones; only their dates change (spec section 3, `proposalMilestones`).
+ * - The 5 default milestones are always there (payments and automations key on them) but can be renamed
+ *   and re-described per proposal; the PM can add milestones of their own between them and remove those
+ *   (decisions 2026-11-08, migration 0020).
  * - The payment schedule must total exactly 100% (spec section 3, `paymentScheduleItems`).
  * - Only a draft can be edited. A sent version is locked; changes go through a new version.
  * - A priced proposal needs a total price above 0. A "price to be discussed" version cannot be signed.
  */
+
+import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
 
 export const MILESTONE_KEYS = ["requirements", "design", "development", "uat_testing", "handover"] as const;
 export type MilestoneKey = (typeof MILESTONE_KEYS)[number];
@@ -21,13 +25,77 @@ export type ProposalStatus =
     | "replaced";
 
 export type MilestoneDraft = {
+    /** A default's key ("design"), a saved added milestone's row id, or "new-…" before it is saved. */
     key: string;
     title: string;
     description: string;
     /** YYYY-MM-DD, or "" when not set. */
     startDate: string;
     endDate: string;
+    /** True for a milestone the PM added; only these can be removed. Every milestone can be renamed. */
+    custom?: boolean;
+    /** Position: defaults are 100, 200 … 500; an added milestone sits between them. */
+    sortOrder?: number;
 };
+
+/** Limits for added milestones, checked again on the server. */
+export const CUSTOM_MILESTONE_LIMITS = { title: 80, description: 300, count: 10 } as const;
+
+const defaultSort = (index: number) => (index + 1) * 100;
+
+/**
+ * One ordered list from the stored rows: the 5 defaults (title and description from constants, dates
+ * from the rows) and any added milestones, by position. Used by the editor, the document, the PDF,
+ * revisions and project creation, so every view shows the same order.
+ */
+export function orderMilestones(
+    rows: Array<{ id?: string | null; name?: string | null; title?: string | null; description?: string | null; sortOrder?: number | null; startDate?: Date | string | null; endDate?: Date | string | null }>,
+): MilestoneDraft[] {
+    const defaults = DEFAULT_PROPOSAL_MILESTONES.map((def, i) => {
+        const row = rows.find((r) => r.name === def.name);
+        return {
+            key: def.key,
+            // A PM can rename a default for this proposal; its key stays, so payments and automations still match.
+            title: row?.title?.trim() || def.title,
+            description: row?.description ?? def.description,
+            startDate: toDateInput(row?.startDate),
+            endDate: toDateInput(row?.endDate),
+            custom: false,
+            sortOrder: defaultSort(i),
+        };
+    });
+    const added = rows
+        .filter((r) => !r.name)
+        .map((r) => ({
+            key: r.id ?? "",
+            title: r.title?.trim() || "Milestone",
+            description: r.description ?? "",
+            startDate: toDateInput(r.startDate),
+            endDate: toDateInput(r.endDate),
+            custom: true,
+            sortOrder: r.sortOrder ?? defaultSort(DEFAULT_PROPOSAL_MILESTONES.length),
+        }));
+    return [...defaults, ...added].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/**
+ * Position for a milestone added right after `index` in an ordered list: halfway to the next one.
+ * shortcut: integer halves run out after ~6 inserts in the same gap; then it lands on the same number
+ * (order by creation). Renumber positions on save if PMs ever need deeper nesting.
+ */
+export function sortOrderAfter(list: Array<Pick<MilestoneDraft, "sortOrder">>, index: number): number {
+    const here = list[index]?.sortOrder ?? 0;
+    const next = list[index + 1]?.sortOrder;
+    return next === undefined ? here + 100 : Math.max(here + 1, Math.floor((here + next) / 2));
+}
+
+/** Problems with an added milestone's text, or null. */
+export function customMilestoneError(m: Pick<MilestoneDraft, "title" | "description">): string | null {
+    if (!m.title.trim()) return "Give the milestone a name.";
+    if (m.title.length > CUSTOM_MILESTONE_LIMITS.title) return `Name: at most ${CUSTOM_MILESTONE_LIMITS.title} characters.`;
+    if (m.description.length > CUSTOM_MILESTONE_LIMITS.description) return `Description: at most ${CUSTOM_MILESTONE_LIMITS.description} characters.`;
+    return null;
+}
 
 export type ScheduleDraftItem = {
     id?: string;
@@ -119,11 +187,12 @@ export function formatDayMonth(ymd: string): string {
     return `${SHORT_MONTHS[Number(match[2]) - 1]} ${Number(match[3])}`;
 }
 
-/** "5 default milestones · Nov 6 – Mar 10", or "… · Dates not set". */
+/** "5 milestones · Nov 6 – Mar 10" (counts any the PM added), or "… · Dates not set". */
 export function milestoneRangeSummary(milestones: Array<Pick<MilestoneDraft, "startDate" | "endDate">>): string {
+    const label = `${milestones.length} ${milestones.length === 1 ? "milestone" : "milestones"}`;
     const dates = milestones.flatMap((m) => [m.startDate, m.endDate]).filter(Boolean).sort();
-    if (dates.length === 0) return "5 default milestones · Dates not set";
-    return `5 default milestones · ${formatDayMonth(dates[0])} – ${formatDayMonth(dates[dates.length - 1])}`;
+    if (dates.length === 0) return `${label} · Dates not set`;
+    return `${label} · ${formatDayMonth(dates[0])} – ${formatDayMonth(dates[dates.length - 1])}`;
 }
 
 /**
@@ -242,7 +311,7 @@ export function getSendProblems(input: {
     if (!fields.overview.trim()) problems.push("Add the project overview.");
 
     if (!validateMilestoneDates(input.milestones).ok) {
-        problems.push("Fix the milestone dates: all 5 need a start and end date, in order.");
+        problems.push("Fix the milestone dates: every milestone needs a start and end date, in order.");
     }
 
     if (fields.priceMode === "priced") {

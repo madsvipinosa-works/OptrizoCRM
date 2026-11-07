@@ -33,3 +33,14 @@ export const DEFAULT_PROPOSAL_MILESTONES = [
     },
 ] as const;
 
+
+/** When a payment falls due, with the words shown to the PM and in the proposal document. */
+export const PAYMENT_TRIGGERS: Array<[value: string, label: string]> = [
+    ["on_signing", "On signing"],
+    ["requirements", "Requirements done"],
+    ["design", "Design done"],
+    ["development", "Development done"],
+    ["uat_testing", "UAT and testing done"],
+    ["handover", "Handover"],
+    ["before_completion", "Before completion"],
+];

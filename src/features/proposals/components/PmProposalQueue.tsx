@@ -2,12 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { claimOrAssignLeadPm, createDraftProposalForLead } from "@/features/proposals/actions";
 import { toast } from "sonner";
-import { FileText, ArrowRight, Loader2, UserCheck, Clock, CheckCircle2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/datetime";
 
 export interface ProposalQueueItem {
@@ -32,255 +31,147 @@ export interface ProposalQueueItem {
         id: string;
         status: string;
         version?: number | null;
+        createdAt?: Date | string | null;
+        updatedAt?: Date | string | null;
+        sentAt?: Date | string | null;
     }>;
 }
 
-export function PmProposalQueue({
-    items,
-    currentUserId,
-}: {
-    items: ProposalQueueItem[];
-    currentUserId: string;
-}) {
+type QueueState = { label: string; tone: string; note: string };
+
+const date = (d: Date | string | null | undefined) => (d ? formatDateTime(d) : "");
+
+/** Row state from the latest version (mockup step 9): New request, Draft, Sent, Needs revision. */
+function stateOf(lead: ProposalQueueItem): QueueState {
+    const latest = [...(lead.proposals ?? [])].sort((a, b) => (b.version ?? 1) - (a.version ?? 1))[0];
+    if (!latest) return { label: "New request", tone: "bg-destructive/10 text-destructive", note: `Requested by Sales · ${date(lead.proposalRequestedAt)}` };
+    switch (latest.status) {
+        case "draft":
+            return { label: "Draft", tone: "bg-stage-negotiation/15 text-foreground", note: `Draft in progress · started ${date(latest.createdAt)}` };
+        case "changes_requested":
+            return { label: "Needs revision", tone: "bg-stage-negotiation/15 text-foreground", note: `Client asked for changes · ${date(latest.updatedAt)}` };
+        case "pricing_meeting_requested":
+            return { label: "Pricing meeting", tone: "bg-stage-discovery/15 text-foreground", note: `Client asked for a pricing meeting · ${date(latest.updatedAt)}` };
+        default:
+            return { label: "Sent", tone: "bg-stage-discovery/15 text-foreground", note: `Sent ${date(latest.sentAt ?? latest.updatedAt)}` };
+    }
+}
+
+export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueueItem[]; currentUserId: string }) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [selectedId, setSelectedId] = useState<string>(items[0]?.id || "");
+    const selected = items.find((i) => i.id === selectedId) || items[0];
 
-    const selectedLead = items.find((i) => i.id === selectedId) || items[0];
+    const draft = selected?.proposals?.find((p) => p.status === "draft");
+    const latest = selected ? [...(selected.proposals ?? [])].sort((a, b) => (b.version ?? 1) - (a.version ?? 1))[0] : undefined;
 
-    const handleOpenOrDraft = (lead: ProposalQueueItem) => {
+    const openOrDraft = (lead: ProposalQueueItem) => {
         startTransition(async () => {
-            // Claim lead if unassigned
-            if (!lead.assignedPmId) {
-                await claimOrAssignLeadPm(lead.id);
+            // Opening an unclaimed request claims it for this PM.
+            if (!lead.assignedPmId) await claimOrAssignLeadPm(lead.id);
+            const versions = [...(lead.proposals ?? [])].sort((a, b) => (b.version ?? 1) - (a.version ?? 1));
+            const existing = versions.find((p) => p.status === "draft");
+            if (existing) {
+                router.push(`/dashboard/proposals/builder/${existing.id}`);
+                return;
             }
-
-            // Check if active draft proposal exists
-            const draftProp = lead.proposals?.find((p) => p.status.toLowerCase() === "draft");
-            if (draftProp) {
-                router.push(`/dashboard/proposals/builder/${draftProp.id}`);
-            } else {
-                const res = await createDraftProposalForLead(lead.id);
-                if (res.success && res.proposalId) {
-                    router.push(`/dashboard/proposals/builder/${res.proposalId}`);
-                } else {
-                    toast.error(res.message || "Failed to start proposal draft");
-                }
+            // A sent version is revised on its own page, beside the negotiation thread (mockup 18d).
+            if (versions[0]) {
+                router.push(`/dashboard/proposals/${versions[0].id}`);
+                return;
             }
+            const res = await createDraftProposalForLead(lead.id);
+            if (res.success && res.proposalId) router.push(`/dashboard/proposals/builder/${res.proposalId}`);
+            else toast.error(res.message || "Could not start the proposal draft.");
         });
     };
 
-    if (items.length === 0) {
-        return (
-            <Card className="p-8 text-center border-dashed">
-                <FileText className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
-                <h3 className="font-semibold text-foreground text-base">No pending proposal requests</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                    When Sales completes discovery with a client, proposal requests will arrive here with discovery notes attached.
-                </p>
-            </Card>
-        );
-    }
-
     return (
-        <div className="space-y-4">
+        <section aria-labelledby="queue-heading" className="space-y-4">
             <div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                    Proposal Requests Queue
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                    Step 9: Every request arrives here with attached discovery notes for technical scoping.
-                </p>
+                <h2 id="queue-heading" className="text-lg font-semibold tracking-tight text-foreground">Proposal requests</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Every request arrives here with the full discovery notes attached.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                {/* Left: Request Cards List */}
-                <div className="lg:col-span-5 space-y-3">
-                    {items.map((lead) => {
-                        const isSelected = lead.id === selectedLead?.id;
-                        const hasDraft = lead.proposals?.some((p) => p.status.toLowerCase() === "draft");
-                        const hasSent = lead.proposals?.some((p) => p.status.toLowerCase() === "sent");
-                        const isAssignedToMe = lead.assignedPmId === currentUserId;
-
-                        return (
-                            <button
-                                key={lead.id}
-                                type="button"
-                                onClick={() => setSelectedId(lead.id)}
-                                className={`w-full text-left p-4 rounded-xl border transition-all text-sm flex flex-col gap-2 ${
-                                    isSelected
-                                        ? "bg-card border-primary ring-1 ring-primary shadow-sm"
-                                        : "bg-card/60 hover:bg-card border-border hover:border-border/80"
-                                }`}
-                            >
-                                <div className="flex items-start justify-between gap-2">
-                                    <strong className="text-foreground font-semibold text-base">
-                                        {lead.businessName || lead.contactName || "Untitled Client"}
-                                    </strong>
-                                    {hasDraft ? (
-                                        <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30 text-[11px]">
-                                            Draft in progress
-                                        </Badge>
-                                    ) : hasSent ? (
-                                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/30 text-[11px]">
-                                            Sent
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="bg-rose-500/10 text-rose-500 border-rose-500/30 text-[11px]">
-                                            New request
-                                        </Badge>
-                                    )}
-                                </div>
-
-                                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span>
-                                        Requested:{" "}
-                                        {lead.proposalRequestedAt
-                                            ? formatDateTime(lead.proposalRequestedAt)
-                                            : "Recently"}
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[11px]">
-                                    <span className="text-muted-foreground">
-                                        Client: {lead.contactName || "Representative"}
-                                    </span>
-                                    {lead.assignedPm ? (
-                                        <span className={`font-medium flex items-center gap-1 ${isAssignedToMe ? "text-primary" : "text-muted-foreground"}`}>
-                                            <UserCheck className="w-3 h-3" />
-                                            {isAssignedToMe ? "Assigned to you" : lead.assignedPm.name || "PM Assigned"}
-                                        </span>
-                                    ) : (
-                                        <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                                            Unassigned
-                                        </span>
-                                    )}
-                                </div>
-                            </button>
-                        );
-                    })}
+            {items.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card px-5 py-10 text-center text-sm">
+                    <p className="font-medium text-foreground">No open proposal requests.</p>
+                    <p className="mt-1 text-muted-foreground">When Sales finishes discovery and asks for a proposal, it arrives here.</p>
                 </div>
+            ) : (
+                <div className="grid items-start gap-5 lg:grid-cols-12">
+                    <ul className="space-y-2 lg:col-span-5">
+                        {items.map((lead) => {
+                            const s = stateOf(lead);
+                            const active = lead.id === selected?.id;
+                            return (
+                                <li key={lead.id}>
+                                    <button
+                                        type="button"
+                                        aria-pressed={active}
+                                        onClick={() => setSelectedId(lead.id)}
+                                        className={cn(
+                                            "flex w-full flex-col items-start gap-1.5 rounded-xl border bg-card p-4 text-left outline-none transition-[border-color,background-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]",
+                                            active ? "border-brand-deep/60 ring-1 ring-brand-deep/30" : "border-border hover:border-foreground/20"
+                                        )}
+                                    >
+                                        {/* Full name, wrapped: never cut off or scrolled. */}
+                                        <span className="w-full break-words font-semibold text-foreground">{lead.businessName || lead.contactName || "New lead"}</span>
+                                        <span className="text-sm text-muted-foreground">{s.note}</span>
+                                        <span className="flex w-full flex-wrap items-center justify-between gap-2">
+                                            <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", s.tone)}>{s.label}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {lead.assignedPmId === currentUserId ? "Yours" : lead.assignedPm ? lead.assignedPm.name || "Another PM" : "No PM yet"}
+                                            </span>
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
 
-                {/* Right: Attached Discovery Notes & Action */}
-                {selectedLead && (
-                    <Card className="lg:col-span-7 p-6 border-border bg-card space-y-5">
-                        <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div>
-                                <h3 className="text-lg font-bold text-foreground">
-                                    {selectedLead.businessName || "Client Opportunity"}
-                                </h3>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Primary Contact: <span className="text-foreground font-medium">{selectedLead.contactName || "N/A"}</span>
-                                    {selectedLead.contactEmail && ` • ${selectedLead.contactEmail}`}
-                                    {selectedLead.contactPhone && ` • ${selectedLead.contactPhone}`}
-                                </p>
-                            </div>
-                            <div>
-                                {selectedLead.assignedPm ? (
-                                    <Badge variant="outline" className="bg-muted text-foreground border-border text-xs py-1">
-                                        PM: {selectedLead.assignedPm.name || selectedLead.assignedPm.email}
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30 text-xs py-1">
-                                        Unassigned (Opening claims request)
-                                    </Badge>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Discovery Notes Content */}
-                        <div className="space-y-4 text-sm">
-                            <div>
-                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                                    Goals &amp; Objectives
-                                </span>
-                                <div className="p-3 rounded-lg bg-muted/40 border border-border/60 text-foreground text-sm whitespace-pre-wrap">
-                                    {selectedLead.discoveryForm?.goals || "No goals documented in discovery form."}
+                    {selected && (
+                        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 lg:col-span-7">
+                            <h3 className="break-words text-base font-semibold text-foreground">
+                                Business name: {selected.businessName || "Not given"} · Client name: {selected.contactName || "Not given"}
+                            </h3>
+                            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                                <div className="col-span-2">
+                                    <dt className="text-muted-foreground">Goals</dt>
+                                    <dd className="mt-0.5 whitespace-pre-wrap text-base text-foreground">{selected.discoveryForm?.goals || "Not recorded"}</dd>
                                 </div>
-                            </div>
-
-                            <div>
-                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                                    Required Features &amp; Technical Scope
-                                </span>
-                                <div className="p-3 rounded-lg bg-muted/40 border border-border/60 text-foreground text-sm whitespace-pre-wrap">
-                                    {selectedLead.discoveryForm?.requiredFeatures || "No specific features recorded."}
+                                <div className="col-span-2">
+                                    <dt className="text-muted-foreground">Required features</dt>
+                                    <dd className="mt-0.5 whitespace-pre-wrap text-base text-foreground">{selected.discoveryForm?.requiredFeatures || "Not recorded"}</dd>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                                    <span className="text-[11px] font-semibold text-muted-foreground uppercase block">Target Timeline</span>
-                                    <span className="font-semibold text-foreground text-sm mt-0.5 block">
-                                        {selectedLead.discoveryForm?.targetTimeline || "Not specified"}
-                                    </span>
-                                </div>
-                                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                                    <span className="text-[11px] font-semibold text-muted-foreground uppercase block">Confirmed Budget Range</span>
-                                    <span className="font-semibold text-foreground text-sm mt-0.5 block">
-                                        {selectedLead.discoveryForm?.budgetRange || "To be discussed"}
-                                    </span>
-                                </div>
-                                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                                    <span className="text-[11px] font-semibold text-muted-foreground uppercase block">Client Type</span>
-                                    <span className="font-semibold text-foreground text-sm mt-0.5 block capitalize">
-                                        {selectedLead.discoveryForm?.clientType || "local"} Client
-                                    </span>
-                                </div>
-                            </div>
-
-                            {selectedLead.discoveryForm?.notes && (
                                 <div>
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                                        Discovery Meeting Outcome Notes
-                                    </span>
-                                    <div className="p-3 rounded-lg bg-muted/40 border border-border/60 text-muted-foreground text-xs whitespace-pre-wrap">
-                                        {selectedLead.discoveryForm.notes}
-                                    </div>
+                                    <dt className="text-muted-foreground">Timeline</dt>
+                                    <dd className="mt-0.5 text-base text-foreground">{selected.discoveryForm?.targetTimeline || "Not recorded"}</dd>
                                 </div>
-                            )}
-                        </div>
-
-                        {/* Action CTA */}
-                        <div className="pt-4 border-t border-border flex items-center justify-between gap-4">
-                            <div className="text-xs text-muted-foreground">
-                                {selectedLead.proposals && selectedLead.proposals.length > 0 ? (
-                                    <span className="flex items-center gap-1.5 text-emerald-500 font-medium">
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                        Proposal initialized ({selectedLead.proposals.length} version{selectedLead.proposals.length > 1 ? "s" : ""})
-                                    </span>
-                                ) : (
-                                    <span>Opening this request will claim it and initialize the SOW draft.</span>
+                                <div>
+                                    <dt className="text-muted-foreground">Client budget range</dt>
+                                    <dd className="mt-0.5 text-base tabular-nums text-foreground">{selected.discoveryForm?.budgetRange || "Not recorded"}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-muted-foreground">Client type</dt>
+                                    <dd className="mt-0.5 text-base text-foreground">{selected.discoveryForm?.clientType === "international" ? "International" : "Local (Philippines)"}</dd>
+                                </div>
+                                {selected.discoveryForm?.notes && (
+                                    <div className="col-span-2">
+                                        <dt className="text-muted-foreground">Meeting notes</dt>
+                                        <dd className="mt-0.5 whitespace-pre-wrap text-base text-foreground">{selected.discoveryForm.notes}</dd>
+                                    </div>
                                 )}
-                            </div>
-
-                            <Button
-                                onClick={() => handleOpenOrDraft(selectedLead)}
-                                disabled={isPending}
-                                className="gap-2 font-semibold"
-                            >
-                                {isPending ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Opening...
-                                    </>
-                                ) : selectedLead.proposals?.some((p) => p.status.toLowerCase() === "draft") ? (
-                                    <>
-                                        Continue Editing Draft
-                                        <ArrowRight className="w-4 h-4" />
-                                    </>
-                                ) : (
-                                    <>
-                                        Start Drafting Proposal
-                                        <ArrowRight className="w-4 h-4" />
-                                    </>
-                                )}
+                            </dl>
+                            <Button onClick={() => openOrDraft(selected)} disabled={isPending} className="mt-2 h-11 w-full gap-2 font-semibold active:scale-[0.97]">
+                                {isPending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                                {draft ? "Continue the draft" : !latest ? "Start drafting proposal" : latest.status === "changes_requested" ? "Revise the proposal" : "Open proposal"}
                             </Button>
                         </div>
-                    </Card>
-                )}
-            </div>
-        </div>
+                    )}
+                </div>
+            )}
+        </section>
     );
 }
