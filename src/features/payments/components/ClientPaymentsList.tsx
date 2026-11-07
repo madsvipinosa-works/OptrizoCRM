@@ -11,8 +11,7 @@ import {
     DialogFooter,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FileUpload } from "@/components/ui/file-upload";
 import { uploadPaymentProof } from "@/features/payments/actions";
 import { CheckCircle2, Clock, AlertCircle, ExternalLink, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
@@ -58,7 +57,7 @@ export function ClientPaymentsList({
         if (!selectedPayment) return;
 
         if (!proofFileUrl.trim()) {
-            toast.error("Please provide the payment proof URL or receipt link.");
+            toast.error("Please upload your receipt or deposit slip first.");
             return;
         }
 
@@ -218,19 +217,15 @@ export function ClientPaymentsList({
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleUploadSubmit} className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="proofUrl">Receipt / Proof URL *</Label>
-                            <Input
-                                id="proofUrl"
-                                placeholder="/uploads/receipt.pdf"
-                                value={proofFileUrl}
-                                onChange={(e) => setProofFileUrl(e.target.value)}
-                                required
-                            />
-                            <p className="text-[11px] text-muted-foreground">
-                                Allowed storage: /api/private-file, /uploads/, or .blob.vercel-storage.com
-                            </p>
-                        </div>
+                        <FileUpload
+                            label="Receipt or proof *"
+                            value={proofFileUrl}
+                            onChange={setProofFileUrl}
+                            projectId={selectedPayment?.projectId}
+                            accept="image/*,.pdf"
+                            hint="Photo or PDF of your receipt (max 15 MB)"
+                            showSuccessToast={false}
+                        />
 
                         <DialogFooter className="pt-2">
                             <Button
@@ -241,7 +236,7 @@ export function ClientPaymentsList({
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={isLoading}>
+                            <Button type="submit" disabled={isLoading || !proofFileUrl}>
                                 {isLoading ? "Submitting..." : "Submit Proof"}
                             </Button>
                         </DialogFooter>

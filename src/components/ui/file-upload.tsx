@@ -13,9 +13,11 @@ interface FileUploadProps {
     accept?: string;
     showSuccessToast?: boolean;
     projectId?: string;
+    /** Small line under the prompt, e.g. the allowed types and size. */
+    hint?: string;
 }
 
-export function FileUpload({ value, onChange, label = "Upload File", accept = ".pdf,.doc,.docx", showSuccessToast = true, projectId }: FileUploadProps) {
+export function FileUpload({ value, onChange, label = "Upload File", accept = ".pdf,.doc,.docx", showSuccessToast = true, projectId, hint = "PDFs allowed (MAX. 5MB)" }: FileUploadProps) {
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,7 +87,7 @@ export function FileUpload({ value, onChange, label = "Upload File", accept = ".
                             <p className="mb-1 text-sm text-foreground">
                                 <span className="font-semibold">Click to upload Document</span>
                             </p>
-                            <p className="text-xs text-muted-foreground font-mono">PDFs allowed (MAX. 5MB)</p>
+                            <p className="text-xs text-muted-foreground font-mono">{hint}</p>
                         </div>
                         <Input
                             type="file"
