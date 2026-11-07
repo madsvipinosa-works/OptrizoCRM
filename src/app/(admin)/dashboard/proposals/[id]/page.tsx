@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { meetings, proposalMessages, proposals } from "@/db/schema";
+import { agencyProjects, meetings, proposalMessages, proposals } from "@/db/schema";
 import { and, desc, eq, or } from "drizzle-orm";
 import { getSiteSettings } from "@/features/cms/actions";
 import {
@@ -14,6 +14,7 @@ import type { ContractSettings } from "@/features/proposals/actions";
 import { PricingMeetingPanel } from "@/features/proposals/components/PricingMeetingPanel";
 import { BookPricingMeetingModal } from "@/features/meetings/components/BookPricingMeetingModal";
 import { PaperSigningForm } from "@/features/proposals/components/PaperSigningForm";
+import { SignedProposalSummary } from "@/features/proposals/components/SignedProposalSummary";
 import { ProposalThread } from "@/features/proposals/components/ProposalThread";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit3, Printer, Info } from "lucide-react";
@@ -196,6 +197,16 @@ export default async function StaffProposalViewPage({
         agencyFaviconUrl: settings?.faviconUrl || null,
     };
 
+    const isSigned = proposal.status === "signed";
+    const project = isSigned && proposal.leadId
+        ? await db.query.agencyProjects.findFirst({
+              where: eq(agencyProjects.leadId, proposal.leadId),
+              orderBy: (p, { desc }) => [desc(p.createdAt)],
+              columns: { id: true },
+          })
+        : null;
+    const firstPayment = [...proposal.paymentScheduleItems].sort((a, b) => a.sortOrder - b.sortOrder)[0] ?? null;
+
     const statusBadgeClass =
         proposal.status === "signed"
             ? "bg-brand-soft text-brand-deep border-brand-deep/20"
@@ -207,8 +218,28 @@ export default async function StaffProposalViewPage({
 
     return (
         <div className="space-y-6 pb-16 max-w-5xl mx-auto">
+            {isSigned && (
+                <SignedProposalSummary
+                    proposalId={proposal.id}
+                    proposalCode={proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`}
+                    version={proposal.version}
+                    businessName={proposal.lead?.businessName || proposal.lead?.contactName || "The client"}
+                    clientName={proposal.lead?.client?.name || proposal.lead?.contactName || "The client"}
+                    projectName={proposal.projectName}
+                    signedBy={proposal.acceptedByName || proposal.signerName || "The client"}
+                    signedAt={proposal.acceptedAt || proposal.signedAt}
+                    online={!!proposal.signatureData}
+                    total={proposal.total || 0}
+                    currency={proposal.currency}
+                    milestones={proposal.milestones}
+                    firstPayment={firstPayment ? { label: firstPayment.label, percent: firstPayment.percent } : null}
+                    projectId={project?.id ?? null}
+                    showNextSteps={isManager}
+                />
+            )}
+
             {/* Top Bar with Navigation and Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+            {!isSigned && <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
                 <div className="flex items-center gap-3">
                     <Link
                         href="/dashboard/proposals"
@@ -253,10 +284,10 @@ export default async function StaffProposalViewPage({
                         </Link>
                     )}
                 </div>
-            </div>
+            </div>}
 
             {/* View-Only Informational Alert for Staff */}
-            <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-3.5 text-xs text-muted-foreground">
+            {!isSigned && <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-3.5 text-xs text-muted-foreground">
                 <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <div>
                     <span className="font-semibold text-foreground">Staff Read-Only View:</span>{" "}
@@ -264,7 +295,7 @@ export default async function StaffProposalViewPage({
                         ? "You are viewing the document specifications. Click 'Edit in Studio' to make changes."
                         : "The Project Manager writes, prices, and sends proposals. Use this view to review scope, deliverables, and financial terms with the client."}
                 </div>
-            </div>
+            </div>}
 
             {/* PM-Only Pricing Meeting Panel & Booking Modal */}
             {isManager && proposal.leadId && (

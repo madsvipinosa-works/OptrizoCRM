@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-    CheckCircle2,
     FileCheck,
     Loader2,
     Info,
@@ -19,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { formatDateTime } from "@/lib/datetime";
 import {
     Dialog,
     DialogContent,
@@ -97,6 +98,8 @@ interface Props {
         tax?: number;
     };
     isPreview?: boolean;
+    /** The project created from this proposal once it is signed. */
+    projectId?: string | null;
     canEditInStudio?: boolean;
     isCurrent?: boolean;
     isExpired?: boolean;
@@ -115,6 +118,7 @@ export function ProposalClientView({
     parsedDeliverables,
     parsedPricing,
     isPreview = false,
+    projectId = null,
     canEditInStudio = false,
     isCurrent = true,
     isExpired = false,
@@ -343,28 +347,25 @@ export function ProposalClientView({
             )}
 
             {/* Status Callout (Approved / Rejected) */}
+            {/* Signed: mockup 20, the confirmation the client lands on after signing */}
             {isApproved && (
-                <div className="max-w-[850px] mx-auto p-6 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2 no-print">
-                    <div className="mx-auto h-10 w-10 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500">
-                        <CheckCircle2 className="h-5 w-5" />
-                    </div>
-                    <h3 className="text-lg font-bold text-foreground">Agreement Executed & Active</h3>
-                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                        This proposal has been accepted and digitally executed by{" "}
-                        <strong className="text-foreground">{proposal.acceptedByName || "Client"}</strong>. Project onboarding and sprint initialization are underway.
+                <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3.5 rounded-xl border border-border bg-card p-7 no-print">
+                    {proposal.acceptedAt && (
+                        <span className="self-start rounded-full bg-[var(--brand-soft)] px-3 py-0.5 text-sm font-semibold text-[var(--brand-deep)]">
+                            Signed {formatDateTime(proposal.acceptedAt)}
+                        </span>
+                    )}
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">Thank you. Your project has started.</h2>
+                    <p className="text-base text-muted-foreground">
+                        A copy of the signed proposal was emailed to you. You can follow every milestone from your portal.
                     </p>
-                    <div className="pt-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDownloadPdf}
-                            disabled={isDownloadingPdf}
-                            className="items-center gap-1.5 font-mono text-xs"
-                        >
-                            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Printer className="h-3.5 w-3.5 mr-1" />}
-                            Download Signed SOW (PDF)
-                        </Button>
-                    </div>
+                    <Button asChild className="h-12 w-full rounded-lg text-base font-semibold">
+                        <Link href={projectId ? `/portal/projects/${projectId}` : "/portal/projects"}>View project progress</Link>
+                    </Button>
+                    <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="h-10 w-full rounded-lg">
+                        {isDownloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Printer className="mr-1 h-4 w-4" />}
+                        Download signed proposal (PDF)
+                    </Button>
                 </div>
             )}
 
