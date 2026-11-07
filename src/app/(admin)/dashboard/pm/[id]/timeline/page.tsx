@@ -1,7 +1,5 @@
-import Link from "next/link";
+import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { GanttTimeline } from "@/features/pm/components/GanttTimeline";
 import { buildGanttLayout } from "@/features/sprints/gantt-layout";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
@@ -47,57 +45,13 @@ export default async function PmProjectTimelinePage({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-5 pb-12">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            asChild
-            className="hover:bg-muted text-foreground shrink-0"
-          >
-            <Link href={`/dashboard/pm/${data.project.id}`} title="Back to board">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div className="min-w-0 flex-1">
-            <h1
-              className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
-              title={data.project.title}
-            >
-              {data.project.title}
-            </h1>
-            <p className="mt-1 truncate text-sm text-muted-foreground">
-              Business name: {data.project.businessName || "—"} · Client name:{" "}
-              {data.project.clientName || "—"}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <div
-            role="group"
-            aria-label="Project view switcher"
-            className="inline-flex rounded-lg border border-border overflow-hidden text-xs sm:text-sm"
-          >
-            <Link
-              href={`/dashboard/pm/${data.project.id}`}
-              className="px-3 py-1.5 bg-card text-foreground hover:bg-muted transition-colors font-medium"
-            >
-              Board
-            </Link>
-            <span className="px-3 py-1.5 bg-primary text-primary-foreground font-semibold">
-              Timeline
-            </span>
-          </div>
-
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/pm/${data.project.id}/payments`}>Payments</Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/pm/${data.project.id}/complete`}>Completion</Link>
-          </Button>
-        </div>
-      </div>
+      <ProjectHeader
+        projectId={data.project.id}
+        title={data.project.title}
+        businessName={data.project.businessName}
+        clientName={data.project.clientName}
+        current="timeline"
+      />
 
       <GanttTimeline layout={layout} />
     </div>

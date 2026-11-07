@@ -194,10 +194,10 @@ export function TaskProofValidationModal({
                 <DialogHeader className="shrink-0 p-4 sm:p-6 pb-3 border-b border-border bg-card/95 z-10 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                            <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 shrink-0">
+                            <div className="p-1.5 rounded-lg bg-brand-soft text-brand-deep border border-brand-deep/30 shrink-0">
                                 <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
                             </div>
-                            <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 text-xs">
+                            <Badge variant="outline" className="border-brand-deep/30 text-brand-deep bg-brand-soft text-xs">
                                 Proof of Work Verification
                             </Badge>
                         </div>
@@ -254,7 +254,7 @@ export function TaskProofValidationModal({
                             {/* Files Section */}
                             <div className="space-y-2.5">
                                 <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                    <Paperclip className="w-3.5 h-3.5 text-primary" />
+                                    <Paperclip className="w-3.5 h-3.5 text-brand-deep" />
                                     Deliverable Files & Attachments
                                 </Label>
 
@@ -293,12 +293,12 @@ export function TaskProofValidationModal({
                                                 className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border text-xs"
                                             >
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <Paperclip className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    <Paperclip className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                                                     <a
                                                         href={file.startsWith("http") ? file : `https://${file}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="tabular-nums text-primary underline truncate hover:text-primary/80"
+                                                        className="tabular-nums text-brand-deep underline truncate hover:text-brand-deep"
                                                     >
                                                         {file}
                                                     </a>
@@ -326,7 +326,7 @@ export function TaskProofValidationModal({
                             <div className="space-y-2.5">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                        <Link2 className="w-3.5 h-3.5 text-primary" />
+                                        <Link2 className="w-3.5 h-3.5 text-brand-deep" />
                                         Proof Links (Figma, GitHub PR, Preview URLs)
                                     </Label>
                                     {!isViewOnly && isEditing && (
@@ -335,7 +335,7 @@ export function TaskProofValidationModal({
                                             variant="outline"
                                             size="sm"
                                             onClick={addLink}
-                                            className="h-6 text-xs px-2 py-0 border-primary/30 text-primary hover:bg-primary/10"
+                                            className="h-6 text-xs px-2 py-0 border-brand-deep/30 text-brand-deep hover:bg-brand-soft"
                                         >
                                             + Add Link
                                         </Button>
@@ -346,7 +346,7 @@ export function TaskProofValidationModal({
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setIsEditing(true)}
-                                            className="h-6 text-xs px-2 py-0 border-primary/30 text-primary hover:bg-primary/10 gap-1"
+                                            className="h-6 text-xs px-2 py-0 border-brand-deep/30 text-brand-deep hover:bg-brand-soft gap-1"
                                         >
                                             <Edit2 className="w-3 h-3" /> Edit Proofs
                                         </Button>
@@ -400,13 +400,13 @@ export function TaskProofValidationModal({
                                                                         #{index + 1}
                                                                     </span>
                                                                 </div>
-                                                                <div className="flex items-center gap-1.5 text-primary mt-0.5 min-w-0">
+                                                                <div className="flex items-center gap-1.5 text-brand-deep mt-0.5 min-w-0">
                                                                     <ExternalLink className="w-3 h-3 shrink-0" />
                                                                     <a
                                                                         href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
-                                                                        className="text-xs tabular-nums underline hover:text-primary/80 truncate break-all block max-w-full"
+                                                                        className="text-xs tabular-nums underline hover:text-brand-deep truncate break-all block max-w-full"
                                                                     >
                                                                         {link.url}
                                                                     </a>
@@ -438,7 +438,7 @@ export function TaskProofValidationModal({
                                                                     href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="inline-flex items-center justify-center h-7 px-2.5 rounded-md text-xs font-medium bg-primary/10 text-foreground dark:text-primary hover:bg-primary/20 transition-colors gap-1 border border-primary/20"
+                                                                    className="inline-flex items-center justify-center h-7 px-2.5 rounded-md text-xs font-medium bg-brand-soft text-foreground dark:text-brand-deep hover:bg-brand-soft transition-colors gap-1 border border-brand-deep/30"
                                                                 >
                                                                     <span>Open</span>
                                                                     <ExternalLink className="w-3 h-3" />
@@ -459,7 +459,7 @@ export function TaskProofValidationModal({
                             <div className="space-y-2">
                                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                                     <Label htmlFor="proofNotes" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                        <FileText className="w-3.5 h-3.5 text-primary" />
+                                        <FileText className="w-3.5 h-3.5 text-brand-deep" />
                                         Completion Notes & Delivery Summary
                                     </Label>
                                     {isEditing && (

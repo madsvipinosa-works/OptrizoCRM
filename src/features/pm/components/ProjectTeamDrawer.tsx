@@ -150,7 +150,7 @@ export function ProjectTeamDrawer({
                     <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
                         {/* Project Manager Section */}
                         <div className="space-y-1.5">
-                            <h4 className="text-xs font-semibold text-muted-foreground">
+                            <h4 className="text-sm text-muted-foreground">
                                 Project Manager
                             </h4>
                             <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/40 border border-border/50 text-sm">
@@ -163,11 +163,11 @@ export function ProjectTeamDrawer({
 
                         {/* Developers Section */}
                         <div className="space-y-2">
-                            <h4 className="text-xs font-semibold text-muted-foreground">
+                            <h4 className="text-sm text-muted-foreground">
                                 Developers
                             </h4>
                             {teamMembers.length === 0 ? (
-                                <p className="text-xs text-muted-foreground italic px-1">
+                                <p className="px-1 text-sm text-muted-foreground">
                                     No developers on the team yet.
                                 </p>
                             ) : (
@@ -183,7 +183,7 @@ export function ProjectTeamDrawer({
                                                     <span className="text-sm font-medium text-foreground truncate">
                                                         {member.user?.name || member.user?.email}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                    <span className="whitespace-nowrap text-sm text-muted-foreground">
                                                         · {count} open task{count === 1 ? "" : "s"}
                                                     </span>
                                                 </div>
@@ -196,7 +196,7 @@ export function ProjectTeamDrawer({
                                                                 count,
                                                             })
                                                         }
-                                                        className="text-xs text-destructive hover:underline font-medium shrink-0 ml-2"
+                                                        className="ml-2 shrink-0 rounded-sm text-sm font-medium text-destructive outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                                                     >
                                                         Remove
                                                     </button>
@@ -211,7 +211,7 @@ export function ProjectTeamDrawer({
                         {/* Add a developer (Managers only) */}
                         {isManager && (
                             <div className="space-y-2 pt-2 border-t border-border">
-                                <h4 className="text-xs font-semibold text-muted-foreground">
+                                <h4 className="text-sm text-muted-foreground">
                                     Add a developer
                                 </h4>
                                 <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ export function ProjectTeamDrawer({
                                         onValueChange={setSelectedDevId}
                                         disabled={isAdding || selectableDevelopers.length === 0}
                                     >
-                                        <SelectTrigger className="flex-1 h-9 text-xs">
+                                        <SelectTrigger className="h-9 flex-1 bg-card text-sm">
                                             <SelectValue
                                                 placeholder={
                                                     selectableDevelopers.length === 0
@@ -237,7 +237,7 @@ export function ProjectTeamDrawer({
                                                     <SelectItem
                                                         key={dev.id}
                                                         value={dev.id}
-                                                        className="text-xs"
+                                                        className="text-sm"
                                                     >
                                                         {devName} · {count} open task{count === 1 ? "" : "s"}, available
                                                     </SelectItem>
@@ -249,7 +249,7 @@ export function ProjectTeamDrawer({
                                         onClick={handleAddMember}
                                         disabled={!selectedDevId || isAdding}
                                         size="sm"
-                                        className="h-9 px-3 shrink-0 text-xs font-semibold"
+                                        className="h-9 shrink-0 px-3 font-semibold active:scale-[0.97]"
                                     >
                                         {isAdding ? (
                                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -263,10 +263,10 @@ export function ProjectTeamDrawer({
 
                         {/* Read-only client line */}
                         <div className="space-y-1.5 pt-2 border-t border-border">
-                            <h4 className="text-xs font-semibold text-muted-foreground">
-                                Client
+                            <h4 className="text-sm text-muted-foreground">
+                                Client name
                             </h4>
-                            <div className="py-2 px-3 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground">
+                            <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                                 <span className="truncate">
                                     {clientInfo?.name || "Client"} ({clientInfo?.businessName || "Client Business"}) · can see progress only
                                 </span>
@@ -280,7 +280,7 @@ export function ProjectTeamDrawer({
                             variant="outline"
                             size="sm"
                             onClick={onClose}
-                            className="h-8 px-4 text-xs font-medium"
+                            className="h-9 bg-card px-4"
                         >
                             Close
                         </Button>

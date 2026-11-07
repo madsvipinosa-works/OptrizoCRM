@@ -210,23 +210,23 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="border-border hover:bg-muted text-foreground shadow-xs gap-1.5 h-9 px-2.5 sm:px-3 shrink-0" title="Project Settings">
-                    <Settings className="h-4 w-4 text-muted-foreground" />
-                    <span className="hidden sm:inline">Settings</span>
+                <Button variant="ghost" className="h-9 shrink-0 gap-1.5 px-3 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.97]">
+                    <Settings className="size-4" aria-hidden="true" />
+                    Settings
                 </Button>
             </DialogTrigger>
             <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] p-0 flex flex-col bg-card border-border text-foreground rounded-xl overflow-hidden focus:outline-none">
                 {/* Modal Header */}
                 <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-border bg-card/95 z-10">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-brand-deep">
                             <Briefcase className="h-3.5 w-3.5" /> Project Lifecycle & Configuration
                         </div>
                         <Badge
                             variant="outline"
                             className={`text-xs tabular-nums font-semibold ${
  status === "Completed"
-                                    ? "bg-primary/10 text-primary border-primary/30"
+                                    ? "bg-brand-soft text-brand-deep border-brand-deep/30"
                                     : status === "In Progress"
                                     ? "bg-brand-soft text-brand-deep border-brand-deep/30"
                                     : status === "In Review"
@@ -273,7 +273,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                             <div className="space-y-4">
                                 <div className="space-y-1.5">
                                     <Label htmlFor="proj-title" className="text-xs font-medium text-foreground">
-                                        Project Title <span className="text-primary">*</span>
+                                        Project Title <span className="text-brand-deep">*</span>
                                     </Label>
                                     <Input
                                         id="proj-title"
@@ -332,7 +332,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="proj-start" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                            <Calendar className="h-3.5 w-3.5 text-primary" /> Start Date
+                                            <Calendar className="h-3.5 w-3.5 text-brand-deep" /> Start Date
                                         </Label>
                                         <DatePicker id="proj-start" value={startDate} onChange={setStartDate} className="bg-muted/30 border-border text-xs" />
                                     </div>
@@ -350,7 +350,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                         className={`p-3 rounded-lg border text-xs flex items-center gap-2 ${
  timelineSummary.isWarning
  ? "bg-stage-negotiation/10 border-stage-negotiation/30 text-stage-negotiation"
-                                                : "bg-primary/10 border-primary/20 text-primary"
+                                                : "bg-brand-soft border-brand-deep/30 text-brand-deep"
                                         }`}
                                     >
                                         <Sparkles className="h-4 w-4 shrink-0" />
@@ -375,7 +375,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                 {/* Client Stakeholder Selection */}
                                 <div className="space-y-1.5">
                                     <Label htmlFor="proj-client" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                        <Users className="h-3.5 w-3.5 text-primary" /> Primary Client Stakeholder
+                                        <Users className="h-3.5 w-3.5 text-brand-deep" /> Primary Client Stakeholder
                                     </Label>
                                     <Select value={clientUserId} onValueChange={setClientUserId}>
                                         <SelectTrigger id="proj-client" className="h-9 text-xs">
@@ -401,7 +401,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                 {project.lead ? (
                                     <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2.5">
                                         <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                                            <Briefcase className="h-3.5 w-3.5 text-primary" /> Originating Sales Deal
+                                            <Briefcase className="h-3.5 w-3.5 text-brand-deep" /> Originating Sales Deal
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-2 text-xs">

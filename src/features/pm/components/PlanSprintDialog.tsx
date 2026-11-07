@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
-import { todayYmd } from "@/lib/datetime";
+import { todayYmd, formatDate } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { planSprint } from "@/features/sprints/actions";
@@ -80,6 +80,9 @@ export function PlanSprintDialog({
   const [isSaving, setIsSaving] = useState(false);
 
   const hasDevelopmentDates = Boolean(developmentStartDate && developmentEndDate);
+  const devRange = hasDevelopmentDates
+    ? `${formatDate(developmentStartDate!)} – ${formatDate(developmentEndDate!)}`
+    : null;
 
   // Carried-over tasks (or non-backlog unfinished tasks from ended sprints) are pre-selected
   const defaultPreselectedIds = useMemo(() => {
@@ -157,8 +160,8 @@ export function PlanSprintDialog({
       <DialogContent className="sm:max-w-[540px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-5 sm:p-6 pb-3 border-b border-border shrink-0">
           <DialogTitle className="text-lg font-semibold text-foreground">Plan sprint</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-            {projectTitle} · Development
+          <DialogDescription className="text-sm text-muted-foreground">
+            {projectTitle} · Development{devRange ? ` (${devRange})` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -167,21 +170,17 @@ export function PlanSprintDialog({
             {!hasDevelopmentDates && (
               <div
                 role="note"
-                className="flex items-start gap-2.5 rounded-lg border border-stage-negotiation/30 bg-stage-negotiation/10 p-3 text-xs text-stage-negotiation dark:text-stage-negotiation"
+                className="flex items-start gap-2.5 rounded-lg border border-stage-negotiation/30 bg-stage-negotiation/10 p-3 text-sm text-foreground"
               >
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-stage-negotiation dark:text-stage-negotiation" />
-                <span>
-                  The Development milestone has no start or end dates set
-                  (<code className="tabular-nums">no_development_dates</code>). Any valid sprint dates
-                  are allowed.
-                </span>
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-stage-negotiation" aria-hidden="true" />
+                <span>The Development milestone has no dates yet, so any sprint dates are allowed.</span>
               </div>
             )}
 
             {errorMessage && (
               <div
                 role="alert"
-                className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs font-medium text-destructive"
+                className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm font-medium text-destructive"
               >
                 {errorMessage}
               </div>
@@ -189,7 +188,7 @@ export function PlanSprintDialog({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="sprint-name" className="text-xs font-semibold text-muted-foreground">
+                <Label htmlFor="sprint-name" className="text-sm text-muted-foreground">
                   Sprint name
                 </Label>
                 <Input
@@ -204,22 +203,27 @@ export function PlanSprintDialog({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="sprint-start" className="text-xs font-semibold text-muted-foreground">
+                <Label htmlFor="sprint-start" className="text-sm text-muted-foreground">
                   Start date
                 </Label>
                 <DatePicker id="sprint-start" value={startDate} onChange={setStartDate} min={todayYmd()} required />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="sprint-end" className="text-xs font-semibold text-muted-foreground">
+                <Label htmlFor="sprint-end" className="text-sm text-muted-foreground">
                   End date
                 </Label>
                 <DatePicker id="sprint-end" value={endDate} onChange={setEndDate} min={startDate || todayYmd()} required />
               </div>
             </div>
+            {devRange && (
+              <p className="-mt-2 text-sm text-muted-foreground">
+                Dates must fall within Development ({devRange}) and not overlap another sprint.
+              </p>
+            )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="sprint-goal" className="text-xs font-semibold text-muted-foreground">
+              <Label htmlFor="sprint-goal" className="text-sm text-muted-foreground">
                 Sprint goal
               </Label>
               <Input
@@ -234,13 +238,13 @@ export function PlanSprintDialog({
 
             {/* Task Checklist */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Tasks from backlog ({backlogTasks.length} available)</span>
-                <strong className="text-primary font-semibold">{selectedIds.length} selected</strong>
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Tasks from backlog ({backlogTasks.length} not in a sprint)</span>
+                <strong className="text-brand-deep font-semibold tabular-nums">{selectedIds.length} selected</strong>
               </div>
 
               {backlogTasks.length === 0 ? (
-                <div className="py-6 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                <div className="py-6 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
                   No backlog or carried-over tasks available to select. You can still create an
                   empty sprint.
                 </div>
@@ -260,10 +264,10 @@ export function PlanSprintDialog({
                       <label
                         key={task.id}
                         className={cn(
-                          "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs sm:text-sm cursor-pointer transition-colors",
+                          "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors duration-150",
                           checked
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-background text-foreground hover:bg-muted/40"
+                            ? "border-brand-deep/40 bg-brand-soft text-foreground"
+                            : "border-border bg-card text-foreground hover:bg-muted/40"
                         )}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -277,13 +281,13 @@ export function PlanSprintDialog({
                           {isCarried && (
                             <Badge
                               variant="secondary"
-                              className="text-xs font-semibold px-1.5 py-0 bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30 shrink-0"
+                              className="text-xs font-semibold px-1.5 py-0 bg-stage-negotiation/15 text-stage-negotiation border-stage-negotiation/30 shrink-0"
                             >
                               Carried over
                             </Badge>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground shrink-0">
+                        <span className="text-sm text-muted-foreground shrink-0">
                           {assigneeLabel}
                         </span>
                       </label>
@@ -295,8 +299,8 @@ export function PlanSprintDialog({
           </div>
 
           <DialogFooter className="p-4 sm:px-6 border-t border-border bg-card flex items-center justify-between gap-3 shrink-0">
-            <span className="text-xs text-muted-foreground hidden sm:inline">
-              On save: assigned developers are notified.
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              On save: the assigned developers are notified, and the sprint is saved in Activity.
             </span>
             <div className="flex items-center gap-2 ml-auto">
               <Button
@@ -307,7 +311,7 @@ export function PlanSprintDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSaving || !name.trim() || !startDate || !endDate}>
+              <Button type="submit" disabled={isSaving || !name.trim() || !startDate || !endDate} className="font-semibold active:scale-[0.97]">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
                 Save sprint
               </Button>

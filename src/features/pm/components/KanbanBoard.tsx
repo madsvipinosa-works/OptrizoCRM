@@ -13,7 +13,7 @@ import {
 } from "@/features/pm/actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Users, RotateCcw, Loader2 } from "lucide-react";
+import { Plus, Users, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayYmd } from "@/lib/datetime";
@@ -479,7 +479,7 @@ export function KanbanBoard({
     };
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 space-y-3.5 w-full">
+        <div className="flex flex-col flex-1 min-h-0 space-y-4 w-full">
             {/* Top Bar Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-2">
@@ -532,11 +532,12 @@ export function KanbanBoard({
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 text-xs font-semibold gap-1.5"
+                            className="h-9 gap-1.5 bg-card text-sm font-medium active:scale-[0.97]"
                             onClick={() => setTeamDrawerOpen(true)}
                         >
-                            <Users className="w-3.5 h-3.5 text-primary" />
-                            <span>Team ({projectTeamRecords.length})</span>
+                            <Users className="size-4 text-muted-foreground" aria-hidden="true" />
+                            <span>Team</span>
+                            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">{projectTeamRecords.length}</span>
                         </Button>
                     )}
 
@@ -545,11 +546,11 @@ export function KanbanBoard({
                         <Button
                             size="sm"
                             disabled={!activeMilestone || activeMilestone.status === "Completed"}
-                            className="h-8 text-xs font-semibold gap-1.5 shadow-xs"
+                            className="h-9 gap-1.5 text-sm font-semibold active:scale-[0.97]"
                             onClick={() => setIsAddingTask(true)}
                         >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Task</span>
+                            <Plus className="size-4" aria-hidden="true" />
+                            <span>Add task</span>
                         </Button>
                     )}
                 </div>
@@ -749,17 +750,14 @@ export function KanbanBoard({
             <Dialog open={!!requestChangesTask} onOpenChange={(open) => !open && setRequestChangesTask(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-destructive dark:text-destructive">
-                            <RotateCcw className="w-5 h-5" />
-                            Request Task Changes
-                        </DialogTitle>
-                        <DialogDescription>
-                            Provide feedback to the developer detailing what changes are required before this task can be approved.
+                        <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">Request changes</DialogTitle>
+                        <DialogDescription className="text-sm">
+                            {requestChangesTask?.title}: say what needs to change before you can approve it.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3 py-2">
-                        <Label htmlFor="review-note" className="text-xs font-semibold">
-                            Review Comment <span className="text-destructive">*</span>
+                        <Label htmlFor="review-note" className="text-sm text-muted-foreground">
+                            Comment for {requestChangesTask?.assignees?.[0]?.user.name?.split(" ")[0] || "the developer"} (needed to request changes)
                         </Label>
                         <Textarea
                             id="review-note"
@@ -769,8 +767,8 @@ export function KanbanBoard({
                             onChange={(e) => setRequestChangesComment(e.target.value)}
                             maxLength={2000}
                         />
-                        <p className="text-xs text-muted-foreground">
-                            The task will move to &ldquo;Changes Requested&rdquo; (inside In Progress) with your review note attached.
+                        <p className="text-sm text-muted-foreground">
+                            The task moves back to In progress with your comment, and the developer is notified.
                         </p>
                     </div>
                     <DialogFooter>
@@ -784,10 +782,10 @@ export function KanbanBoard({
                         <Button
                             onClick={handleRequestChangesConfirm}
                             disabled={isSubmittingChanges || !requestChangesComment.trim()}
-                            className="bg-destructive hover:bg-destructive text-white"
+                            className="font-semibold active:scale-[0.97]"
                         >
                             {isSubmittingChanges ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
-                            Request Changes
+                            Request changes
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -797,42 +795,46 @@ export function KanbanBoard({
             <Dialog open={isAddingTask} onOpenChange={setIsAddingTask}>
                 <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-card border-border text-foreground rounded-xl overflow-hidden focus:outline-none">
                     <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-border bg-card/95 z-10">
-                        <DialogTitle className="text-lg font-semibold text-foreground tracking-tight">
-                            Add Task to {activeMilestone?.title || "Milestone"}
-                        </DialogTitle>
+                        <DialogTitle className="text-lg font-semibold text-foreground tracking-tight">Add task</DialogTitle>
+                        <p className="text-sm text-muted-foreground">
+                            Business name: {clientInfo?.businessName || "Not given"} · Project name: {project.title}
+                        </p>
                     </DialogHeader>
                     <form onSubmit={handleCreateTask} className="flex-1 flex flex-col min-h-0 overflow-hidden">
                         <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs text-muted-foreground font-semibold">
-                                    Task Title <span className="text-destructive">*</span>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="new-task-name" className="text-sm text-muted-foreground">
+                                    Task name <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
-                                    className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
+                                    id="new-task-name"
+                                    className="bg-card text-sm text-foreground placeholder:text-muted-foreground"
                                     value={newTaskTitle}
                                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                                    placeholder="e.g. Implement OAuth Flow"
+                                    placeholder="e.g. Draft the dispatcher dashboard wireframes"
                                     required
                                 />
                             </div>
+                            {/* The task goes into the milestone open on the board; it cannot be changed here (mockup 22b). */}
+                            <div className="space-y-1.5">
+                                <Label htmlFor="new-task-milestone" className="text-sm text-muted-foreground">Milestone (fixed)</Label>
+                                <Input id="new-task-milestone" value={activeMilestone?.title || "No milestone"} readOnly disabled className="bg-muted text-sm text-foreground" />
+                            </div>
                             <div className="space-y-2">
-                                <Label className="text-xs text-muted-foreground font-semibold">
-                                    Description (Optional)
-                                </Label>
+                                <Label htmlFor="new-task-desc" className="text-sm text-muted-foreground">Description (optional)</Label>
                                 <Textarea
-                                    className="bg-background border-border focus:border-primary resize-none text-foreground placeholder:text-muted-foreground text-xs sm:text-sm"
+                                    id="new-task-desc"
+                                    className="resize-none bg-card text-sm text-foreground placeholder:text-muted-foreground"
                                     rows={3}
                                     value={newTaskDesc}
                                     onChange={(e) => setNewTaskDesc(e.target.value)}
-                                    placeholder="Details or deliverables for the assigned developer..."
+                                    placeholder="e.g. List the screens the dispatcher needs, with a short note for each."
                                 />
                             </div>
 
                             {isDevelopment && (
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground font-semibold">
-                                        Sprint
-                                    </Label>
+                                    <Label className="text-sm text-muted-foreground">Sprint</Label>
                                     <FormSelect
                                         value={newTaskSprintChoice}
                                         onChange={(e) => setNewTaskSprintChoice(e.target.value)}
@@ -852,19 +854,18 @@ export function KanbanBoard({
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground font-semibold">
-                                        Effort Weight
-                                    </Label>
+                                    <Label className="text-sm text-muted-foreground">Effort weight</Label>
                                     <div className="flex gap-1.5">
                                         {[1, 2, 3, 5, 8].map((pts) => (
                                             <button
                                                 key={pts}
                                                 type="button"
                                                 onClick={() => setNewTaskWeight(pts)}
-                                                className={`flex-1 py-1.5 rounded-md text-xs tabular-nums font-semibold border transition-all ${
- newTaskWeight === pts
- ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                                                        : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                                                aria-pressed={newTaskWeight === pts}
+                                                className={`flex-1 rounded-md border py-1.5 text-sm font-semibold tabular-nums transition-[color,background-color,border-color] duration-150 ease-out ${
+                                                    newTaskWeight === pts
+                                                        ? "border-brand-deep/40 bg-brand-soft text-brand-deep"
+                                                        : "border-border bg-card text-muted-foreground hover:text-foreground"
                                                 }`}
                                             >
                                                 {pts}p
@@ -874,9 +875,7 @@ export function KanbanBoard({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground font-semibold">
-                                        Est. Hours
-                                    </Label>
+                                    <Label className="text-sm text-muted-foreground">Estimated hours</Label>
                                     <Input
                                         type="number"
                                         min="1"
@@ -884,31 +883,27 @@ export function KanbanBoard({
                                         placeholder="e.g. 8"
                                         value={newTaskHours}
                                         onChange={(e) => setNewTaskHours(e.target.value)}
-                                        className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs"
+                                        className="bg-card text-sm text-foreground placeholder:text-muted-foreground"
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs text-muted-foreground font-semibold">
-                                    Due Date
-                                </Label>
-                                <DatePicker value={newTaskDueDate} onChange={setNewTaskDueDate} min={todayYmd()} className="bg-background border-border text-xs" />
+                                <Label className="text-sm text-muted-foreground">Due date</Label>
+                                <DatePicker value={newTaskDueDate} onChange={setNewTaskDueDate} min={todayYmd()} className="bg-card text-sm" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs text-muted-foreground font-semibold">
-                                    Assign Developer (Project Team)
-                                </Label>
+                                <Label className="text-sm text-muted-foreground">Assign to</Label>
                                 <AssigneeCombobox
                                     teamMembers={teamMembers}
                                     selectedIds={newAssigneeIds}
                                     onSelectionChange={setNewAssigneeIds}
-                                    placeholder="Select team developer..."
+                                    placeholder="Pick a developer on the team"
                                 />
                                 {teamMembers.length === 0 && (
-                                    <p className="text-xs text-stage-negotiation dark:text-stage-negotiation">
-                                        No developers on the project team yet. Add developers via the Team drawer first.
+                                    <p className="text-sm text-muted-foreground">
+                                        No developers on the project team yet. Add them with Team first.
                                     </p>
                                 )}
                             </div>
@@ -926,11 +921,12 @@ export function KanbanBoard({
                             <Button
                                 type="submit"
                                 disabled={isCreatingTask || !newTaskTitle.trim()}
+                                className="font-semibold active:scale-[0.97]"
                             >
                                 {isCreatingTask ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
                                 {isDevelopment && newTaskSprintChoice === "backlog"
                                     ? "Add to backlog"
-                                    : "Create Task"}
+                                    : "Add task"}
                             </Button>
                         </DialogFooter>
                     </form>

@@ -1,14 +1,17 @@
 import { db } from "@/db";
+import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { agencyProjects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
-import Link from "next/link";
-import { ArrowLeft, CreditCard } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { PmPaymentsTable, PaymentItem } from "@/features/payments/components/PmPaymentsTable";
 
 export const dynamic = "force-dynamic";
+
+
+// Show money in the payment's own currency (PHP default), never converted.
+const money = (amount: number, currency: string) =>
+    currency === "USD" ? `$${amount.toLocaleString("en-US")}` : `₱${amount.toLocaleString("en-PH")}`;
 
 export default async function PmPaymentsPage({
     params,
@@ -75,48 +78,34 @@ export default async function PmPaymentsPage({
 
     return (
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
-            <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href={`/dashboard/pm/${project.id}`}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Link>
-                    </Button>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <CreditCard className="w-5 h-5 text-primary" />
-                            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                                Payment Schedule & Billing
-                            </h1>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            {project.title} • {project.lead?.businessName || project.lead?.contactName || "Client"}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <ProjectHeader
+                projectId={project.id}
+                title={project.title}
+                businessName={project.lead?.businessName}
+                clientName={project.lead?.contactName}
+                current="payments"
+            />
 
-            {/* Financial Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-card rounded-xl border border-border p-4">
-                    <div className="text-xs tabular-nums text-muted-foreground">Total Contract Value</div>
-                    <div className="text-2xl font-semibold tabular-nums text-foreground mt-1">
-                        {currency} {totalAmount.toLocaleString()}
-                    </div>
+            {/* Mockup 29b: what came in against the total, and what is left. */}
+            <section aria-label="Payment summary" className="rounded-xl border border-border bg-card px-5 py-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                    <p className="text-foreground">
+                        Received <span className="text-lg font-semibold tabular-nums">{money(paidAmount, currency)}</span>{" "}
+                        <span className="text-muted-foreground">of {money(totalAmount, currency)}</span>
+                    </p>
+                    <p className="tabular-nums text-muted-foreground">{money(pendingAmount, currency)} left</p>
                 </div>
-                <div className="bg-card rounded-xl border border-border p-4">
-                    <div className="text-xs tabular-nums text-brand-deep dark:text-brand-deep">Total Collected</div>
-                    <div className="text-2xl font-semibold tabular-nums text-brand-deep dark:text-brand-deep mt-1">
-                        {currency} {paidAmount.toLocaleString()}
-                    </div>
+                <div
+                    role="progressbar"
+                    aria-label="Share of the total received"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={totalAmount ? Math.round((paidAmount / totalAmount) * 100) : 0}
+                    className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+                >
+                    <div className="h-full rounded-full bg-brand-deep" style={{ width: `${totalAmount ? (paidAmount / totalAmount) * 100 : 0}%` }} />
                 </div>
-                <div className="bg-card rounded-xl border border-border p-4">
-                    <div className="text-xs tabular-nums text-stage-negotiation dark:text-stage-negotiation">Outstanding / Pending</div>
-                    <div className="text-2xl font-semibold tabular-nums text-stage-negotiation dark:text-stage-negotiation mt-1">
-                        {currency} {pendingAmount.toLocaleString()}
-                    </div>
-                </div>
-            </div>
+            </section>
 
             {/* Payments Table */}
             <PmPaymentsTable payments={paymentItems} projectId={project.id} />
