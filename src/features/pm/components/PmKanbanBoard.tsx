@@ -93,31 +93,31 @@ const COLUMNS: {
 }[] = [
     {
         id: "to_do",
-        title: "To Do",
+        title: "To do",
         dotColor: "bg-muted-foreground",
         badgeColor: "bg-muted text-foreground border-border",
-        subtitle: "Task created and assigned",
+        subtitle: "Auto: task created and assigned",
     },
     {
         id: "in_progress",
-        title: "In Progress",
+        title: "In progress",
         dotColor: "bg-stage-new",
         badgeColor: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
-        subtitle: "Developer starts work",
+        subtitle: "Auto: developer starts work",
     },
     {
         id: "in_review",
-        title: "In Review",
+        title: "In review",
         dotColor: "bg-stage-negotiation",
         badgeColor: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
-        subtitle: "Developer submits for PM review",
+        subtitle: "Auto: developer submits it",
     },
     {
         id: "done",
         title: "Done",
         dotColor: "bg-brand-deep",
         badgeColor: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
-        subtitle: "PM approves task",
+        subtitle: "Auto: PM approves",
     },
 ];
 
@@ -294,9 +294,9 @@ function PmKanbanColumn({
             )}
         >
             {/* Column Header */}
-            <div className="flex items-center justify-between mb-3 px-1">
+            <div className="mb-3 px-1">
                 <div className="flex items-center gap-2">
-                    <span className={cn("w-2.5 h-2.5 rounded-full shrink-0 shadow-sm", column.dotColor)} />
+                    <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", column.dotColor)} aria-hidden="true" />
                     <h3 className="font-semibold text-foreground text-sm tracking-tight">
                         {column.title}
                     </h3>
@@ -304,6 +304,7 @@ function PmKanbanColumn({
                         {tasks.length}
                     </span>
                 </div>
+                <p className="mt-0.5 text-sm text-muted-foreground">{column.subtitle}</p>
             </div>
 
             {/* Cards List */}
@@ -380,7 +381,7 @@ function TaskCard({
                 "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-xl border shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer p-3.5 gap-2.5",
                 isChangesRequested
                     ? "bg-destructive/15 border-destructive/30 hover:border-destructive/30 shadow-rose-950/10"
-                    : "bg-card border-border hover:border-primary/40 text-foreground"
+                    : "bg-card border-border hover:border-brand-deep/30 text-foreground"
             )}
         >
             {/* Header: Title, Tags & Delete Button */}

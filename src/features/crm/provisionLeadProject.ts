@@ -15,6 +15,7 @@ import {
     users,
 } from "@/db/schema";
 import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
+import { orderMilestones } from "@/features/proposals/draft-logic";
 import { sendClientWelcomeEmail } from "@/lib/notifications";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -344,38 +345,30 @@ export async function provisionProjectFromProposal(
         userId: lead.clientId,
     });
 
-    // 8. 5 Milestones named from proposal_milestone with their dates
-    // First is "In Progress", remaining four are "Pending"
+    // 8. Project milestones from proposal_milestone
     // Fetch proposal milestones if not already passed on proposal object
     const propMilestones = proposal.milestones || await tx.query.proposalMilestones.findMany({
         where: eq(proposalMilestones.proposalId, proposal.id),
     });
-    const milestoneDateMap = new Map<string, { startDate?: Date | null; endDate?: Date | null }>();
-    if (Array.isArray(propMilestones)) {
-        for (const pm of propMilestones) {
-            if (pm?.name) {
-                milestoneDateMap.set(pm.name, {
-                    startDate: pm.startDate ? new Date(pm.startDate) : null,
-                    endDate: pm.endDate ? new Date(pm.endDate) : null,
-                });
-            }
-        }
-    }
+    // Every milestone in the proposal's order: the 5 defaults keep their names (payments and automations
+    // key on them); milestones the PM added come across by title. The first one starts In Progress.
+    const ordered = orderMilestones(Array.isArray(propMilestones) ? propMilestones : []);
+    const dayOf = (ymd: string) => (ymd ? new Date(`${ymd}T00:00:00.000Z`) : null);
 
     const createdMilestones = [];
-    for (let i = 0; i < DEFAULT_PROPOSAL_MILESTONES.length; i++) {
-        const def = DEFAULT_PROPOSAL_MILESTONES[i];
-        const dates = milestoneDateMap.get(def.name);
+    for (let i = 0; i < ordered.length; i++) {
+        const om = ordered[i];
+        const defaultName = om.custom ? null : DEFAULT_PROPOSAL_MILESTONES.find((d) => d.key === om.key)?.name ?? null;
         const [m] = await tx.insert(milestones).values({
             projectId: project.id,
-            name: def.name,
-            title: def.title,
+            name: defaultName,
+            title: om.title,
             order: i,
             status: i === 0 ? "In Progress" : "Pending",
-            startDate: dates?.startDate || null,
-            endDate: dates?.endDate || null,
+            startDate: dayOf(om.startDate),
+            endDate: dayOf(om.endDate),
         }).returning();
-        createdMilestones.push(m || { name: def.name, title: def.title });
+        createdMilestones.push(m || { name: defaultName, title: om.title });
     }
 
     // 9. Payment rows from paymentScheduleItems

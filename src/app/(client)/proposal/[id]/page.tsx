@@ -192,6 +192,7 @@ export default async function ProposalPage({
         orderBy: (msg, { asc }) => [asc(msg.createdAt)],
     });
 
+
     return (
         <div className="min-h-screen bg-muted/20 text-foreground selection:bg-primary/30 py-8 md:py-14 px-4 sm:px-6 lg:px-8 print:min-h-0 print:bg-white print:p-0 print:m-0 print:w-full">
             <div className="max-w-4xl mx-auto print:max-w-none print:w-full print:m-0 print:p-0">

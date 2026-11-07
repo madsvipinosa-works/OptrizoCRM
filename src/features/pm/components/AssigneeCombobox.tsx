@@ -134,7 +134,7 @@ export function AssigneeCombobox({
                                     className={cn(
                                         "flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition-colors select-none",
                                         isSelected
-                                            ? "bg-primary/15 text-primary font-medium"
+                                            ? "bg-brand-soft text-brand-deep font-medium"
                                             : "hover:bg-muted text-foreground"
                                     )}
                                 >
@@ -157,7 +157,7 @@ export function AssigneeCombobox({
                                         </div>
                                     </div>
                                     {isSelected && (
-                                        <Check className="w-4 h-4 text-primary shrink-0 ml-2" />
+                                        <Check className="w-4 h-4 text-brand-deep shrink-0 ml-2" />
                                     )}
                                 </div>
                             );

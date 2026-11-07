@@ -639,7 +639,13 @@ export const proposalMilestones = pgTable("proposal_milestone", {
     proposalId: text("proposal_id")
         .notNull()
         .references(() => proposals.id, { onDelete: "cascade" }),
-    name: milestoneNameEnum("name").notNull(),
+    /** One of the 5 default milestones, or null for a milestone the PM added (0020). */
+    name: milestoneNameEnum("name"),
+    /** Only for added milestones: the defaults take their title and description from constants. */
+    title: text("title"),
+    description: text("description"),
+    /** Position among the defaults (100, 200 … 500); an added milestone sits between them. */
+    sortOrder: integer("sort_order"),
     startDate: timestamp("start_date", { withTimezone: true }),
     endDate: timestamp("end_date", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

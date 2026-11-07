@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { markEmptyMilestoneDone } from "@/features/pm/actions";
 import { cn } from "@/lib/utils";
@@ -98,40 +98,24 @@ export function MilestoneStrip({
                             key={m.id}
                             type="button"
                             onClick={() => onSelectMilestone(m.id)}
+                            aria-pressed={isSelected}
                             className={cn(
-                                "flex-1 min-w-[120px] sm:min-w-0 px-3 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-center flex flex-col items-center justify-center gap-1 border",
+                                "flex-1 min-w-[132px] sm:min-w-0 px-3 py-2 rounded-lg text-sm font-semibold text-center flex flex-col items-center justify-center gap-0.5 border outline-none transition-[color,background-color,border-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]",
                                 isSelected
-                                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                                    : isCurrentInProgress
-                                    ? "bg-primary/15 text-primary border-primary/30 hover:bg-primary/20"
+                                    ? "bg-brand-deep text-white border-brand-deep dark:text-background"
                                     : isCompleted
-                                    ? "bg-muted/80 text-foreground border-border hover:bg-muted"
-                                    : "bg-muted/40 text-muted-foreground border-border/50 hover:bg-muted/60"
+                                    ? "bg-brand-soft text-brand-deep border-transparent hover:border-brand-deep/30"
+                                    : isCurrentInProgress
+                                    ? "bg-card text-foreground border-brand-deep/40 hover:bg-muted/50"
+                                    : "bg-muted/60 text-muted-foreground border-transparent hover:text-foreground"
                             )}
                         >
-                            <div className="flex items-center gap-1.5 truncate max-w-full">
-                                {isCompleted ? (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep shrink-0" />
-                                ) : isCurrentInProgress ? (
-                                    <Clock className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
-                                ) : null}
-                                <span className="truncate">{displayName}</span>
-                            </div>
-                            <span
-                                className={cn(
-                                    "text-xs font-normal ",
-                                    isSelected
-                                        ? "text-primary-foreground/80"
-                                        : isCurrentInProgress
-                                        ? "text-primary font-medium"
-                                        : "text-muted-foreground"
-                                )}
-                            >
-                                {m.status === "In Progress"
-                                    ? "In Progress"
-                                    : m.status === "Completed"
-                                    ? "Completed"
-                                    : "Pending"}
+                            <span className="flex items-center gap-1.5 leading-tight">
+                                {isCompleted && <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />}
+                                <span>{displayName}</span>
+                            </span>
+                            <span className={cn("text-xs font-normal", isSelected ? "opacity-80" : "text-muted-foreground", isCompleted && !isSelected && "text-brand-deep/80")}>
+                                {isCurrentInProgress ? "In progress" : isCompleted ? "Done" : "Not started"}
                             </span>
                         </button>
                     );

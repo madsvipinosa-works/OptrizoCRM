@@ -52,6 +52,11 @@ interface PmPaymentsTableProps {
     projectId: string;
 }
 
+
+// Show money in the payment's own currency (PHP default), never converted.
+const money = (amount: number, currency: string) =>
+    currency === "USD" ? `$${amount.toLocaleString("en-US")}` : `₱${amount.toLocaleString("en-PH")}`;
+
 export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
     const router = useRouter();
     const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null);
@@ -92,7 +97,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
         if (!selectedPayment) return;
 
         if (!orNumber.trim()) {
-            toast.error("Official Receipt (OR) number is required.");
+            toast.error("Enter the official receipt no.");
             return;
         }
 
@@ -163,7 +168,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
         <div className="space-y-4">
             <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-border">
+                    <thead className="bg-muted/40 text-sm text-muted-foreground border-b border-border">
                         <tr>
                             <th className="px-4 py-3 font-semibold">Payment / Milestone</th>
                             <th className="px-4 py-3 font-semibold">Amount</th>
@@ -197,8 +202,8 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3.5 font-mono font-medium text-foreground">
-                                            {p.currency} {p.amount.toLocaleString()}
+                                        <td className="px-4 py-3.5 font-semibold tabular-nums text-foreground">
+                                            {money(p.amount, p.currency)}
                                         </td>
                                         <td className="px-4 py-3.5 text-xs">
                                             {p.dueDate ? (
@@ -239,7 +244,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                         <td className="px-4 py-3.5 text-xs">
                                             {p.status === "paid" ? (
                                                 <div className="space-y-0.5">
-                                                    <div className="font-mono font-semibold text-foreground">
+                                                    <div className="font-semibold tabular-nums text-foreground">
                                                         OR #{p.orNumber}
                                                     </div>
                                                     <div className="text-muted-foreground capitalize">
@@ -248,7 +253,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                                     </div>
                                                 </div>
                                             ) : p.referenceNo ? (
-                                                <span className="text-muted-foreground font-mono">{p.referenceNo}</span>
+                                                <span className="text-muted-foreground tabular-nums">{p.referenceNo}</span>
                                             ) : (
                                                 <span className="text-muted-foreground">—</span>
                                             )}
@@ -287,14 +292,14 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
             <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Confirm Payment Receipt</DialogTitle>
+                        <DialogTitle>Confirm payment</DialogTitle>
                         <DialogDescription>
                             Record verified payment details and official receipt number for &quot;{selectedPayment?.label}&quot;.
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleConfirmSubmit} className="space-y-4 py-2">
                         <div className="space-y-1.5">
-                            <Label htmlFor="method">Payment Method</Label>
+                            <Label htmlFor="method">Payment method</Label>
                             <Select
                                 value={method}
                                 onValueChange={(val) => setMethod(val as typeof method)}
@@ -303,7 +308,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                     <SelectValue placeholder="Select method" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                                    <SelectItem value="bank_transfer">Bank transfer</SelectItem>
                                     <SelectItem value="gcash">GCash</SelectItem>
                                     <SelectItem value="cheque">Cheque</SelectItem>
                                     <SelectItem value="cash">Cash</SelectItem>
@@ -314,7 +319,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                         {method === "cheque" ? (
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="bankName">Bank Name *</Label>
+                                    <Label htmlFor="bankName">Bank *</Label>
                                     <Input
                                         id="bankName"
                                         placeholder="e.g. BDO, BPI"
@@ -324,7 +329,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="chequeNumber">Cheque Number *</Label>
+                                    <Label htmlFor="chequeNumber">Cheque no. *</Label>
                                     <Input
                                         id="chequeNumber"
                                         placeholder="e.g. 00012345"
@@ -336,7 +341,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                             </div>
                         ) : method === "bank_transfer" || method === "gcash" ? (
                             <div className="space-y-1.5">
-                                <Label htmlFor="referenceNo">Transaction Reference No. *</Label>
+                                <Label htmlFor="referenceNo">Transaction reference *</Label>
                                 <Input
                                     id="referenceNo"
                                     placeholder="e.g. REF-987654321"
@@ -349,7 +354,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <Label htmlFor="orNumber">Official Receipt (OR) # *</Label>
+                                <Label htmlFor="orNumber">Official receipt no. *</Label>
                                 <Input
                                     id="orNumber"
                                     placeholder="OR-00100"
@@ -359,7 +364,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <Label htmlFor="receivedAt">Date Received *</Label>
+                                <Label htmlFor="receivedAt">Date received *</Label>
                                 <DatePicker id="receivedAt" value={receivedAt} onChange={setReceivedAt} max={todayYmd()} required />
                             </div>
                         </div>
@@ -374,7 +379,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={isLoading}>
-                                {isLoading ? "Confirming..." : "Confirm & Issue Receipt"}
+                                {isLoading ? "Confirming..." : "Confirm payment"}
                             </Button>
                         </DialogFooter>
                     </form>

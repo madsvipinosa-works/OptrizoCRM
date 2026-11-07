@@ -1,11 +1,9 @@
 import { db } from "@/db";
+import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { agencyProjects, document, milestones, payments } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
-import Link from "next/link";
-import { ArrowLeft, Award } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { CompletionPanel, CompletionGateData, HandoverDoc } from "@/features/pm/components/CompletionPanel";
 
 export const dynamic = "force-dynamic";
@@ -93,26 +91,13 @@ export default async function PmProjectCompletePage({
 
     return (
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
-            <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href={`/dashboard/pm/${project.id}`}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Link>
-                    </Button>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <Award className="w-5 h-5 text-primary" />
-                            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                                Project Completion & Handover
-                            </h1>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            {project.title} • {project.lead?.businessName || project.lead?.contactName || "Client"}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <ProjectHeader
+                projectId={project.id}
+                title={project.title}
+                businessName={project.lead?.businessName}
+                clientName={project.lead?.contactName}
+                current="completion"
+            />
 
             <CompletionPanel data={gateData} />
         </div>

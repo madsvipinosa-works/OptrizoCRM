@@ -42,7 +42,7 @@ Who can call: manager
 Input:  `{ proposalId: string }`
 Output: `{ ok: true, version: number, status: 'sent' }`
 Errors:
-- `MILESTONES_INVALID`: not exactly the 5 default milestones, or dates missing.
+- `MILESTONES_INVALID`: one of the 5 default milestones missing, or any milestone (added ones too) without dates or out of order.
 - `SCHEDULE_NOT_100`: priced proposal whose payment schedule doesn't total 100%. The same check runs when the schedule is saved (see `savePaymentSchedule`).
 Side effects: lead stage → `proposal_sent` (if earlier); previous version → `replaced`; client email + portal notification; audit log row.
 

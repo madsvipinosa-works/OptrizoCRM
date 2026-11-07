@@ -1,11 +1,10 @@
 import Link from "next/link";
+import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { notFound, redirect } from "next/navigation";
 import { and, eq, isNull } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
 import { db } from "@/db";
 import { agencyProjects, leads } from "@/db/schema";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   formatActivityActionLabel,
   getProjectActivity,
@@ -41,11 +40,14 @@ function formatManilaDayKey(dt: Date): string {
 function formatManilaTime(dt: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Manila",
-    month: "short",
-    day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   }).format(dt);
+}
+
+// Display only: raw record ids mean nothing to the reader (the stored audit text is unchanged).
+function readableDetails(details: string): string {
+  return details.replace(/\s*(?:on project |for (?:payment|task) )?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "").trim();
 }
 
 function formatRoleLabel(role: string | null | undefined): string {
@@ -161,93 +163,25 @@ export default async function PmProjectActivityPage({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-5 pb-12">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            asChild
-            className="hover:bg-muted text-foreground shrink-0"
-          >
-            <Link href={`/dashboard/pm/${projectRow.id}`} title="Back to board">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div className="min-w-0 flex-1">
-            <h1
-              className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
-              title={projectRow.title}
-            >
-              {projectRow.title}
-            </h1>
-            <p className="mt-1 truncate text-sm text-muted-foreground">
-              Business name: {businessName || "—"} · Client name: {clientName || "—"}
-            </p>
-          </div>
-        </div>
+      <ProjectHeader
+        projectId={projectRow.id}
+        title={projectRow.title}
+        businessName={businessName}
+        clientName={clientName}
+        current="activity"
+      />
 
-        <div className="flex items-center gap-2 shrink-0">
-          <div
-            role="group"
-            aria-label="Project view switcher"
-            className="inline-flex rounded-lg border border-border overflow-hidden text-xs sm:text-sm"
-          >
-            <Link
-              href={`/dashboard/pm/${projectRow.id}`}
-              className="px-3 py-1.5 bg-card text-foreground hover:bg-muted transition-colors font-medium"
-            >
-              Board
-            </Link>
-            <Link
-              href={`/dashboard/pm/${projectRow.id}/timeline`}
-              className="px-3 py-1.5 bg-card text-foreground hover:bg-muted transition-colors font-medium border-l border-border"
-            >
-              Timeline
-            </Link>
-            <span className="px-3 py-1.5 bg-primary text-primary-foreground font-semibold border-l border-border">
-              Activity
-            </span>
-          </div>
-
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/pm/${projectRow.id}/payments`}>Payments</Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/pm/${projectRow.id}/complete`}>Completion</Link>
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Activity</h2>
+        <p className="text-sm text-muted-foreground">Newest first · saved automatically · read-only</p>
       </div>
 
-      <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-        <span>Project audit trail (read-only)</span>
-        <span>Newest first · saved automatically</span>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
+      {/* Mockup Ref "PM project activity": one row per event, type chip, what happened, who. */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         {items.length === 0 ? (
-          <div className="py-12 px-4 text-center text-sm text-muted-foreground">
-            No activity yet
-          </div>
+          <p className="px-4 py-12 text-center text-sm text-muted-foreground">No activity yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold text-muted-foreground">
-                  <th className="py-2.5 px-4 whitespace-nowrap w-[160px]">
-                    When (Asia/Manila)
-                  </th>
-                  <th className="py-2.5 px-4 whitespace-nowrap w-[200px]">Who</th>
-                  <th className="py-2.5 px-4 whitespace-nowrap w-[180px]">Action</th>
-                  <th className="py-2.5 px-4">Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dayGroups.map((group) => (
-                  <FragmentGroup key={group.dayKey} group={group} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          dayGroups.map((group) => <DayGroup key={group.dayKey} group={group} />)
         )}
       </div>
 
@@ -278,7 +212,18 @@ export default async function PmProjectActivityPage({
   );
 }
 
-function FragmentGroup({
+// Colour by record type (status-indicator colour, as in the mockup).
+function typeChip(entity: string): { label: string; tone: string } {
+  const e = entity.toLowerCase();
+  if (e.includes("payment")) return { label: "Payment", tone: "bg-stage-negotiation/15 text-stage-negotiation" };
+  if (e.includes("milestone")) return { label: "Milestone", tone: "bg-brand-soft text-brand-deep" };
+  if (e.includes("sprint")) return { label: "Sprint", tone: "bg-stage-discovery/15 text-stage-discovery" };
+  if (e.includes("task")) return { label: "Task", tone: "bg-stage-discovery/15 text-stage-discovery" };
+  if (e.includes("client") || e.includes("proposal") || e.includes("lead")) return { label: "Client", tone: "bg-stage-proposal/15 text-stage-proposal" };
+  return { label: "Project", tone: "bg-muted text-muted-foreground" };
+}
+
+function DayGroup({
   group,
 }: {
   group: {
@@ -288,36 +233,27 @@ function FragmentGroup({
   };
 }) {
   return (
-    <>
-      <tr className="bg-muted/25 border-b border-border/70">
-        <td
-          colSpan={4}
-          className="py-1.5 px-4 text-xs font-semibold text-muted-foreground"
-        >
-          {group.dayLabel}
-        </td>
-      </tr>
-      {group.rows.map((row) => (
-        <tr
-          key={row.id}
-          className="border-b border-border/60 last:border-b-0 hover:bg-muted/20 transition-colors"
-        >
-          <td className="py-2.5 px-4 text-xs text-muted-foreground whitespace-nowrap tabular-nums">
-            {formatManilaTime(row.createdAt)}
-          </td>
-          <td className="py-2.5 px-4 text-xs sm:text-sm font-medium text-foreground whitespace-nowrap">
-            {formatActorDisplay(row.user)}
-          </td>
-          <td className="py-2.5 px-4 whitespace-nowrap">
-            <Badge variant="secondary" className="text-xs font-semibold">
-              {formatActivityActionLabel(row.action, row.entity)}
-            </Badge>
-          </td>
-          <td className="py-2.5 px-4 text-xs sm:text-sm text-foreground">
-            {row.details || "—"}
-          </td>
-        </tr>
-      ))}
-    </>
+    <section aria-label={group.dayLabel}>
+      <h3 className="border-b border-border bg-muted/40 px-4 py-2 text-sm font-medium text-muted-foreground">{group.dayLabel}</h3>
+      <ul>
+        {group.rows.map((row) => {
+          const chip = typeChip(row.entity);
+          return (
+            <li
+              key={row.id}
+              className="grid grid-cols-[4.5rem_5.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 border-b border-border/60 px-4 py-3 text-sm last:border-b-0 md:grid-cols-[4.5rem_5.5rem_minmax(0,1fr)_auto]"
+            >
+              <span className="pt-0.5 tabular-nums text-muted-foreground">{formatManilaTime(row.createdAt)}</span>
+              <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${chip.tone}`}>{chip.label}</span>
+              <p className="min-w-0 break-words text-foreground">
+                <span className="font-medium">{formatActivityActionLabel(row.action, row.entity)}</span>
+                {readableDetails(row.details) ? <span className="text-muted-foreground"> · {readableDetails(row.details)}</span> : null}
+              </p>
+              <span className="col-start-3 text-muted-foreground md:col-start-auto md:text-right">{formatActorDisplay(row.user)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

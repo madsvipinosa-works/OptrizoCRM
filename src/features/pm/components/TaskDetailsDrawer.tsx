@@ -332,9 +332,9 @@ export function TaskDetailsDrawer({
                             {currentMilestone && (
                                 <Badge
                                     variant="outline"
-                                    className="bg-primary/10 text-primary border-primary/30 text-xs font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md"
+                                    className="bg-brand-soft text-brand-deep border-brand-deep/30 text-xs font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md"
                                 >
-                                    <Layers className="w-3 h-3 text-primary" />
+                                    <Layers className="w-3 h-3 text-brand-deep" />
                                     <span>
                                         [M{currentMilestone.order}: {currentMilestone.title}]
                                     </span>
@@ -488,7 +488,7 @@ export function TaskDetailsDrawer({
                         ) : (
                             <div className="group flex items-start gap-2.5">
                                 <SheetTitle
-                                    className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight leading-snug break-words flex-1 cursor-pointer transition-colors hover:text-primary/90"
+                                    className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight leading-snug break-words flex-1 cursor-pointer transition-colors hover:text-brand-deep"
                                     onClick={() => canManage && setIsEditingTitle(true)}
                                     title={canManage ? "Click to edit title" : undefined}
                                 >
@@ -497,7 +497,7 @@ export function TaskDetailsDrawer({
                                 {canManage && (
                                     <button
                                         onClick={() => setIsEditingTitle(true)}
-                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/40 transition-all mt-0.5 shrink-0"
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-brand-deep hover:bg-muted/40 transition-all mt-0.5 shrink-0"
                                         title="Edit title"
                                     >
                                         <Pencil className="w-3.5 h-3.5" />
@@ -512,7 +512,7 @@ export function TaskDetailsDrawer({
                     <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5 border-t border-border/50">
                         {/* Static Task Status Badge */}
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-muted-foreground ">Status:</span>
+                            <span className="sr-only">Status:</span>
                             <Badge
                                 className={cn(
                                     "h-8 text-xs font-semibold px-2.5 rounded-lg border gap-2 shadow-xs transition-all",
@@ -528,6 +528,7 @@ export function TaskDetailsDrawer({
                                 />
                                 <span>{STATUS_CONFIG[task.status]?.label || task.status}</span>
                             </Badge>
+                            <span className="text-sm text-muted-foreground">Status is set automatically</span>
                         </div>
 
                         {/* Quick Contextual Actions */}
@@ -568,23 +569,23 @@ export function TaskDetailsDrawer({
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-8 text-xs font-semibold gap-1.5 text-destructive dark:text-destructive border-destructive/30 hover:bg-destructive/10 shadow-xs"
+                                            className="h-9 text-sm font-semibold gap-1.5 bg-card active:scale-[0.97]"
                                             onClick={() => onRequestChanges(task)}
                                         >
-                                            <RotateCcw className="w-3.5 h-3.5" />
-                                            <span>Request Changes</span>
+                                            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                                            <span>Request changes</span>
                                         </Button>
                                     )}
                                     <Button
                                         size="sm"
-                                        className="h-8 text-xs font-semibold gap-1.5 bg-brand-deep hover:bg-brand-deep text-white shadow-xs"
+                                        className="h-9 text-sm font-semibold gap-1.5 bg-brand-deep hover:bg-brand-deep/90 text-white active:scale-[0.97]"
                                         onClick={() => {
                                             if (onApproveTask) onApproveTask(task.id);
                                             else onStatusChangeRequest?.(task.id, "Done");
                                         }}
                                     >
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Approve as Done</span>
+                                        <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                        <span>Approve</span>
                                     </Button>
                                 </>
                             )}
@@ -630,7 +631,7 @@ export function TaskDetailsDrawer({
                         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
                             <div className="flex items-center justify-between pb-3 border-b border-border/60">
                                 <div className="flex items-center gap-2">
-                                    <GitBranch className="w-4 h-4 text-primary" />
+                                    <GitBranch className="w-4 h-4 text-brand-deep" />
                                     <h3 className="text-xs text-foreground font-semibold">
                                         Dependencies & Task Sequencing
                                     </h3>
@@ -638,7 +639,7 @@ export function TaskDetailsDrawer({
                                 <div className="flex items-center gap-1.5">
                                     <Badge
                                         variant="outline"
-                                        className="bg-primary/10 text-primary border-primary/25 text-xs tabular-nums font-semibold"
+                                        className="bg-brand-soft text-brand-deep border-brand-deep/30 text-xs tabular-nums font-semibold"
                                     >
                                         Graph Topology
                                     </Badge>
@@ -737,7 +738,7 @@ export function TaskDetailsDrawer({
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
-                                                        className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary/80"
+                                                        className="h-6 px-2 text-xs gap-1 text-brand-deep hover:text-brand-deep"
                                                         onClick={() => onSelectTask(prerequisiteTask)}
                                                     >
                                                         <span>View</span>
@@ -773,7 +774,7 @@ export function TaskDetailsDrawer({
                                         className={cn(
                                             "text-xs tabular-nums font-semibold",
                                             blockedDownstreamTasks.length > 0
-                                                ? "bg-primary/10 text-primary border-primary/30"
+                                                ? "bg-brand-soft text-brand-deep border-brand-deep/30"
                                                 : "bg-muted text-muted-foreground border-border"
                                         )}
                                     >
@@ -788,7 +789,7 @@ export function TaskDetailsDrawer({
                                             return (
                                                 <div
                                                     key={downstreamTask.id}
-                                                    className="relative flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border bg-background hover:border-primary/40 transition-colors text-xs"
+                                                    className="relative flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border bg-background hover:border-brand-deep/30 transition-colors text-xs"
                                                 >
                                                     <span className="absolute -left-6 top-1/2 -translate-y-1/2 w-3.5 h-0.5 bg-border/60" />
                                                     <div className="flex items-center gap-2 min-w-0">
@@ -810,7 +811,7 @@ export function TaskDetailsDrawer({
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                className="h-6 px-1.5 text-xs gap-1 text-primary hover:text-primary/80"
+                                                                className="h-6 px-1.5 text-xs gap-1 text-brand-deep hover:text-brand-deep"
                                                                 onClick={() => onSelectTask(downstreamTask)}
                                                             >
                                                                 <span>View</span>
@@ -837,7 +838,7 @@ export function TaskDetailsDrawer({
                         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
                             <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                 <div className="flex items-center gap-2">
-                                    <Sliders className="w-4 h-4 text-primary" />
+                                    <Sliders className="w-4 h-4 text-brand-deep" />
                                     <h3 className="text-xs text-foreground font-semibold">
                                         Execution Specs
                                     </h3>
@@ -888,7 +889,7 @@ export function TaskDetailsDrawer({
                                 {/* Due Date */}
                                 <div className="space-y-1.5">
                                     <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                        <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                                        <CalendarDays className="w-3.5 h-3.5 text-brand-deep" />
                                         <span>Due Date</span>
                                     </Label>
                                     {canManage ? (
@@ -994,7 +995,7 @@ export function TaskDetailsDrawer({
                         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 shadow-xs">
                             <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                 <div className="flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-primary" />
+                                    <FileText className="w-4 h-4 text-brand-deep" />
                                     <h3 className="text-xs text-foreground font-semibold">
                                         Scope & Acceptance Criteria
                                     </h3>
@@ -1066,7 +1067,7 @@ export function TaskDetailsDrawer({
                         <div className="flex items-center justify-between pb-3 border-b border-border/60">
                             <div>
                                 <h4 className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                                    <ShieldCheck className="w-3.5 h-3.5 text-brand-deep" />
                                     <span>Task Deliverables & Verification</span>
                                 </h4>
                                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -1077,7 +1078,7 @@ export function TaskDetailsDrawer({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 shadow-xs"
+                                    className="h-7 text-xs gap-1 border-brand-deep/30 text-brand-deep hover:bg-brand-soft shadow-xs"
                                     onClick={() => onRequestVerificationReview(task)}
                                 >
                                     <ShieldCheck className="w-3.5 h-3.5" />
@@ -1089,7 +1090,7 @@ export function TaskDetailsDrawer({
                         {/* Proof Links */}
                         <div className="space-y-3 pt-4 border-t border-border/60">
                             <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                <ExternalLink className="w-3.5 h-3.5 text-primary" />
+                                <ExternalLink className="w-3.5 h-3.5 text-brand-deep" />
                                 <span>Attached Proof Links</span>
                             </Label>
                             {task.proofLinks && task.proofLinks.length > 0 ? (
@@ -1100,20 +1101,20 @@ export function TaskDetailsDrawer({
                                             href={link.url}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="group flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20 hover:border-primary/50 transition-colors shadow-xs"
+                                            className="group flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20 hover:border-brand-deep/30 transition-colors shadow-xs"
                                         >
                                             <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                                <div className="w-7 h-7 rounded-lg bg-brand-soft text-brand-deep flex items-center justify-center shrink-0">
                                                     <ExternalLink className="w-3.5 h-3.5" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary">
+                                                    <p className="text-xs font-semibold text-foreground truncate group-hover:text-brand-deep">
                                                         {link.label || "Proof Deliverable"}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground truncate">{link.url}</p>
                                                 </div>
                                             </div>
-                                            <span className="text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                            <span className="text-xs text-brand-deep font-medium opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                 Open ↗
                                             </span>
                                         </a>
@@ -1130,7 +1131,7 @@ export function TaskDetailsDrawer({
                         {task.proofNotes && (
                             <div className="space-y-2 pt-2">
                                 <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <FileText className="w-3.5 h-3.5 text-primary" />
+                                    <FileText className="w-3.5 h-3.5 text-brand-deep" />
                                     <span>Submission Notes</span>
                                 </Label>
                                 <div className="text-xs bg-muted/20 p-4 rounded-xl whitespace-pre-wrap border border-border/60 leading-relaxed text-foreground">
@@ -1151,7 +1152,7 @@ export function TaskDetailsDrawer({
                                     <span className="text-muted-foreground">Task ID</span>
                                     <div className="flex items-center gap-1 tabular-nums text-xs text-foreground">
                                         <span>{task.id}</span>
-                                        <button onClick={handleCopyTaskId} className="p-1 hover:text-primary">
+                                        <button onClick={handleCopyTaskId} className="p-1 hover:text-brand-deep">
                                             {copiedTaskId ? <Check className="w-3 h-3 text-brand-deep" /> : <Copy className="w-3 h-3" />}
                                         </button>
                                     </div>

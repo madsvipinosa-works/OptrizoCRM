@@ -1,7 +1,7 @@
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { proposals } from "@/db/schema";
-import { desc, isNull } from "drizzle-orm";
+import { agencyProjects, proposals } from "@/db/schema";
+import { desc, inArray, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Lock, Search } from "lucide-react";
@@ -96,6 +96,14 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
 
     const queueItems = isManager ? await getProposalRequestsQueue() : [];
 
+    // Signed proposals link to the project made from them (PM only: Sales cannot open projects).
+    const signedLeadIds = isManager ? [...new Set(list.filter((p) => p.status === "signed" && p.leadId).map((p) => p.leadId!))] : [];
+    const projectByLead = new Map(
+        signedLeadIds.length
+            ? (await db.query.agencyProjects.findMany({ where: inArray(agencyProjects.leadId, signedLeadIds), columns: { id: true, leadId: true } })).map((pr) => [pr.leadId, pr.id])
+            : []
+    );
+
     return (
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
             <div>
@@ -124,8 +132,9 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
                     name="status"
                     defaultValue={statusFilter}
                     aria-label="Filter by status"
-                    className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                 variant="plain">
+                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-56"
+                    variant="plain"
+                >
                     {STATUS_FILTERS.map((s) => (
                         <option key={s.value} value={s.value}>
                             {s.label}
@@ -192,7 +201,15 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
                                             <td className="px-3 py-3 tabular-nums text-foreground">{price}</td>
                                             <td className="px-5 py-3">
                                                 <div className="flex justify-end gap-2">
-                                                    {isManager && (
+                                                    {p.status === "signed" && p.leadId && projectByLead.get(p.leadId) && (
+                                                        <Button asChild size="sm" className="font-semibold">
+                                                            <Link href={`/dashboard/pm/${projectByLead.get(p.leadId)}`}>
+                                                                Project<span className="sr-only"> for {name}</span>
+                                                            </Link>
+                                                        </Button>
+                                                    )}
+                                                    {/* Only a draft can be edited; a sent version is changed through a new version. */}
+                                                    {isManager && isDraft && (
                                                         <Button asChild variant="outline" size="sm">
                                                             <Link href={`/dashboard/proposals/builder/${p.id}`}>Edit<span className="sr-only"> proposal for {name}</span></Link>
                                                         </Button>

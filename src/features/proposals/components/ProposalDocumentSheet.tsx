@@ -1,11 +1,21 @@
 "use client";
 
+/**
+ * The proposal document (mockups 10d, 17b, "Ref · Client: signed proposal document").
+ * One document for the PM preview, the client view and the signed copy. Sections, in the mockup order:
+ * 1 Introduction (and About Optrizo), 2 Your needs and goals, 3 Proposed solution, 4 Scope of work,
+ * 5 Timeline and milestones, 6 Price, 7 How we work, 8 Project team, 9 Terms and conditions, 10 Next steps,
+ * 11 Signatures (priced versions only). Always a white page (like the printed copy), set in Geist like the rest of Optrizo.
+ */
+
 import React from "react";
-import { CheckCircle2, Calendar, FileText, Building2, ShieldCheck, Briefcase, Phone, MapPin, Scale, CreditCard, Lock, Lightbulb, AlertTriangle, RefreshCw, Gavel, Plus } from "lucide-react";
 import type { ContractSettings } from "@/features/proposals/actions";
 import { cn } from "@/lib/utils";
-import { ProposalDocumentFooter } from "./ProposalDocumentFooter";
 import { formatDate } from "@/lib/datetime";
+import { STANDARD_SECTIONS } from "@/features/proposals/standard-sections";
+import { PAYMENT_TRIGGERS } from "@/features/proposals/constants";
+
+const TRIGGER_LABEL = Object.fromEntries(PAYMENT_TRIGGERS);
 
 export interface PricingLineItem {
     name: string;
@@ -17,9 +27,11 @@ export interface PricingLineItem {
 
 export interface ProposalDocumentData {
     proposalCode?: string | null;
+    /** Version number, shown beside the proposal number. */
+    version?: number | null;
     businessName?: string | null;
     clientEmail?: string | null;
-    /** Name of the project, shown under the title. */
+    /** Name of the project: the document title. */
     projectName?: string | null;
     scope?: string | null;
     /** What is not included in the scope. */
@@ -53,15 +65,13 @@ export interface ProposalDocumentData {
     terms?: string | null;
     validUntil?: string | Date | null;
     status?: string;
-    // Signature Audit
+    // Signature audit
     acceptedByName?: string | null;
     acceptedByTitle?: string | null;
     acceptedAt?: string | Date | null;
     signatureData?: string | null;
     createdAt?: string | Date | null;
-    // Optional contract settings
     contractSettings?: ContractSettings | null;
-    // Agency Branding
     agencyLogoUrl?: string | null;
     agencyFaviconUrl?: string | null;
 }
@@ -75,635 +85,422 @@ interface ProposalDocumentSheetProps {
     agencyFaviconUrl?: string | null;
 }
 
+const MS_DAY = 24 * 60 * 60 * 1000;
 
-const DEFAULT_MILESTONES_META: Record<string, { title: string; description: string }> = {
-    requirements: { title: "Requirements & Architecture", description: "Confirm features, user stories, acceptance criteria" },
-    design: { title: "UI/UX Design & Prototyping", description: "Wireframes and screen designs for approval" },
-    development: { title: "Full-Stack Development", description: "Built in two-week sprints with a demo after each" },
-    uat_testing: { title: "QA & UAT Testing", description: "Client tests on the agreed date; fixes before release" },
-    handover: { title: "Final Handover & Deployment", description: "Deployment, training, source code, documentation" },
+const toDate = (val: string | number | Date | null | undefined) => {
+    if (!val) return null;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
 };
+const fmt = (val: string | number | Date | null | undefined, fallback = "") => {
+    const d = toDate(val);
+    return d ? formatDate(d) : fallback;
+};
+const fmtShort = (val: string | number | Date | null | undefined) => {
+    const d = toDate(val);
+    return d ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "Asia/Manila" }).format(d) : "";
+};
+
+/** Lines of free text as bullet items: one per line, without a leading "-" or "•". */
+const bullets = (text: string | null | undefined) =>
+    (text ?? "")
+        .split("\n")
+        .map((line) => line.replace(/^\s*[-•*]\s*/, "").trim())
+        .filter(Boolean);
+
+/** Needs and goals arrive as an object, or as one text with "Client Needs:" / "Goals:" headings (older rows). */
+function splitNeedsGoals(value: ProposalDocumentData["needsGoals"]): { needs: string[]; goals: string[] } {
+    if (!value) return { needs: [], goals: [] };
+    if (typeof value === "object") return { needs: bullets(value.needs), goals: bullets(value.goals) };
+    const [needsPart, goalsPart = ""] = value.split(/\n?\s*Goals:\s*\n?/i);
+    return { needs: bullets(needsPart.replace(/^\s*Client Needs:\s*/i, "")), goals: bullets(goalsPart) };
+}
+
+/** "2 weeks", "2.5 weeks": rounded to half weeks, at least 1. */
+function duration(start?: string | null, end?: string | null) {
+    const s = toDate(start);
+    const e = toDate(end);
+    if (!s || !e) return "";
+    const weeks = Math.max(1, Math.round(((e.getTime() - s.getTime()) / MS_DAY + 1) / 7 * 2) / 2);
+    return `${weeks} ${weeks === 1 ? "week" : "weeks"}`;
+}
+
+/** A "Label: text" line shows the label in bold, as in the mockup's lists. */
+function LabelledItem({ text }: { text: string }) {
+    const i = text.indexOf(":");
+    if (i > 0 && i < 40) {
+        return (
+            <li>
+                <strong className="font-semibold text-foreground">{text.slice(0, i)}:</strong>
+                {text.slice(i + 1)}
+            </li>
+        );
+    }
+    return <li>{text}</li>;
+}
+
+function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+    return (
+        <section className="print-avoid-break min-w-0 space-y-2.5">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <span className="text-brand-deep">{n}.</span> {title}
+            </h2>
+            {children}
+        </section>
+    );
+}
+
+const listClass = "list-disc space-y-1 pl-5 text-sm leading-relaxed text-foreground/90 marker:text-muted-foreground";
+const tableClass = "w-full text-left text-sm";
+const thClass = "border-b border-border py-1.5 pr-3 text-xs font-medium text-muted-foreground";
+const tdClass = "border-b border-border/60 py-2 pr-3 align-top";
 
 export function ProposalDocumentSheet({
     data,
     agencyName = "Optrizo Digital Solutions",
     agencyEmail = "contact@optrizo.com",
-    agencyWebsite = "https://optrizo.com",
     agencyLogoUrl,
-    agencyFaviconUrl,
 }: ProposalDocumentSheetProps) {
     const cs = data.contractSettings || {};
-    const activeLogoUrl = agencyLogoUrl || data.agencyLogoUrl || null;
-    const activeFaviconUrl = agencyFaviconUrl || data.agencyFaviconUrl || null;
+    const logo = agencyLogoUrl || data.agencyLogoUrl || null;
+    const business = data.businessName || "the client";
+    const project = data.projectName?.trim() || "Software project";
 
-    const safeFormatDate = (val: string | number | Date | null | undefined, _options?: unknown, fallback: string = ""): string => {
-        if (!val) return fallback;
-        try {
-            const d = new Date(val);
-            if (isNaN(d.getTime())) return fallback;
-            return formatDate(d);
-        } catch {
-            return fallback;
-        }
-    };
+    const currency = data.currency === "USD" ? "USD" : "PHP";
+    const money = new Intl.NumberFormat(currency === "PHP" ? "en-PH" : "en-US", { style: "currency", currency, maximumFractionDigits: 0 });
+    const priced = data.priceMode === "priced";
+    const total = data.totalPrice ?? data.total ?? 0;
 
-    const formattedCreatedDate = safeFormatDate(
-        data.createdAt,
-        { month: "short", day: "numeric", year: "numeric" },
-        formatDate(new Date())
-    );
+    const { needs, goals } = splitNeedsGoals(data.needsGoals);
+    const solution = bullets(data.technicalApproach);
+    const milestones = data.milestones ?? [];
+    const dated = milestones.filter((m) => m.startDate && m.endDate);
+    const firstStart = dated[0]?.startDate;
+    const lastEnd = dated.at(-1)?.endDate;
+    const months = firstStart && lastEnd ? Math.max(1, Math.round((toDate(lastEnd)!.getTime() - toDate(firstStart)!.getTime()) / MS_DAY / 30)) : null;
 
-    const formattedValidDate = safeFormatDate(
-        data.validUntil,
-        { month: "short", day: "numeric", year: "numeric" },
-        "30 Days from Issue"
-    );
+    const standard = Object.fromEntries(STANDARD_SECTIONS.map((s) => [s.key, s]));
+    const termsText = (data.terms ?? "").trim();
+    const customTerms = termsText && !/^Standard (Agency Terms:|agency terms apply)/i.test(termsText) ? bullets(termsText) : null;
+    const extraClauses = [
+        cs.includeConfidentiality && "Confidentiality and non-disclosure: both parties keep non-public information confidential for two years after the agreement ends.",
+        cs.includeIpClause && "Intellectual property: after full payment, the client owns the custom deliverables; Optrizo keeps its own tools and libraries.",
+        cs.includeLiabilityClause && "Limitation of liability: limited to the fees paid in the three months before a claim; no indirect damages.",
+        cs.includeForceClause && "Force majeure: neither party is liable for delays caused by events outside its control.",
+        cs.includeChangeOrder && "Change orders: changes to scope are agreed in writing first and may change the timeline and price.",
+        cs.includeDisputeResolution && "Dispute resolution: good-faith negotiation first; unresolved after 30 days, binding arbitration.",
+        cs.governingLaw && `Governing law: the laws of ${cs.governingLaw}.`,
+        ...bullets(cs.customClauses),
+    ].filter(Boolean) as string[];
 
-    const deliverablesList = Array.isArray(data.deliverables) ? data.deliverables : [];
-    const pricingItems = Array.isArray(data.pricingStructure) ? data.pricingStructure : [];
-
-    const effectiveCurrency = data.currency === "USD" ? "USD" : "PHP";
-    const currencyFormatter = new Intl.NumberFormat(effectiveCurrency === "PHP" ? "en-PH" : "en-US", {
-        style: "currency",
-        currency: effectiveCurrency,
-        maximumFractionDigits: 0,
-    });
-
-    // Section counter — increments only for rendered sections
-    let sectionNum = 0;
-    const nextSection = () => { sectionNum++; return sectionNum; };
+    const signed = data.status === "signed";
+    let n = 0;
+    const next = () => ++n;
 
     return (
         <div
             id="printable-proposal"
-            className="proposal-document-sheet w-full max-w-[850px] min-w-0 mx-auto bg-card text-card-foreground shadow-xl rounded-sm border border-border p-5 sm:p-8 md:p-12 space-y-7 sm:space-y-9 font-sans transition-all overflow-hidden print:p-0 print:border-none print:shadow-none print:max-w-none print:overflow-visible print:bg-white print:text-neutral-900"
+            className="light proposal-document-sheet mx-auto w-full min-w-0 max-w-[850px] space-y-8 overflow-hidden rounded-xl border border-border bg-card p-6 text-card-foreground sm:p-10 md:p-12 print:max-w-none print:overflow-visible print:border-none print:bg-white print:p-0 print:text-neutral-900"
         >
-            {/* 1. Formal Contract Header (Company Branding & Identifiers) */}
-            <header className="proposal-sheet-header border-b-2 border-border/90 pb-6 sm:pb-8 space-y-5 sm:space-y-6 w-full min-w-0 print:block print:w-full print:border-border">
-                {/* Letterhead Top Bar: Official Logo, Company Name & Document Tracking */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-border/50 min-w-0 w-full">
-                    <div className="flex items-center gap-3.5 min-w-0 max-w-full">
-                        {/* Official Optrizo Emblem or Uploaded Brand Logo */}
-                        {activeLogoUrl ? (
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div
-                                    className="flex items-center shrink-0 overflow-hidden"
-                                    style={{ height: 40, maxHeight: 40, maxWidth: 170 }}
-                                >
-                                    <img
-                                        src={activeLogoUrl}
-                                        alt={agencyName}
-                                        style={{
-                                            display: "block",
-                                            height: "auto",
-                                            width: "auto",
-                                            maxHeight: 40,
-                                            maxWidth: 170,
-                                            objectFit: "contain",
-                                            objectPosition: "left center",
-                                        }}
-                                    />
-                                </div>
-                                <div className="border-l border-border/70 pl-3 hidden sm:block min-w-0">
-                                    <div className="font-mono text-xs font-bold tracking-tight text-foreground uppercase truncate">
-                                        {agencyName}
-                                    </div>
-                                    <div className="text-[9px] text-muted-foreground uppercase tracking-widest font-mono truncate">
-                                        Enterprise Systems &bull; Strategic IT
-                                    </div>
-                                </div>
-                            </div>
-                        ) : activeFaviconUrl ? (
-                            <div className="flex items-center gap-3.5 min-w-0">
-                                <div className="w-11 h-11 rounded-xl bg-black/90 dark:bg-black/60 border border-primary/30 flex items-center justify-center shadow-sm shrink-0 overflow-hidden p-1.5">
-                                    <img
-                                        src={activeFaviconUrl}
-                                        alt={agencyName}
-                                        className="w-full h-full object-contain"
-                                    />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="font-mono text-sm sm:text-base font-extrabold tracking-tight text-foreground flex items-center gap-1.5 truncate">
-                                        <span>OPTRIZO</span>
-                                        <span className="text-primary font-bold">DIGITAL SOLUTIONS</span>
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono truncate">
-                                        Enterprise Systems &bull; Digital Engineering &bull; Strategic IT
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-3.5 min-w-0">
-                                <div className="w-11 h-11 rounded-xl bg-black/90 dark:bg-black/60 border border-primary/30 flex items-center justify-center shadow-sm shrink-0">
-                                    <svg
-                                        width="24"
-                                        height="26"
-                                        viewBox="0 0 24 26"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="text-[#00D639]"
-                                    >
-                                        <path
-                                            d="M12 1L22 6.77V19.23L12 25L2 19.23V6.77L12 1Z"
-                                            stroke="#00D639"
-                                            strokeWidth="2.2"
-                                            strokeLinejoin="round"
-                                        />
-                                        <path
-                                            d="M7 16V12M12 18V8M17 16V10"
-                                            stroke="#00D639"
-                                            strokeWidth="2.2"
-                                            strokeLinecap="round"
-                                        />
-                                    </svg>
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="font-mono text-sm sm:text-base font-extrabold tracking-tight text-foreground flex items-center gap-1.5 truncate">
-                                        <span>OPTRIZO</span>
-                                        <span className="text-primary font-bold">DIGITAL SOLUTIONS</span>
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono truncate">
-                                        Enterprise Systems &bull; Digital Engineering &bull; Strategic IT
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="text-left sm:text-right font-mono text-xs text-muted-foreground bg-muted/40 border border-border px-3.5 py-2 rounded-md shrink-0 w-full sm:w-auto">
-                        <div className="text-[10px] uppercase tracking-wider text-primary font-bold">
-                            Official Digital Document
-                        </div>
-                        <div>
-                            REF: <span className="font-bold text-foreground">{data.proposalCode || "OPT-2026-0001"}</span>
-                        </div>
-                        <div>
-                            STATUS: <span className={cn(
-                                "font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded",
-                                data.status === "signed" ? "bg-emerald-500/10 text-emerald-500 font-bold" :
-                                data.status === "sent" ? "bg-blue-500/10 text-blue-500 font-bold" :
-                                data.status === "declined" ? "bg-rose-500/10 text-rose-500 font-bold" :
-                                "bg-muted text-muted-foreground"
-                            )}>{data.status || "DRAFT"}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Document Title Banner */}
-                <div className="space-y-1 w-full min-w-0">
-                    <span className="text-[11px] font-mono tracking-widest text-primary font-bold uppercase block">
-                        Commercial Engagement Agreement
-                    </span>
-                    <h1 className="text-xl sm:text-2xl md:text-3xl font-serif font-bold text-foreground tracking-tight break-words">
-                        Project Proposal &amp; Statement of Work
-                    </h1>
-                    {data.projectName && (
-                        <p className="text-sm sm:text-base font-semibold text-foreground break-words">
-                            Project: {data.projectName}
-                        </p>
+            {/* Letterhead: logo left, proposal number, version and dates right */}
+            <header className="proposal-sheet-header min-w-0 space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-brand-deep pb-4">
+                    {logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- uploaded logo of any size, also printed
+                        <img src={logo} alt={agencyName} className="h-9 w-auto max-w-[170px] object-contain object-left" />
+                    ) : (
+                        <span className="font-semibold text-foreground">{agencyName}</span>
                     )}
-                    {data.businessName && (
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground break-words">
-                            Prepared exclusively for: <strong className="text-foreground">{data.businessName}</strong>
+                    <div className="text-right text-xs leading-relaxed text-muted-foreground tabular-nums">
+                        <p>Proposal no. {data.proposalCode || "Not issued"}</p>
+                        <p suppressHydrationWarning>
+                            Version {data.version ?? 1} · issued {fmt(data.createdAt, fmt(new Date()))}
                         </p>
-                    )}
-                </div>
-
-                {/* Parties Summary Box */}
-                <div
-                    className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg bg-muted/20 border border-border/70 text-xs w-full min-w-0 overflow-hidden"
-                    style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
-                >
-                    {/* Service Provider */}
-                    <div className="space-y-1.5 w-full min-w-0 overflow-hidden" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
-                            <Building2 className="w-3.5 h-3.5 text-primary shrink-0" /> Service Provider / Contractor
-                        </span>
-                        <div className="font-semibold text-foreground text-sm truncate">{agencyName}</div>
-                        <div className="text-muted-foreground break-all">{agencyEmail} • {agencyWebsite}</div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground min-w-0 break-words">
-                            <Phone className="w-3 h-3 text-emerald-500 shrink-0" /> <span className="break-all">{cs.agencyPhone || "+63 (917) 555-1234"}</span>
-                        </div>
-                        <div className="flex items-start gap-1.5 text-muted-foreground w-full min-w-0 overflow-hidden">
-                            <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-primary" />
-                            <span
-                                className="min-w-0 flex-1 whitespace-normal leading-relaxed"
-                                style={{ wordBreak: "break-all", overflowWrap: "anywhere" }}
-                            >
-                                {cs.agencyAddress || "4th Floor, Innovation Hub Building, Metro Manila, Philippines"}
-                            </span>
-                        </div>
-                        <div className="text-muted-foreground font-mono text-[10px] break-all">
-                            Company Reg. / SEC No: <strong className="text-foreground">{cs.agencyRegistration || "CS202612345"}</strong>
-                        </div>
-                    </div>
-                    {/* Client */}
-                    <div className="space-y-1.5 w-full min-w-0 overflow-hidden sm:border-l sm:border-border/60 sm:pl-4" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
-                            <Briefcase className="w-3.5 h-3.5 text-primary shrink-0" /> Client / Principal
-                        </span>
-                        <div className="font-semibold text-foreground text-sm break-words truncate">
-                            {data.businessName || "Valued Client Organization"}
-                        </div>
-                        {cs.clientContactPerson && <div className="text-muted-foreground break-words truncate">Attn: {cs.clientContactPerson}</div>}
-                        <div className="text-muted-foreground break-all">
-                            {data.clientEmail ? `${data.clientEmail} (Authorized Representative)` : "Authorized Signatory"}
-                        </div>
-                        {cs.clientPhone && (
-                            <div className="flex items-center gap-1.5 text-muted-foreground min-w-0 break-words">
-                                <Phone className="w-3 h-3 shrink-0" /> <span className="break-all">{cs.clientPhone}</span>
-                            </div>
-                        )}
-                        {cs.clientAddress ? (
-                            <div className="flex items-start gap-1.5 text-muted-foreground w-full min-w-0 overflow-hidden">
-                                <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
-                                <span
-                                    className="min-w-0 flex-1 whitespace-normal leading-relaxed"
-                                    style={{ wordBreak: "break-all", overflowWrap: "anywhere" }}
-                                >
-                                    {cs.clientAddress}
-                                </span>
-                            </div>
-                        ) : (
-                            <div className="text-muted-foreground/50 italic text-[10px]">Address: To be furnished upon registration</div>
-                        )}
+                        <p suppressHydrationWarning>Valid until {fmt(data.validUntil, "30 days from issue")}</p>
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 text-xs font-mono text-muted-foreground pt-1">
-                    <div>EFFECTIVE DATE: <span className="text-foreground font-semibold" suppressHydrationWarning>{formattedCreatedDate}</span></div>
-                    <div>EXPIRATION DATE: <span className="text-foreground font-semibold" suppressHydrationWarning>{formattedValidDate}</span></div>
+                <div className="space-y-1">
+                    <p className="text-sm font-medium text-brand-deep">Software development proposal</p>
+                    <h1 className="break-words text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{project}</h1>
                 </div>
+
+                <dl className="grid gap-4 rounded-lg bg-muted/60 p-4 text-sm sm:grid-cols-2">
+                    <div className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">Prepared for</dt>
+                        <dd className="break-words font-semibold text-foreground">{data.businessName || "Client"}</dd>
+                        {(cs.clientContactPerson || data.clientEmail) && (
+                            <dd className="break-words text-muted-foreground">{cs.clientContactPerson || data.clientEmail}</dd>
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">Prepared by</dt>
+                        <dd className="font-semibold text-foreground">{agencyName}</dd>
+                        <dd className="text-muted-foreground">Project Manager</dd>
+                    </div>
+                </dl>
             </header>
 
-            {/* 2. Scope of Work */}
-            <section className="space-y-3 print-avoid-break w-full min-w-0">
-                <h2 className="text-base font-serif font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                    <FileText className="w-4 h-4 text-primary shrink-0" /> {nextSection()}. Project Objectives &amp; Scope of Work
-                </h2>
-                <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line break-words min-w-0">
-                    {data.scope || "The detailed project objectives, scope parameters, and technical requirements are set forth in this schedule."}
-                </div>
-                {data.exclusions && data.exclusions.trim() && (
-                    <div className="text-sm text-foreground/90 leading-relaxed break-words min-w-0">
-                        <strong className="text-foreground">Not included: </strong>
-                        <span className="whitespace-pre-line">{data.exclusions}</span>
-                    </div>
-                )}
-            </section>
+            <Section n={next()} title="Introduction">
+                <p className="text-sm leading-relaxed text-foreground/90">
+                    This proposal describes the software {agencyName.split(" ")[0]} will build for {business}, how the work will be done, and what it will cost.
+                </p>
+                {data.scope?.trim() && <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">{data.scope}</p>}
+                <h3 className="pt-1 text-sm font-semibold text-foreground">About Optrizo</h3>
+                <p className="text-sm leading-relaxed text-foreground/90">{standard.about?.lines.join(" ")}</p>
+            </Section>
 
-            {/* Needs & Strategic Objectives */}
-            {data.needsGoals && (
-                <section className="space-y-3 print-avoid-break w-full min-w-0">
-                    <h2 className="text-base font-serif font-bold text-foreground border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                        {nextSection()}. Needs &amp; Strategic Objectives
-                    </h2>
-                    <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line break-words min-w-0">
-                        {typeof data.needsGoals === "object" && data.needsGoals !== null
-                            ? [data.needsGoals.needs ? `Client Needs:\n${data.needsGoals.needs}` : "", data.needsGoals.goals ? `Goals:\n${data.needsGoals.goals}` : ""].filter(Boolean).join("\n\n")
-                            : data.needsGoals}
-                    </div>
-                </section>
-            )}
-
-            {/* 3. Technical Architecture */}
-            {data.technicalApproach && (
-                <section className="space-y-3 print-avoid-break w-full min-w-0">
-                    <h2 className="text-base font-serif font-bold text-foreground border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                        {nextSection()}. Technical Architecture &amp; Execution Methodology
-                    </h2>
-                    <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line break-words min-w-0">
-                        {data.technicalApproach}
-                    </p>
-                </section>
-            )}
-
-            {/* 4. Deliverables */}
-            {deliverablesList.length > 0 && (
-                <section className="space-y-3 print-avoid-break w-full min-w-0">
-                    <h2 className="text-base font-serif font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                        <CheckCircle2 className="w-4 h-4 text-primary shrink-0" /> {nextSection()}. Schedule of Deliverables &amp; Outcomes
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full min-w-0">
-                        {deliverablesList.map((item, idx) => (
-                            <div
-                                key={idx}
-                                className="flex items-start gap-2.5 p-3 rounded-lg bg-muted/30 border border-border/60 text-sm print-avoid-break w-full min-w-0 overflow-hidden break-words shadow-sm"
-                            >
-                                <span className="font-mono text-xs font-bold text-primary mt-0.5 shrink-0">{String(idx + 1).padStart(2, '0')}.</span>
-                                <span className="text-foreground/90 min-w-0 break-words leading-relaxed whitespace-normal">{item}</span>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/* 5. Scope of Work & Delivery Timeline */}
-            <section className="space-y-3 print-avoid-break w-full min-w-0">
-                <h2 className="text-base font-serif font-bold text-foreground flex items-center gap-2 border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                    <Calendar className="w-4 h-4 text-primary shrink-0" /> {nextSection()}. Scope of Work &amp; Delivery Timeline
-                </h2>
-                {data.milestones && data.milestones.length > 0 ? (
-                    <div className="border border-border/60 rounded-lg overflow-hidden text-xs divide-y divide-border/40">
-                        {data.milestones.map((m) => {
-                            const meta = DEFAULT_MILESTONES_META[m.key] || { title: m.title, description: m.description || "" };
-                            const dateStr = m.startDate && m.endDate
-                                ? `${safeFormatDate(m.startDate, { month: "short", day: "numeric" })} – ${safeFormatDate(m.endDate, { month: "short", day: "numeric", year: "numeric" })}`
-                                : m.startDate
-                                ? `Starts ${safeFormatDate(m.startDate, { month: "short", day: "numeric" })}`
-                                : "Dates to be finalized";
-                            return (
-                                <div key={m.key} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/10 gap-2">
-                                    <div className="min-w-0">
-                                        <div className="font-semibold text-foreground text-xs">{meta.title}</div>
-                                        <div className="text-[11px] text-muted-foreground">{meta.description}</div>
-                                    </div>
-                                    <div className="text-foreground/90 font-mono text-[11px] whitespace-nowrap shrink-0 text-right">
-                                        {dateStr}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : data.timeline ? (
-                    <p className="text-sm text-foreground/90 leading-relaxed break-words min-w-0">{data.timeline}</p>
-                ) : null}
-            </section>
-
-            {/* 6. Pricing */}
-            <section className="space-y-3 print-avoid-break w-full min-w-0">
-                <h2 className="text-base font-serif font-bold text-foreground border-b border-border/60 pb-1.5 uppercase tracking-wide">
-                    {nextSection()}. Commercial Terms &amp; Investment Schedule
-                </h2>
-
-                {data.priceMode === "to_be_discussed" ? (
-                    <div className="p-5 rounded-xl border border-border bg-muted/20 text-center space-y-1.5 my-3">
-                        <span className="text-xs uppercase font-mono tracking-wider text-muted-foreground block font-semibold">
-                            Commercial Investment
-                        </span>
-                        <div className="text-lg sm:text-xl font-bold font-serif text-foreground">
-                            Price to be discussed
-                        </div>
-                        <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                            Technical scope and deliverables are outlined above. Commercial pricing and payment milestone triggers will be agreed upon during project alignment.
-                        </p>
-                    </div>
-                ) : data.priceMode === "priced" ? (
-                    <div className="p-5 rounded-xl border border-border bg-primary/5 space-y-3 my-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <span className="text-xs uppercase font-mono tracking-wider text-muted-foreground font-semibold">
-                                Total Contract Value
-                            </span>
-                            <span className="text-2xl font-bold font-mono text-primary">
-                                {currencyFormatter.format(data.totalPrice ?? data.total ?? 0)}
-                            </span>
-                        </div>
-                    </div>
+            <Section n={next()} title="Your needs and goals">
+                {needs.length === 0 && goals.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Taken from the discovery meeting.</p>
                 ) : (
-                    <div className="border border-border rounded-lg overflow-x-auto print:overflow-visible w-full min-w-0 shadow-sm">
-                    <table className="w-full text-left text-sm table-fixed min-w-[500px] sm:min-w-0">
-                        <colgroup>
-                            <col className="w-[52%] sm:w-[56%]" />
-                            <col className="w-[12%] sm:w-[12%]" />
-                            <col className="w-[18%] sm:w-[16%]" />
-                            <col className="w-[18%] sm:w-[16%]" />
-                        </colgroup>
-                        <thead className="bg-muted/60 text-muted-foreground text-[11px] uppercase font-mono border-b border-border">
+                    <>
+                        {needs.length > 0 && (
+                            <>
+                                <p className="text-sm leading-relaxed text-foreground/90">From our discovery meeting, we understand that:</p>
+                                <ul className={listClass}>{needs.map((t) => <li key={t}>{t}</li>)}</ul>
+                            </>
+                        )}
+                        {goals.length > 0 && (
+                            <>
+                                <h3 className="pt-1 text-sm font-semibold text-foreground">Goals</h3>
+                                <ul className={listClass}>{goals.map((t) => <li key={t}>{t}</li>)}</ul>
+                            </>
+                        )}
+                    </>
+                )}
+            </Section>
+
+            <Section n={next()} title="Proposed solution">
+                {solution.length > 1 ? (
+                    <ul className={listClass}>{solution.map((t) => <LabelledItem key={t} text={t} />)}</ul>
+                ) : (
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">{solution[0] || "Described with you during Requirements."}</p>
+                )}
+                {(data.deliverables ?? []).length > 0 && (
+                    <ul className={listClass}>{(data.deliverables ?? []).map((t) => <li key={t}>{t}</li>)}</ul>
+                )}
+            </Section>
+
+            <Section n={next()} title="Scope of work">
+                {milestones.length > 0 && (
+                    <table className={tableClass}>
+                        <thead>
                             <tr>
-                                <th className="p-3">Description &amp; Scope Breakdown</th>
-                                <th className="p-3 text-center">Qty</th>
-                                <th className="p-3 text-right">Rate</th>
-                                <th className="p-3 text-right">Amount</th>
+                                <th className={thClass}>Phase</th>
+                                <th className={thClass}>What is done</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-border/60">
-                            {pricingItems.length > 0 ? (
-                                pricingItems.map((item, idx) => (
-                                    <tr key={idx} className="print-avoid-break hover:bg-muted/20 transition-colors">
-                                        <td className="p-3 font-medium text-foreground min-w-0 break-words">
-                                            <div className="break-words font-semibold">{item.name}</div>
-                                            {item.description && (
-                                                <div className="text-xs text-muted-foreground font-normal mt-0.5 break-words whitespace-normal leading-relaxed">
-                                                    {item.description}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="p-3 text-center text-muted-foreground font-mono shrink-0 whitespace-nowrap">{item.quantity || 1}</td>
-                                        <td className="p-3 text-right text-muted-foreground font-mono shrink-0 whitespace-nowrap">
-                                            {currencyFormatter.format(item.unitPrice || 0)}
-                                        </td>
-                                        <td className="p-3 text-right font-semibold text-foreground font-mono shrink-0 whitespace-nowrap">
-                                            {currencyFormatter.format(item.total || (item.quantity || 1) * (item.unitPrice || 0))}
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={4} className="p-4 text-center text-muted-foreground text-xs italic">
-                                        No line items configured.
-                                    </td>
+                        <tbody>
+                            {milestones.map((m) => (
+                                <tr key={m.key}>
+                                    <td className={cn(tdClass, "w-1/3 text-foreground")}>{m.title}</td>
+                                    <td className={cn(tdClass, "text-muted-foreground")}>{m.description}</td>
                                 </tr>
-                            )}
+                            ))}
                         </tbody>
-                        <tfoot className="bg-muted/30 border-t-2 border-border font-mono text-sm divide-y divide-border/40">
-                            {(data.discount ?? 0) > 0 && (
-                                <tr>
-                                    <td colSpan={3} className="p-2.5 text-right text-muted-foreground">Special Discount Applied:</td>
-                                    <td className="p-2.5 text-right text-emerald-600 dark:text-emerald-400 font-semibold shrink-0 whitespace-nowrap">
-                                        -{currencyFormatter.format(data.discount || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                            {(data.tax ?? 0) > 0 && (
-                                <tr>
-                                    <td colSpan={3} className="p-2.5 text-right text-muted-foreground">Applicable Tax / VAT:</td>
-                                    <td className="p-2.5 text-right text-foreground font-semibold shrink-0 whitespace-nowrap">
-                                        +{currencyFormatter.format(data.tax || 0)}
-                                    </td>
-                                </tr>
-                            )}
-                            <tr className="bg-primary/5 font-semibold text-base">
-                                <td colSpan={3} className="p-3 text-right text-foreground font-serif uppercase tracking-wider text-xs">Total Contract Value:</td>
-                                <td className="p-3 text-right text-primary font-mono text-lg font-bold shrink-0 whitespace-nowrap">
-                                    {currencyFormatter.format(data.total || 0)}
-                                </td>
-                            </tr>
-                        </tfoot>
                     </table>
-                </div>
-
-                
                 )}
-                {/* Payment Method */}
-                {cs.paymentMethod && (
-                    <div className="flex items-start gap-2 text-xs text-muted-foreground mt-2 p-2.5 rounded-lg border border-border/60 bg-muted/20 min-w-0 break-words">
-                        <CreditCard className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                        <span className="min-w-0 break-words"><strong className="text-foreground">Accepted Payment Method:</strong> {cs.paymentMethod}</span>
-                    </div>
+                {data.exclusions?.trim() && (
+                    <>
+                        <h3 className="pt-1 text-sm font-semibold text-foreground">Not included</h3>
+                        <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">{data.exclusions}</p>
+                    </>
                 )}
-            </section>
+            </Section>
 
-            {/* 7. General Terms */}
-            <section className="space-y-2 text-xs text-muted-foreground print-avoid-break border-t border-border/70 pt-6 w-full min-w-0">
-                <h3 className="font-bold text-foreground uppercase tracking-wider text-xs font-serif">
-                    {nextSection()}. General Terms, Intellectual Property &amp; Payment Milestones
-                </h3>
-                <p className="leading-relaxed whitespace-pre-line break-words min-w-0">
-                    {data.terms ||
-                        "Standard agency terms apply: 50% deposit required upon acceptance to initiate sprint planning, with the remaining balance due upon milestone handover. All custom deliverables and intellectual property will transfer to Client upon receipt of final contract settlement."}
-                </p>
-            </section>
+            <Section n={next()} title="Timeline and milestones">
+                {dated.length > 0 ? (
+                    <>
+                        <p className="text-sm text-foreground/90" suppressHydrationWarning>
+                            Estimated duration: about {months} {months === 1 ? "month" : "months"}, {fmt(firstStart)} to {fmt(lastEnd)}.
+                        </p>
+                        <table className={tableClass}>
+                            <thead>
+                                <tr>
+                                    <th className={thClass}>Milestone</th>
+                                    <th className={thClass}>Dates</th>
+                                    <th className={cn(thClass, "text-right")}>Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {milestones.map((m) => (
+                                    <tr key={m.key}>
+                                        <td className={cn(tdClass, "text-foreground")}>{m.title}</td>
+                                        <td className={cn(tdClass, "tabular-nums text-muted-foreground")} suppressHydrationWarning>
+                                            {m.startDate && m.endDate ? `${fmtShort(m.startDate)} – ${fmtShort(m.endDate)}` : "To be set"}
+                                        </td>
+                                        <td className={cn(tdClass, "text-right tabular-nums text-foreground")}>{duration(m.startDate, m.endDate)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </>
+                ) : (
+                    <p className="text-sm text-foreground/90">{data.timeline || "Dates are agreed during Requirements."}</p>
+                )}
+            </Section>
 
-            {/* Optional Legal Clauses */}
-            {(cs.includeConfidentiality || cs.includeIpClause || cs.includeLiabilityClause || cs.includeForceClause || cs.includeChangeOrder || cs.includeDisputeResolution || cs.governingLaw || cs.customClauses) && (
-                <section className="space-y-4 print-avoid-break border-t border-border/70 pt-6 w-full min-w-0">
-                    <h3 className="font-bold text-foreground uppercase tracking-wider text-xs font-serif">
-                        {nextSection()}. Additional Legal Provisions
-                    </h3>
-
-                    <div className="space-y-3 text-xs text-muted-foreground w-full min-w-0">
-                        {cs.includeConfidentiality && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <Lock className="w-3 h-3 text-primary shrink-0" /> Confidentiality &amp; Non-Disclosure
-                                </div>
-                                <p className="leading-relaxed break-words min-w-0">Both parties agree to hold all non-public information exchanged under this Agreement in strict confidence and not to disclose such information to any third party without prior written consent. This obligation survives the termination of this Agreement for a period of two (2) years.</p>
-                            </div>
+            <Section n={next()} title="Price">
+                {priced ? (
+                    <>
+                        <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg bg-brand-soft/60 px-4 py-3">
+                            <span className="text-sm text-foreground">Total price</span>
+                            <span className="text-xl font-semibold tabular-nums text-foreground">{money.format(total)}</span>
+                        </div>
+                        {(data.paymentScheduleItems ?? []).length > 0 && (
+                            <table className={tableClass}>
+                                <thead>
+                                    <tr>
+                                        <th className={thClass}>Payment</th>
+                                        <th className={thClass}>When</th>
+                                        <th className={cn(thClass, "text-right")}>Percent</th>
+                                        <th className={cn(thClass, "text-right")}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(data.paymentScheduleItems ?? []).map((p, i) => (
+                                        <tr key={p.id ?? `${p.label}-${i}`}>
+                                            <td className={cn(tdClass, "text-foreground")}>{p.label}</td>
+                                            <td className={cn(tdClass, "text-muted-foreground")}>{TRIGGER_LABEL[p.trigger] ?? p.trigger.replace(/_/g, " ")}</td>
+                                            <td className={cn(tdClass, "text-right tabular-nums")}>{p.percent}%</td>
+                                            <td className={cn(tdClass, "text-right tabular-nums text-foreground")}>{money.format(Math.round((total * p.percent) / 100))}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         )}
+                        {cs.paymentMethod && <p className="text-sm text-foreground/90">Accepted payment method: {cs.paymentMethod}</p>}
+                    </>
+                ) : data.priceMode === "to_be_discussed" ? (
+                    <p className="rounded-lg bg-brand-soft/60 px-4 py-3 text-sm leading-relaxed text-foreground">
+                        <strong className="font-semibold">Price to be discussed.</strong> {agencyName.split(" ")[0]} will meet with you to discuss your budget and the price for this
+                        scope. A priced version of this proposal will follow that meeting.
+                    </p>
+                ) : (data.pricingStructure ?? []).length > 0 ? (
+                    // Older proposals priced by line items.
+                    <table className={tableClass}>
+                        <thead>
+                            <tr>
+                                <th className={thClass}>Item</th>
+                                <th className={cn(thClass, "text-right")}>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(data.pricingStructure ?? []).map((item, i) => (
+                                <tr key={`${item.name}-${i}`}>
+                                    <td className={cn(tdClass, "text-foreground")}>{item.name}</td>
+                                    <td className={cn(tdClass, "text-right tabular-nums")}>{money.format(item.total || (item.quantity || 1) * (item.unitPrice || 0))}</td>
+                                </tr>
+                            ))}
+                            <tr>
+                                <td className="py-2 pr-3 font-semibold text-foreground">Total</td>
+                                <td className="py-2 text-right font-semibold tabular-nums text-foreground">{money.format(data.total || 0)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                ) : (
+                    <p className="text-sm text-muted-foreground">Price to follow.</p>
+                )}
+            </Section>
 
-                        {cs.includeIpClause && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <Lightbulb className="w-3 h-3 text-primary shrink-0" /> Intellectual Property &amp; Work-for-Hire
-                                </div>
-                                <p className="leading-relaxed break-words min-w-0">Upon receipt of full and final payment, all custom deliverables, source code, designs, and documentation created specifically for the Client under this Agreement shall become the sole intellectual property of the Client. Pre-existing tools, libraries, and proprietary frameworks used in delivery remain the property of the Service Provider.</p>
+            <Section n={next()} title="How we work">
+                <ul className={listClass}>{standard.how_we_work?.lines.map((t) => <LabelledItem key={t} text={t.replace(/^- /, "")} />)}</ul>
+            </Section>
+
+            <Section n={next()} title="Project team">
+                <table className={tableClass}>
+                    <thead>
+                        <tr>
+                            <th className={thClass}>Role</th>
+                            <th className={thClass}>Responsibility</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {standard.project_team?.lines.map((line) => {
+                            const [role, ...rest] = line.replace(/^- /, "").split(":");
+                            return (
+                                <tr key={line}>
+                                    <td className={cn(tdClass, "w-1/3 text-foreground")}>{role}</td>
+                                    <td className={cn(tdClass, "text-muted-foreground")}>{rest.join(":").trim()}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </Section>
+
+            <Section n={next()} title="Terms and conditions">
+                <ul className={listClass}>
+                    {(customTerms ?? standard.terms?.lines.map((t) => t.replace(/^- /, "")) ?? []).map((t) => (
+                        <LabelledItem key={t} text={t} />
+                    ))}
+                    {extraClauses.map((t) => (
+                        <LabelledItem key={t} text={t} />
+                    ))}
+                </ul>
+            </Section>
+
+            <Section n={next()} title="Next steps">
+                <ul className={listClass}>
+                    {(priced
+                        ? standard.next_steps?.lines.map((t) => t.replace(/^- /, ""))
+                        : [
+                              "Review this proposal and request changes to the scope or timeline in the client portal.",
+                              "Confirm a date for the budget and pricing meeting.",
+                              "After the meeting, you receive a priced version to sign.",
+                          ]
+                    )?.map((t) => <li key={t}>{t}</li>)}
+                </ul>
+                {!priced && (
+                    <p className="rounded-lg bg-stage-negotiation/15 px-4 py-2.5 text-sm text-foreground">This version has no price and cannot be signed.</p>
+                )}
+            </Section>
+
+            {/* Signature lines only on a priced version: they fill in when the client signs online or the PM records a paper signature. */}
+            {priced && (
+                <footer className="proposal-sheet-footer print-avoid-break min-w-0 space-y-4">
+                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                        <span className="text-brand-deep">{next()}.</span> Signatures
+                    </h2>
+                    <div className="grid gap-8 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <p className="text-xs text-muted-foreground">For {data.businessName || "the client"}</p>
+                            <div className="flex h-14 items-end border-b border-foreground/40 pb-1">
+                                {signed && data.signatureData ? (
+                                    data.signatureData.startsWith("data:image/") ? (
+                                        // eslint-disable-next-line @next/next/no-img-element -- signature captured as a data URL
+                                        <img src={data.signatureData} alt={`Signature of ${data.acceptedByName || "the client"}`} className="max-h-12 max-w-full object-contain" />
+                                    ) : (
+                                        <span className="font-serif text-2xl italic text-foreground">{data.signatureData}</span>
+                                    )
+                                ) : null}
                             </div>
-                        )}
-
-                        {cs.includeLiabilityClause && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <AlertTriangle className="w-3 h-3 text-primary shrink-0" /> Limitation of Liability
-                                </div>
-                                <p className="leading-relaxed break-words min-w-0">The total aggregate liability of the Service Provider under or in connection with this Agreement shall not exceed the total fees paid by the Client in the three (3) months preceding the claim. Neither party shall be liable for indirect, incidental, consequential, or punitive damages arising from the performance of this Agreement.</p>
-                            </div>
-                        )}
-
-                        {cs.includeForceClause && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <RefreshCw className="w-3 h-3 text-primary shrink-0" /> Force Majeure
-                                </div>
-                                <p className="leading-relaxed break-words min-w-0">Neither party shall be liable for delays or failures in performance resulting from causes beyond their reasonable control, including but not limited to natural disasters, governmental actions, internet or telecommunications outages, or other events constituting force majeure. The affected party shall promptly notify the other party and resume performance as soon as reasonably practicable.</p>
-                            </div>
-                        )}
-
-                        {cs.includeChangeOrder && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <Plus className="w-3 h-3 text-primary shrink-0" /> Change Order &amp; Scope Amendment Process
-                                </div>
-                                <p className="leading-relaxed break-words min-w-0">Any additions or material changes to the agreed scope of work must be documented in a written Change Order, mutually signed by both parties, prior to commencement of additional work. Change Orders may affect timeline and pricing and will be billed separately at the Service Provider&apos;s standard rates.</p>
-                            </div>
-                        )}
-
-                        {cs.includeDisputeResolution && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <Gavel className="w-3 h-3 text-primary shrink-0" /> Dispute Resolution
-                                </div>
-                                <p className="leading-relaxed break-words min-w-0">The parties agree to attempt to resolve any dispute through good-faith negotiation. If unresolved within thirty (30) days, the dispute shall be submitted to binding arbitration in accordance with applicable commercial arbitration rules. The prevailing party may be entitled to recover reasonable legal fees.</p>
-                            </div>
-                        )}
-
-                        {cs.governingLaw && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <Scale className="w-3 h-3 text-primary shrink-0" /> Governing Law &amp; Jurisdiction
-                                </div>
-                                <p className="leading-relaxed break-words min-w-0">This Agreement shall be governed by and construed in accordance with the laws of <strong className="text-foreground">{cs.governingLaw}</strong>. Any legal proceedings arising from this Agreement shall be conducted exclusively within the competent courts of {cs.governingLaw}.</p>
-                            </div>
-                        )}
-
-                        {cs.customClauses && (
-                            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1 min-w-0 overflow-hidden break-words">
-                                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                                    <FileText className="w-3 h-3 text-primary shrink-0" /> Additional Agreed Terms
-                                </div>
-                                <p className="leading-relaxed whitespace-pre-line break-words min-w-0">{cs.customClauses}</p>
-                            </div>
-                        )}
-                    </div>
-                </section>
-            )}
-
-            {/* Final: Signatures */}
-            <footer className="proposal-sheet-footer pt-6 border-t-2 border-border/90 print-avoid-break space-y-4 w-full min-w-0">
-                <h3 className="font-bold text-foreground uppercase tracking-wider text-xs font-serif">
-                    {nextSection()}. Signatures &amp; Authorization
-                </h3>
-                <p className="text-[11px] text-muted-foreground break-words">
-                    IN WITNESS WHEREOF, the parties hereto have caused this Statement of Work to be executed by their duly authorized representatives.
-                </p>
-
-                {data.status === "signed" ? (
-                    <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full min-w-0 overflow-hidden">
-                        <div className="space-y-1 min-w-0 break-words">
-                            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                                <ShieldCheck className="w-4 h-4 shrink-0" /> Digital Portal Sign-Off &amp; Verification Timestamp
-                            </div>
-                            <p className="text-xs text-muted-foreground break-words">
-                                Signed via Client Portal by <strong className="text-foreground">{data.acceptedByName || "Client Signatory"}</strong>
-                                {data.acceptedByTitle ? ` (${data.acceptedByTitle})` : ""} on{" "}
-                                {data.acceptedAt ? safeFormatDate(data.acceptedAt, undefined, formattedCreatedDate) : formattedCreatedDate}.
+                            <p className="text-sm text-foreground">
+                                {signed ? data.acceptedByName || "Client" : "Name"}
+                                {signed && data.acceptedByTitle ? `, ${data.acceptedByTitle}` : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground" suppressHydrationWarning>
+                                Date: {signed ? fmt(data.acceptedAt, fmt(new Date())) : "________________"}
                             </p>
                         </div>
-                        {data.signatureData && (
-                            <div className="mt-2 sm:mt-0 shrink-0 max-w-[200px]">
-                                {data.signatureData.startsWith("data:image/") ? (
-                                    <img
-                                        src={data.signatureData}
-                                        alt="Authorized Client Signature"
-                                        className="max-h-12 max-w-full object-contain filter contrast-125"
-                                    />
-                                ) : (
-                                    <span className="font-serif italic text-xl sm:text-2xl text-neutral-900 dark:text-neutral-100 tracking-wide break-words">
-                                        {data.signatureData}
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 pt-2 w-full min-w-0">
-                        <div className="space-y-3 min-w-0">
-                            <p className="text-[10px] font-mono uppercase text-muted-foreground font-semibold">Service Provider Authorization</p>
-                            <div className="h-12 border-b border-border flex items-end font-serif italic text-sm text-foreground pb-1 truncate">
-                                {agencyName} Representative
-                            </div>
-                            <div className="text-[10px] text-muted-foreground font-mono">Date: {formattedCreatedDate}</div>
-                        </div>
-                        <div className="space-y-3 min-w-0">
-                            <p className="text-[10px] font-mono uppercase text-muted-foreground font-semibold">Client Acceptance &amp; Execution</p>
-                            <div className="h-12 border-b border-dashed border-border flex items-end text-xs text-muted-foreground pb-1">
-                                Pending Digital Signature
-                            </div>
-                            <div className="text-[10px] text-muted-foreground font-mono truncate">Date: ________________________</div>
+                        <div className="space-y-2">
+                            <p className="text-xs text-muted-foreground">For {agencyName}</p>
+                            <div className="h-14 border-b border-foreground/40" />
+                            <p className="text-sm text-foreground">Project Manager</p>
+                            <p className="text-xs text-muted-foreground">Date: ________________</p>
                         </div>
                     </div>
-                )}
-            </footer>
+                </footer>
+            )}
 
-            {/* Reusable Legal Footprint Footer */}
-            <ProposalDocumentFooter
-                proposalCode={data.proposalCode || "OPT-2026-0001"}
-                agencyRegistration={cs.agencyRegistration || "CS202612345"}
-                agencyAddress={cs.agencyAddress || "4th Floor, Innovation Hub Building, Metro Manila, Philippines"}
-                agencyPhone={cs.agencyPhone || "+63 (917) 555-1234"}
-                agencyEmail={agencyEmail}
-                currentPage={1}
-                totalPages={1}
-            />
+            {/* One quiet line, as in the mockup. */}
+            <p className="proposal-document-footer flex flex-wrap justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+                <span>{agencyName} · Confidential</span>
+                <span className="tabular-nums">
+                    {[cs.agencyRegistration && `SEC ${cs.agencyRegistration}`, cs.agencyPhone, agencyEmail].filter(Boolean).join(" · ")}
+                </span>
+            </p>
         </div>
     );
 }

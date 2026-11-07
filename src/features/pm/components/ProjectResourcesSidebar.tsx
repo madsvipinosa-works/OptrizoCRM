@@ -17,9 +17,7 @@ import {
     Sparkles, 
     UserCheck, 
     Briefcase, 
-    UploadCloud,
-    FileUp,
-    Layers
+    UploadCloud
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,7 +146,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                     "p-3.5 rounded-xl border transition-all space-y-2 shadow-xs group",
                     isClientDoc 
                         ? "border-stage-new/30 bg-stage-new/5 hover:border-stage-new/30" 
-                        : "border-border bg-card hover:border-primary/40"
+                        : "border-border bg-card hover:border-brand-deep/30"
                 )}
             >
                 <div className="flex items-center gap-3">
@@ -197,7 +195,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                         className="h-8 w-8 border-border bg-background hover:bg-muted text-foreground shrink-0"
                     >
                         <a href={doc.url.startsWith("http") ? doc.url : `https://${doc.url}`} target="_blank" rel="noreferrer" title="Open Document">
-                            <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                            <ExternalLink className="h-3.5 w-3.5 text-brand-deep" />
                         </a>
                     </Button>
                     <Button
@@ -219,14 +217,13 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
                 <Button 
-                    variant="outline" 
-                    className="border-border text-foreground hover:bg-muted transition-all shadow-xs h-9 px-2.5 sm:px-4 shrink-0"
+                    variant="ghost"
+                    className="h-9 shrink-0 gap-1.5 px-3 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.97]"
                 >
-                    <FolderOpen className="h-4 w-4 sm:mr-2 text-primary shrink-0" />
-                    <span className="hidden sm:inline">Project Resources</span>
-                    <span className="sm:hidden ml-1.5 text-xs font-semibold">Assets</span>
+                    <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
+                    Files
                     {(documents.length > 0 || (stagingUrls && stagingUrls.length > 0)) && (
-                        <span className="ml-1.5 sm:ml-2 px-1.5 py-0.2 rounded-full text-xs bg-primary/10 text-primary border border-primary/20 tabular-nums">
+                        <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
                             {documents.length + (stagingUrls?.filter(Boolean).length || 0)}
                         </span>
                     )}
@@ -240,14 +237,14 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                 <div className="p-6 border-b border-border bg-card/90 space-y-4">
                     <SheetHeader className="text-left space-y-1.5">
                         <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-primary">
+                            <div className="p-2 rounded-lg bg-brand-soft border border-brand-deep/30 text-brand-deep">
                                 <FolderOpen className="h-5 w-5" />
                             </div>
                             <div>
                                 <SheetTitle className="text-lg font-semibold text-foreground tracking-tight">
                                     Project Resources
                                 </SheetTitle>
-                                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-brand-soft text-brand-deep border border-brand-deep/30">
                                     Asset Hub
                                 </span>
                             </div>
@@ -354,7 +351,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                 <div className="p-4 rounded-xl border border-dashed border-border bg-muted/20 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                            <Plus className="h-3.5 w-3.5 text-primary" /> Add Agency Resource
+                                            <Plus className="h-3.5 w-3.5 text-brand-deep" /> Add Agency Resource
                                         </h4>
                                         <div className="flex items-center gap-1 p-0.5 bg-background rounded-lg border border-border text-xs">
                                             <button
@@ -420,7 +417,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                                 size="sm"
                                                 onClick={handleAddDocumentLink}
                                                 disabled={isSaving || !newDocTitle.trim() || !newDocUrl.trim()}
-                                                className="w-full text-xs py-2 h-9 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary transition-all rounded-lg mt-1"
+                                                className="w-full text-xs py-2 h-9 bg-brand-soft border border-brand-deep/30 hover:bg-brand-soft text-brand-deep transition-all rounded-lg mt-1"
                                             >
                                                 <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Resource Link
                                             </Button>
@@ -516,13 +513,13 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                                    <div className="p-1.5 rounded-md bg-brand-soft text-brand-deep border border-brand-deep/30">
                                         <Globe className="h-4 w-4" />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <Label className="text-sm font-semibold text-foreground">Staging & Preview Environments</Label>
-                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-primary/30 text-primary bg-primary/10">
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-brand-deep/30 text-brand-deep bg-brand-soft">
                                                 {stagingUrls.filter(u => u.trim()).length} active
                                             </Badge>
                                         </div>
@@ -556,7 +553,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                                 className="h-9 w-9 border-border bg-background hover:bg-muted text-foreground shrink-0"
                                             >
                                                 <a href={url.startsWith("http") ? url : `https://${url}`} target="_blank" rel="noreferrer" title="Open Link">
-                                                    <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                                                    <ExternalLink className="h-3.5 w-3.5 text-brand-deep" />
                                                 </a>
                                             </Button>
                                         )}
@@ -576,9 +573,9 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setStagingUrls([...stagingUrls, ""])}
-                                    className="w-full text-xs py-2 h-9 bg-muted/40 border-dashed border-border hover:border-primary/50 text-foreground transition-all rounded-lg"
+                                    className="w-full text-xs py-2 h-9 bg-muted/40 border-dashed border-border hover:border-brand-deep/30 text-foreground transition-all rounded-lg"
                                 >
-                                    <Plus className="h-3.5 w-3.5 mr-1.5 text-primary" /> Add Environment URL
+                                    <Plus className="h-3.5 w-3.5 mr-1.5 text-brand-deep" /> Add Environment URL
                                 </Button>
                             </div>
                         </div>

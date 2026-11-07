@@ -17,7 +17,7 @@ Stack: Next.js, React, Drizzle ORM. Check `package.json`, `drizzle.config.*` and
 - If code, mockups and spec disagree, follow `docs/workflow-spec.md` and say what conflicts. Don't silently pick one.
 - Statuses change only through the actions in the spec (lead stage, task status, milestone status, payments). Never add a manual status dropdown. A lost lead is reopened only by Sales through Reopen (reason required); archive is `archivedAt`, not a stage.
 - Meetings: Sales edits `discovery`; the PM edits `budget_pricing`, `project_review` and `uat`. Each role can view the other's.
-- Proposal milestones are always the 5 defaults; only their dates can change.
+- Proposal milestones: the 5 defaults are always there and cannot be removed, but the PM may rename them and add milestones of their own between them (decision 2026-11-08, migration 0020).
 - No lead score and no budget field on the public inquiry form.
 - Super Admin monitors only. It must never create, edit or delete leads, proposals, meetings, projects, tasks or payments. Analytics and reports show counts and totals only. The audit log and recent activity may show names, roles and record type, read-only, with no links into records.
 - Check permissions on the server (server actions, route handlers, middleware), not only in the UI.

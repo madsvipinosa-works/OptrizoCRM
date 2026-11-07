@@ -38,7 +38,7 @@ function getStatusLabel(status: SprintWithCounts["status"]): {
   colorClass: string;
 } {
   if (status === "active") {
-    return { label: "Current", colorClass: "text-primary font-semibold" };
+    return { label: "Current", colorClass: "text-brand-deep font-semibold" };
   }
   if (status === "ended") {
     return { label: "Done", colorClass: "text-brand-deep dark:text-brand-deep font-semibold" };
@@ -86,10 +86,10 @@ export function SprintBar({
               aria-expanded={dropdownOpen}
               aria-label="Choose sprint"
               onClick={() => setDropdownOpen((v) => !v)}
-              className="h-9 px-3 rounded-lg border border-primary/50 bg-primary/10 text-foreground text-sm inline-flex items-center gap-2 whitespace-nowrap transition-colors hover:bg-primary/15"
+              className="h-9 px-3 rounded-lg border border-brand-deep/40 bg-brand-soft text-foreground text-sm inline-flex items-center gap-2 whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring"
             >
               <strong className="font-semibold">{selectedSprint.name}</strong>
-              <span className="text-muted-foreground text-xs">
+              <span className="text-muted-foreground text-sm">
                 {formatSprintDateRange(selectedSprint.startDate, selectedSprint.endDate)} ·{" "}
                 <span className={getStatusLabel(selectedSprint.status).colorClass}>
                   {getStatusLabel(selectedSprint.status).label}
@@ -118,14 +118,14 @@ export function SprintBar({
                         setDropdownOpen(false);
                       }}
                       className={cn(
-                        "flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs text-left transition-colors",
+                        "flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors",
                         isCurrent
-                          ? "bg-primary/15 text-foreground font-medium"
+                          ? "bg-brand-soft text-foreground font-medium"
                           : "hover:bg-muted text-foreground"
                       )}
                     >
                       <span className="truncate">
-                        <strong className="font-semibold text-sm">{s.name}</strong>{" "}
+                        <strong className="font-semibold">{s.name}</strong>{" "}
                         <span className="text-muted-foreground ml-1">
                           {formatSprintDateRange(s.startDate, s.endDate)}
                         </span>
@@ -147,7 +147,7 @@ export function SprintBar({
 
         {/* Sprint Goal & Task Count */}
         {selectedSprint && (
-          <div className="min-w-0 flex-1 text-xs sm:text-sm text-foreground truncate">
+          <div className="min-w-0 flex-1 text-sm text-foreground">
             {selectedSprint.goal ? (
               <>
                 <strong className="font-semibold">Goal:</strong> {selectedSprint.goal}{" "}
@@ -170,21 +170,30 @@ export function SprintBar({
           <button
             type="button"
             onClick={onToggleBacklog}
+            aria-pressed={isBacklogOpen}
             className={cn(
-              "h-9 px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center gap-2 whitespace-nowrap border transition-colors",
+              "h-9 px-3 rounded-lg text-sm font-semibold inline-flex items-center gap-2 whitespace-nowrap border outline-none transition-[color,background-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
               isBacklogOpen
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-foreground border-border hover:bg-muted"
+                ? "bg-brand-deep text-white border-brand-deep"
+                : "bg-card text-foreground border-border hover:bg-muted"
             )}
           >
-            <ListTodo className="w-3.5 h-3.5 shrink-0" />
-            <span>Backlog ({backlogCount})</span>
+            <ListTodo className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            <span>Backlog</span>
+            <span
+              className={cn(
+                "min-w-5 rounded-full px-1.5 text-xs tabular-nums",
+                isBacklogOpen ? "bg-white text-brand-deep" : "bg-brand-deep text-white"
+              )}
+            >
+              {backlogCount}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={onOpenPlanSprint}
-            className="h-9 px-3.5 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border border-dashed border-border bg-background text-foreground hover:bg-muted transition-colors"
+            className="h-9 px-3.5 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border border-dashed border-border bg-card text-foreground outline-none hover:bg-muted transition-[color,background-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
           >
             <Plus className="w-3.5 h-3.5 shrink-0" />
             <span>Plan sprint</span>

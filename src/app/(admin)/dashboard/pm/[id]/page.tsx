@@ -1,15 +1,13 @@
 import { db } from "@/db";
+import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { agencyProjects, projectTeamMembers, tasks, taskAssignees } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { eq, and, ne, isNull, sql } from "drizzle-orm";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Lock } from "lucide-react";
 import { KanbanBoard } from "@/features/pm/components/KanbanBoard";
 import { ProjectSettingsModal } from "@/features/pm/components/ProjectSettingsModal";
 import { ProjectResourcesSidebar } from "@/features/pm/components/ProjectResourcesSidebar";
-import { ProjectProgressCard } from "@/components/projects/weighted-progress-bar";
 import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
 import { authorizeProject } from "@/lib/authz";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
@@ -190,67 +188,30 @@ export default async function KanbanBoardPage(props: {
     };
 
     return (
-        <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col space-y-3 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)]">
-            <div className="flex items-center justify-between gap-2.5 sm:gap-4 shrink-0">
-                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-                    <Button variant="ghost" size="icon" asChild className="hover:bg-muted text-foreground shrink-0">
-                        <Link href="/dashboard/pm">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Link>
-                    </Button>
-                    <div className="min-w-0 flex-1">
-                        <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl" title={project.title}>
-                            {project.title}
-                        </h1>
-                        <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 truncate">
-                            {project.stakeholders?.[0]?.user?.name || project.lead?.contactName || "Unknown Client"} • Status:{" "}
-                            <span className="text-foreground font-semibold tabular-nums">{project.status}</span>
-                        </p>
-                    </div>
-                </div>
-
-                {/* Hide resources sidebar and settings modal for developer */}
-                {isManager && (
-                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/pm/${project.id}/timeline`}>
-                                Timeline
-                            </Link>
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/pm/${project.id}/activity`}>
-                                Activity
-                            </Link>
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/pm/${project.id}/payments`}>
-                                Payments
-                            </Link>
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/pm/${project.id}/complete`}>
-                                Completion
-                            </Link>
-                        </Button>
+        <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col space-y-4 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)]">
+            <ProjectHeader
+                projectId={project.id}
+                title={project.title}
+                businessName={clientBusiness}
+                clientName={clientName}
+                current="board"
+                showTools={isManager}
+                extraTools={
+                    <>
                         <ProjectResourcesSidebar project={project} />
                         <ProjectSettingsModal project={project} />
-                    </div>
-                )}
-            </div>
+                    </>
+                }
+            />
 
             {project.status === "Completed" && !project.isArchived && isManager && (
-                <div className="shrink-0 bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
-                    <p className="text-sm font-medium text-primary">
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-deep/20 bg-brand-soft px-4 py-3">
+                    <p className="text-sm text-foreground">
                         This project is marked as Completed. Would you like to archive it to clear it from the active delivery board?
                     </p>
                     <ProjectArchiveButton projectId={project.id} isArchived={project.isArchived} />
                 </div>
             )}
-
-            {/* Real-time Weighted Progress Engine Card */}
-            <div className="shrink-0">
-                <ProjectProgressCard projectId={project.id} />
-            </div>
 
             {/* The Kanban Board gets the rest of the height */}
             {project.isArchived ? (

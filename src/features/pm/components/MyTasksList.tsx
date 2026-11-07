@@ -156,14 +156,14 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                         "rounded-xl p-3.5 sm:p-4 text-sm flex items-center justify-between gap-3 border shadow-xs",
                         normalizeStatus(alertTask.status) === "changes_requested"
                             ? "bg-destructive/10 border-destructive/30 text-destructive dark:text-destructive"
-                            : "bg-primary/10 border-primary/25 text-foreground"
+                            : "bg-brand-soft border-brand-deep/30 text-foreground"
                     )}
                 >
                     <div className="flex items-center gap-2.5 min-w-0">
                         {normalizeStatus(alertTask.status) === "changes_requested" ? (
                             <AlertTriangle className="w-5 h-5 text-destructive dark:text-destructive shrink-0" />
                         ) : (
-                            <Clock className="w-5 h-5 text-primary shrink-0" />
+                            <Clock className="w-5 h-5 text-brand-deep shrink-0" />
                         )}
                         <span className="truncate">
                             <strong>
@@ -297,7 +297,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center">
                                         {/* Task Title & Badges */}
                                         <div className="col-span-4 flex items-center gap-2 min-w-0">
-                                            <span className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                                            <span className="font-semibold text-sm text-foreground truncate group-hover:text-brand-deep transition-colors">
                                                 {t.title}
                                             </span>
                                             {isChangesRequested && (
@@ -311,7 +311,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                                             {isToDo && (
                                                 <Badge
                                                     variant="secondary"
-                                                    className="text-xs font-semibold px-1.5 py-0 bg-primary/15 text-primary border-primary/30 shrink-0 whitespace-nowrap"
+                                                    className="text-xs font-semibold px-1.5 py-0 bg-brand-soft text-brand-deep border-brand-deep/30 shrink-0 whitespace-nowrap"
                                                 >
                                                     New
                                                 </Badge>

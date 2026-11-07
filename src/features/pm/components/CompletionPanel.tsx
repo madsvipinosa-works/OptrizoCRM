@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { addHandoverFile, recordSignOff, completeProject } from "@/features/pm/completion-actions";
 import {
     CheckCircle2,
-    XCircle,
+    Circle,
     FileText,
     FileCheck,
     ShieldCheck,
@@ -79,6 +79,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
 
     const hasSignOff = Boolean(data.signOffFileUrl && data.signedOffAt);
     const hasHandoverFiles = data.handoverDocuments.length > 0;
+    const gatesDone = [data.allMilestonesCompleted, data.finalPaymentPaid, data.handoverDocuments.length > 0, hasSignOff].filter(Boolean).length;
     const allGatesPassed =
         data.allMilestonesCompleted &&
         data.finalPaymentPaid &&
@@ -177,7 +178,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             <Award className="w-6 h-6" />
                         </div>
                         <div className="space-y-1">
-                            <h2 className="text-xl font-semibold text-foreground">Project Officially Completed</h2>
+                            <h2 className="text-xl font-semibold text-foreground">Project complete</h2>
                             <p className="text-sm text-muted-foreground">
                                 All deliverables handed over, client sign-off recorded, and final payment cleared.
                             </p>
@@ -193,7 +194,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                         </div>
                         <div className="bg-card rounded-xl border border-border p-3.5 space-y-0.5">
                             <div className="text-xs tabular-nums text-muted-foreground flex items-center gap-1">
-                                <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Warranty Period Ends
+                                <ShieldCheck className="w-3.5 h-3.5 text-brand-deep" /> Warranty Period Ends
                             </div>
                             <div className="text-sm font-semibold text-foreground tabular-nums">
                                 {data.warrantyEndsAt ? new Date(data.warrantyEndsAt).toLocaleDateString() : "N/A"}
@@ -207,22 +208,22 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
             <div className="bg-card rounded-xl border border-border p-5 space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="text-lg font-semibold text-foreground">Completion Gates</h3>
-                        <p className="text-xs text-muted-foreground">
-                            All 4 conditions must be met to close out and complete the project.
+                        <h3 className="text-lg font-semibold text-foreground">Handover checklist</h3>
+                        <p className="text-sm text-muted-foreground">
+                            {gatesDone} of 4 done. All four are needed to mark the project complete.
                         </p>
                     </div>
                     {allGatesPassed && !isCompleted ? (
                         <Badge className="bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30">
-                            Ready to Complete
+                            Ready to complete
                         </Badge>
                     ) : isCompleted ? (
                         <Badge className="bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30">
                             Completed
                         </Badge>
                     ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
-                            Gates Incomplete
+                        <Badge variant="outline" className="text-muted-foreground tabular-nums">
+                            {gatesDone} of 4
                         </Badge>
                     )}
                 </div>
@@ -234,11 +235,11 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             {data.allMilestonesCompleted ? (
                                 <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
-                                <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
                             )}
                             <div>
                                 <div className="text-sm font-semibold text-foreground">
-                                    Gate 1: All Milestones Completed
+                                    All milestones are complete
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                     {data.allMilestonesCompleted
@@ -255,16 +256,16 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             {data.finalPaymentPaid ? (
                                 <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
-                                <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
                             )}
                             <div>
                                 <div className="text-sm font-semibold text-foreground">
-                                    Gate 2: Final Payment Cleared
+                                    Final payment received
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                     {data.finalPaymentPaid
                                         ? `Final payment "${data.finalPaymentLabel}" has been confirmed as paid.`
-                                        : `Final payment "${data.finalPaymentLabel}" is currently "${data.finalPaymentStatus}".`}
+                                        : `"${data.finalPaymentLabel}" is not paid yet (${data.finalPaymentStatus.replace(/_/g, " ")}).`}
                                 </p>
                             </div>
                         </div>
@@ -276,11 +277,11 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             {hasHandoverFiles ? (
                                 <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
-                                <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
                             )}
                             <div>
                                 <div className="text-sm font-semibold text-foreground">
-                                    Gate 3: Handover Documents Attached
+                                    Final files uploaded
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                     {hasHandoverFiles
@@ -307,16 +308,16 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             {hasSignOff ? (
                                 <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
                             ) : (
-                                <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
                             )}
                             <div>
                                 <div className="text-sm font-semibold text-foreground">
-                                    Gate 4: Formal Client Sign-off
+                                    Client signed final completion
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                     {hasSignOff
                                         ? `Sign-off recorded on ${new Date(data.signedOffAt!).toLocaleDateString()}.`
-                                        : "Formal client sign-off document and date must be recorded."}
+                                        : "Record the signed completion form and its date."}
                                 </p>
                             </div>
                         </div>
@@ -326,7 +327,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                     variant="ghost"
                                     size="sm"
                                     asChild
-                                    className="h-8 text-xs text-primary"
+                                    className="h-8 text-xs text-brand-deep"
                                 >
                                     <a
                                         href={data.signOffFileUrl}
@@ -345,7 +346,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                     className="h-8 text-xs"
                                     onClick={() => setIsSignOffOpen(true)}
                                 >
-                                    <FileCheck className="w-3.5 h-3.5 mr-1" /> {hasSignOff ? "Update" : "Record"} Sign-off
+                                    <FileCheck className="w-3.5 h-3.5 mr-1" aria-hidden="true" /> {hasSignOff ? "Update sign-off" : "Record sign-off"}
                                 </Button>
                             )}
                         </div>
@@ -365,7 +366,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                     className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border text-xs"
                                 >
                                     <div className="flex items-center gap-2">
-                                        <FileText className="w-4 h-4 text-primary" />
+                                        <FileText className="w-4 h-4 text-brand-deep" />
                                         <span className="font-medium text-foreground">{doc.title}</span>
                                         <span className="text-muted-foreground">({doc.fileName})</span>
                                     </div>
@@ -373,7 +374,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                         href={doc.fileUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-primary hover:underline inline-flex items-center gap-1"
+                                        className="text-brand-deep hover:underline inline-flex items-center gap-1"
                                     >
                                         Open <ExternalLink className="w-3 h-3" />
                                     </a>
@@ -389,10 +390,10 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                         <Button
                             size="lg"
                             disabled={!allGatesPassed || isLoading}
-                            className="font-semibold shadow-sm"
+                            className="font-semibold active:scale-[0.97]"
                             onClick={() => setIsCompleteConfirmOpen(true)}
                         >
-                            <Award className="w-4 h-4 mr-2" /> Complete Project & Start Warranty
+                            <Award className="w-4 h-4 mr-2" aria-hidden="true" /> Mark project complete
                         </Button>
                     </div>
                 )}
@@ -402,14 +403,14 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
             <Dialog open={isHandoverOpen} onOpenChange={setIsHandoverOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Add Handover Document</DialogTitle>
+                        <DialogTitle>Add handover file</DialogTitle>
                         <DialogDescription>
                             Attach deliverables, design exports, credentials documentation, or manual files for client handover.
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleAddHandoverSubmit} className="space-y-4 py-2">
                         <div className="space-y-1.5">
-                            <Label htmlFor="docTitle">Document Title *</Label>
+                            <Label htmlFor="docTitle">File title *</Label>
                             <Input
                                 id="docTitle"
                                 placeholder="e.g. Design Tokens & Figma Assets"
@@ -419,7 +420,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="docFileName">File Name *</Label>
+                            <Label htmlFor="docFileName">File name *</Label>
                             <Input
                                 id="docFileName"
                                 placeholder="e.g. optrizo-assets.zip"
@@ -429,7 +430,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="docFileUrl">File URL *</Label>
+                            <Label htmlFor="docFileUrl">File link *</Label>
                             <Input
                                 id="docFileUrl"
                                 placeholder="/uploads/optrizo-assets.zip"
@@ -451,7 +452,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={isLoading}>
-                                {isLoading ? "Adding..." : "Add Document"}
+                                {isLoading ? "Adding..." : "Add file"}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -462,14 +463,14 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
             <Dialog open={isSignOffOpen} onOpenChange={setIsSignOffOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Record Client Sign-Off</DialogTitle>
+                        <DialogTitle>Record completion sign-off</DialogTitle>
                         <DialogDescription>
                             Attach the signed certificate of acceptance or sign-off form and record the execution date.
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleRecordSignOffSubmit} className="space-y-4 py-2">
                         <div className="space-y-1.5">
-                            <Label htmlFor="signOffUrl">Sign-Off Document URL *</Label>
+                            <Label htmlFor="signOffUrl">Signed sign-off file link *</Label>
                             <Input
                                 id="signOffUrl"
                                 placeholder="/uploads/client-acceptance.pdf"
@@ -482,7 +483,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             </p>
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="signOffDate">Sign-Off Date *</Label>
+                            <Label htmlFor="signOffDate">Date signed *</Label>
                             <DatePicker id="signOffDate" max={todayYmd()} value={signOffDate} onChange={setSignOffDate} required />
                         </div>
                         <DialogFooter className="pt-2">
@@ -495,7 +496,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={isLoading}>
-                                {isLoading ? "Saving..." : "Save Sign-Off"}
+                                {isLoading ? "Saving..." : "Save sign-off"}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -507,7 +508,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-stage-negotiation" /> Confirm Project Completion
+                            <AlertTriangle className="w-5 h-5 text-stage-negotiation" aria-hidden="true" /> Mark project complete?
                         </DialogTitle>
                         <DialogDescription>
                             Are you sure you want to mark &quot;{data.projectTitle}&quot; as Completed?
