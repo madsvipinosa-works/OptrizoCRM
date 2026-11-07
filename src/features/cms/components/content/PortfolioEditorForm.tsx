@@ -13,6 +13,7 @@ import { createPortfolio, publishPortfolio, updatePortfolio } from "@/features/c
 import { DEFAULT_CLIENT_DISPLAY_NAME, LIMITS } from "@/features/cms/content/schemas";
 import { ContentImageField } from "./ContentImageField";
 import { contentErrorMessage } from "./ContentStatusButtons";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type PortfolioFormValues = {
     id: string;
@@ -137,9 +138,8 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
 
             <div className="space-y-2">
                 <Label htmlFor="portfolio-service">Service</Label>
-                <select
+                <FormSelect
                     id="portfolio-service"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                     value={serviceId}
                     onChange={(e) => setServiceId(e.target.value)}
                 >
@@ -149,7 +149,7 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                             {service.status === "published" ? service.title : `${service.title} (${service.status})`}
                         </option>
                     ))}
-                </select>
+                </FormSelect>
                 <p className="text-xs text-muted-foreground">Picked from the Services list. Required to publish.</p>
                 {fieldError("serviceId") && (
                     <p role="alert" className="text-xs text-destructive">{fieldError("serviceId")}</p>

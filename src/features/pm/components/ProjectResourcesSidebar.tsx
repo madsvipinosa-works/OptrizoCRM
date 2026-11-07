@@ -393,7 +393,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                                     value={newDocType}
                                                     onValueChange={(val: any) => setNewDocType(val)}
                                                 >
-                                                    <SelectTrigger className="w-[130px] h-9 bg-background border-border text-xs text-foreground">
+                                                    <SelectTrigger className="w-[130px] h-9 text-xs">
                                                         <SelectValue placeholder="Type" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-card border-border text-foreground">

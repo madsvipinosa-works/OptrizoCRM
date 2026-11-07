@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
     buildInquiryReceivedEmail,
     buildMeetingCancelledEmail,
@@ -8,6 +8,7 @@ import {
     escapeHtml,
     firstNameOf,
     formatManilaDate,
+    getBaseUrl,
     formatManilaDateTime,
     formatManilaShort,
     meetingFormatLabel,
@@ -55,15 +56,15 @@ describe("small helpers", () => {
 
 describe("Manila date formatting", () => {
     it("shows Manila time, not the server timezone", () => {
-        expect(formatManilaDateTime(MEETING_AT)).toMatch(/^Friday, November 6, 2026 at 10:00\sAM \(Manila time\)$/);
-        expect(formatManilaShort(MEETING_AT)).toMatch(/^Fri, Nov 6, 10:00\sAM$/);
-        expect(formatManilaDate(MEETING_AT)).toBe("November 6, 2026");
+        expect(formatManilaDateTime(MEETING_AT)).toMatch(/^Nov 6, 2026, 10:00\sAM \(Manila time\)$/);
+        expect(formatManilaShort(MEETING_AT)).toMatch(/^Nov 6, 2026, 10:00\sAM$/);
+        expect(formatManilaDate(MEETING_AT)).toBe("Nov 6, 2026");
     });
 
     it("moves to the next calendar day when UTC is still the day before", () => {
         const lateUtc = new Date("2026-11-06T17:00:00.000Z"); // Nov 7, 1:00 AM in Manila
-        expect(formatManilaDateTime(lateUtc)).toMatch(/Saturday, November 7, 2026 at 1:00\sAM \(Manila time\)/);
-        expect(formatManilaDate(lateUtc)).toBe("November 7, 2026");
+        expect(formatManilaDateTime(lateUtc)).toMatch(/Nov 7, 2026, 1:00\sAM \(Manila time\)/);
+        expect(formatManilaDate(lateUtc)).toBe("Nov 7, 2026");
     });
 });
 
@@ -87,7 +88,6 @@ describe("inquiry received email", () => {
         clientName: "Maria Santos",
         businessName: "Santos Logistics",
         serviceName: "Mobile App",
-        serviceUrl: `${BASE}/services/mobile-app`,
         baseUrl: BASE,
     });
 
@@ -108,19 +108,10 @@ describe("inquiry received email", () => {
         expect(named.text).toContain("Ana Reyes from our sales team will contact you");
     });
 
-    it("has one button to the service page, or the website when there is no service page", () => {
+    it("has one button to the client portal home", () => {
         expect(buttons(email.html)).toBe(1);
-        expect(email.html).toContain(`href="${BASE}/services/mobile-app"`);
-        expect(email.html).toContain("View Mobile App");
-
-        const other = buildInquiryReceivedEmail({
-            clientName: "Maria",
-            businessName: "Santos Logistics",
-            serviceName: "Other",
-            baseUrl: BASE,
-        });
-        expect(buttons(other.html)).toBe(1);
-        expect(other.html).toContain(`href="${BASE}"`);
+        expect(email.html).toContain(`href="${BASE}/portal"`);
+        expect(email.html).toContain("View your availed service");
     });
 
     it("escapes what the visitor typed", () => {
@@ -139,9 +130,9 @@ describe("inquiry received email", () => {
 describe("meeting invite email", () => {
     it("greets, names the business and service, gives the Manila time and who hosts", () => {
         const email = buildMeetingInviteEmail({ ...baseMeeting, agenda: "Learn your goals" });
-        expect(email.subject).toMatch(/^Maria, your discovery meeting with Optrizo is on Fri, Nov 6, 10:00\sAM$/);
+        expect(email.subject).toMatch(/^Maria, your discovery meeting with Optrizo is on Nov 6, 2026, 10:00\sAM$/);
         expect(email.text).toContain("Hi Maria, we would like to meet to talk about Mobile App for Santos Logistics.");
-        expect(email.text).toMatch(/Friday, November 6, 2026 at 10:00\sAM \(Manila time\)/);
+        expect(email.text).toMatch(/Nov 6, 2026, 10:00\sAM \(Manila time\)/);
         expect(email.text).toContain("Ana Reyes from our sales team will host it.");
         expect(email.text).toContain("Format: Video call");
         expect(email.text).toContain("Agenda: Learn your goals");
@@ -194,16 +185,16 @@ describe("meeting invite email", () => {
 describe("meeting rescheduled and cancelled emails", () => {
     it("rescheduled: gives the new Manila time and asks to confirm", () => {
         const email = buildMeetingRescheduledEmail({ ...baseMeeting, hasAccount: true });
-        expect(email.subject).toMatch(/^Maria, your discovery meeting moved to Fri, Nov 6, 10:00\sAM$/);
+        expect(email.subject).toMatch(/^Maria, your discovery meeting moved to Nov 6, 2026, 10:00\sAM$/);
         expect(email.text).toContain("we moved your discovery meeting about Mobile App for Santos Logistics");
-        expect(email.text).toMatch(/The new time is Friday, November 6, 2026 at 10:00\sAM \(Manila time\)/);
+        expect(email.text).toMatch(/The new time is Nov 6, 2026, 10:00\sAM \(Manila time\)/);
         expect(buttons(email.html)).toBe(1);
         expect(email.html).toContain("Confirm or suggest a time");
     });
 
     it("cancelled: says what was cancelled, the reason, and who will follow up", () => {
         const email = buildMeetingCancelledEmail({ ...baseMeeting, hasAccount: true, reason: "We need to move the kickoff" });
-        expect(email.subject).toMatch(/^Maria, your discovery meeting on Fri, Nov 6, 10:00\sAM was cancelled$/);
+        expect(email.subject).toMatch(/^Maria, your discovery meeting on Nov 6, 2026, 10:00\sAM was cancelled$/);
         expect(email.text).toContain("we cancelled your discovery meeting about Mobile App for Santos Logistics");
         expect(email.text).toContain("Reason: We need to move the kickoff.");
         expect(email.text).toContain("Ana Reyes from our sales team will contact you to find a new time.");
@@ -241,7 +232,7 @@ describe("proposal sent email", () => {
         const email = buildProposalSentEmail(base);
         expect(email.text).toContain("sign it online, ask for changes, or ask for a pricing meeting");
         expect(email.text).toContain("The price follows after we talk about your budget.");
-        expect(email.text).toContain("It stays open until November 19, 2026.");
+        expect(email.text).toContain("It stays open until Nov 19, 2026.");
         expect(buttons(email.html)).toBe(1);
         expect(email.html).toContain(`href="${BASE}/proposal/p-1"`);
         expect(email.html).toContain("View your proposal");
@@ -311,5 +302,35 @@ describe("servicePageHref", () => {
         const other = { serviceName: "Other", serviceSlug: null };
         expect(servicePageHref(withService.serviceSlug)).toBe("/services/mobile-app");
         expect(servicePageHref(other.serviceSlug)).toBeNull();
+    });
+});
+
+describe("meeting email for a client in another timezone", () => {
+    it("gives their time and Manila time", () => {
+        const email = buildMeetingInviteEmail({ ...baseMeeting, timezone: "Asia/Dubai" });
+        expect(email.text).toMatch(/6:00\sAM GMT\+4 \(Nov 6, 2026, 10:00\sAM Manila time\)/);
+    });
+});
+
+describe("getBaseUrl", () => {
+    const keys = ["NEXTAUTH_URL", "AUTH_URL", "NEXT_PUBLIC_APP_URL", "VERCEL_PROJECT_PRODUCTION_URL"] as const;
+    const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    const restore = () => keys.forEach((k) => (saved[k] === undefined ? delete process.env[k] : (process.env[k] = saved[k])));
+
+    it("reads any of the app URL settings and drops a trailing slash", () => {
+        keys.forEach((k) => delete process.env[k]);
+        process.env.NEXT_PUBLIC_APP_URL = "https://optrizo.com/";
+        expect(getBaseUrl()).toBe("https://optrizo.com");
+        process.env.NEXTAUTH_URL = "https://crm.optrizo.com";
+        expect(getBaseUrl()).toBe("https://crm.optrizo.com");
+        restore();
+    });
+
+    it("never falls back to localhost in production", () => {
+        keys.forEach((k) => delete process.env[k]);
+        vi.stubEnv("NODE_ENV", "production");
+        expect(getBaseUrl()).toBe("https://optrizo.com");
+        vi.unstubAllEnvs();
+        restore();
     });
 });

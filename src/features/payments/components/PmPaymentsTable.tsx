@@ -12,6 +12,8 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import {
     Select,
@@ -373,13 +375,7 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="receivedAt">Date Received *</Label>
-                                <Input
-                                    id="receivedAt"
-                                    type="date"
-                                    value={receivedAt}
-                                    onChange={(e) => setReceivedAt(e.target.value)}
-                                    required
-                                />
+                                <DatePicker id="receivedAt" value={receivedAt} onChange={setReceivedAt} max={todayYmd()} required />
                             </div>
                         </div>
 

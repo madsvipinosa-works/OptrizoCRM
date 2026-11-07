@@ -12,6 +12,7 @@ import { moveTaskToSprint } from "@/features/sprints/actions";
 import type { SprintWithCounts } from "@/features/sprints/queries";
 import { isBacklogTask, isTaskCarriedOver } from "@/features/sprints/task-filters";
 import type { PmTask } from "./PmKanbanBoard";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface BacklogPanelProps {
   projectId: string;
@@ -225,20 +226,20 @@ export function BacklogPanel({
                     </td>
                     <td className="py-2.5 px-2.5 align-middle text-right">
                       {targetableSprints.length > 0 ? (
-                        <select
+                        <FormSelect
                           aria-label={`Move ${task.title} to sprint`}
                           value=""
                           disabled={movingId === task.id}
                           onChange={(e) => handleMoveToSprint(task.id, e.target.value)}
                           className="h-8 rounded-lg border border-border bg-background px-2 text-xs text-foreground"
-                        >
+                         variant="plain">
                           <option value="">Keep in backlog</option>
                           {targetableSprints.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name} ({s.startDate})
                             </option>
                           ))}
-                        </select>
+                        </FormSelect>
                       ) : (
                         <span className="text-xs text-muted-foreground">Keep in backlog</span>
                       )}

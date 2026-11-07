@@ -9,6 +9,7 @@ import { validateFileUrlForProject } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
 import { notifyProjectClients } from "@/features/notifications/send";
 import { sendProjectCompleteEmail } from "@/lib/notifications";
+import { getBaseUrl } from "@/lib/email-templates";
 
 /**
  * Uploads/attaches a handover document to a project.
@@ -332,7 +333,7 @@ export async function completeProject(
                 projectDetails?.stakeholders?.find((s) => s.user?.role === "client")?.user;
             const clientEmail = clientUser?.email || projectDetails?.lead?.contactEmail;
 
-            const portalUrl = `${process.env.NEXTAUTH_URL || ""}/portal/projects/${projectId}`;
+            const portalUrl = `${getBaseUrl()}/portal/projects/${projectId}`;
 
             if (clientEmail) {
                 await sendProjectCompleteEmail({

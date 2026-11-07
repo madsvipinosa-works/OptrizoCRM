@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 
 import { ImageUpload } from "@/components/ui/image-upload";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface PostFormProps {
     initialData?: {
@@ -87,14 +88,13 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
                     {isAdmin && (
                         <div className="space-y-2">
                             <Label>Publish Status</Label>
-                            <select
+                            <FormSelect
                                 name="published"
                                 defaultValue={initialData?.published ? "true" : "false"}
-                                className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                             >
                                 <option value="true" className="bg-card text-foreground">Published</option>
                                 <option value="false" className="bg-card text-foreground">Draft</option>
-                            </select>
+                            </FormSelect>
                         </div>
                     )}
                 </CardContent>

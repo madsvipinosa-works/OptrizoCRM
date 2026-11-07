@@ -15,6 +15,7 @@ import { logAction } from "@/features/audit/log";
 import { DEFAULT_CRM_PLAYBOOK, type PlaybookTaskTemplate } from "@/config/crm-playbook";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { getBaseUrl } from "@/lib/email-templates";
 
 export type ActionState = {
     message?: string;
@@ -273,7 +274,7 @@ export async function convertInquiryToLead(inquiryId: string): Promise<ActionSta
         await logAction("CREATE", "Lead", `Converted inquiry ${inquiryId} to Lead ${newLead.id}`);
 
         if (isNewUser) {
-            const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://'+process.env.VERCEL_PROJECT_PRODUCTION_URL : 'http://localhost:3000');
+            const baseUrl = getBaseUrl();
             const resetUrl = `${baseUrl}/reset-password?token=${token}`;
             
             await sendClientOnboardingEmail({

@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Plus, Users, RotateCcw, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -34,6 +36,7 @@ import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
 import type { SprintWithCounts } from "@/features/sprints/queries";
+import { FormSelect } from "@/components/ui/form-select";
 import {
     filterBoardTasks,
     isDevelopmentMilestone,
@@ -826,10 +829,9 @@ export function KanbanBoard({
                                     <Label className="text-xs text-muted-foreground font-semibold">
                                         Sprint
                                     </Label>
-                                    <select
+                                    <FormSelect
                                         value={newTaskSprintChoice}
                                         onChange={(e) => setNewTaskSprintChoice(e.target.value)}
-                                        className="w-full h-9 rounded-md border border-border bg-background px-3 text-xs sm:text-sm text-foreground"
                                     >
                                         <option value="backlog">Backlog (no sprint yet)</option>
                                         {nonEndedSprints.map((s) => (
@@ -837,7 +839,7 @@ export function KanbanBoard({
                                                 {s.name} ({s.startDate} – {s.endDate})
                                             </option>
                                         ))}
-                                    </select>
+                                    </FormSelect>
                                     <p className="text-xs text-muted-foreground">
                                         Shown only for Development tasks. Leave it in the backlog and pick it when you plan a sprint, or put it in a sprint now.
                                     </p>
@@ -887,12 +889,7 @@ export function KanbanBoard({
                                 <Label className="text-xs text-muted-foreground font-semibold">
                                     Due Date
                                 </Label>
-                                <Input
-                                    type="date"
-                                    value={newTaskDueDate}
-                                    onChange={(e) => setNewTaskDueDate(e.target.value)}
-                                    className="bg-background border-border focus:border-primary text-foreground text-xs"
-                                />
+                                <DatePicker value={newTaskDueDate} onChange={setNewTaskDueDate} min={todayYmd()} className="bg-background border-border text-xs" />
                             </div>
 
                             <div className="space-y-2">

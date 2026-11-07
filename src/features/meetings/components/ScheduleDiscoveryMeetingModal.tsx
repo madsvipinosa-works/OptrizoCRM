@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { scheduleDiscoveryMeeting, getActiveLeadsForMeeting, getManagersForMeeting } from "@/features/meetings/actions";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
+import { isPastManila, manilaToDate, nowHm, todayYmd } from "@/lib/datetime";
 import { Users, FileText } from "lucide-react";
 
 interface ScheduleDiscoveryMeetingModalProps {
@@ -31,11 +34,7 @@ export function ScheduleDiscoveryMeetingModal({
     const [selectedLeadId, setSelectedLeadId] = useState(initialLeadId || "");
     const [availableLeads, setAvailableLeads] = useState<Array<{ id: string; businessName: string | null; contactName: string | null }>>([]);
     const [format, setFormat] = useState<"video" | "phone" | "in_person" | "on_site">("video");
-    const [date, setDate] = useState(() => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return tomorrow.toISOString().split("T")[0];
-    });
+    const [date, setDate] = useState(() => todayYmd(new Date(Date.now() + 24 * 60 * 60 * 1000)));
     const [time, setTime] = useState("10:00");
     // Optional PM attendee. "none" means no PM. Defaults to the lead's assigned PM when it has one.
     const [pmId, setPmId] = useState("none");
@@ -88,9 +87,13 @@ export function ScheduleDiscoveryMeetingModal({
             return;
         }
 
-        const startsAt = new Date(`${date}T${time}:00`);
+        const startsAt = manilaToDate(date, time);
         if (isNaN(startsAt.getTime())) {
             toast.error("Invalid meeting date and time");
+            return;
+        }
+        if (isPastManila(date, time)) {
+            toast.error("Pick a date and time that has not passed yet");
             return;
         }
 
@@ -134,7 +137,7 @@ export function ScheduleDiscoveryMeetingModal({
                         <div className="space-y-1">
                             <Label className="text-sm text-muted-foreground">Lead</Label>
                             <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
-                                <SelectTrigger className="text-sm h-9 bg-card border-border">
+                                <SelectTrigger className="text-sm h-9">
                                     <SelectValue placeholder="Choose a lead..." />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border">
@@ -181,7 +184,7 @@ export function ScheduleDiscoveryMeetingModal({
                         <div className="space-y-1">
                             <Label className="text-sm text-muted-foreground">Format</Label>
                             <Select value={format} onValueChange={(val: "video" | "phone" | "in_person" | "on_site") => setFormat(val)}>
-                                <SelectTrigger className="text-sm h-9 bg-card border-border">
+                                <SelectTrigger className="text-sm h-9">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border">
@@ -197,23 +200,11 @@ export function ScheduleDiscoveryMeetingModal({
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <Label className="text-sm text-muted-foreground">Date</Label>
-                            <Input
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                required
-                                className="text-sm h-9 bg-card border-border"
-                            />
+                            <DatePicker value={date} onChange={setDate} min={todayYmd()} required className="bg-card border-border" />
                         </div>
                         <div className="space-y-1">
                             <Label className="text-sm text-muted-foreground">Time</Label>
-                            <Input
-                                type="time"
-                                value={time}
-                                onChange={(e) => setTime(e.target.value)}
-                                required
-                                className="text-sm h-9 bg-card border-border"
-                            />
+                            <TimePicker value={time} onChange={setTime} min={date === todayYmd() ? nowHm() : undefined} className="bg-card border-border" />
                         </div>
                     </div>
 
@@ -223,7 +214,7 @@ export function ScheduleDiscoveryMeetingModal({
                         </Label>
                         <Input value="Sales (required)" disabled className="bg-muted text-sm h-9" />
                         <Select value={pmId} onValueChange={setPmId}>
-                            <SelectTrigger className="text-sm h-9 bg-card border-border" aria-label="Project Manager (optional)">
+                            <SelectTrigger className="text-sm h-9" aria-label="Project Manager (optional)">
                                 <SelectValue placeholder="Project Manager (optional)" />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border">

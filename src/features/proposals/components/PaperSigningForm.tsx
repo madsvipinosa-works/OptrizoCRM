@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { FileUp, Calendar, Loader2, CheckCircle2 } from "lucide-react";
 import { recordPaperSignature } from "@/features/proposals/signing";
@@ -122,15 +124,7 @@ export function PaperSigningForm({
                                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                                 Date of Physical Signature
                             </Label>
-                            <Input
-                                type="date"
-                                value={signedDate}
-                                onChange={(e) => setSignedDate(e.target.value)}
-                                max={new Date().toISOString().split("T")[0]}
-                                disabled={isUploading}
-                                className="h-9 text-xs"
-                                required
-                            />
+                            <DatePicker value={signedDate} onChange={setSignedDate} max={todayYmd()} disabled={isUploading} required className="h-9 text-xs" />
                         </div>
                     </div>
 

@@ -79,7 +79,7 @@ function captureInserts() {
     return inserts;
 }
 
-const FUTURE = new Date("2099-01-01T02:00:00.000Z"); // Jan 1, 10:00 AM in Manila
+const FUTURE = new Date("2099-01-01T02:00:00.000Z"); // Jan 1, 2099, 10:00sAM in Manila
 
 beforeEach(() => {
     mockDb.resetMocks();
@@ -261,7 +261,7 @@ describe("scheduleBudgetPricingMeeting: a Project Manager is required", () => {
         await scheduleBudgetPricingMeeting(input);
         expect(createSystemNotification).toHaveBeenCalledWith(
             "client-1",
-            expect.stringMatching(/budget and pricing meeting.*Jan 1, 10:00\sAM \(Manila time, phone call\).*Open Appointments/),
+            expect.stringMatching(/budget and pricing meeting.*Jan 1, 2099, 10:00\sAM \(Manila time, phone call\).*Open Appointments/),
             "meeting",
             "/portal/appointments",
         );
@@ -295,7 +295,7 @@ describe("scheduleDiscoveryMeeting: the client gets an in-app notification", () 
         expect(message).toContain("discovery meeting");
         expect(message).toContain("Santos Logistics"); // names the business
         expect(message).toContain("video call");
-        expect(message).toMatch(/Jan 1, 10:00\sAM \(Manila time/); // Manila time
+        expect(message).toMatch(/Jan 1, 2099, 10:00\sAM \(Manila time/); // Manila time
         expect(message).toContain("confirm it or suggest another time");
         expect(type).toBe("meeting");
         expect(link).toBe("/portal/appointments");
@@ -364,7 +364,7 @@ describe("scheduleDiscoveryMeeting: optional Project Manager attendee", () => {
         expect(meeting?.attendees).toEqual(["Sales (required)", "Alex Cruz (Project Manager, optional)"]);
         expect(createSystemNotification).toHaveBeenCalledWith(
             "pm-1",
-            expect.stringMatching(/invited you to the discovery meeting with Santos Logistics on Jan 1, 10:00\sAM \(Manila time\)/),
+            expect.stringMatching(/invited you to the discovery meeting with Santos Logistics on Jan 1, 2099, 10:00\sAM \(Manila time\)/),
             "meeting",
             "/dashboard/meetings",
         );
@@ -469,7 +469,7 @@ describe("rescheduleMeeting and cancelMeeting tell the client", () => {
         expect(res).toMatchObject({ success: true });
         expect(notifyLeadClient).toHaveBeenCalledWith(
             "lead-1",
-            expect.stringMatching(/moved your discovery meeting to Jan 1, 10:00\sAM \(Manila time\)/),
+            expect.stringMatching(/moved your discovery meeting to Jan 1, 2099, 10:00\sAM \(Manila time\)/),
             "meeting",
             "/portal/appointments",
         );
@@ -494,7 +494,7 @@ describe("rescheduleMeeting and cancelMeeting tell the client", () => {
         expect(res).toMatchObject({ success: true });
         expect(notifyLeadClient).toHaveBeenCalledWith(
             "lead-1",
-            expect.stringMatching(/cancelled your discovery meeting.*Feb 3, 10:00\sAM \(Manila time\).*Reason: We need to move the kickoff/),
+            expect.stringMatching(/cancelled your discovery meeting.*Feb 3, 2099, 10:00\sAM \(Manila time\).*Reason: We need to move the kickoff/),
             "meeting",
             "/portal/appointments",
         );

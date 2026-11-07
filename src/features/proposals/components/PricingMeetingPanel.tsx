@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, Clock, CheckCircle2, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { createProposalRevision } from "@/features/proposals/actions";
 import { toast } from "sonner";
+import { formatDate, formatDateTime } from "@/lib/datetime";
 
 interface PricingMeetingInfo {
     id: string;
@@ -62,7 +63,7 @@ export function PricingMeetingPanel({
                                 <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Pricing Meeting Completed
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                                {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(pricingMeeting.startsAt))}
+                                {formatDate(pricingMeeting.startsAt)}
                             </span>
                         </div>
                         <p className="text-sm font-medium text-foreground">
@@ -127,10 +128,7 @@ export function PricingMeetingPanel({
 
     // Meeting is active (awaiting_client, confirmed, or reschedule_requested)
     if (pricingMeeting && ["awaiting_client", "confirmed", "reschedule_requested"].includes(pricingMeeting.status)) {
-        const formattedDate = new Intl.DateTimeFormat("en-US", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(pricingMeeting.startsAt));
+        const formattedDate = formatDateTime(pricingMeeting.startsAt);
 
         return (
             <Card className="border-border bg-card shadow-sm">

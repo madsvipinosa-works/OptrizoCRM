@@ -13,6 +13,7 @@ import { applyEndedSprints } from "@/features/sprints/sprint-end";
 import { deriveSprintStatus, todayInManila } from "@/features/sprints/sprint-status";
 import { sendPaymentDueEmail } from "@/lib/notifications";
 import { z } from "zod";
+import { getBaseUrl } from "@/lib/email-templates";
 
 export type ActionState = {
     message?: string;
@@ -1115,7 +1116,7 @@ export async function approveTask(
                             amount: dp.amount.toLocaleString(),
                             currency: dp.currency,
                             dueDate: dp.dueDate,
-                            paymentsUrl: `${process.env.NEXTAUTH_URL || ""}/portal/projects/${dp.projectId}/payments`,
+                            paymentsUrl: `${getBaseUrl()}/portal/projects/${dp.projectId}/payments`,
                         });
                     }
                 }
@@ -1361,7 +1362,7 @@ export async function markEmptyMilestoneDone(input: {
                             amount: dp.amount.toLocaleString(),
                             currency: dp.currency,
                             dueDate: dp.dueDate,
-                            paymentsUrl: `${process.env.NEXTAUTH_URL || ""}/portal/projects/${dp.projectId}/payments`,
+                            paymentsUrl: `${getBaseUrl()}/portal/projects/${dp.projectId}/payments`,
                         });
                     }
                 }

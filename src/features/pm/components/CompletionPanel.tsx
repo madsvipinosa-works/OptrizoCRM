@@ -12,6 +12,8 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { addHandoverFile, recordSignOff, completeProject } from "@/features/pm/completion-actions";
 import {
@@ -481,14 +483,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                         </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="signOffDate">Sign-Off Date *</Label>
-                            <Input
-                                id="signOffDate"
-                                type="date"
-                                max={new Date().toISOString().split("T")[0]}
-                                value={signOffDate}
-                                onChange={(e) => setSignOffDate(e.target.value)}
-                                required
-                            />
+                            <DatePicker id="signOffDate" max={todayYmd()} value={signOffDate} onChange={setSignOffDate} required />
                         </div>
                         <DialogFooter className="pt-2">
                             <Button

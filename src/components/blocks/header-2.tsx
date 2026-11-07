@@ -285,7 +285,7 @@ export function Header({
                                     <Link href="/portal" onClick={() => setOpen(false)}>My Dashboard</Link>
                                 </Button>
                                 <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
-                                    <Link href="/portal/services" onClick={() => setOpen(false)}>Availed Services</Link>
+                                    <Link href="/portal" onClick={() => setOpen(false)}>Availed Services</Link>
                                 </Button>
                                 {isAdmin && (
                                     <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight">

@@ -74,7 +74,7 @@ export function CloseLostModal({
                             <span className="text-[10px] text-muted-foreground font-normal font-mono">Mandatory</span>
                         </label>
                         <Select value={lossReason} onValueChange={(v) => setLossReason(v as LossReason)}>
-                            <SelectTrigger className="bg-muted/30 border-border text-foreground text-xs h-10">
+                            <SelectTrigger className="text-xs h-10">
                                 <SelectValue placeholder="Select primary loss reason..." />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border text-foreground">
