@@ -58,7 +58,7 @@ function DatePicker({
           aria-required={required || undefined}
           data-slot="date-picker"
           className={cn(
-            "border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-1 text-left text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+            "border-input bg-card hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 data-[state=open]:border-ring data-[state=open]:ring-ring/30 data-[state=open]:ring-[3px] flex h-9 w-full items-center justify-between gap-2 rounded-lg border px-3 py-1 text-left text-sm transition-colors outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
             !value && "text-muted-foreground",
             className
           )}
@@ -67,7 +67,7 @@ function DatePicker({
           <CalendarIcon className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto rounded-xl border-border p-0" align="start">
         <Calendar
           mode="single"
           selected={selected}

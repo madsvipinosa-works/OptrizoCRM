@@ -155,6 +155,10 @@ export function KanbanBoard({
 
     // Modals and Drawers
     const [teamDrawerOpen, setTeamDrawerOpen] = useState(false);
+    // "Set up team" on the signed proposal links here with ?team=1.
+    useEffect(() => {
+        if (new URLSearchParams(window.location.search).get("team") === "1") setTeamDrawerOpen(true);
+    }, []);
     const [isAddingTask, setIsAddingTask] = useState(false);
     const [viewingTaskDetails, setViewingTaskDetails] = useState<PmTask | null>(null);
     const [proofingTask, setProofingTask] = useState<PmTask | null>(null);

@@ -9,6 +9,8 @@ import {
     payments,
     document,
     notifications,
+    meetings,
+    users,
 } from "@/db/schema";
 import { eq, and, or, desc, asc, isNull, inArray, sql } from "drizzle-orm";
 
@@ -101,7 +103,7 @@ export async function getProjectMilestoneStats(projectIds: string[]): Promise<
 /**
  * Home dashboard summary data for a client.
  */
-export async function getClientHome(userId: string) {
+export async function getClientHome(userId: string, email?: string | null) {
     const projectIds = await getClientProjectIds(userId);
 
     // 1. Pending proposals
@@ -177,8 +179,31 @@ export async function getClientHome(userId: string) {
           })
         : [];
 
+    // 6. Meetings that need the client: one to confirm, or one coming up in the next 2 days.
+    const meetingLeads = await db.query.leads.findMany({
+        where: or(eq(leads.clientId, userId), email ? eq(leads.contactEmail, email.toLowerCase()) : undefined),
+        columns: { id: true },
+    });
+    const now = new Date();
+    const soon = new Date(now.getTime() + 2 * 86400000);
+    const upcomingMeetings = meetingLeads.length > 0
+        ? await db.query.meetings.findMany({
+              where: and(
+                  inArray(meetings.leadId, meetingLeads.map((l) => l.id)),
+                  sql`${meetings.startsAt} >= ${now}`,
+                  or(eq(meetings.status, "awaiting_client"), and(eq(meetings.status, "confirmed"), sql`${meetings.startsAt} <= ${soon}`))
+              ),
+              orderBy: [asc(meetings.startsAt)],
+              limit: 5,
+              columns: { id: true, type: true, status: true, startsAt: true },
+          })
+        : [];
+    const [me] = await db.select({ tz: users.timezone }).from(users).where(eq(users.id, userId)).limit(1);
+
     return {
         pendingProposals,
+        upcomingMeetings,
+        timezone: me?.tz ?? null,
         activeProjects: projectsWithStats,
         duePayments,
         recentNotifications,
