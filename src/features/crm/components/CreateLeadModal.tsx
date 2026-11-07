@@ -229,7 +229,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                 autoFocus
                                 required
                             />
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 This custom channel will be automatically tracked in CRM filters and analytics charts.
                             </p>
                         </div>
@@ -262,7 +262,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                             <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
                                 <UserCheck className="h-3.5 w-3.5 text-primary" /> Sales Rep Assignment
                             </Label>
-                            <span className="text-[10px] text-muted-foreground">Deal ownership</span>
+                            <span className="text-xs text-muted-foreground">Deal ownership</span>
                         </div>
                         <Select value={assignedRepId} onValueChange={setAssignedRepId}>
                             <SelectTrigger className="bg-muted/40 border-border text-xs h-9 text-foreground focus:border-primary">
@@ -295,7 +295,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                     className="h-4 w-4 rounded border-border text-primary focus:ring-primary accent-primary"
                                 />
                                 <div className="flex items-center gap-1.5">
-                                    <Zap className="h-3.5 w-3.5 text-amber-400" />
+                                    <Zap className="h-3.5 w-3.5 text-stage-negotiation" />
                                     <span className="text-xs font-semibold text-foreground">
                                         Auto-Provision Sales Playbook Tasks
                                     </span>
@@ -306,7 +306,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                 <button
                                     type="button"
                                     onClick={() => setShowPlaybookAccordion(!showPlaybookAccordion)}
-                                    className="flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
+                                    className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
                                 >
                                     <span>{playbookTasks.length} task{playbookTasks.length === 1 ? "" : "s"}</span>
                                     {showPlaybookAccordion ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -316,7 +316,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
 
                         {enablePlaybook && showPlaybookAccordion && (
                             <div className="pt-2 border-t border-border/60 space-y-2">
-                                <p className="text-[11px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     These follow-up actions will automatically populate into the sales tasks queue for this deal:
                                 </p>
                                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
@@ -328,14 +328,14 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <CheckSquare className="h-3.5 w-3.5 text-primary shrink-0" />
                                                 <span className="truncate font-medium text-foreground">{task.title}</span>
-                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
+                                                <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
                                                     +{task.dueHours}h ({task.taskType})
                                                 </span>
                                             </div>
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemovePlaybookTask(idx)}
-                                                className="text-muted-foreground hover:text-rose-400 p-1 transition-colors"
+                                                className="text-muted-foreground hover:text-destructive p-1 transition-colors"
                                                 title="Remove Task"
                                             >
                                                 <Trash2 className="h-3 w-3" />
@@ -367,7 +367,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                         value={newTaskType}
                                         onValueChange={(val: any) => setNewTaskType(val)}
                                     >
-                                        <SelectTrigger className="h-7 w-20 text-[11px] bg-muted/30 border-border py-0">
+                                        <SelectTrigger className="h-7 w-20 text-xs bg-muted/30 border-border py-0">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground">
@@ -387,7 +387,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                             className="h-7 w-14 text-xs bg-muted/30 border-border text-foreground py-0 text-center"
                                             title="Due in hours"
                                         />
-                                        <span className="text-[10px] text-muted-foreground">h</span>
+                                        <span className="text-xs text-muted-foreground">h</span>
                                     </div>
                                     <Button
                                         type="button"

@@ -112,8 +112,6 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
 
     return (
         <div className="relative min-h-[85vh] flex flex-col items-center justify-center px-4 py-24 overflow-hidden bg-background">
-            {/* Ambient background glows */}
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" />
 
             {isProposalReason && (
                 <div className="max-w-md w-full mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 flex items-start gap-3 shadow-sm z-10">
@@ -125,12 +123,11 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                 </div>
             )}
 
-            <Card className="max-w-md w-full glass-card border-border bg-card/90 backdrop-blur-xl shadow-2xl relative z-10 rounded-2xl">
+            <Card className="max-w-md w-full relative z-10 rounded-xl border-border bg-card">
                 {/* Top decorative accent line */}
-                <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-60 rounded-t-2xl" />
 
                 <CardHeader className="text-center pt-8 pb-4">
-                    <CardTitle className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                    <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">
                         {signupSuccess
                             ? "Check Your Email"
                             : isLogin
@@ -161,7 +158,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 <CheckCircle2 className="w-7 h-7" />
                             </div>
                             <div className="space-y-2">
-                                <h2 className="text-xl font-bold tracking-tight text-foreground font-serif">
+                                <h2 className="text-xl font-semibold tracking-tight text-foreground">
                                     Check your email
                                 </h2>
                                 <p className="text-sm text-muted-foreground leading-relaxed px-2">
@@ -174,7 +171,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                     setIsLogin(true);
                                     resetForm();
                                 }}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl py-5 shadow-md flex items-center justify-center gap-2 mt-4"
+                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg py-5 flex items-center justify-center gap-2 mt-4"
                             >
                                 <span>Sign In to Your Account</span>
                                 <ArrowRight className="w-4 h-4" />
@@ -191,7 +188,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 className="w-full flex items-center justify-center gap-3 py-5 rounded-xl border border-border hover:bg-muted/80 bg-background text-foreground font-semibold shadow-xs transition-all duration-200"
                             >
                                 {isGoogleLoading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                    <Loader2 className="w-4 h-4 animate-spin text-brand-deep" />
                                 ) : (
                                     <>
                                         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -222,8 +219,8 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 <div className="absolute inset-0 flex items-center">
                                     <div className="w-full border-t border-border" />
                                 </div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-card px-3 text-muted-foreground font-mono text-[10px] tracking-widest">
+                                <div className="relative flex justify-center">
+                                    <span className="bg-card px-3 text-sm text-muted-foreground">
                                         Or continue with email
                                     </span>
                                 </div>
@@ -275,7 +272,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                         {isLogin && (
                                             <Link
                                                 href="/reset-password"
-                                                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                                                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                                             >
                                                 Forgot password?
                                             </Link>
@@ -357,7 +354,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 <Button
                                     type="submit"
                                     disabled={isLoading || isGoogleLoading || (!isLogin && (passwordInput.length < 8 || !/[A-Z]/.test(passwordInput) || !/[^a-zA-Z]/.test(passwordInput) || passwordInput !== confirmPasswordInput))}
-                                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl py-5 shadow-md flex items-center justify-center gap-2 mt-2"
+                                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg py-5 flex items-center justify-center gap-2 mt-2"
                                 >
                                     {isLoading ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -380,7 +377,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                                 setIsLogin(false);
                                                 resetForm();
                                             }}
-                                            className="text-primary hover:underline font-semibold ml-1"
+                                            className="ml-1 font-semibold text-brand-deep hover:underline"
                                         >
                                             Sign Up
                                         </button>
@@ -393,7 +390,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                                 setIsLogin(true);
                                                 resetForm();
                                             }}
-                                            className="text-primary hover:underline font-semibold ml-1"
+                                            className="ml-1 font-semibold text-brand-deep hover:underline"
                                         >
                                             Log In
                                         </button>

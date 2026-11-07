@@ -13,7 +13,7 @@ function getLandingPage(role: string): string {
     case "content_editor":
       return "/dashboard/cms";
     case "superadmin":
-      return "/dashboard/analytics";
+      return "/dashboard";
     case "client":
     default:
       return "/portal";

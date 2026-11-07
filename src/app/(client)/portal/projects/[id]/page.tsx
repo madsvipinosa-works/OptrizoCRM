@@ -11,8 +11,7 @@ import {
     ShieldCheck,
     Award,
     ExternalLink,
-    FileText,
-} from "lucide-react";
+    } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProjectFeedbackForm } from "@/features/client-portal/components/ProjectFeedbackForm";
@@ -46,7 +45,7 @@ export default async function ClientProjectDetailPage({
     const duePaymentCount = project.payments.filter((p) => p.status === "due").length;
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto py-2 animate-in fade-in duration-500">
+        <div className="space-y-6 max-w-5xl mx-auto py-2">
             {/* Top Bar Navigation */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -57,15 +56,15 @@ export default async function ClientProjectDetailPage({
                     </Button>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                                 {project.title}
                             </h1>
                             <Badge
                                 variant="outline"
                                 className={
                                     isCompleted
-                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px]"
-                                        : "text-foreground text-[10px]"
+                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs"
+                                        : "text-foreground text-xs"
                                 }
                             >
                                 {project.status}
@@ -85,7 +84,7 @@ export default async function ClientProjectDetailPage({
                             <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                             Payments & Invoices
                             {duePaymentCount > 0 && (
-                                <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-mono text-[10px]">
+                                <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-amber-500 text-white tabular-nums text-xs">
                                     {duePaymentCount} due
                                 </span>
                             )}
@@ -111,16 +110,16 @@ export default async function ClientProjectDetailPage({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                         <div className="glass-card rounded-xl border border-border p-3 text-xs space-y-0.5">
-                            <span className="text-muted-foreground uppercase font-mono text-[10px]">Completion Date</span>
+                            <span className="text-muted-foreground uppercase tabular-nums text-xs">Completion Date</span>
                             <div className="font-semibold text-foreground">
                                 {project.completedAt ? new Date(project.completedAt).toLocaleDateString() : "N/A"}
                             </div>
                         </div>
                         <div className="glass-card rounded-xl border border-border p-3 text-xs space-y-0.5">
-                            <span className="text-muted-foreground uppercase font-mono text-[10px] flex items-center gap-1">
+                            <span className="text-muted-foreground uppercase tabular-nums text-xs flex items-center gap-1">
                                 <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Active Warranty Until
                             </span>
-                            <div className="font-semibold text-foreground font-mono">
+                            <div className="font-semibold text-foreground tabular-nums">
                                 {project.warrantyEndsAt ? new Date(project.warrantyEndsAt).toLocaleDateString() : "N/A"}
                             </div>
                         </div>
@@ -129,7 +128,7 @@ export default async function ClientProjectDetailPage({
             )}
 
             {/* Milestone Progress Bar Card */}
-            <div className="glass-card rounded-2xl border border-border p-5 space-y-3">
+            <div className="rounded-xl bg-card border border-border p-5 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                     <div className="space-y-0.5">
                         <div className="font-bold text-foreground text-sm">Delivery Milestones</div>
@@ -137,7 +136,7 @@ export default async function ClientProjectDetailPage({
                             {project.stats.completed} of {project.stats.total} milestones completed
                         </div>
                     </div>
-                    <span className="text-lg font-mono font-bold text-primary">
+                    <span className="text-lg tabular-nums font-bold text-primary">
                         {completedPercent}%
                     </span>
                 </div>
@@ -151,7 +150,7 @@ export default async function ClientProjectDetailPage({
             </div>
 
             {/* Milestone Breakdown List */}
-            <div className="glass-card rounded-2xl border border-border p-5 space-y-4">
+            <div className="rounded-xl bg-card border border-border p-5 space-y-4">
                 <h3 className="text-base font-bold text-foreground">Milestone Breakdown</h3>
                 <div className="space-y-3">
                     {project.milestones.length === 0 ? (
@@ -172,7 +171,7 @@ export default async function ClientProjectDetailPage({
                                         {isDone ? (
                                             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                                         ) : isInProgress ? (
-                                            <Clock className="w-5 h-5 text-primary" />
+                                            <Clock className="w-5 h-5 text-brand-deep" />
                                         ) : (
                                             <Circle className="w-5 h-5 text-muted-foreground/40" />
                                         )}
@@ -186,17 +185,17 @@ export default async function ClientProjectDetailPage({
                                                 variant="outline"
                                                 className={
                                                     isDone
-                                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px]"
+                                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs"
                                                         : isInProgress
-                                                        ? "border-primary/30 text-primary bg-primary/10 text-[10px]"
-                                                        : "text-muted-foreground text-[10px]"
+                                                        ? "border-primary/30 text-primary bg-primary/10 text-xs"
+                                                        : "text-muted-foreground text-xs"
                                                 }
                                             >
                                                 {m.status}
                                             </Badge>
                                         </div>
 
-                                        <div className="text-[11px] text-muted-foreground pt-1 flex items-center gap-3">
+                                        <div className="text-xs text-muted-foreground pt-1 flex items-center gap-3">
                                             {m.endDate && (
                                                 <span>Target: {new Date(m.endDate).toLocaleDateString()}</span>
                                             )}
@@ -216,9 +215,8 @@ export default async function ClientProjectDetailPage({
 
             {/* Handover Documents (Unlocked on Completion) */}
             {isCompleted && (
-                <div className="glass-card rounded-2xl border border-border p-5 space-y-3">
+                <div className="rounded-xl bg-card border border-border p-5 space-y-3">
                     <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
                         <h3 className="text-base font-bold text-foreground">Handover Documents & Deliverables</h3>
                     </div>
                     {project.handoverDocuments.length === 0 ? (
@@ -232,7 +230,7 @@ export default async function ClientProjectDetailPage({
                                 >
                                     <div className="space-y-0.5">
                                         <div className="font-semibold text-foreground">{doc.title}</div>
-                                        <div className="text-muted-foreground text-[11px]">{doc.fileName}</div>
+                                        <div className="text-muted-foreground text-xs">{doc.fileName}</div>
                                     </div>
                                     <Button variant="outline" size="sm" asChild className="h-7 text-xs">
                                         <a

@@ -85,7 +85,7 @@ export default async function PmPaymentsPage({
                     <div>
                         <div className="flex items-center gap-2">
                             <CreditCard className="w-5 h-5 text-primary" />
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                                 Payment Schedule & Billing
                             </h1>
                         </div>

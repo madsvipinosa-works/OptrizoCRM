@@ -47,7 +47,7 @@ export default async function ReportView({ searchParams }: { searchParams?: Prom
             <article className="rounded-xl border border-border bg-card p-6 sm:p-8 print:rounded-none print:border-0 print:p-0">
                 <header>
                     <p className="text-sm text-muted-foreground">Optrizo Digital Solutions</p>
-                    <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-0.5">{title}</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
                         {range}
                         {against ? ` · compared with ${against.label}` : ""} · generated {format(new Date(), "MMM d")} by {generatedBy}

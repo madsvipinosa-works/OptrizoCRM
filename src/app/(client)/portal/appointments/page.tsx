@@ -65,7 +65,8 @@ export default function ClientAppointmentsPage() {
         loadAppointments();
     }, []);
 
-    const pendingInvite = appointments.find((m) => m.status === "awaiting_client");
+    // Past invites cannot be answered any more (the server refuses them too).
+    const pendingInvite = appointments.find((m) => m.status === "awaiting_client" && new Date(m.startsAt).getTime() > Date.now());
     const upcomingList = appointments.filter((m) =>
         ["confirmed", "reschedule_requested"].includes(m.status)
     );
@@ -102,6 +103,10 @@ export default function ClientAppointmentsPage() {
         const suggestedAt = new Date(`${suggestModal.date}T${suggestModal.time}:00`);
         if (isNaN(suggestedAt.getTime())) {
             toast.error("Invalid date or time");
+            return;
+        }
+        if (suggestedAt.getTime() <= Date.now()) {
+            toast.error("Pick a date and time in the future");
             return;
         }
 
@@ -162,7 +167,7 @@ export default function ClientAppointmentsPage() {
         <div className="space-y-6 max-w-5xl mx-auto w-full p-4 md:p-8">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">Appointments</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Appointments</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                     Your meetings with Optrizo. We email you a reminder before each one.
                 </p>
@@ -268,7 +273,7 @@ export default function ClientAppointmentsPage() {
                                         <div className="font-semibold text-xs text-foreground capitalize">
                                             {m.type === "discovery" ? "Discovery meeting" : m.type.replace("_", " ")}
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground">
+                                        <div className="text-xs text-muted-foreground">
                                             {new Intl.DateTimeFormat("en-US", {
                                                 dateStyle: "medium",
                                                 timeStyle: "short",
@@ -278,7 +283,7 @@ export default function ClientAppointmentsPage() {
                                     </div>
                                     <Badge
                                         variant="outline"
-                                        className={`text-[10px] font-semibold ${
+                                        className={`text-xs font-semibold ${
                                             m.status === "confirmed"
                                                 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
                                                 : "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
@@ -305,7 +310,7 @@ export default function ClientAppointmentsPage() {
                                         <div className="font-semibold text-xs text-foreground capitalize">
                                             {m.type === "discovery" ? "Discovery meeting" : m.type.replace("_", " ")}
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground">
+                                        <div className="text-xs text-muted-foreground">
                                             {new Intl.DateTimeFormat("en-US", {
                                                 dateStyle: "medium",
                                                 timeStyle: "short",
@@ -315,7 +320,7 @@ export default function ClientAppointmentsPage() {
                                     </div>
                                     <Badge
                                         variant="outline"
-                                        className={`text-[10px] font-semibold ${
+                                        className={`text-xs font-semibold ${
                                             m.status === "done"
                                                 ? "bg-muted text-muted-foreground border-border"
                                                 : "bg-rose-500/10 text-rose-500 border-rose-500/30"
@@ -341,6 +346,7 @@ export default function ClientAppointmentsPage() {
                             <Label className="text-xs text-muted-foreground">Preferred Date</Label>
                             <Input
                                 type="date"
+                                min={new Date().toLocaleDateString("en-CA")}
                                 value={suggestModal.date}
                                 onChange={(e) => setSuggestModal((prev) => ({ ...prev, date: e.target.value }))}
                                 className="text-xs h-9 bg-card border-border"

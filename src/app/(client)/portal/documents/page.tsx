@@ -2,7 +2,7 @@ import { auth, hasRole } from "@/auth";
 import { redirect } from "next/navigation";
 import { getClientDocuments } from "@/features/client-portal/queries";
 import Link from "next/link";
-import { FolderOpen, FileText, ExternalLink, Download } from "lucide-react";
+import { ExternalLink, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -22,11 +22,10 @@ export default async function ClientDocumentsPage() {
     const { proposals, handoverDocuments } = await getClientDocuments(session.user.id);
 
     return (
-        <div className="space-y-8 max-w-5xl animate-in fade-in duration-500">
+        <div className="space-y-8 max-w-5xl">
             <div>
                 <div className="flex items-center gap-2">
-                    <FolderOpen className="w-5 h-5 text-primary" />
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                         Documents & Deliverables
                     </h1>
                 </div>
@@ -36,13 +35,12 @@ export default async function ClientDocumentsPage() {
             </div>
 
             {/* Section 1: Proposals & Contracts */}
-            <div className="glass-card rounded-2xl border border-border p-5 space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-card border border-border p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
-                        <h2 className="text-lg font-bold text-foreground">Contracts & Proposals</h2>
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Contracts & Proposals</h2>
                     </div>
-                    <span className="text-xs text-muted-foreground font-mono">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                         {proposals.length} document(s)
                     </span>
                 </div>
@@ -61,11 +59,11 @@ export default async function ClientDocumentsPage() {
                                 <div className="space-y-0.5">
                                     <div className="font-semibold text-foreground flex items-center gap-2">
                                         <span>{p.title}</span>
-                                        <Badge variant="outline" className="text-[10px]">
+                                        <Badge variant="outline" className="text-xs">
                                             {p.status}
                                         </Badge>
                                     </div>
-                                    <div className="text-muted-foreground font-mono text-[11px]">
+                                    <div className="text-muted-foreground tabular-nums text-xs">
                                         Code: {p.proposalCode || "PROPOSAL"} • {new Date(p.createdAt).toLocaleDateString()}
                                     </div>
                                 </div>
@@ -96,13 +94,12 @@ export default async function ClientDocumentsPage() {
             </div>
 
             {/* Section 2: Handover Files from Completed Projects */}
-            <div className="glass-card rounded-2xl border border-border p-5 space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-card border border-border p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <FolderOpen className="w-4 h-4 text-primary" />
-                        <h2 className="text-lg font-bold text-foreground">Handover Files & Deliverables</h2>
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Handover Files & Deliverables</h2>
                     </div>
-                    <span className="text-xs text-muted-foreground font-mono">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                         {handoverDocuments.length} deliverable(s)
                     </span>
                 </div>
@@ -120,7 +117,7 @@ export default async function ClientDocumentsPage() {
                             >
                                 <div className="space-y-0.5">
                                     <div className="font-semibold text-foreground">{doc.title}</div>
-                                    <div className="text-muted-foreground text-[11px]">
+                                    <div className="text-muted-foreground text-xs">
                                         {doc.fileName} • {doc.projectTitle}
                                     </div>
                                 </div>

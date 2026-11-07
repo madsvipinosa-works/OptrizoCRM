@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CountryPhoneInput } from "@/components/ui/country-phone-input";
 import { ArrowRight, CheckCircle2, Loader2, Sparkles, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitIntakeForm, getPublishedServices, type IntakeState } from "@/features/crm/actions/submit-intake";
@@ -106,6 +107,8 @@ function parseStringArray(val: unknown): string[] {
 export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  // Full number with dial code, e.g. "+63 917 555 0142". The picker limits digits per country.
+  const [phone, setPhone] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState(service.id);
   const [serviceOptions, setServiceOptions] = useState<{ id: string; title: string }[]>([]);
   const [sessionUser, setSessionUser] = useState<{ name?: string | null; email?: string | null } | null>(null);
@@ -467,13 +470,8 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                         <Label htmlFor="phone" className="text-xs font-semibold text-foreground">
                           Phone number <span className="font-normal text-muted-foreground">(optional)</span>
                         </Label>
-                        <Input
-                          id="phone"
-                          name="phone"
-                          defaultValue={state.values?.phone}
-                          placeholder="e.g. 0917 555 0142"
-                          className="bg-background border-input text-foreground focus-visible:ring-primary"
-                        />
+                        <CountryPhoneInput id="phone" value={phone} onChange={setPhone} defaultCountryCode="PH" />
+                        <input type="hidden" name="phone" value={phone} />
                         {state?.errors?.phone && (
                           <p className="text-xs text-destructive">{state.errors.phone[0]}</p>
                         )}

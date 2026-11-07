@@ -26,7 +26,7 @@ export default async function EditPostPage({ params }: Props) {
     return (
         <div className="max-w-4xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Edit Post</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Edit Post</h1>
                 <p className="text-muted-foreground">Make changes to your article.</p>
             </div>
             <PostForm initialData={post} isAdmin={isAdmin} />

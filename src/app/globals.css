@@ -204,6 +204,13 @@
   --ring: var(--focus);
 }
 
+/* One thin scrollbar everywhere (page, dialogs, menus), coloured from the --scrollbar token so light and dark match.
+   Board columns keep their own, slightly stronger style below. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -425,17 +432,6 @@ body {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
 }
 
-.bento-mask {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-.light .bento-mask,
-[data-theme="light"] .bento-mask,
-.theme-light .bento-mask {
-  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
 /* Inline composer on the lead page: enters from a visible state (Emil:
    never from nothing), strong ease-out, under 250ms. */
 .composer-enter {

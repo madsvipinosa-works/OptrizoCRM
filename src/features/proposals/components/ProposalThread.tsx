@@ -125,7 +125,7 @@ export function ProposalThread({
                 <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-primary" />
                     <h3 className="text-sm font-bold text-foreground">Discussion & Negotiation Thread</h3>
-                    <Badge variant="outline" className="text-[10px] font-mono ml-1">
+                    <Badge variant="outline" className="text-xs tabular-nums ml-1">
                         {messages.length}
                     </Badge>
                 </div>
@@ -170,22 +170,22 @@ export function ProposalThread({
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                         <div className="flex items-center gap-1.5 font-medium text-foreground">
                                             {msg.outsideType === "call" ? (
-                                                <Phone className="h-3.5 w-3.5 text-blue-500" />
+                                                <Phone className="h-3.5 w-3.5 text-stage-new" />
                                             ) : msg.outsideType === "email" ? (
-                                                <Mail className="h-3.5 w-3.5 text-purple-500" />
+                                                <Mail className="h-3.5 w-3.5 text-stage-proposal" />
                                             ) : (
-                                                <Users className="h-3.5 w-3.5 text-emerald-500" />
+                                                <Users className="h-3.5 w-3.5 text-brand-deep" />
                                             )}
                                             <span>
                                                 Outside Discussion ({msg.outsideType || "Discussion"}) · logged by {authorName}
                                             </span>
                                             {msg.heldAt && (
-                                                <span className="text-[10px] text-muted-foreground">
+                                                <span className="text-xs text-muted-foreground">
                                                     (Held {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(msg.heldAt))})
                                                 </span>
                                             )}
                                         </div>
-                                        <span className="text-[10px] font-mono text-muted-foreground">{dateFormatted}</span>
+                                        <span className="text-xs tabular-nums text-muted-foreground">{dateFormatted}</span>
                                     </div>
                                     <p className="text-foreground leading-relaxed whitespace-pre-wrap">{msg.body}</p>
                                 </div>
@@ -196,14 +196,14 @@ export function ProposalThread({
                             return (
                                 <div
                                     key={msg.id}
-                                    className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 text-xs space-y-2"
+                                    className="p-3.5 rounded-xl border border-stage-negotiation/30 bg-stage-negotiation/5 text-xs space-y-2"
                                 >
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
+                                        <div className="flex items-center gap-1.5 font-bold text-stage-negotiation">
                                             <AlertCircle className="h-3.5 w-3.5" />
                                             <span>Change Request from {authorName}</span>
                                         </div>
-                                        <span className="text-[10px] font-mono text-muted-foreground">{dateFormatted}</span>
+                                        <span className="text-xs tabular-nums text-muted-foreground">{dateFormatted}</span>
                                     </div>
                                     {topics.length > 0 && (
                                         <div className="flex flex-wrap gap-1">
@@ -211,7 +211,7 @@ export function ProposalThread({
                                                 <Badge
                                                     key={t}
                                                     variant="outline"
-                                                    className="text-[10px] capitalize bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                                    className="text-xs capitalize bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/20"
                                                 >
                                                     {t}
                                                 </Badge>
@@ -242,12 +242,12 @@ export function ProposalThread({
                                         )}
                                         <span>{authorName}</span>
                                         {isReply && (
-                                            <Badge variant="outline" className="text-[9px] py-0 px-1 text-primary border-primary/30">
+                                            <Badge variant="outline" className="text-xs py-0 px-1 text-primary border-primary/30">
                                                 PM
                                             </Badge>
                                         )}
                                     </div>
-                                    <span className="text-[10px] font-mono text-muted-foreground">{dateFormatted}</span>
+                                    <span className="text-xs tabular-nums text-muted-foreground">{dateFormatted}</span>
                                 </div>
                                 <p className="text-foreground leading-relaxed whitespace-pre-wrap">{msg.body}</p>
                             </div>
@@ -290,7 +290,7 @@ export function ProposalThread({
 
             {/* Log Outside Discussion Dialog */}
             <Dialog open={showOutsideModal} onOpenChange={setShowOutsideModal}>
-                <DialogContent className="max-w-md w-full glass-card border-border text-foreground">
+                <DialogContent className="max-w-md w-full bg-card border-border text-foreground">
                     <form onSubmit={handleLogOutsideSubmit} className="space-y-4">
                         <DialogHeader>
                             <DialogTitle className="text-lg font-bold flex items-center gap-2">

@@ -23,7 +23,7 @@ export default async function NewPortfolioPage() {
                 <Link href="/dashboard/portfolio" className="text-sm text-muted-foreground hover:underline">
                     ← Back to portfolio
                 </Link>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">Add a portfolio project</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-2">Add a portfolio project</h1>
                 <p className="text-muted-foreground">Only finished projects. Nothing here links to the real project records.</p>
             </div>
             <PortfolioEditorForm services={serviceOptions} />

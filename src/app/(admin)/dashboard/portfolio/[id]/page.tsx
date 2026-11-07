@@ -36,7 +36,7 @@ export default async function EditPortfolioPage({ params }: Props) {
                 <Link href="/dashboard/portfolio" className="text-sm text-muted-foreground hover:underline">
                     ← Back to portfolio
                 </Link>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">Edit portfolio project</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-2">Edit portfolio project</h1>
             </div>
             <PortfolioEditorForm
                 services={serviceOptions}

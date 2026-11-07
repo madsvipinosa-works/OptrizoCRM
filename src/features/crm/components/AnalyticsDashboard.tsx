@@ -53,7 +53,7 @@ export function AnalyticsDashboard({ data, hideHeader }: AnalyticsDashboardProps
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <LayoutDashboard className="w-5 h-5 text-primary" />
-                            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                                 Executive Agency Dashboard
                             </h1>
                         </div>

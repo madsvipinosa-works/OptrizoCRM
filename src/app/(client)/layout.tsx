@@ -1,32 +1,28 @@
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
-import { MouseEffectBackground } from "@/components/ui/mouse-effect-background";
-import { ClientSidebar } from "@/features/client-portal/components/ClientSidebar";
+import { eq } from "drizzle-orm";
+import { auth } from "@/auth";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { ClientNavbar } from "@/features/client-portal/components/ClientNavbar";
+import { getSiteSettings } from "@/features/cms/actions";
 
-export default function ClientLayout({
+/** Client portal shell (mockup 089): its own top bar, no public navbar, no sidebar, no animated background. */
+export default async function ClientLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const session = await auth();
+    const [profile, settings] = await Promise.all([
+        session?.user?.id ? db.query.users.findFirst({ where: eq(users.id, session.user.id), columns: { name: true, companyName: true } }) : null,
+        getSiteSettings(),
+    ]);
+
     return (
-        <div className="flex flex-col min-h-screen relative overflow-hidden bg-background text-foreground selection:bg-primary/30 print:bg-transparent transition-colors duration-500">
-            {/* Global Interactive Mouse Effect Background */}
-            <div className="print:hidden">
-                <MouseEffectBackground className="fixed inset-0 z-0 opacity-40 pointer-events-auto" dotSize={1.5} dotSpacing={32} repulsionRadius={80} />
-            </div>
-
-            <Navbar />
-
-            <main className="flex-1 relative z-10 w-full max-w-7xl mx-auto px-4 md:px-6 pt-24 md:pt-28 pb-12 flex flex-col md:flex-row gap-8 print:m-0 print:p-0">
-                <div className="print:hidden">
-                    <ClientSidebar />
-                </div>
-                <div className="flex-1 min-w-0">
-                    {children}
-                </div>
-            </main>
-
-            <Footer className="relative z-10 print:hidden" />
+        <div className="flex min-h-screen flex-col bg-background text-foreground print:bg-transparent">
+            {session?.user && (
+                <ClientNavbar name={profile?.name || session.user.name || session.user.email || "Client"} company={profile?.companyName} email={session.user.email} logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl} />
+            )}
+            <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-12 pt-6 md:px-6 md:pt-8 print:m-0 print:p-0">{children}</main>
         </div>
     );
 }

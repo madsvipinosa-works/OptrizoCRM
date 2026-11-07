@@ -15,7 +15,7 @@ export default async function NewServicePage() {
                 <Link href="/dashboard/services" className="text-sm text-muted-foreground hover:underline">
                     ← Back to services
                 </Link>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">Add a service</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-2">Add a service</h1>
                 <p className="text-muted-foreground">Saved as a draft. Visitors see it only after you publish.</p>
             </div>
             <ServiceEditorForm />

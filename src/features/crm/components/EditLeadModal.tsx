@@ -219,7 +219,7 @@ export function EditLeadModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <Label htmlFor="edit-estimatedValue" className="text-xs font-medium text-foreground flex items-center gap-1">
-                                <DollarSign className="h-3 w-3 text-emerald-500" /> Estimated Value ($)
+                                <DollarSign className="h-3 w-3 text-brand-deep" /> Estimated Value ($)
                             </Label>
                             <Input
                                 id="edit-estimatedValue"
@@ -228,7 +228,7 @@ export function EditLeadModal({
                                 step="500"
                                 value={estimatedValue}
                                 onChange={(e) => setEstimatedValue(e.target.value)}
-                                className="h-8 text-xs bg-muted/30 border-border text-foreground font-mono font-bold text-emerald-500 dark:text-emerald-400"
+                                className="h-8 text-xs bg-muted/30 border-border text-foreground tabular-nums font-bold text-brand-deep"
                             />
                         </div>
 

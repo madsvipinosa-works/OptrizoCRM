@@ -72,31 +72,31 @@ export default function MeetingsPage() {
         switch (status) {
             case "confirmed":
                 return (
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/30 text-[11px] font-semibold whitespace-nowrap">
+                    <Badge variant="outline" className="bg-brand-soft text-brand-deep border-brand-deep/20 text-xs font-semibold whitespace-nowrap">
                         Confirmed
                     </Badge>
                 );
             case "awaiting_client":
                 return (
-                    <Badge variant="outline" className="bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30 text-[11px] font-semibold whitespace-nowrap">
+                    <Badge variant="outline" className="bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30 text-xs font-semibold whitespace-nowrap">
                         Awaiting client
                     </Badge>
                 );
             case "reschedule_requested":
                 return (
-                    <Badge variant="outline" className="bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border-cyan-500/30 text-[11px] font-semibold whitespace-nowrap">
+                    <Badge variant="outline" className="bg-stage-discovery/10 text-stage-discovery border-stage-discovery/30 text-xs font-semibold whitespace-nowrap">
                         Reschedule requested
                     </Badge>
                 );
             case "done":
                 return (
-                    <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[11px] font-semibold whitespace-nowrap">
+                    <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-xs font-semibold whitespace-nowrap">
                         Done
                     </Badge>
                 );
             case "cancelled":
                 return (
-                    <Badge variant="outline" className="bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/30 text-[11px] font-semibold whitespace-nowrap">
+                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-xs font-semibold whitespace-nowrap">
                         Cancelled
                     </Badge>
                 );
@@ -110,7 +110,7 @@ export default function MeetingsPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-foreground">Meetings</h2>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">Meetings</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
                         Every client appointment in one place, with its status.
                     </p>
@@ -200,7 +200,7 @@ export default function MeetingsPage() {
                                     <div className="text-xs font-bold text-foreground">
                                         {dateFormatted}, {timeFormatted}
                                     </div>
-                                    <div className="text-[11px] text-muted-foreground capitalize flex items-center gap-1 mt-0.5">
+                                    <div className="text-xs text-muted-foreground capitalize flex items-center gap-1 mt-0.5">
                                         {meeting.format === "video" ? (
                                             <Video className="h-3 w-3" />
                                         ) : meeting.format === "phone" ? (
@@ -217,7 +217,7 @@ export default function MeetingsPage() {
                                     <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
                                         {meeting.lead?.businessName || "Opportunity"}
                                     </div>
-                                    <div className="text-[11px] text-muted-foreground">
+                                    <div className="text-xs text-muted-foreground">
                                         Client: {meeting.lead?.contactName || "Direct Contact"}
                                     </div>
                                 </div>

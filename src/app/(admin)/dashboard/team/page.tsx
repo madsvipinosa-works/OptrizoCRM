@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AutoFilterForm } from "@/components/ui/auto-filter-form";
 import { UserActiveToggle } from "@/features/cms/team/components/UserActiveToggle";
 import { UserPlus, Search } from "lucide-react";
 import { auditLogs, users } from "@/db/schema";
@@ -123,11 +124,7 @@ export default async function TeamPage({
         </Button>
       </div>
 
-      <form
-        method="GET"
-        action="/dashboard/team"
-        className="flex flex-wrap items-center gap-2.5"
-      >
+      <AutoFilterForm className="flex flex-wrap items-center gap-2.5">
         <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
@@ -167,19 +164,16 @@ export default async function TeamPage({
           <option value="deactivated">Deactivated</option>
         </select>
 
-        <Button type="submit" variant="outline" className="h-10">
-          Filter
-        </Button>
 
         {hasFilters && (
           <Link
             href="/dashboard/team"
             className="text-sm font-medium text-muted-foreground hover:text-foreground px-2"
           >
-            Reset
+            Clear
           </Link>
         )}
-      </form>
+      </AutoFilterForm>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">

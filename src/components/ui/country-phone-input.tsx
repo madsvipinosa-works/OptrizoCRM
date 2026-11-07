@@ -313,7 +313,10 @@ export function CountryPhoneInput({
         }
 
         // Locked country mode (PH, US, etc.)
-        const clamped = digits.slice(0, selectedCountry.maxDigits);
+        // PH mobile numbers start with 9 after +63: drop a typed leading 0 (0917...) and refuse any other first digit.
+        const local = selectedCountry.code === "PH" ? digits.replace(/^0+/, "") : digits;
+        if (selectedCountry.code === "PH" && local && local[0] !== "9") return;
+        const clamped = local.slice(0, selectedCountry.maxDigits);
         setNationalDigits(clamped);
 
         if (onChange) {
@@ -345,7 +348,7 @@ export function CountryPhoneInput({
                     <span className="text-base select-none" aria-hidden="true">
                         {selectedCountry.flag}
                     </span>
-                    <span className="text-xs font-mono font-medium text-foreground">
+                    <span className="text-xs font-medium tabular-nums text-foreground">
                         {selectedCountry.dialCode}
                     </span>
                     <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform duration-200", isDropdownOpen && "rotate-180")} />
@@ -366,10 +369,10 @@ export function CountryPhoneInput({
                         onChange={handleDigitsChange}
                         placeholder={placeholder || (isOtherMode ? OTHER_COUNTRY.placeholder : selectedCountry.placeholder)}
                         maxLength={selectedCountry.maxDigits + 8}
-                        className="w-full h-8 sm:h-9 bg-transparent px-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+                        className="w-full h-8 sm:h-9 bg-transparent px-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden disabled:opacity-50 disabled:cursor-not-allowed tabular-nums"
                     />
                     {nationalDigits.length > 0 && selectedCountry.code !== "OTHER" && (
-                        <span className="text-[10px] font-mono text-muted-foreground/70 pr-2.5 shrink-0 select-none hidden sm:inline" title={`${nationalDigits.length} of ${selectedCountry.maxDigits} digits`}>
+                        <span className="text-xs tabular-nums text-muted-foreground pr-2.5 shrink-0 select-none hidden sm:inline" title={`${nationalDigits.length} of ${selectedCountry.maxDigits} digits`}>
                             {nationalDigits.length}/{selectedCountry.maxDigits}
                         </span>
                     )}
@@ -382,14 +385,14 @@ export function CountryPhoneInput({
                     {/* Top Search Input: 🔍 Dial code */}
                     <div className="p-2 border-b border-border/80 bg-muted/20">
                         <div className="relative flex items-center">
-                            <Search className="absolute left-2.5 h-3.5 w-3.5 text-blue-500 pointer-events-none" />
+                            <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                             <input
                                 ref={searchInputRef}
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Dial code"
-                                className="w-full pl-8 pr-3 py-1.5 text-xs bg-background rounded-md border border-border text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-blue-500 font-sans"
+                                className="w-full pl-8 pr-3 py-1.5 text-xs bg-background rounded-md border border-border text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-ring font-sans"
                             />
                         </div>
                     </div>
@@ -405,14 +408,14 @@ export function CountryPhoneInput({
                                     className={cn(
                                         "flex items-center justify-between px-3 py-2 rounded-md text-xs cursor-pointer transition-colors select-none",
                                         isSelected
-                                            ? "bg-blue-600 text-white font-medium shadow-xs"
+                                            ? "bg-brand-soft text-foreground font-medium"
                                             : "text-foreground hover:bg-muted/70"
                                     )}
                                 >
                                     <div className="flex items-center gap-2.5 min-w-0">
                                         <span className="text-base shrink-0">{c.flag}</span>
                                         <span className="truncate">{c.name}</span>
-                                        <span className={cn("font-mono font-medium text-[11px] shrink-0", isSelected ? "text-blue-100" : "text-muted-foreground")}>
+                                        <span className={cn("font-medium text-xs tabular-nums shrink-0", isSelected ? "text-brand-deep" : "text-muted-foreground")}>
                                             {c.dialCode}
                                         </span>
                                     </div>

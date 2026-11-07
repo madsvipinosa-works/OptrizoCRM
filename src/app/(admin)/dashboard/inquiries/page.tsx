@@ -11,6 +11,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+import { AutoFilterForm } from "@/components/ui/auto-filter-form";
 import { InquiryManagementForm } from "@/features/inquiries/components/InquiryManagementForm";
 import { InquiryDetailsDialog } from "@/features/inquiries/components/InquiryDetailsDialog";
 import Link from "next/link";
@@ -31,7 +32,7 @@ export default async function InquiriesPage({
 }) {
     const session = await auth();
     if (!hasRole(session, ["sales"])) {
-        return <div className="p-8 text-center text-red-500">Unauthorized</div>;
+        return <div className="p-8 text-center text-destructive">Unauthorized</div>;
     }
 
     const params = await searchParams;
@@ -103,7 +104,7 @@ export default async function InquiriesPage({
                     ))}
                 </div>
 
-                <form action="/dashboard/inquiries" method="get" role="search" className="relative w-full sm:w-72">
+                <AutoFilterForm className="relative w-full sm:w-72">
                     <input type="hidden" name="tab" value={isHandledView ? "handled" : "open"} />
                     <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input
@@ -114,7 +115,7 @@ export default async function InquiriesPage({
                         placeholder="Search name, email or subject"
                         className="h-10 bg-card pl-9"
                     />
-                </form>
+                </AutoFilterForm>
             </div>
 
             <div className="overflow-hidden rounded-xl border border-border bg-card">

@@ -150,16 +150,10 @@ export function LoginModal({
       <DialogContent
         className={cn(
           "bg-background border-border",
-          "backdrop-blur-xl shadow-2xl",
-          "rounded-2xl sm:max-w-[420px] p-0 overflow-hidden"
+          "shadow-2xl",
+          "rounded-2xl sm:max-w-[420px] p-0 max-h-[calc(100dvh-2rem)] overflow-y-auto"
         )}
       >
-        {/* Top accent gradient bar */}
-        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
-
-        {/* Subtle background glow */}
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 rounded-full bg-primary opacity-[0.06] blur-[50px] pointer-events-none" />
-
         <div className="relative px-7 pt-6 pb-7">
           {/* Logo + Title */}
           <div className="flex flex-col items-center text-center mb-5">
@@ -189,11 +183,11 @@ export function LoginModal({
                 )}
               </div>
             ) : (
-              <div className="h-10 w-10 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 mb-4">
+              <div className="h-10 w-10 bg-primary rounded-2xl flex items-center justify-center mb-4">
                 <Code2 className="h-5 w-5 text-primary-foreground" />
               </div>
             )}
-            <DialogTitle className="text-xl font-bold text-foreground">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
               {title}
             </DialogTitle>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -211,7 +205,7 @@ export function LoginModal({
 
           {/* Success banner */}
           {successMessage && (
-            <div className="mb-4 p-3 bg-primary/10 border border-primary/25 text-primary rounded-xl text-xs flex items-center gap-2">
+            <div className="mb-4 p-3 bg-brand-soft border border-brand-deep/25 text-brand-deep rounded-xl text-sm flex items-center gap-2">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
               <p>{successMessage}</p>
             </div>
@@ -224,7 +218,7 @@ export function LoginModal({
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-lg font-bold text-foreground">Check your email</h3>
+                <h3 className="text-lg font-semibold tracking-tight text-foreground">Check your email</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed px-1">
                   {signupSuccess}
                 </p>
@@ -240,7 +234,7 @@ export function LoginModal({
                   "py-2.5 px-5 rounded-xl text-sm font-semibold",
                   "bg-primary text-primary-foreground",
                   "hover:brightness-110 active:scale-[0.98] transition-all duration-150",
-                  "shadow-lg shadow-primary/20"
+                  ""
                 )}
               >
                 Sign In to Account
@@ -255,7 +249,7 @@ export function LoginModal({
                   <div className="space-y-1.5">
                     <label
                       htmlFor="modal-name"
-                      className="text-[11px] font-medium text-muted-foreground block"
+                      className="text-sm font-medium text-foreground block"
                     >
                       Full Name
                     </label>
@@ -268,7 +262,7 @@ export function LoginModal({
                       className={cn(inputCls, fieldErrors.name ? "border-destructive focus:border-destructive" : "")}
                     />
                     {fieldErrors.name && (
-                      <p className="text-[11px] text-destructive">{fieldErrors.name}</p>
+                      <p className="text-sm text-destructive">{fieldErrors.name}</p>
                     )}
                   </div>
                 )}
@@ -276,7 +270,7 @@ export function LoginModal({
                 <div className="space-y-1.5">
                   <label
                     htmlFor="modal-email"
-                    className="text-[11px] font-medium text-muted-foreground block"
+                    className="text-sm font-medium text-foreground block"
                   >
                     Email Address
                   </label>
@@ -289,7 +283,7 @@ export function LoginModal({
                     className={cn(inputCls, fieldErrors.email ? "border-destructive focus:border-destructive" : "")}
                   />
                   {fieldErrors.email && (
-                    <p className="text-[11px] text-destructive">{fieldErrors.email}</p>
+                    <p className="text-sm text-destructive">{fieldErrors.email}</p>
                   )}
                 </div>
 
@@ -298,7 +292,7 @@ export function LoginModal({
                     <div className="flex items-center justify-between">
                       <label
                         htmlFor="modal-password"
-                        className="text-[11px] font-medium text-muted-foreground"
+                        className="text-sm font-medium text-foreground"
                       >
                         Password
                       </label>
@@ -309,7 +303,7 @@ export function LoginModal({
                             setIsResetting(true);
                             reset();
                           }}
-                          className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                         >
                           Forgot password?
                         </button>
@@ -338,7 +332,7 @@ export function LoginModal({
                       </button>
                     </div>
                     {fieldErrors.password && (
-                      <p className="text-[11px] text-destructive">{fieldErrors.password}</p>
+                      <p className="text-sm text-destructive">{fieldErrors.password}</p>
                     )}
                   </div>
                 )}
@@ -347,7 +341,7 @@ export function LoginModal({
                   <div className="space-y-1.5">
                     <label
                       htmlFor="modal-confirmPassword"
-                      className="text-[11px] font-medium text-muted-foreground block"
+                      className="text-sm font-medium text-foreground block"
                     >
                       Confirm Password
                     </label>
@@ -374,7 +368,7 @@ export function LoginModal({
                       </button>
                     </div>
                     {fieldErrors.confirmPassword && (
-                      <p className="text-[11px] text-destructive">{fieldErrors.confirmPassword}</p>
+                      <p className="text-sm text-destructive">{fieldErrors.confirmPassword}</p>
                     )}
                   </div>
                 )}
@@ -388,7 +382,7 @@ export function LoginModal({
                     "py-2.5 px-5 rounded-xl text-sm font-semibold",
                     "bg-primary text-primary-foreground",
                     "hover:brightness-110 active:scale-[0.98] transition-all duration-150",
-                    "shadow-lg shadow-primary/20",
+                    "",
                     "disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
                   )}
                 >
@@ -408,7 +402,7 @@ export function LoginModal({
               </form>
 
               {/* Toggle auth mode */}
-              <p className="text-center text-[11px] text-muted-foreground mt-4">
+              <p className="text-center text-sm text-muted-foreground mt-4">
                 {isResetting ? (
                   <button
                     type="button"
@@ -417,7 +411,7 @@ export function LoginModal({
                       setIsLogin(true);
                       reset();
                     }}
-                    className="text-primary hover:brightness-110 font-semibold transition-all"
+                    className="font-semibold text-brand-deep hover:underline"
                   >
                     ← Back to Log in
                   </button>
@@ -430,7 +424,7 @@ export function LoginModal({
                         setIsLogin(false);
                         reset();
                       }}
-                      className="text-primary hover:brightness-110 font-semibold transition-all"
+                      className="font-semibold text-brand-deep hover:underline"
                     >
                       Sign up free
                     </button>
@@ -444,7 +438,7 @@ export function LoginModal({
                         setIsLogin(true);
                         reset();
                       }}
-                      className="text-primary hover:brightness-110 font-semibold transition-all"
+                      className="font-semibold text-brand-deep hover:underline"
                     >
                       Log in
                     </button>
@@ -460,7 +454,7 @@ export function LoginModal({
                       <div className="w-full border-t border-border" />
                     </div>
                     <div className="relative flex justify-center">
-                      <span className="bg-background px-3 text-[10px] text-muted-foreground uppercase tracking-widest">
+                      <span className="bg-background px-3 text-sm text-muted-foreground">
                         or continue with
                       </span>
                     </div>
