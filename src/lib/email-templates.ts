@@ -13,7 +13,7 @@ export type MeetingType = "discovery" | "budget_pricing" | "project_review" | "u
 
 export type ClientEmail = { subject: string; html: string; text: string };
 
-const MANILA = "Asia/Manila";
+import { formatDate, formatDateTime, formatWithZone, tzLabel } from "@/lib/datetime";
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -34,51 +34,31 @@ export function firstNameOf(fullName?: string | null): string {
     return first || "there";
 }
 
-/** App base URL for links in emails. */
+/**
+ * The public address of the app, used for every link we put in an email or redirect.
+ * Reads NEXTAUTH_URL, AUTH_URL or NEXT_PUBLIC_APP_URL. In production with none set it uses the live site,
+ * never localhost, so a missing setting can't send clients to a dead link.
+ */
 export function getBaseUrl(): string {
-    const fromEnv = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+    const fromEnv = process.env.NEXTAUTH_URL || process.env.AUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
     if (fromEnv) return fromEnv.replace(/\/$/, "");
     if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-    return "http://localhost:3000";
+    return process.env.NODE_ENV === "production" ? "https://optrizo.com" : "http://localhost:3000";
 }
 
-/** "Friday, November 6, 2026 at 10:00 AM (Manila time)" */
+/** "Nov 6, 2026, 10:00 AM (Manila time)" */
 export function formatManilaDateTime(date: Date): string {
-    const day = new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-    }).format(date);
-    const time = new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        hour: "numeric",
-        minute: "2-digit",
-    }).format(date);
-    return `${day} at ${time} (Manila time)`;
+    return `${formatDateTime(date)} (Manila time)`;
 }
 
-/** "Fri, Nov 6, 10:00 AM", short enough for a subject line. */
+/** "Nov 6, 2026, 10:00 AM", the same as on screen. */
 export function formatManilaShort(date: Date): string {
-    return new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    }).format(date);
+    return formatDateTime(date);
 }
 
-/** "November 19, 2026" */
+/** "Nov 19, 2026" */
 export function formatManilaDate(date: Date): string {
-    return new Intl.DateTimeFormat("en-US", {
-        timeZone: MANILA,
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-    }).format(date);
+    return formatDate(date);
 }
 
 /** Matches the `meeting_format` enum. `on_site` and `in_person` stay different. */
@@ -168,8 +148,6 @@ export function buildInquiryReceivedEmail(input: {
     clientName: string;
     businessName: string;
     serviceName: string;
-    /** Public page of the service they asked about, when they picked one from the list. */
-    serviceUrl?: string | null;
     /** Name of the Sales person, when one is already assigned. Usually unknown at this point. */
     contactName?: string | null;
     baseUrl?: string;
@@ -184,9 +162,8 @@ export function buildInquiryReceivedEmail(input: {
             `Hi ${first}, thank you for reaching out. We received your inquiry about ${input.serviceName} for ${input.businessName}.`,
             `${who} will contact you to set up a short meeting about your goals. After we meet, we prepare a proposal for you.`,
         ],
-        button: input.serviceUrl
-            ? { label: `View ${input.serviceName}`, url: input.serviceUrl }
-            : { label: "Visit our website", url: baseUrl },
+        // Every inquirer is signed in, so the button opens their portal home.
+        button: { label: "View your availed service", url: `${baseUrl}/portal` },
     });
 }
 
@@ -195,6 +172,8 @@ export function buildInquiryReceivedEmail(input: {
 // ---------------------------------------------------------------------------
 
 type MeetingEmailBase = {
+    /** The client's own timezone, when we know it. Times then show in it next to Manila time. */
+    timezone?: string | null;
     clientName: string;
     businessName: string;
     /** Service the client asked about, when known. */
@@ -234,7 +213,7 @@ export function buildMeetingInviteEmail(input: MeetingEmailBase & { agenda?: str
     const type = meetingTypeLabel(input.meetingType);
 
     const paragraphs = [
-        `Hi ${first}, we would like to meet to talk about ${aboutPhrase(input.serviceName, input.businessName)}. We set up a ${type} for ${formatManilaDateTime(input.startsAt)}.`,
+        `Hi ${first}, we would like to meet to talk about ${aboutPhrase(input.serviceName, input.businessName)}. We set up a ${type} for ${formatWithZone(input.startsAt, input.timezone)}.`,
         `Please confirm that this time works for you, or suggest another time.${organizerLine(input.organizerName, input.organizerRole, "will host it")}`,
     ];
     if (!input.hasAccount) {
@@ -242,13 +221,13 @@ export function buildMeetingInviteEmail(input: MeetingEmailBase & { agenda?: str
     }
 
     const details: Array<[string, string]> = [
-        ["Date and time", formatManilaDateTime(input.startsAt)],
+        ["Date and time", formatWithZone(input.startsAt, input.timezone)],
         ["Format", meetingFormatLabel(input.format)],
     ];
     if (input.agenda) details.push(["Agenda", input.agenda]);
 
     return renderEmail({
-        subject: `${first}, your ${type} with Optrizo is on ${formatManilaShort(input.startsAt)}`,
+        subject: `${first}, your ${type} with Optrizo is on ${(input.timezone ? `${formatDateTime(input.startsAt, input.timezone)} ${tzLabel(input.startsAt, input.timezone)}` : formatManilaShort(input.startsAt))}`,
         paragraphs,
         details,
         button: input.hasAccount
@@ -263,7 +242,7 @@ export function buildMeetingRescheduledEmail(input: MeetingEmailBase): ClientEma
     const type = meetingTypeLabel(input.meetingType);
 
     const paragraphs = [
-        `Hi ${first}, we moved your ${type} about ${aboutPhrase(input.serviceName, input.businessName)}. The new time is ${formatManilaDateTime(input.startsAt)}.`,
+        `Hi ${first}, we moved your ${type} about ${aboutPhrase(input.serviceName, input.businessName)}. The new time is ${formatWithZone(input.startsAt, input.timezone)}.`,
         `Please confirm the new time, or suggest another one.${organizerLine(input.organizerName, input.organizerRole, "will host it")}`,
     ];
     if (!input.hasAccount) {
@@ -271,10 +250,10 @@ export function buildMeetingRescheduledEmail(input: MeetingEmailBase): ClientEma
     }
 
     return renderEmail({
-        subject: `${first}, your ${type} moved to ${formatManilaShort(input.startsAt)}`,
+        subject: `${first}, your ${type} moved to ${(input.timezone ? `${formatDateTime(input.startsAt, input.timezone)} ${tzLabel(input.startsAt, input.timezone)}` : formatManilaShort(input.startsAt))}`,
         paragraphs,
         details: [
-            ["New date and time", formatManilaDateTime(input.startsAt)],
+            ["New date and time", formatWithZone(input.startsAt, input.timezone)],
             ["Format", meetingFormatLabel(input.format)],
         ],
         button: input.hasAccount
@@ -294,9 +273,9 @@ export function buildMeetingCancelledEmail(input: MeetingEmailBase & { reason?: 
         : "Our team";
 
     return renderEmail({
-        subject: `${first}, your ${type} on ${formatManilaShort(input.startsAt)} was cancelled`,
+        subject: `${first}, your ${type} on ${(input.timezone ? `${formatDateTime(input.startsAt, input.timezone)} ${tzLabel(input.startsAt, input.timezone)}` : formatManilaShort(input.startsAt))} was cancelled`,
         paragraphs: [
-            `Hi ${first}, we cancelled your ${type} about ${aboutPhrase(input.serviceName, input.businessName)}, which was set for ${formatManilaDateTime(input.startsAt)}.${reason ? ` Reason: ${reason}.` : ""}`,
+            `Hi ${first}, we cancelled your ${type} about ${aboutPhrase(input.serviceName, input.businessName)}, which was set for ${formatWithZone(input.startsAt, input.timezone)}.${reason ? ` Reason: ${reason}.` : ""}`,
             `${who} will contact you to find a new time.`,
         ],
         button: input.hasAccount

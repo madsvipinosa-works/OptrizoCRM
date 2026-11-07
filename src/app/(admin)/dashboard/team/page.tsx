@@ -10,6 +10,7 @@ import { UserPlus, Search } from "lucide-react";
 import { auditLogs, users } from "@/db/schema";
 import { ilike, or, and, eq, isNull, max } from "drizzle-orm";
 import { format } from "date-fns";
+import { FormSelect } from "@/components/ui/form-select";
 
 export const dynamic = "force-dynamic";
 
@@ -136,12 +137,12 @@ export default async function TeamPage({
           />
         </div>
 
-        <select
+        <FormSelect
           name="role"
           defaultValue={roleFilter ?? ""}
           aria-label="Filter by role"
           className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+         variant="plain">
           <option value="">All roles</option>
           <option value="sales">Sales</option>
           <option value="manager">Project Manager</option>
@@ -149,20 +150,20 @@ export default async function TeamPage({
           <option value="content_editor">Content Editor</option>
           <option value="client">Client</option>
           <option value="superadmin">Super Admin</option>
-        </select>
+        </FormSelect>
 
-        <select
+        <FormSelect
           name="status"
           defaultValue={statusFilter ?? ""}
           aria-label="Filter by status"
           className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+         variant="plain">
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="locked">Locked</option>
           <option value="invited">Invited</option>
           <option value="deactivated">Deactivated</option>
-        </select>
+        </FormSelect>
 
 
         {hasFilters && (

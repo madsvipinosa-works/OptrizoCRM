@@ -240,7 +240,7 @@ export function ContactsTable({ rows }: { rows: ContactRow[] }) {
                         resetPage();
                     }}
                 >
-                    <SelectTrigger aria-label="Service" className="h-10 w-[200px] bg-card">
+                    <SelectTrigger aria-label="Service" className="h-10 w-[200px] bg-card" variant="plain">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

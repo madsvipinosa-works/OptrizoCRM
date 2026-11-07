@@ -3,7 +3,7 @@
 import { useState, useActionState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { servicePageHref } from "@/lib/service-links";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -22,6 +21,7 @@ import { ArrowRight, CheckCircle2, Loader2, Sparkles, Clock } from "lucide-react
 import { cn } from "@/lib/utils";
 import { submitIntakeForm, getPublishedServices, type IntakeState } from "@/features/crm/actions/submit-intake";
 import { ServiceDetailModal, type ServiceDetailItem } from "@/components/public/ServiceDetailModal";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface ServiceCardItemProps {
   service: {
@@ -105,6 +105,7 @@ function parseStringArray(val: unknown): string[] {
 }
 
 export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   // Full number with dial code, e.g. "+63 917 555 0142". The picker limits digits per country.
@@ -156,11 +157,17 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
     targetAudience: service.targetAudience,
   };
 
-  const handleAvailFromDetail = () => {
+  // Sign-in is required before the inquiry form opens (the server action enforces it too).
+  const openInquiry = () => {
     setIsDetailOpen(false);
+    if (!sessionUser) {
+      router.push("/login?callbackUrl=/services&reason=inquiry_auth");
+      return;
+    }
     setSelectedServiceId(service.id);
     setIsOpen(true);
   };
+  const handleAvailFromDetail = openInquiry;
 
   const ActionButton = () => (
     <Button 
@@ -246,13 +253,11 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
             View Inclusions & Details
           </Button>
 
-          {/* Public Inquiry Form Modal (No login required - Mockups 008-1 to 011-1c) */}
+          {/* Inquiry Form Modal (sign-in required - Mockups 008-1 to 011-1c) */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <div className="w-full cursor-pointer" onClick={() => setSelectedServiceId(service.id)}>
-                <ActionButton />
-              </div>
-            </DialogTrigger>
+            <div className="w-full cursor-pointer" onClick={openInquiry}>
+              <ActionButton />
+            </div>
             <DialogContent className="sm:max-w-[660px] bg-card border-border text-card-foreground rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto override-scrollbar p-6 md:p-8">
               {state.success ? (
                 /* Mockup 011-1c: Thank-you card / Inquiry received confirmation */
@@ -291,17 +296,14 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                   </div>
 
                   <DialogFooter className="pt-2 gap-2 sm:gap-2">
-                    {/* Only when they picked a service from the list ("Other" has no page). */}
-                    {servicePageHref(state.inquiryData?.serviceSlug) && (
-                      <Button
-                        asChild
-                        className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg px-6"
-                      >
-                        <Link href={servicePageHref(state.inquiryData?.serviceSlug) as string} onClick={() => setIsOpen(false)}>
-                          View your availed service
-                        </Link>
-                      </Button>
-                    )}
+                    <Button
+                      asChild
+                      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg px-6"
+                    >
+                      <Link href="/portal" onClick={() => setIsOpen(false)}>
+                        View your availed service
+                      </Link>
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"
@@ -349,12 +351,11 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                         <Label htmlFor="serviceId" className="text-xs font-semibold text-foreground">
                           Service
                         </Label>
-                        <select
+                        <FormSelect
                           id="serviceId"
                           name="serviceId"
                           value={selectedServiceId}
                           onChange={(e) => setSelectedServiceId(e.target.value)}
-                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {serviceOptions.map((svc) => (
                             <option key={svc.id} value={svc.id} className="bg-card text-foreground">
@@ -364,25 +365,24 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                           <option value="other" className="bg-card text-foreground">
                             Other
                           </option>
-                        </select>
+                        </FormSelect>
                       </div>
 
                       <div className="space-y-1.5">
                         <Label htmlFor="urgency" className="text-xs font-semibold text-foreground">
                           Urgency
                         </Label>
-                        <select
+                        <FormSelect
                           id="urgency"
                           name="urgency"
                           defaultValue={state.values?.urgency || "Within 1 month"}
-                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {URGENCY_OPTIONS.map((opt) => (
                             <option key={opt} value={opt} className="bg-card text-foreground">
                               {opt}
                             </option>
                           ))}
-                        </select>
+                        </FormSelect>
                         {state?.errors?.urgency && (
                           <p className="text-xs text-destructive">{state.errors.urgency[0]}</p>
                         )}
@@ -484,18 +484,17 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                         <Label htmlFor="industry" className="text-xs font-semibold text-foreground">
                           Industry
                         </Label>
-                        <select
+                        <FormSelect
                           id="industry"
                           name="industry"
                           defaultValue={state.values?.industry || "Retail"}
-                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {INDUSTRY_OPTIONS.map((ind) => (
                             <option key={ind} value={ind} className="bg-card text-foreground">
                               {ind}
                             </option>
                           ))}
-                        </select>
+                        </FormSelect>
                         {state?.errors?.industry && (
                           <p className="text-xs text-destructive">{state.errors.industry[0]}</p>
                         )}
@@ -524,18 +523,17 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                       <Label htmlFor="contactPreference" className="text-xs font-semibold text-foreground">
                         How should we reach you?
                       </Label>
-                      <select
+                      <FormSelect
                         id="contactPreference"
                         name="contactPreference"
                         defaultValue={state.values?.contactPreference || "Email"}
-                        className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         {CONTACT_PREFERENCES.map((pref) => (
                           <option key={pref} value={pref} className="bg-card text-foreground">
                             {pref}
                           </option>
                         ))}
-                      </select>
+                      </FormSelect>
                       {state?.errors?.contactPreference && (
                         <p className="text-xs text-destructive">{state.errors.contactPreference[0]}</p>
                       )}

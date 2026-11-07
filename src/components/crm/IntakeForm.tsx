@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { submitIntakeForm, type IntakeState } from "@/features/crm/actions/submit-intake";
 import { BUDGET_OPTIONS } from "@/lib/constants";
+import { FormSelect } from "@/components/ui/form-select";
 
 const initialState: IntakeState = {
     message: "",
@@ -103,11 +104,10 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="serviceId">Service of Interest</Label>
-                            <select
+                            <FormSelect
                                 id="serviceId"
                                 name="serviceId"
                                 defaultValue={state.values?.serviceId || preSelectedServiceId || ""}
-                                className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                             >
                                 <option value="" className="bg-card text-foreground">Select a service...</option>
                                 {availableServices.map((service) => (
@@ -115,15 +115,14 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                         {service.title}
                                     </option>
                                 ))}
-                            </select>
+                            </FormSelect>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="budget">Budget Range</Label>
-                            <select
+                            <FormSelect
                                 id="budget"
                                 name="budget"
                                 defaultValue={state.values?.budget || ""}
-                                className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                             >
                                 <option value="" className="bg-card text-foreground">Select a budget...</option>
                                 {BUDGET_OPTIONS.map((option) => (
@@ -131,7 +130,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                         {option}
                                     </option>
                                 ))}
-                            </select>
+                            </FormSelect>
                             {state?.errors?.budget && (
                                 <p className="text-sm text-red-500">{state.errors.budget[0]}</p>
                             )}
@@ -140,18 +139,17 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
 
                     <div className="space-y-2">
                         <Label htmlFor="timelineExpectation">Timeline Expectation</Label>
-                        <select
+                        <FormSelect
                             id="timelineExpectation"
                             name="timelineExpectation"
                             defaultValue={state.values?.timelineExpectation || ""}
-                            className="flex h-10 w-full rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                         >
                             <option value="" className="bg-card text-foreground">Select a timeline...</option>
                             <option value="ASAP" className="bg-card text-foreground">ASAP</option>
                             <option value="1-2 months" className="bg-card text-foreground">1-2 months</option>
                             <option value="3-6 months" className="bg-card text-foreground">3-6 months</option>
                             <option value="Flexible" className="bg-card text-foreground">Flexible</option>
-                        </select>
+                        </FormSelect>
                         {state?.errors?.timelineExpectation && (
                             <p className="text-sm text-red-500">{state.errors.timelineExpectation[0]}</p>
                         )}

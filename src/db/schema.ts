@@ -36,6 +36,8 @@ export const users = pgTable("user", {
     status: accountStatusEnum("status").default("active").notNull(),
     failedLogins: integer("failed_logins").default(0).notNull(),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    /** IANA name from the client's device (e.g. "Asia/Dubai"). Used to show them their own time in the portal and emails. */
+    timezone: text("timezone"),
     jobTitle: text("job_title"),
     companyName: text("company_name"),
     industry: text("industry"),

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { formatDate, formatDateTime, todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -156,10 +157,7 @@ export function ProposalThread({
                         const authorName = msg.author?.name || msg.author?.email || (isReply ? "Project Manager" : "Client");
                         const topics = Array.isArray(msg.topics) ? (msg.topics as string[]) : [];
 
-                        const dateFormatted = new Intl.DateTimeFormat("en-US", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                        }).format(new Date(msg.createdAt));
+                        const dateFormatted = formatDateTime(msg.createdAt);
 
                         if (isOutside) {
                             return (
@@ -181,7 +179,7 @@ export function ProposalThread({
                                             </span>
                                             {msg.heldAt && (
                                                 <span className="text-xs text-muted-foreground">
-                                                    (Held {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(msg.heldAt))})
+                                                    (Held {formatDate(msg.heldAt)})
                                                 </span>
                                             )}
                                         </div>
@@ -325,13 +323,7 @@ export function ProposalThread({
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-xs">Date Held</Label>
-                                    <Input
-                                        type="date"
-                                        value={outsideDate}
-                                        onChange={(e) => setOutsideDate(e.target.value)}
-                                        required
-                                        className="h-9 text-xs"
-                                    />
+                                    <DatePicker value={outsideDate} onChange={setOutsideDate} max={todayYmd()} required className="h-9 text-xs" />
                                 </div>
                             </div>
 

@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import {
     DropdownMenu,
@@ -287,8 +289,7 @@ export function TaskDetailsDrawer({
         await onUpdateTaskDetails(task.id, { assigneeIds: newIds });
     };
 
-    const handleDueDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
+    const handleDueDateChange = async (val: string) => {
         setDueDateInput(val);
         const dateObj = val ? new Date(val) : null;
         await onUpdateTaskDetails(task.id, { dueDate: dateObj });
@@ -675,7 +676,7 @@ export function TaskDetailsDrawer({
                                         value={task.dependsOnTaskId || "none"}
                                         onValueChange={handlePrerequisiteChange}
                                     >
-                                        <SelectTrigger className="w-full text-xs h-9 bg-background border-border text-foreground">
+                                        <SelectTrigger className="w-full text-xs h-9">
                                             <SelectValue placeholder="Select a prerequisite task..." />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground max-h-56">
@@ -892,12 +893,7 @@ export function TaskDetailsDrawer({
                                     </Label>
                                     {canManage ? (
                                         <div className="flex items-center gap-2">
-                                            <Input
-                                                type="date"
-                                                value={dueDateInput}
-                                                onChange={handleDueDateChange}
-                                                className="bg-background border-border text-foreground text-xs h-8"
-                                            />
+                                            <DatePicker value={dueDateInput} onChange={handleDueDateChange} min={todayYmd()} className="bg-background border-border text-xs h-8" />
                                             {dueDateInput && (
                                                 <Button
                                                     size="sm"
@@ -931,7 +927,7 @@ export function TaskDetailsDrawer({
                                             value={String(weightInput)}
                                             onValueChange={(val) => handleWeightChange(parseInt(val, 10))}
                                         >
-                                            <SelectTrigger className="bg-background border-border text-foreground text-xs h-8">
+                                            <SelectTrigger className="text-xs h-8">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="bg-card border-border text-foreground">

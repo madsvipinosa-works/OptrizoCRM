@@ -257,7 +257,7 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
             {/* Severity Filter */}
             <div className="w-full sm:w-auto">
               <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                <SelectTrigger className="w-full sm:w-[140px] bg-background border-border text-foreground">
+                <SelectTrigger className="w-full sm:w-[140px] bg-background border-border text-foreground" variant="plain">
                   <SelectValue placeholder="Severity" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground">
@@ -273,7 +273,7 @@ export function ErrorLogsTable({ initialData, initialMetrics }: ErrorLogsTablePr
             {/* Status Filter */}
             <div className="w-full sm:w-auto">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[140px] bg-background border-border text-foreground">
+                <SelectTrigger className="w-full sm:w-[140px] bg-background border-border text-foreground" variant="plain">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground">

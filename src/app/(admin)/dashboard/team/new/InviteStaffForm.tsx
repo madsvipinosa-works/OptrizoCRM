@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { inviteStaff, StaffRole } from "@/features/users/invite-actions";
 import { AlertCircle, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { FormSelect } from "@/components/ui/form-select";
 
 export function InviteStaffForm() {
     const [name, setName] = useState("");
@@ -120,18 +121,17 @@ export function InviteStaffForm() {
 
                 <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
-                    <select
+                    <FormSelect
                         id="role"
                         value={role}
                         onChange={(e) => setRole(e.target.value as StaffRole)}
                         disabled={isLoading}
-                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                         <option value="sales">Sales</option>
                         <option value="manager">Project Manager</option>
                         <option value="developer">Developer</option>
                         <option value="content_editor">Content Editor</option>
-                    </select>
+                    </FormSelect>
                     <span className="text-xs text-muted-foreground block">
                         The role decides what they see after they sign in.
                     </span>

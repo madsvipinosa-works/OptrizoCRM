@@ -199,7 +199,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                         <div className="space-y-1.5">
                             <Label htmlFor="source" className="text-sm font-medium text-foreground">Lead Source</Label>
                             <Select value={selectedSource} onValueChange={setSelectedSource}>
-                                <SelectTrigger className="bg-muted/30 border-border text-sm h-9 text-foreground focus:border-primary">
+                                <SelectTrigger className="text-sm h-9">
                                     <SelectValue placeholder="Source" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border text-foreground">
@@ -265,7 +265,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                             <span className="text-sm text-muted-foreground">Deal ownership</span>
                         </div>
                         <Select value={assignedRepId} onValueChange={setAssignedRepId}>
-                            <SelectTrigger className="h-9 bg-card text-sm text-foreground">
+                            <SelectTrigger className="h-9 text-sm">
                                 <SelectValue placeholder="Select Assignee" />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border text-foreground">
@@ -367,7 +367,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                         value={newTaskType}
                                         onValueChange={(val: any) => setNewTaskType(val)}
                                     >
-                                        <SelectTrigger className="h-7 w-20 text-sm bg-muted/30 border-border py-0">
+                                        <SelectTrigger className="h-7 w-20 text-sm py-0">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground">

@@ -4,6 +4,7 @@ import { put, del } from "@vercel/blob";
 import { auth, hasRole } from "@/auth";
 import { logAction } from "@/features/audit/log";
 import { logSystemError } from "@/features/audit/error-logger";
+import { getBaseUrl } from "@/lib/email-templates";
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB limit
 const ALLOWED_MIME_TYPES = [
@@ -31,7 +32,7 @@ export async function deleteImage(url: string) {
 
     try {
         if (url.startsWith("/api/private-file")) {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            const baseUrl = getBaseUrl();
             const u = new URL(url, baseUrl);
             const blobUrl = u.searchParams.get("blobUrl");
             const local = u.searchParams.get("local");

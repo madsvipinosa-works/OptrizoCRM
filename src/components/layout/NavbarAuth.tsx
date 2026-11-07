@@ -96,7 +96,7 @@ export function NavbarAuthMobile({ settings }: AuthProps) {
                     <Link href="/portal">My Dashboard</Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
-                    <Link href="/portal/services">Availed Services</Link>
+                    <Link href="/portal">Availed Services</Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
                     <Link href="/portal/settings">Account Settings</Link>

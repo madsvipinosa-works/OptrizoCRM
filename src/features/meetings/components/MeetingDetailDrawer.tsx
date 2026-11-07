@@ -14,6 +14,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
+import { formatDate, formatDateTime, isPastManila, manilaToDate, nowHm, todayYmd } from "@/lib/datetime";
 import { CalendarClock, Check, Loader2, Lock, RotateCcw, XCircle } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -97,9 +100,8 @@ export function MeetingStatusChip({ status }: { status: MeetingItem["status"] })
 
 const SALES_TYPES: MeetingItem["type"][] = ["discovery"];
 
-const dateTime = (value: Date | string) =>
-    new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
-const shortDate = (value: Date | string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+const dateTime = formatDateTime;
+const shortDate = formatDate;
 
 export function MeetingDetailDrawer({ meeting, isOpen, onClose, onUpdate, role = "sales" }: MeetingDetailDrawerProps) {
     // Keep the last meeting on screen while the sheet slides out.
@@ -205,9 +207,13 @@ function MeetingDetail({
         );
 
     const submitReschedule = () => {
-        const startsAt = new Date(`${rescheduleDate}T${rescheduleTime}:00`);
+        const startsAt = manilaToDate(rescheduleDate, rescheduleTime);
         if (!rescheduleDate || Number.isNaN(startsAt.getTime())) {
             toast.error("Pick a new date and time.");
+            return;
+        }
+        if (isPastManila(rescheduleDate, rescheduleTime)) {
+            toast.error("Pick a date and time that has not passed yet.");
             return;
         }
         run("reschedule", () => rescheduleMeeting({ meetingId: meeting.id, startsAt }), "Rescheduled. A new invite was sent to the client.");
@@ -223,9 +229,8 @@ function MeetingDetail({
     const useSuggestedTime = () => {
         if (!meeting.clientSuggestedAt) return;
         const d = new Date(meeting.clientSuggestedAt);
-        const pad = (n: number) => String(n).padStart(2, "0");
-        setRescheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
-        setRescheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+        setRescheduleDate(todayYmd(d));
+        setRescheduleTime(nowHm(d));
         setPanel("reschedule");
     };
 
@@ -348,8 +353,8 @@ function MeetingDetail({
                     <div className="composer-enter mb-3 space-y-3 rounded-xl bg-muted/50 p-3 ring-1 ring-inset ring-border/70">
                         <p className="text-sm font-medium text-foreground">New date and time</p>
                         <div className="grid grid-cols-2 gap-2">
-                            <Input type="date" aria-label="New date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)} className="h-9 bg-card" />
-                            <Input type="time" aria-label="New time" value={rescheduleTime} onChange={(e) => setRescheduleTime(e.target.value)} className="h-9 bg-card" />
+                            <DatePicker aria-label="New date" value={rescheduleDate} onChange={setRescheduleDate} min={todayYmd()} className="bg-card" />
+                            <TimePicker aria-label="New time" value={rescheduleTime} onChange={setRescheduleTime} min={rescheduleDate === todayYmd() ? nowHm() : undefined} className="bg-card" />
                         </div>
                         <div className="flex justify-end gap-2">
                             <Button size="sm" variant="ghost" onClick={() => setPanel("none")}>Back</Button>

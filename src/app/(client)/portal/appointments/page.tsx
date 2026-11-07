@@ -3,11 +3,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
+import { formatWithZone, nowHm, todayYmd, tzLabel, zonedToDate } from "@/lib/datetime";
+import { useDeviceTimezone } from "@/hooks/use-device-timezone";
 import {
     Check,
     RotateCcw,
@@ -21,6 +24,7 @@ import {
 } from "@/features/meetings/actions";
 
 export default function ClientAppointmentsPage() {
+    const tz = useDeviceTimezone();
     const [appointments, setAppointments] = useState<MeetingItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -100,7 +104,7 @@ export default function ClientAppointmentsPage() {
             return;
         }
 
-        const suggestedAt = new Date(`${suggestModal.date}T${suggestModal.time}:00`);
+        const suggestedAt = zonedToDate(suggestModal.date, suggestModal.time, tz);
         if (isNaN(suggestedAt.getTime())) {
             toast.error("Invalid date or time");
             return;
@@ -192,10 +196,7 @@ export default function ClientAppointmentsPage() {
                             </div>
                             <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
                                 <span>
-                                    {new Intl.DateTimeFormat("en-US", {
-                                        dateStyle: "medium",
-                                        timeStyle: "short",
-                                    }).format(new Date(pendingInvite.startsAt))}
+                                    {formatWithZone(pendingInvite.startsAt, tz)}
                                 </span>
                                 <span>•</span>
                                 <span className="capitalize">
@@ -274,10 +275,7 @@ export default function ClientAppointmentsPage() {
                                             {m.type === "discovery" ? "Discovery meeting" : m.type.replace("_", " ")}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {new Intl.DateTimeFormat("en-US", {
-                                                dateStyle: "medium",
-                                                timeStyle: "short",
-                                            }).format(new Date(m.startsAt))}{" "}
+                                            {formatWithZone(m.startsAt, tz)}{" "}
                                             · {m.format === "video" ? "Video call" : m.format}
                                         </div>
                                     </div>
@@ -311,10 +309,7 @@ export default function ClientAppointmentsPage() {
                                             {m.type === "discovery" ? "Discovery meeting" : m.type.replace("_", " ")}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {new Intl.DateTimeFormat("en-US", {
-                                                dateStyle: "medium",
-                                                timeStyle: "short",
-                                            }).format(new Date(m.startsAt))}{" "}
+                                            {formatWithZone(m.startsAt, tz)}{" "}
                                             · {m.format === "video" ? "Video call" : m.format}
                                         </div>
                                     </div>
@@ -344,23 +339,13 @@ export default function ClientAppointmentsPage() {
                     <div className="space-y-3 pt-2">
                         <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Preferred Date</Label>
-                            <Input
-                                type="date"
-                                min={new Date().toLocaleDateString("en-CA")}
-                                value={suggestModal.date}
-                                onChange={(e) => setSuggestModal((prev) => ({ ...prev, date: e.target.value }))}
-                                className="text-xs h-9 bg-card border-border"
-                            />
+                            <DatePicker value={suggestModal.date} onChange={(date) => setSuggestModal((prev) => ({ ...prev, date }))} min={todayYmd(undefined, tz)} className="bg-card border-border" />
                         </div>
                         <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Preferred Time</Label>
-                            <Input
-                                type="time"
-                                value={suggestModal.time}
-                                onChange={(e) => setSuggestModal((prev) => ({ ...prev, time: e.target.value }))}
-                                className="text-xs h-9 bg-card border-border"
-                            />
+                            <TimePicker value={suggestModal.time} onChange={(time) => setSuggestModal((prev) => ({ ...prev, time }))} min={suggestModal.date === todayYmd(undefined, tz) ? nowHm(undefined, tz) : undefined} className="bg-card border-border" />
                         </div>
+                        <p className="text-xs text-muted-foreground">Times are in your timezone ({tz.replace("_", " ")}, {tzLabel(new Date(), tz)}).</p>
                     </div>
                     <DialogFooter className="pt-2">
                         <Button

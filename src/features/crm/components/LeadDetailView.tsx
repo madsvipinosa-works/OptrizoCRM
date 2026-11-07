@@ -30,7 +30,8 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Textarea } from "@/components/ui/textarea";
 import { DiscoveryTracker, DiscoverySteps } from "@/features/crm/components/DiscoveryTracker";
 import { DiscoveryFormModal } from "@/features/crm/components/DiscoveryFormModal";
@@ -442,7 +443,7 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
                                     Follow up
-                                    <Input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} className="h-8 w-[150px] bg-card text-sm" />
+                                    <DatePicker value={followUpDate} onChange={setFollowUpDate} min={todayYmd()} className="h-8 w-[170px] bg-card text-sm" />
                                 </label>
                                 <Button onClick={handleLog} disabled={isLogging || !activityContent.trim()} className="h-9 px-4 font-semibold active:scale-[0.97]">
                                     {isLogging ? <Loader2 className="size-4 animate-spin" /> : `Log ${activityType.toLowerCase()}`}

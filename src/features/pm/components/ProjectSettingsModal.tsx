@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -288,7 +290,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                         Lifecycle Stage
                                     </Label>
                                     <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-                                        <SelectTrigger id="proj-status" className="h-9 text-xs bg-muted/30 border-border text-foreground focus:border-primary">
+                                        <SelectTrigger id="proj-status" className="h-9 text-xs">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground">
@@ -332,26 +334,14 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                         <Label htmlFor="proj-start" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                                             <Calendar className="h-3.5 w-3.5 text-primary" /> Start Date
                                         </Label>
-                                        <Input
-                                            id="proj-start"
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="h-9 text-xs bg-muted/30 border-border text-foreground focus:border-primary"
-                                        />
+                                        <DatePicker id="proj-start" value={startDate} onChange={setStartDate} className="bg-muted/30 border-border text-xs" />
                                     </div>
 
                                     <div className="space-y-1.5">
                                         <Label htmlFor="proj-target" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                                             <Clock className="h-3.5 w-3.5 text-amber-400" /> Target Delivery Date
                                         </Label>
-                                        <Input
-                                            id="proj-target"
-                                            type="date"
-                                            value={targetDate}
-                                            onChange={(e) => setTargetDate(e.target.value)}
-                                            className="h-9 text-xs bg-muted/30 border-border text-foreground focus:border-primary"
-                                        />
+                                        <DatePicker id="proj-target" value={targetDate} onChange={setTargetDate} min={startDate || todayYmd()} className="bg-muted/30 border-border text-xs" />
                                     </div>
                                 </div>
 
@@ -388,7 +378,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                         <Users className="h-3.5 w-3.5 text-primary" /> Primary Client Stakeholder
                                     </Label>
                                     <Select value={clientUserId} onValueChange={setClientUserId}>
-                                        <SelectTrigger id="proj-client" className="h-9 text-xs bg-muted/30 border-border text-foreground focus:border-primary">
+                                        <SelectTrigger id="proj-client" className="h-9 text-xs">
                                             <SelectValue placeholder="Select Client Stakeholder" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground">

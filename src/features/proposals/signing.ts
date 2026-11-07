@@ -11,6 +11,7 @@ import { moveLeadToNegotiation } from "@/features/crm/stage-rules";
 import { executeProposalSignature } from "@/features/proposals/signing-core";
 import { loadProposalNoticeInfo } from "@/features/proposals/notice";
 import { headers } from "next/headers";
+import { formatDate } from "@/lib/datetime";
 
 /**
  * 1. Client requests a pricing meeting.
@@ -429,7 +430,7 @@ export async function logOutsideDiscussion(
                 leadId: proposal.leadId,
                 authorId: authz.session.user.id,
                 activityType: "outside_discussion",
-                content: `Outside discussion logged (${type} on ${heldAtDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}): ${trimmedSummary}`,
+                content: `Outside discussion logged (${type} on ${formatDate(heldAtDate)}): ${trimmedSummary}`,
             });
         });
 

@@ -9,8 +9,6 @@ import { sendInquiryConfirmationEmail } from "@/lib/notifications";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 import { getPublishedServices as getPublishedServicesCms } from "@/features/cms/content/public-queries";
-import { getBaseUrl } from "@/lib/email-templates";
-import { servicePageHref } from "@/lib/service-links";
 
 export type IntakeFormValues = {
     businessName?: string;
@@ -51,8 +49,16 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
 
     const session = await auth();
 
-    // 1. PUBLIC INQUIRY FLOW (from /services - no login required, no IP rate limiting)
+    // 1. PUBLIC INQUIRY FLOW (from /services - sign-in required)
     if (isPublicInquiry) {
+        if (!session?.user?.id) {
+            return {
+                message: "Please sign in to send an inquiry.",
+                success: false,
+                errors: {},
+            };
+        }
+
         const rawPublicValues = {
             serviceId: (formData.get("serviceId") as string) || undefined,
             otherServiceText: (formData.get("otherServiceText") as string) || undefined,
@@ -100,7 +106,7 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
 
             // Create lead with stage 'New Lead' and lastContactedAt: null (sub-status: "No contact yet")
             const [newLead] = await db.insert(leads).values({
-                clientId: session?.user?.id || null,
+                clientId: session.user.id,
                 serviceId: validServiceId,
                 businessName: data.businessName,
                 contactName: data.clientName,
@@ -130,20 +136,18 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
 
             // Create audit row
             await db.insert(auditLogs).values({
-                userId: session?.user?.id || null,
+                userId: session.user.id,
                 action: "CREATE",
                 entity: "lead",
                 details: `Public inquiry received for ${serviceTitle}: ${data.businessName}`,
             });
 
             // Send confirmation email
-            const serviceHref = servicePageHref(serviceSlug);
             await sendInquiryConfirmationEmail({
                 clientName: data.clientName,
                 email: data.email,
                 businessName: data.businessName,
                 serviceName: serviceTitle,
-                serviceUrl: serviceHref ? `${getBaseUrl()}${serviceHref}` : null,
             });
 
             return {
