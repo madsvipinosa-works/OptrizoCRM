@@ -12,8 +12,9 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { FileUpload } from "@/components/ui/file-upload";
+import { ProofPreview } from "@/features/payments/components/ProofPreview";
 import { uploadPaymentProof } from "@/features/payments/actions";
-import { CheckCircle2, Clock, AlertCircle, ExternalLink, UploadCloud } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -167,23 +168,7 @@ export function ClientPaymentsList({
                                             )}
                                         </td>
                                         <td className="px-4 py-3.5 text-right space-x-2 whitespace-nowrap">
-                                            {p.proofFileUrl && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                    className="h-8 text-xs text-primary"
-                                                >
-                                                    <a
-                                                        href={p.proofFileUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1"
-                                                    >
-                                                        <ExternalLink className="w-3.5 h-3.5" /> View Proof
-                                                    </a>
-                                                </Button>
-                                            )}
+                                            {p.proofFileUrl && <ProofPreview url={p.proofFileUrl} label="View proof" title={`Proof: ${p.label}`} />}
                                             {p.status === "due" && (
                                                 <Button
                                                     size="sm"

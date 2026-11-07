@@ -6,6 +6,15 @@ import { authorizeProject, fileBelongsToProject, requireSession } from "@/lib/au
 // Authenticated file proxy for private Vercel Blob + local dev private uploads.
 // Every request must name a project the caller can read, and the file must belong to that project.
 
+const LOCAL_TYPES: Record<string, string> = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".pdf": "application/pdf",
+};
+
 const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
 
 function isVercelBlobUrl(value: string): boolean {
@@ -58,7 +67,7 @@ export async function GET(request: NextRequest) {
             const buffer = await fs.readFile(filePath);
             return new NextResponse(buffer, {
                 headers: {
-                    "Content-Type": "application/octet-stream",
+                    "Content-Type": LOCAL_TYPES[path.extname(safeName).toLowerCase()] ?? "application/octet-stream",
                     "X-Content-Type-Options": "nosniff",
                     "Cache-Control": "no-store",
                 },
