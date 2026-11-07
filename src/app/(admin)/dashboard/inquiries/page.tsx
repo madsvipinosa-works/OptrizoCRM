@@ -76,7 +76,7 @@ export default async function InquiriesPage({
     const tabHref = (tab: "open" | "handled") => `/dashboard/inquiries?tab=${tab}`;
 
     return (
-        <div className="mx-auto w-full max-w-[1400px] space-y-5">
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">Inquiries</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -104,7 +104,7 @@ export default async function InquiriesPage({
                     ))}
                 </div>
 
-                <AutoFilterForm className="relative w-full sm:w-72">
+                <AutoFilterForm className="relative w-full sm:w-80">
                     <input type="hidden" name="tab" value={isHandledView ? "handled" : "open"} />
                     <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input
@@ -121,13 +121,13 @@ export default async function InquiriesPage({
             <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <Table>
                     <TableHeader>
-                        <TableRow className="border-border hover:bg-transparent">
-                            <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">From</TableHead>
-                            <TableHead className="h-11 text-xs font-medium text-muted-foreground">Subject</TableHead>
-                            <TableHead className="h-11 text-xs font-medium text-muted-foreground">Status</TableHead>
-                            <TableHead className="hidden h-11 text-xs font-medium text-muted-foreground md:table-cell">Owner</TableHead>
-                            <TableHead className="hidden h-11 text-xs font-medium text-muted-foreground lg:table-cell">Next action</TableHead>
-                            <TableHead className="h-11 pr-5 text-right text-xs font-medium text-muted-foreground">Received</TableHead>
+                        <TableRow className="border-border bg-muted/40 hover:bg-muted/40">
+                            <TableHead className="h-10 pl-5 text-sm font-medium text-muted-foreground">From</TableHead>
+                            <TableHead className="h-10 text-sm font-medium text-muted-foreground">Subject</TableHead>
+                            <TableHead className="h-10 text-sm font-medium text-muted-foreground">Status</TableHead>
+                            <TableHead className="hidden h-10 text-sm font-medium text-muted-foreground md:table-cell">Owner</TableHead>
+                            <TableHead className="hidden h-10 text-sm font-medium text-muted-foreground lg:table-cell">Next action</TableHead>
+                            <TableHead className="h-10 pr-5 text-right text-sm font-medium text-muted-foreground">Received</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

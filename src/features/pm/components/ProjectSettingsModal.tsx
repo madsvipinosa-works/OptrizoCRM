@@ -424,7 +424,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                             <div>
                                                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Commercial Value</span>
                                                 <span className="font-semibold font-mono text-emerald-400 block">
-                                                    {project.lead.budget || (project.lead.estimatedValue ? `$${project.lead.estimatedValue.toLocaleString()}` : "N/A")}
+                                                    {project.lead.budget || (project.lead.estimatedValue ? `₱${project.lead.estimatedValue.toLocaleString("en-PH")}` : "N/A")}
                                                 </span>
                                             </div>
                                             {project.lead.contactEmail && (

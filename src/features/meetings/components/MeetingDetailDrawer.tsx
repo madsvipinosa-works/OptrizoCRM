@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { markDoneBlock } from "@/features/meetings/rules";
 import {
     cancelMeeting,
     markMeetingDone,
@@ -50,38 +51,49 @@ const FORMAT_LABEL: Record<MeetingItem["format"], string> = {
     on_site: "On site",
 };
 
-const STATUS: Record<MeetingItem["status"], { label: string; chip: string; dot: string; note: string }> = {
+// Shared with the meetings list so a status looks the same everywhere (same tones as the Proposals list).
+export const MEETING_STATUS: Record<MeetingItem["status"], { label: string; chip: string; dot: string; note: string }> = {
     awaiting_client: {
         label: "Awaiting client",
-        chip: "bg-warning/14",
-        dot: "bg-warning",
+        chip: "bg-stage-negotiation/15 text-foreground",
+        dot: "bg-stage-negotiation",
         note: "Invite sent. Waiting for the client to accept.",
     },
     confirmed: {
         label: "Confirmed",
-        chip: "bg-success/14",
-        dot: "bg-success",
+        chip: "bg-brand-soft text-brand-deep",
+        dot: "bg-brand-deep",
         note: "The client accepted the invite.",
     },
     reschedule_requested: {
         label: "New time requested",
-        chip: "bg-stage-new/14",
-        dot: "bg-stage-new",
+        chip: "bg-stage-discovery/15 text-foreground",
+        dot: "bg-stage-discovery",
         note: "The client asked for another time.",
     },
     done: {
         label: "Done",
-        chip: "bg-foreground/[0.07]",
+        chip: "bg-muted text-muted-foreground",
         dot: "bg-muted-foreground",
         note: "This meeting is marked as done.",
     },
     cancelled: {
         label: "Cancelled",
-        chip: "bg-destructive/10",
+        chip: "bg-destructive/10 text-destructive",
         dot: "bg-destructive",
         note: "This meeting was cancelled.",
     },
 };
+
+export function MeetingStatusChip({ status }: { status: MeetingItem["status"] }) {
+    const s = MEETING_STATUS[status];
+    return (
+        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.chip}`}>
+            <span className={`size-1.5 rounded-full ${s.dot}`} aria-hidden="true" />
+            {s.label}
+        </span>
+    );
+}
 
 const SALES_TYPES: MeetingItem["type"][] = ["discovery"];
 
@@ -136,27 +148,29 @@ function MeetingDetail({
     const ownerRole = SALES_TYPES.includes(meeting.type) ? "sales" : "manager";
     const canEdit = role === ownerRole;
     const isOpenMeeting = meeting.status !== "done" && meeting.status !== "cancelled";
-    const status = STATUS[meeting.status];
+    // Same rule the server applies: not before it starts, not while the client wants another time.
+    const canMarkDone = markDoneBlock(meeting) === null;
+    const status = MEETING_STATUS[meeting.status];
     const notesChanged = notes !== (meeting.notes || "");
 
     const business = meeting.lead?.businessName || "Not linked";
     const client = meeting.lead?.contactName || "Not given";
 
     const history: { label: string; meta: string; dot: string }[] = [
-        { label: "Scheduled", meta: `${shortDate(meeting.createdAt)} · by ${meeting.creator?.name || (ownerRole === "sales" ? "Sales" : "Project Manager")}`, dot: "bg-primary" },
+        { label: "Scheduled", meta: `${shortDate(meeting.createdAt)} · by ${meeting.creator?.name || (ownerRole === "sales" ? "Sales" : "Project Manager")}`, dot: "bg-brand-deep" },
     ];
     if (meeting.status === "confirmed" || meeting.status === "done") {
-        history.push({ label: "Client confirmed", meta: "from the client portal", dot: "bg-success" });
+        history.push({ label: "Client confirmed", meta: "from the client portal", dot: "bg-brand-deep" });
     }
     if (meeting.clientSuggestedAt) {
-        history.push({ label: "Client asked for another time", meta: `suggested ${dateTime(meeting.clientSuggestedAt)}`, dot: "bg-stage-new" });
+        history.push({ label: "Client asked for another time", meta: `suggested ${dateTime(meeting.clientSuggestedAt)}`, dot: "bg-stage-discovery" });
     }
     if (meeting.reminderSent) {
         const dayBefore = new Date(new Date(meeting.startsAt).getTime() - 24 * 60 * 60 * 1000);
         history.push({ label: "Reminder sent", meta: `${shortDate(dayBefore)} · automatic, one day before`, dot: "bg-muted-foreground" });
     }
     if (meeting.status === "done") {
-        history.push({ label: "Marked as done", meta: shortDate(meeting.updatedAt), dot: "bg-success" });
+        history.push({ label: "Marked as done", meta: shortDate(meeting.updatedAt), dot: "bg-brand-deep" });
     }
     if (meeting.status === "cancelled") {
         history.push({ label: "Cancelled", meta: shortDate(meeting.updatedAt), dot: "bg-destructive" });
@@ -222,13 +236,10 @@ function MeetingDetail({
                 <p className="text-sm text-muted-foreground">
                     Business name: {business} · Client name: {client}
                 </p>
-                <SheetTitle className="mt-1 text-2xl font-bold tracking-[-0.02em] text-foreground">{TYPE_TITLE[meeting.type]}</SheetTitle>
+                <SheetTitle className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{TYPE_TITLE[meeting.type]}</SheetTitle>
                 <SheetDescription asChild>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground ${status.chip}`}>
-                            <span className={`size-1.5 rounded-full ${status.dot}`} aria-hidden="true" />
-                            {status.label}
-                        </span>
+                        <MeetingStatusChip status={meeting.status} />
                         <span>{status.note}</span>
                     </div>
                 </SheetDescription>
@@ -237,7 +248,7 @@ function MeetingDetail({
             {/* Body */}
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 pb-6">
                 {meeting.status === "reschedule_requested" && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-stage-new/10 px-4 py-3 ring-1 ring-inset ring-stage-new/25">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-stage-discovery/10 px-4 py-3 ring-1 ring-inset ring-stage-discovery/25">
                         <p className="text-sm text-foreground">
                             Client suggested{" "}
                             <strong className="font-semibold">
@@ -371,11 +382,21 @@ function MeetingDetail({
                 )}
 
                 {canEdit && isOpenMeeting ? (
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        <Button onClick={markDone} disabled={busy !== "none"} className="col-span-2 h-11 gap-1.5 font-semibold active:scale-[0.97] sm:col-span-1">
-                            {busy === "done" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" aria-hidden="true" />}
-                            Mark as done
-                        </Button>
+                    <>
+                    {!canMarkDone && (
+                        <p className="mb-3 text-sm text-muted-foreground">
+                            {meeting.status === "reschedule_requested"
+                                ? "Mark as done comes back once the meeting is rescheduled and has taken place."
+                                : `You can mark it as done once it starts (${dateTime(meeting.startsAt)}).`}
+                        </p>
+                    )}
+                    <div className={`grid grid-cols-2 gap-2 ${canMarkDone ? "sm:grid-cols-3" : ""}`}>
+                        {canMarkDone && (
+                            <Button onClick={markDone} disabled={busy !== "none"} className="col-span-2 h-11 gap-1.5 font-semibold active:scale-[0.97] sm:col-span-1">
+                                {busy === "done" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" aria-hidden="true" />}
+                                Mark as done
+                            </Button>
+                        )}
                         <Button
                             variant="outline"
                             aria-pressed={panel === "reschedule"}
@@ -397,12 +418,13 @@ function MeetingDetail({
                             Cancel meeting
                         </Button>
                     </div>
+                    </>
                 ) : (
                     <p className="flex items-center gap-2 text-sm text-muted-foreground">
                         {canEdit ? (
                             meeting.status === "done" ? (
                                 <>
-                                    <Check className="size-4 text-success" aria-hidden="true" /> Done. Notes can still be updated.
+                                    <Check className="size-4 text-brand-deep" aria-hidden="true" /> Done. Notes can still be updated.
                                 </>
                             ) : (
                                 <>

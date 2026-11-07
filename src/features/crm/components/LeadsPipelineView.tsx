@@ -83,7 +83,7 @@ function Segmented<T extends string>({
                             <motion.span
                                 layoutId={`segment-thumb-${id}`}
                                 transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-                                className="absolute inset-0 rounded-md bg-card shadow-[0_1px_2px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.05)] ring-1 ring-border/70"
+                                className="absolute inset-0 rounded-md bg-card ring-1 ring-border/70"
                             />
                         )}
                         <span className="relative flex items-center gap-1.5">{option.label}</span>
@@ -247,7 +247,7 @@ export function LeadsPipelineView({
             {/* Header: title, subtitle and Board/Table switch (mockup step 2 / 2a) */}
             {/* Wraps by available width, not by viewport: the sidebar takes space, so a
                 fixed breakpoint squeezed the title. The actions drop below when they don't fit. */}
-            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
                 <div className="min-w-[min(100%,22rem)] flex-1">
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sales pipeline</h1>
                     <p className="mt-1 max-w-[72ch] text-sm text-muted-foreground">
@@ -255,7 +255,7 @@ export function LeadsPipelineView({
                             ? "Cards move on their own. Log a call, email, or meeting to start discovery."
                             : "Stages change on their own. Log a call, email, or meeting to start discovery."}
                     </p>
-                    <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+                    <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                         <span><strong className="font-semibold tabular-nums text-foreground">{openCount}</strong> open</span>
                         <span><strong className="font-semibold tabular-nums text-foreground">{unclaimedCount}</strong> unclaimed</span>
                         <span><strong className="font-semibold tabular-nums text-foreground">{wonCount}</strong> won</span>
@@ -280,7 +280,7 @@ export function LeadsPipelineView({
             {/* Toolbar: search, scope, stage (table only), lost and archived shortcuts */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative w-full sm:w-72">
+                    <div className="relative w-full sm:w-80">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                         <Input
                             type="search"

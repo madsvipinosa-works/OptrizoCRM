@@ -52,6 +52,8 @@ function meetingRow(overrides: Record<string, unknown> = {}) {
         proposalId: null,
         type: "budget_pricing",
         status: "confirmed",
+        // Already started: a meeting can only be marked done after it begins.
+        startsAt: new Date(Date.now() - 60 * 60 * 1000),
         createdBy: "manager-1",
         notes: null,
         lead: { id: "lead-1", assignedPmId: null },
@@ -134,7 +136,7 @@ describe("markMeetingDone: who may mark which meeting done", () => {
         });
     });
 
-    it.each(["awaiting_client", "confirmed", "reschedule_requested"])("accepts a %s meeting", async (status) => {
+    it.each(["awaiting_client", "confirmed"])("accepts a %s meeting", async (status) => {
         setMeeting(meetingRow({ status }));
         expect(await markMeetingDone({ meetingId: "m-1" })).toMatchObject({ success: true });
     });
@@ -142,10 +144,18 @@ describe("markMeetingDone: who may mark which meeting done", () => {
     it.each([
         ["done", /already marked as done/],
         ["cancelled", /cancelled meeting cannot be marked/],
+        ["reschedule_requested", /asked for another time/],
     ])("rejects a %s meeting", async (status, message) => {
         setMeeting(meetingRow({ status }));
         const res = await markMeetingDone({ meetingId: "m-1" });
         expect(res).toMatchObject({ success: false, message: expect.stringMatching(message) });
+        expectNoWrites(mockDb);
+    });
+
+    it("rejects a meeting that has not started yet", async () => {
+        setMeeting(meetingRow({ startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+        const res = await markMeetingDone({ meetingId: "m-1" });
+        expect(res).toMatchObject({ success: false, message: expect.stringMatching(/not started/) });
         expectNoWrites(mockDb);
     });
 

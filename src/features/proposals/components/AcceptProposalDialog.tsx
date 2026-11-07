@@ -26,6 +26,7 @@ interface AcceptProposalDialogProps {
     proposalId: string;
     proposalCode?: string | null;
     totalAmount?: number | null;
+    currency?: "PHP" | "USD";
     defaultName?: string | null;
     contractSettings?: Record<string, any> | null;
 }
@@ -36,6 +37,7 @@ export function AcceptProposalDialog({
     proposalId,
     proposalCode,
     totalAmount = 0,
+    currency = "PHP",
     defaultName = "",
     contractSettings,
 }: AcceptProposalDialogProps) {
@@ -60,9 +62,9 @@ export function AcceptProposalDialog({
     const [isDrawing, setIsDrawing] = useState(false);
     const [hasDrawn, setHasDrawn] = useState(false);
 
-    const currencyFormatter = new Intl.NumberFormat("en-US", {
+    const currencyFormatter = new Intl.NumberFormat(currency === "PHP" ? "en-PH" : "en-US", {
         style: "currency",
-        currency: "USD",
+        currency,
         minimumFractionDigits: 0,
     });
 

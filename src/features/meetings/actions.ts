@@ -3,6 +3,7 @@
 import { db } from "@/db";
 import { meetings, leads, leadActivityLogs, proposals, users } from "@/db/schema";
 import { eq, desc, and, gte, lte, or, inArray, isNull } from "drizzle-orm";
+import { markDoneBlock } from "@/features/meetings/rules";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
@@ -681,11 +682,9 @@ export async function markMeetingDone(data: {
         }
     }
 
-    if (meeting.status === "done") {
-        return { success: false, message: "This meeting is already marked as done." };
-    }
-    if (meeting.status === "cancelled") {
-        return { success: false, message: "A cancelled meeting cannot be marked as done." };
+    const blocked = markDoneBlock(meeting);
+    if (blocked) {
+        return { success: false, message: blocked };
     }
 
     try {
