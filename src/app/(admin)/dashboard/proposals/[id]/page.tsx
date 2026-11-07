@@ -76,12 +76,12 @@ export default async function StaffProposalViewPage({
 
     async function handleClosePricingBooking() {
         "use server";
-        redirect(`/dashboard/proposals/${id}`);
+        redirect(`/dashboard/proposals/${id}?tab=overview`);
     }
 
     async function handleOpenPricingBooking() {
         "use server";
-        redirect(`/dashboard/proposals/${id}?book=pricing`);
+        redirect(`/dashboard/proposals/${id}?tab=overview&book=pricing`);
     }
 
     const pricingMeeting = isManager
@@ -236,31 +236,19 @@ export default async function StaffProposalViewPage({
     const business = proposal.lead?.businessName || proposal.lead?.contactName || "Not given";
     const client = proposal.lead?.contactName || proposal.lead?.client?.name || "Not given";
 
+    // Three views instead of one crowded page. The tab is in the URL so a link (or notification) can open one.
+    type Tab = "overview" | "document" | "negotiation";
+    const requested = typeof resolvedSearchParams.tab === "string" ? resolvedSearchParams.tab : "";
+    const defaultTab: Tab = changesRequested ? "negotiation" : proposal.status === "draft" ? "document" : "overview";
+    const tab: Tab = isManager && (requested === "overview" || requested === "document" || requested === "negotiation") ? requested : isManager ? defaultTab : "document";
+    const tabs: Array<[Tab, string]> = [
+        ["overview", "Overview"],
+        ["document", "Document"],
+        ["negotiation", `Negotiation${messages.length ? ` (${messages.length})` : ""}`],
+    ];
+
     return (
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
-            {/* Signed: the PM's signed view from main (SignedProposalSummary: details, PDF, next steps, Open project). */}
-            {isSigned && (
-                <SignedProposalSummary
-                    proposalId={proposal.id}
-                    proposalCode={proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`}
-                    version={proposal.version}
-                    businessName={proposal.lead?.businessName || proposal.lead?.contactName || "The client"}
-                    clientName={proposal.lead?.client?.name || proposal.lead?.contactName || "The client"}
-                    projectName={proposal.projectName}
-                    signedBy={proposal.acceptedByName || proposal.signerName || "The client"}
-                    signedAt={proposal.acceptedAt || proposal.signedAt}
-                    online={!!proposal.signatureData}
-                    total={proposal.total || 0}
-                    currency={proposal.currency}
-                    milestones={proposal.milestones}
-                    firstPayment={firstPayment ? { label: firstPayment.label, percent: firstPayment.percent } : null}
-                    projectId={project?.id ?? null}
-                    showNextSteps={isManager}
-                />
-            )}
-
-            {!isSigned && (
-            <>
             <Link
                 href="/dashboard/proposals"
                 className="inline-flex items-center gap-1 rounded-md text-sm text-muted-foreground outline-none underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
@@ -268,7 +256,7 @@ export default async function StaffProposalViewPage({
                 <ArrowLeft className="size-3.5" aria-hidden="true" /> Back to proposals
             </Link>
 
-            {/* Header (mockups 18d-18g): who it is for, then the project name and version as the title */}
+            {/* Header, the same on every tab: who it is for, the project name and version, status and actions. */}
             <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
                 <div className="min-w-[min(100%,22rem)] flex-1">
                     <p className="text-sm text-muted-foreground">
@@ -295,10 +283,8 @@ export default async function StaffProposalViewPage({
                     )}
                 </div>
             </header>
-            </>
-            )}
 
-            {/* The client asked for changes: say so, and offer the next step right away (mockup 18d). */}
+            {/* The client asked for changes: say so on every tab, with the next step (mockup 18d). */}
             {isManager && changesRequested && (
                 <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-foreground">
                     <p>
@@ -311,71 +297,128 @@ export default async function StaffProposalViewPage({
                 </div>
             )}
 
-            {isManager && proposal.leadId && (
-                <div className="space-y-4">
-                    <PricingMeetingPanel
-                        proposalId={proposal.id}
-                        leadId={proposal.leadId}
-                        proposalStatus={proposal.status}
-                        pricingMeeting={pricingMeeting ? {
-                            id: pricingMeeting.id,
-                            status: pricingMeeting.status as "awaiting_client" | "confirmed" | "reschedule_requested" | "done" | "cancelled",
-                            startsAt: pricingMeeting.startsAt,
-                            format: pricingMeeting.format,
-                            agenda: pricingMeeting.agenda,
-                            notes: pricingMeeting.notes,
-                        } : null}
-                        onBookMeeting={handleOpenPricingBooking}
-                    />
+            {/* Tabs: PM only. Sales has no actions or thread here, so it gets the document straight away. */}
+            {isManager && (
+                <nav aria-label="Proposal sections" className="inline-flex items-center rounded-lg bg-muted p-1 ring-1 ring-inset ring-border/60">
+                    {tabs.map(([value, label]) => {
+                        const active = tab === value;
+                        return (
+                            <Link
+                                key={value}
+                                href={`/dashboard/proposals/${proposal.id}?tab=${value}`}
+                                scroll={false}
+                                aria-current={active ? "page" : undefined}
+                                className={`flex h-8 items-center rounded-md px-3 text-sm font-medium outline-none transition-[color,background-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${
+                                    active ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                {label}
+                            </Link>
+                        );
+                    })}
+                </nav>
+            )}
 
-                    {openPricingBooking && (
-                        <BookPricingMeetingModal
-                            isOpen={true}
-                            onClose={handleClosePricingBooking}
+            {/* Overview: what to do next with this version. */}
+            {isManager && tab === "overview" && (
+                <div className="space-y-5">
+                    {isSigned && (
+                        <SignedProposalSummary
+                            hideHeader
                             proposalId={proposal.id}
-                            proposalCode={proposal.proposalCode}
-                            clientName={proposal.lead?.client?.name}
-                            businessName={proposal.lead?.businessName}
+                            proposalCode={proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`}
+                            version={proposal.version}
+                            businessName={proposal.lead?.businessName || proposal.lead?.contactName || "The client"}
+                            clientName={proposal.lead?.client?.name || proposal.lead?.contactName || "The client"}
+                            projectName={proposal.projectName}
+                            signedBy={proposal.acceptedByName || proposal.signerName || "The client"}
+                            signedAt={proposal.acceptedAt || proposal.signedAt}
+                            online={!!proposal.signatureData}
+                            total={proposal.total || 0}
+                            currency={proposal.currency}
+                            milestones={proposal.milestones}
+                            firstPayment={firstPayment ? { label: firstPayment.label, percent: firstPayment.percent } : null}
+                            projectId={project?.id ?? null}
+                            showNextSteps
+                        />
+                    )}
+
+                    {proposal.leadId && !isSigned && (
+                        <PricingMeetingPanel
+                            proposalId={proposal.id}
+                            leadId={proposal.leadId}
+                            proposalStatus={proposal.status}
+                            pricingMeeting={pricingMeeting ? {
+                                id: pricingMeeting.id,
+                                status: pricingMeeting.status as "awaiting_client" | "confirmed" | "reschedule_requested" | "done" | "cancelled",
+                                startsAt: pricingMeeting.startsAt,
+                                format: pricingMeeting.format,
+                                agenda: pricingMeeting.agenda,
+                                notes: pricingMeeting.notes,
+                            } : null}
+                            onBookMeeting={handleOpenPricingBooking}
                         />
                     )}
 
                     {/* Only when the server would accept it: a sent, priced version (signing.ts recordPaperSignature). */}
                     {proposal.status === "sent" && proposal.priceMode === "priced" && (
-                    <PaperSigningForm
-                        proposalId={proposal.id}
-                        proposalStatus={proposal.status}
-                        proposalCode={proposal.proposalCode}
-                        clientName={proposal.lead?.client?.name || proposal.lead?.contactName}
-                    />
+                        <PaperSigningForm
+                            proposalId={proposal.id}
+                            proposalStatus={proposal.status}
+                            proposalCode={proposal.proposalCode}
+                            clientName={proposal.lead?.client?.name || proposal.lead?.contactName}
+                        />
+                    )}
+
+                    {canRevise && !changesRequested && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-5 py-4">
+                            <p className="text-sm text-muted-foreground">Need to change scope, dates or price? Versions already sent stay saved.</p>
+                            <ReviseProposalButton
+                                leadId={proposal.leadId!}
+                                nextVersion={proposal.version + 1}
+                                className="h-9 gap-1.5 bg-card font-semibold text-foreground ring-1 ring-border hover:bg-muted active:scale-[0.97]"
+                            />
+                        </div>
+                    )}
+
+                    {proposal.status === "draft" && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-5 py-4">
+                            <p className="text-sm text-muted-foreground">This version is a draft. The client sees nothing until you send it.</p>
+                            <Button asChild className="font-semibold active:scale-[0.97]">
+                                <Link href={`/dashboard/proposals/builder/${proposal.id}`}>Edit draft</Link>
+                            </Button>
+                        </div>
+                    )}
+
+                    {(proposal.status === "declined" || proposal.status === "replaced") && (
+                        <p className="rounded-xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground">
+                            {proposal.status === "declined"
+                                ? "The client declined this proposal. The lead is Closed lost; Sales can reopen it."
+                                : "A newer version replaced this one. It stays saved for the record."}
+                        </p>
                     )}
                 </div>
             )}
 
-            {/* PM: the document is the main column; the next step and the negotiation stay in view beside it.
-                Sales: the document only (view only, mockup 038). */}
-            {isManager ? (
-                <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-                    <div className="min-w-0">
-                        <ProposalDocumentSheet data={documentData} agencyName={settings?.heroTitle || "Optrizo Digital Solutions"} />
-                    </div>
-                    <aside className="min-w-0 space-y-4 xl:sticky xl:top-6">
-                        {canRevise && !changesRequested && (
-                            <div className="space-y-3 rounded-xl border border-border bg-card px-5 py-4">
-                                <p className="text-sm text-muted-foreground">Need to change scope, dates or price? Versions already sent stay saved.</p>
-                                <ReviseProposalButton
-                                    leadId={proposal.leadId!}
-                                    nextVersion={proposal.version + 1}
-                                    className="h-9 w-full gap-1.5 bg-card font-semibold text-foreground ring-1 ring-border hover:bg-muted active:scale-[0.97]"
-                                />
-                            </div>
-                        )}
-                        <section aria-labelledby="negotiation-heading" className="overflow-hidden rounded-xl border border-border bg-card">
-                            <ProposalThread proposalId={proposal.id} messages={messages} userRole="manager" />
-                        </section>
-                    </aside>
-                </div>
-            ) : (
-                <ProposalDocumentSheet data={documentData} agencyName={settings?.heroTitle || "Optrizo Digital Solutions"} />
+            {openPricingBooking && isManager && (
+                <BookPricingMeetingModal
+                    isOpen={true}
+                    onClose={handleClosePricingBooking}
+                    proposalId={proposal.id}
+                    proposalCode={proposal.proposalCode}
+                    clientName={proposal.lead?.client?.name}
+                    businessName={proposal.lead?.businessName}
+                />
+            )}
+
+            {/* Document: the proposal exactly as the client reads it. */}
+            {tab === "document" && <ProposalDocumentSheet data={documentData} agencyName={settings?.heroTitle || "Optrizo Digital Solutions"} />}
+
+            {/* Negotiation: the conversation with the client, full width so it reads like one. */}
+            {isManager && tab === "negotiation" && (
+                <section aria-labelledby="negotiation-heading" className="mx-auto max-w-3xl overflow-hidden rounded-xl border border-border bg-card">
+                    <ProposalThread proposalId={proposal.id} messages={messages} userRole="manager" />
+                </section>
             )}
         </div>
     );

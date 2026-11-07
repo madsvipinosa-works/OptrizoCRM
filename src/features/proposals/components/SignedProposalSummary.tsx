@@ -25,6 +25,8 @@ type Props = {
     projectId: string | null;
     /** Next steps are the PM's job; Sales sees the rest. */
     showNextSteps: boolean;
+    /** True when the page already shows the title (the tabbed proposal page): skip the title and history chips. */
+    hideHeader?: boolean;
 };
 
 /**
@@ -73,6 +75,7 @@ export function SignedProposalSummary(p: Props) {
                 {p.signedAt && <span className="text-muted-foreground">Notification · {formatDateTime(p.signedAt)}</span>}
             </div>
 
+            {!p.hideHeader && (
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
                 <div>
                     <p className="text-sm text-muted-foreground">
@@ -96,6 +99,7 @@ export function SignedProposalSummary(p: Props) {
                     ))}
                 </ol>
             </div>
+            )}
 
             <div className="grid items-start gap-5 lg:grid-cols-2">
                 <div className="space-y-5">
