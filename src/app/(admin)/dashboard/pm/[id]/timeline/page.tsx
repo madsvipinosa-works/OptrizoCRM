@@ -46,7 +46,7 @@ export default async function PmProjectTimelinePage({
   });
 
   return (
-    <div className="space-y-4 w-full max-w-full min-w-0 animate-in fade-in duration-500">
+    <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-5 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <Button
@@ -60,16 +60,16 @@ export default async function PmProjectTimelinePage({
             </Link>
           </Button>
           <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+            <h1
+              className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
+              title={data.project.title}
+            >
+              {data.project.title}
+            </h1>
+            <p className="mt-1 truncate text-sm text-muted-foreground">
               Business name: {data.project.businessName || "—"} · Client name:{" "}
               {data.project.clientName || "—"}
             </p>
-            <h2
-              className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate"
-              title={data.project.title}
-            >
-              Project name: {data.project.title}
-            </h2>
           </div>
         </div>
 

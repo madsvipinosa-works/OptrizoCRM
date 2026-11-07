@@ -92,7 +92,7 @@ export default async function PmProjectCompletePage({
     };
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto py-2">
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" asChild>

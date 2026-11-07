@@ -215,29 +215,29 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                     <span className="hidden sm:inline">Settings</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] p-0 flex flex-col bg-card border-border text-foreground shadow-2xl rounded-2xl overflow-hidden focus:outline-none">
+            <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] p-0 flex flex-col bg-card border-border text-foreground rounded-xl overflow-hidden focus:outline-none">
                 {/* Modal Header */}
-                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-border bg-card/95 backdrop-blur z-10">
+                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-border bg-card/95 z-10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs font-semibold text-primary">
                             <Briefcase className="h-3.5 w-3.5" /> Project Lifecycle & Configuration
                         </div>
                         <Badge
                             variant="outline"
-                            className={`text-[10px] font-mono font-semibold ${
-                                status === "Completed"
+                            className={`text-xs tabular-nums font-semibold ${
+ status === "Completed"
                                     ? "bg-primary/10 text-primary border-primary/30"
                                     : status === "In Progress"
-                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                    ? "bg-brand-soft text-brand-deep border-brand-deep/30"
                                     : status === "In Review"
-                                    ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
-                                    : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                                    ? "bg-stage-discovery/10 text-stage-discovery border-stage-discovery/30"
+                                    : "bg-stage-new/10 text-stage-new border-stage-new/30"
                             }`}
                         >
                             {status}
                         </Badge>
                     </div>
-                    <DialogTitle className="text-xl font-bold text-foreground tracking-tight">
+                    <DialogTitle className="text-xl font-semibold text-foreground tracking-tight">
                         Project Settings
                     </DialogTitle>
                     <DialogDescription className="text-muted-foreground text-xs mt-0.5">
@@ -305,7 +305,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-[11px] text-muted-foreground">
+                                    <p className="text-xs text-muted-foreground">
                                         Stage transitions govern milestone gating and client approval requirements.
                                     </p>
                                 </div>
@@ -339,7 +339,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
 
                                     <div className="space-y-1.5">
                                         <Label htmlFor="proj-target" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                            <Clock className="h-3.5 w-3.5 text-amber-400" /> Target Delivery Date
+                                            <Clock className="h-3.5 w-3.5 text-stage-negotiation" /> Target Delivery Date
                                         </Label>
                                         <DatePicker id="proj-target" value={targetDate} onChange={setTargetDate} min={startDate || todayYmd()} className="bg-muted/30 border-border text-xs" />
                                     </div>
@@ -348,8 +348,8 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                 {timelineSummary && (
                                     <div
                                         className={`p-3 rounded-lg border text-xs flex items-center gap-2 ${
-                                            timelineSummary.isWarning
-                                                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+ timelineSummary.isWarning
+ ? "bg-stage-negotiation/10 border-stage-negotiation/30 text-stage-negotiation"
                                                 : "bg-primary/10 border-primary/20 text-primary"
                                         }`}
                                     >
@@ -360,9 +360,9 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
 
                                 <div className="p-3.5 rounded-lg bg-muted/20 border border-border text-xs space-y-2">
                                     <h4 className="font-semibold text-foreground text-xs flex items-center gap-1.5">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> SLA Gating Rules
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-brand-deep" /> SLA Gating Rules
                                     </h4>
-                                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                                    <p className="text-muted-foreground text-xs leading-relaxed">
                                         Milestones and individual task deadlines are bounded by the target delivery date. Active tasks with due dates past the target delivery will trigger warning banners on the PM engine dashboard.
                                     </p>
                                 </div>
@@ -392,7 +392,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-[11px] text-muted-foreground">
+                                    <p className="text-xs text-muted-foreground">
                                         The assigned client receives automated milestone sign-off requests and client portal visibility.
                                     </p>
                                 </div>
@@ -406,21 +406,21 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
 
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div>
-                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Company / Lead</span>
+                                                <span className="text-xs text-muted-foreground block">Company / Lead</span>
                                                 <span className="font-semibold text-foreground truncate block">
                                                     {project.lead.businessName || project.lead.contactName || "Direct Inquiry"}
                                                 </span>
                                             </div>
                                             <div>
-                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Commercial Value</span>
-                                                <span className="font-semibold font-mono text-emerald-400 block">
+                                                <span className="text-xs text-muted-foreground block">Commercial Value</span>
+                                                <span className="font-semibold tabular-nums text-brand-deep block">
                                                     {project.lead.budget || (project.lead.estimatedValue ? `₱${project.lead.estimatedValue.toLocaleString("en-PH")}` : "N/A")}
                                                 </span>
                                             </div>
                                             {project.lead.contactEmail && (
                                                 <div className="col-span-2">
-                                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Contact Coordinates</span>
-                                                    <span className="text-muted-foreground text-[11px] truncate block">
+                                                    <span className="text-xs text-muted-foreground block">Contact Coordinates</span>
+                                                    <span className="text-muted-foreground text-xs truncate block">
                                                         {project.lead.contactEmail} {project.lead.contactPhone ? `• ${project.lead.contactPhone}` : ""}
                                                     </span>
                                                 </div>
@@ -475,7 +475,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                     </div>
 
                     {/* Modal Footer */}
-                    <DialogFooter className="p-4 border-t border-border bg-card/95 backdrop-blur flex justify-end gap-2 shrink-0">
+                    <DialogFooter className="p-4 border-t border-border bg-card/95 flex justify-end gap-2 shrink-0">
                         <Button
                             type="button"
                             variant="ghost"
@@ -487,7 +487,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                         <Button
                             type="submit"
                             disabled={isSaving}
-                            className="bg-primary text-black hover:bg-primary/90 font-semibold text-xs gap-1.5"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs gap-1.5"
                         >
                             {isSaving ? (
                                 <>

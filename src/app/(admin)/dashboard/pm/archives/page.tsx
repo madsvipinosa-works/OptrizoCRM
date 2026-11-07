@@ -32,7 +32,7 @@ export default async function PMArchivesPage() {
     });
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild className="hover:bg-muted text-foreground">
@@ -41,8 +41,8 @@ export default async function PMArchivesPage() {
                         </Link>
                     </Button>
                     <div>
-                        <h2 className="text-3xl font-black tracking-tight text-foreground">Archived Projects</h2>
-                        <p className="text-muted-foreground text-sm">Past projects that have been completed and archived.</p>
+                        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Archived projects</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">Past projects that have been completed and archived.</p>
                     </div>
                 </div>
             </div>
@@ -52,12 +52,12 @@ export default async function PMArchivesPage() {
                     const percent = project.progressPercentage ?? 0;
 
                     return (
-                        <Card key={project.id} className="glass-card transition-all flex flex-col border-border opacity-70 hover:opacity-100">
+                        <Card key={project.id} className="bg-card transition-all flex flex-col border-border opacity-70 hover:opacity-100">
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start mb-2">
                                     <Badge variant="secondary" className="border-border">Archived</Badge>
                                 </div>
-                                <CardTitle className="text-lg font-bold text-foreground line-clamp-1" title={project.title}>{project.title}</CardTitle>
+                                <CardTitle className="text-lg font-semibold text-foreground line-clamp-1" title={project.title}>{project.title}</CardTitle>
                                 <CardDescription className="flex items-center gap-1 text-xs text-muted-foreground">
                                     {project.stakeholders?.[0]?.user?.name || "Unknown Client"}
                                 </CardDescription>
@@ -65,7 +65,7 @@ export default async function PMArchivesPage() {
                             <CardContent className="flex-1">
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <div className="flex justify-between text-xs text-muted-foreground font-mono">
+                                        <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
                                             <span>Milestones</span>
                                             <span>{percent}%</span>
                                         </div>

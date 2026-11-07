@@ -65,11 +65,22 @@ const ACTIVITY_TYPES: { type: ActivityType; icon: LucideIcon }[] = [
 ];
 
 // One color per interaction type, from the theme tokens.
+// Dots use the pipeline's own colours (no orange): meetings teal like Discovery, emails blue like New lead.
 const ACTIVITY_DOT: Record<string, string> = {
-    Call: "bg-primary",
-    Meeting: "bg-warning",
-    Email: "bg-success",
+    Call: "bg-brand-deep",
+    Meeting: "bg-stage-discovery",
+    Email: "bg-stage-new",
     Note: "bg-muted-foreground",
+};
+
+// Same stage colours as the pipeline board.
+const STAGE_CHIP: Record<string, string> = {
+    "New Lead": "bg-stage-new/15 text-foreground",
+    "Discovery & Qualifying": "bg-stage-discovery/15 text-foreground",
+    "Proposal Sent": "bg-stage-proposal/15 text-foreground",
+    "In Negotiation": "bg-stage-negotiation/15 text-foreground",
+    "Closed Won": "bg-brand-soft text-brand-deep",
+    "Closed Lost": "bg-destructive/10 text-destructive",
 };
 
 type TrackerData = {
@@ -93,7 +104,7 @@ type ActivityLog = {
     author?: { name?: string | null } | null;
 };
 
-const cardClass = "flex flex-col rounded-2xl bg-card p-6 shadow-[0_0_0_1px_var(--border),0_1px_2px_rgba(0,0,0,0.03)]";
+const cardClass = "flex flex-col rounded-xl border border-border bg-card p-6";
 
 export function LeadDetailView({ lead }: LeadDetailViewProps) {
     const router = useRouter();
@@ -252,21 +263,25 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
     };
 
     return (
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-            {/* Header: same order as the mockup */}
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">
-                        Client name: {clientName || "Not given"} · Stage: {stageLabel}
-                    </p>
-                    <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-1 [text-wrap:balance]">
-                        {title}
-                    </h1>
-                    <p className="mt-1 text-base text-muted-foreground">
-                        {[service, lead.urgency].filter(Boolean).join(" · ") || "No service chosen yet"}
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 pb-12">
+            {/* Header: business, its stage, then who the client is (mockup step 3). Same row pattern as every list page. */}
+            <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <div className="min-w-[min(100%,22rem)] flex-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <h1 className="text-2xl font-semibold tracking-tight text-foreground [text-wrap:balance]">{title}</h1>
+                        <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STAGE_CHIP[lead.status] ?? "bg-muted text-muted-foreground"}`}>
+                            <span className="sr-only">Stage: </span>
+                            {stageLabel}
+                        </span>
+                    </div>
+                    <p className="mt-1.5 text-base text-muted-foreground">
+                        <span className="font-medium text-foreground">{clientName || "Client name not given"}</span>
+                        {[service, lead.urgency].filter(Boolean).map((part) => (
+                            <span key={part}> · {part}</span>
+                        ))}
                     </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
+                <div className="flex shrink-0 items-center gap-3 pt-1">
                     {isUnclaimed && !isClosed && (
                         <Button size="sm" onClick={handleClaim} disabled={isClaiming} className="h-9 gap-1.5 font-semibold active:scale-[0.97]">
                             {isClaiming ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
@@ -295,7 +310,7 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:items-stretch">
                 {/* LEFT: Inquiry details */}
                 <section aria-labelledby="inquiry-heading" className={cardClass}>
-                    <h2 id="inquiry-heading" className="text-lg font-semibold text-foreground">Inquiry details</h2>
+                    <h2 id="inquiry-heading" className="text-lg font-semibold tracking-tight text-foreground">Inquiry details</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                         Sent from {sentFrom}, {format(new Date(lead.createdAt), "MMM d")}
                     </p>
@@ -319,7 +334,7 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
 
                 {/* RIGHT: Next step */}
                 <section aria-labelledby="next-step-heading" className={`${cardClass} min-h-[520px]`}>
-                    <h2 id="next-step-heading" className="text-lg font-semibold text-foreground">
+                    <h2 id="next-step-heading" className="text-lg font-semibold tracking-tight text-foreground">
                         {lead.status === "Closed Lost" ? "Why it was lost" : lead.status === "Closed Won" ? "Handed to delivery" : "Next step"}
                     </h2>
 
@@ -328,7 +343,7 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
                         <div className={`mt-3 grid gap-2 ${isEarlyStage ? "grid-cols-2" : "grid-cols-1"}`}>
                             <Button
                                 onClick={() => setIsComposerOpen(true)}
-                                className="h-11 gap-1.5 text-[15px] font-semibold active:scale-[0.97]"
+                                className="h-10 gap-1.5 font-semibold active:scale-[0.97]"
                             >
                                 <MessageSquare className="size-4" aria-hidden="true" />
                                 Log an interaction
@@ -337,7 +352,7 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsScheduleOpen(true)}
-                                    className="h-11 gap-1.5 text-[15px] active:scale-[0.97]"
+                                    className="h-10 gap-1.5 bg-card active:scale-[0.97]"
                                 >
                                     <CalendarPlus className="size-4" aria-hidden="true" />
                                     Schedule meeting
@@ -406,7 +421,7 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
                                                 aria-checked={active}
                                                 onClick={() => setActivityType(type)}
                                                 className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium outline-none transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring ${
-                                                    active ? "bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                                    active ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
                                                 }`}
                                             >
                                                 <Icon className="size-3.5" aria-hidden="true" />
@@ -460,7 +475,7 @@ export function LeadDetailView({ lead }: LeadDetailViewProps) {
                                 <li key={log.id} className="flex gap-3">
                                     <span
                                         aria-hidden="true"
-                                        className={`mt-[7px] size-2 shrink-0 rounded-full ${ACTIVITY_DOT[log.activityType ?? ""] ?? "bg-primary"}`}
+                                        className={`mt-[7px] size-2 shrink-0 rounded-full ${ACTIVITY_DOT[log.activityType ?? ""] ?? "bg-brand-deep"}`}
                                     />
                                     <div className="min-w-0">
                                         <p className="break-words text-base text-foreground">{log.content}</p>

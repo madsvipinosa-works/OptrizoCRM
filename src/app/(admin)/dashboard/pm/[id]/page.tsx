@@ -190,7 +190,7 @@ export default async function KanbanBoardPage(props: {
     };
 
     return (
-        <div className="space-y-3 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)] flex flex-col animate-in fade-in duration-500 w-full max-w-full min-w-0">
+        <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col space-y-3 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)]">
             <div className="flex items-center justify-between gap-2.5 sm:gap-4 shrink-0">
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
                     <Button variant="ghost" size="icon" asChild className="hover:bg-muted text-foreground shrink-0">
@@ -199,12 +199,12 @@ export default async function KanbanBoardPage(props: {
                         </Link>
                     </Button>
                     <div className="min-w-0 flex-1">
-                        <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate" title={project.title}>
+                        <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl" title={project.title}>
                             {project.title}
-                        </h2>
+                        </h1>
                         <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 truncate">
                             {project.stakeholders?.[0]?.user?.name || project.lead?.contactName || "Unknown Client"} • Status:{" "}
-                            <span className="text-foreground font-semibold font-mono">{project.status}</span>
+                            <span className="text-foreground font-semibold tabular-nums">{project.status}</span>
                         </p>
                     </div>
                 </div>
@@ -259,7 +259,7 @@ export default async function KanbanBoardPage(props: {
                         <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center">
                             <Lock className="w-6 h-6 text-muted-foreground" />
                         </div>
-                        <h3 className="text-xl font-bold">Project Archived</h3>
+                        <h3 className="text-xl font-semibold">Project Archived</h3>
                         <p className="text-muted-foreground text-sm">
                             This project is archived and its Kanban board is locked. You cannot manage tasks or milestones in an archived project.
                         </p>

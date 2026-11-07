@@ -223,14 +223,14 @@ export function DiscoverySteps({
                     <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-300 ${
                             step.done
-                                ? "bg-success/15 text-foreground"
+                                ? "bg-brand-soft text-brand-deep"
                                 : step.current
-                                ? "bg-card text-foreground ring-1 ring-inset ring-primary/60"
+                                ? "bg-card text-foreground ring-1 ring-inset ring-brand-deep/50"
                                 : "bg-muted text-muted-foreground"
                         }`}
                     >
                         {step.done ? (
-                            <Check className="size-3.5 text-success" aria-hidden="true" />
+                            <Check className="size-3.5" aria-hidden="true" />
                         ) : (
                             <span className="tabular-nums">{index + 1}.</span>
                         )}

@@ -40,13 +40,13 @@ interface ProjectResourcesSidebarProps {
 }
 
 const DOCUMENT_TYPES = [
-    { value: "pdf", label: "PDF Document", icon: FileCode2, color: "text-rose-400 bg-rose-500/10 border-rose-500/20" },
-    { value: "doc", label: "Word / Google Doc", icon: FileText, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
-    { value: "figma", label: "Figma File", icon: Palette, color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
-    { value: "sheet", label: "Spreadsheet", icon: Table, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-    { value: "link", label: "General Link", icon: Link2, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" },
-    { value: "zip", label: "ZIP Archive", icon: FolderOpen, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-    { value: "image", label: "Image / Graphic", icon: Palette, color: "text-teal-400 bg-teal-500/10 border-teal-500/20" },
+    { value: "pdf", label: "PDF Document", icon: FileCode2, color: "text-destructive bg-destructive/10 border-destructive/30" },
+    { value: "doc", label: "Word / Google Doc", icon: FileText, color: "text-stage-new bg-stage-new/10 border-stage-new/30" },
+    { value: "figma", label: "Figma File", icon: Palette, color: "text-stage-proposal bg-stage-proposal/10 border-stage-proposal/30" },
+    { value: "sheet", label: "Spreadsheet", icon: Table, color: "text-brand-deep bg-brand-soft border-brand-deep/30" },
+    { value: "link", label: "General Link", icon: Link2, color: "text-stage-proposal bg-stage-proposal/10 border-stage-proposal/30" },
+    { value: "zip", label: "ZIP Archive", icon: FolderOpen, color: "text-stage-negotiation bg-stage-negotiation/10 border-stage-negotiation/30" },
+    { value: "image", label: "Image / Graphic", icon: Palette, color: "text-stage-discovery bg-stage-discovery/10 border-stage-discovery/30" },
 ] as const;
 
 function formatFileSize(bytes?: number): string | null {
@@ -147,7 +147,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                 className={cn(
                     "p-3.5 rounded-xl border transition-all space-y-2 shadow-xs group",
                     isClientDoc 
-                        ? "border-sky-500/25 bg-sky-500/5 hover:border-sky-500/50" 
+                        ? "border-stage-new/30 bg-stage-new/5 hover:border-stage-new/30" 
                         : "border-border bg-card hover:border-primary/40"
                 )}
             >
@@ -161,16 +161,16 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                 {doc.title}
                             </span>
                             {isClientDoc ? (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded font-mono border-sky-500/40 text-sky-400 bg-sky-500/10 shrink-0">
+                                <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-new/30 text-stage-new bg-stage-new/10 shrink-0">
                                     CLIENT
                                 </Badge>
                             ) : (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded font-mono border-amber-500/40 text-amber-400 bg-amber-500/10 shrink-0">
+                                <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-negotiation/30 text-stage-negotiation bg-stage-negotiation/10 shrink-0">
                                     AGENCY
                                 </Badge>
                             )}
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5 flex-wrap">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
                             {sizeStr && <span>{sizeStr}</span>}
                             {doc.createdAt && (
                                 <>
@@ -181,7 +181,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                             {doc.uploadedByName && (
                                 <>
                                     <span>•</span>
-                                    <span className={isClientDoc ? "text-sky-300 font-medium" : "text-amber-300 font-medium"}>
+                                    <span className={isClientDoc ? "text-stage-new font-medium" : "text-stage-negotiation font-medium"}>
                                         by {doc.uploadedByName}
                                     </span>
                                 </>
@@ -205,7 +205,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemoveDocument(doc.id)}
-                        className="h-8 w-8 text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 shrink-0 rounded-lg"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-lg"
                         title="Delete Document"
                     >
                         <Trash2 className="h-4 w-4" />
@@ -226,7 +226,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                     <span className="hidden sm:inline">Project Resources</span>
                     <span className="sm:hidden ml-1.5 text-xs font-semibold">Assets</span>
                     {(documents.length > 0 || (stagingUrls && stagingUrls.length > 0)) && (
-                        <span className="ml-1.5 sm:ml-2 px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary border border-primary/20 font-mono">
+                        <span className="ml-1.5 sm:ml-2 px-1.5 py-0.2 rounded-full text-xs bg-primary/10 text-primary border border-primary/20 tabular-nums">
                             {documents.length + (stagingUrls?.filter(Boolean).length || 0)}
                         </span>
                     )}
@@ -234,20 +234,20 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
             </SheetTrigger>
             <SheetContent 
                 side="right" 
-                className="w-full sm:max-w-xl p-0 bg-card text-foreground border-l border-border backdrop-blur-2xl shadow-2xl flex flex-col h-full overflow-hidden"
+                className="w-full sm:max-w-xl p-0 bg-card text-foreground border-l border-border flex flex-col h-full overflow-hidden"
             >
                 {/* Header Container */}
-                <div className="p-6 border-b border-border bg-card/90 backdrop-blur-md space-y-4">
+                <div className="p-6 border-b border-border bg-card/90 space-y-4">
                     <SheetHeader className="text-left space-y-1.5">
                         <div className="flex items-center gap-2">
                             <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-primary">
                                 <FolderOpen className="h-5 w-5" />
                             </div>
                             <div>
-                                <SheetTitle className="text-lg font-bold text-foreground tracking-tight">
+                                <SheetTitle className="text-lg font-semibold text-foreground tracking-tight">
                                     Project Resources
                                 </SheetTitle>
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                                     Asset Hub
                                 </span>
                             </div>
@@ -282,7 +282,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                             )}
                         >
                             <span>Agency</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                            <span className="text-xs px-1.5 py-0.2 rounded-full bg-stage-negotiation/10 text-stage-negotiation border border-stage-negotiation/30">
                                 {agencyDocuments.length}
                             </span>
                         </button>
@@ -297,7 +297,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                             )}
                         >
                             <span>Client</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                            <span className="text-xs px-1.5 py-0.2 rounded-full bg-stage-new/10 text-stage-new border border-stage-new/30">
                                 {clientDocuments.length}
                             </span>
                         </button>
@@ -324,17 +324,17 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                    <div className="p-1.5 rounded-md bg-stage-negotiation/10 text-stage-negotiation border border-stage-negotiation/30">
                                         <Briefcase className="h-4 w-4" />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <Label className="text-sm font-semibold text-foreground">Agency Deliverables & Resources</Label>
-                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded font-mono border-amber-500/30 text-amber-500 bg-amber-500/10">
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-negotiation/30 text-stage-negotiation bg-stage-negotiation/10">
                                                 {agencyDocuments.length} files
                                             </Badge>
                                         </div>
-                                        <p className="text-[11px] text-muted-foreground">SOWs, design system links, Figma prototypes, and agency deliverables.</p>
+                                        <p className="text-xs text-muted-foreground">SOWs, design system links, Figma prototypes, and agency deliverables.</p>
                                     </div>
                                 </div>
                             </div>
@@ -344,7 +344,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                     <div className="p-5 text-center border border-dashed border-border rounded-xl bg-muted/10 space-y-1.5">
                                         <FileText className="h-6 w-6 text-muted-foreground mx-auto" />
                                         <p className="text-xs text-foreground font-medium">No agency deliverables attached yet.</p>
-                                        <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">Add links to your SOW, Figma files, or design deliverables below.</p>
+                                        <p className="text-xs text-muted-foreground max-w-xs mx-auto">Add links to your SOW, Figma files, or design deliverables below.</p>
                                     </div>
                                 ) : (
                                     agencyDocuments.map(doc => renderDocumentCard(doc, false))
@@ -356,7 +356,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                         <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                                             <Plus className="h-3.5 w-3.5 text-primary" /> Add Agency Resource
                                         </h4>
-                                        <div className="flex items-center gap-1 p-0.5 bg-background rounded-lg border border-border text-[10px]">
+                                        <div className="flex items-center gap-1 p-0.5 bg-background rounded-lg border border-border text-xs">
                                             <button
                                                 type="button"
                                                 onClick={() => setAddMode("link")}
@@ -393,7 +393,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                                     value={newDocType}
                                                     onValueChange={(val: any) => setNewDocType(val)}
                                                 >
-                                                    <SelectTrigger className="w-[130px] h-9 text-[11px]">
+                                                    <SelectTrigger className="w-[130px] h-9 text-xs">
                                                         <SelectValue placeholder="Type" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-card border-border text-foreground">
@@ -478,27 +478,27 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                    <div className="p-1.5 rounded-md bg-stage-new/10 text-stage-new border border-stage-new/30">
                                         <UserCheck className="h-4 w-4" />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <Label className="text-sm font-semibold text-foreground">Client Uploads & Submissions</Label>
-                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded font-mono border-sky-500/40 text-sky-400 bg-sky-500/10">
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-new/30 text-stage-new bg-stage-new/10">
                                                 {clientDocuments.length} files
                                             </Badge>
                                         </div>
-                                        <p className="text-[11px] text-muted-foreground">Files, design briefs, and assets uploaded by the client from their portal.</p>
+                                        <p className="text-xs text-muted-foreground">Files, design briefs, and assets uploaded by the client from their portal.</p>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="space-y-3">
                                 {clientDocuments.length === 0 ? (
-                                    <div className="p-6 text-center border border-dashed border-sky-500/20 rounded-xl bg-sky-500/5 space-y-2">
-                                        <UploadCloud className="h-7 w-7 text-sky-400/60 mx-auto" />
+                                    <div className="p-6 text-center border border-dashed border-stage-new/30 rounded-xl bg-stage-new/5 space-y-2">
+                                        <UploadCloud className="h-7 w-7 text-stage-new mx-auto" />
                                         <p className="text-xs text-foreground font-medium">No client uploads yet.</p>
-                                        <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
+                                        <p className="text-xs text-muted-foreground max-w-xs mx-auto">
                                             When the client uploads briefs, brand assets, or revision attachments through the client portal, they will automatically appear here.
                                         </p>
                                     </div>
@@ -522,11 +522,11 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <Label className="text-sm font-semibold text-foreground">Staging & Preview Environments</Label>
-                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded font-mono border-primary/30 text-primary bg-primary/10">
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-primary/30 text-primary bg-primary/10">
                                                 {stagingUrls.filter(u => u.trim()).length} active
                                             </Badge>
                                         </div>
-                                        <p className="text-[11px] text-muted-foreground">Live deployment links & preview environments for client reviews.</p>
+                                        <p className="text-xs text-muted-foreground">Live deployment links & preview environments for client reviews.</p>
                                     </div>
                                 </div>
                             </div>
@@ -565,7 +565,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                             variant="ghost"
                                             size="icon"
                                             onClick={() => setStagingUrls(stagingUrls.filter((_, idx) => idx !== i))}
-                                            className="h-9 w-9 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 shrink-0 rounded-lg"
+                                            className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-lg"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -587,12 +587,12 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                 </form>
 
                 {/* Footer Action Bar */}
-                <div className="p-6 border-t border-border bg-card/90 backdrop-blur-md mt-auto">
+                <div className="p-6 border-t border-border bg-card/90 mt-auto">
                     <Button 
                         type="submit" 
                         form="project-resources-form"
                         disabled={isSaving} 
-                        className="w-full bg-primary hover:bg-primary/90 text-black font-bold h-10 shadow-md transition-all rounded-xl cursor-pointer"
+                        className="w-full bg-primary hover:bg-primary/90 text-black font-semibold h-10 shadow-md transition-all rounded-xl cursor-pointer"
                     >
                         {isSaving ? (
                             <div className="flex items-center gap-2">

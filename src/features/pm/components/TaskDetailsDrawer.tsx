@@ -108,27 +108,27 @@ const STATUS_CONFIG: Record<
     },
     in_progress: {
         label: "In Progress",
-        badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
-        dotClass: "bg-blue-500",
-        ringClass: "ring-blue-500/25",
+        badgeClass: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
+        dotClass: "bg-stage-new",
+        ringClass: "ring-stage-new/30",
     },
     changes_requested: {
         label: "Changes Requested",
-        badgeClass: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40",
-        dotClass: "bg-orange-500",
-        ringClass: "ring-orange-500/25",
+        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
+        dotClass: "bg-stage-negotiation",
+        ringClass: "ring-stage-negotiation/30",
     },
     in_review: {
         label: "In Review",
-        badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
-        dotClass: "bg-amber-500",
-        ringClass: "ring-amber-500/25",
+        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
+        dotClass: "bg-stage-negotiation",
+        ringClass: "ring-stage-negotiation/30",
     },
     done: {
         label: "Done",
-        badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
-        dotClass: "bg-emerald-500",
-        ringClass: "ring-emerald-500/25",
+        badgeClass: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
+        dotClass: "bg-brand-deep",
+        ringClass: "ring-brand-deep/30",
     },
     Todo: {
         label: "To Do",
@@ -138,27 +138,27 @@ const STATUS_CONFIG: Record<
     },
     "In Progress": {
         label: "In Progress",
-        badgeClass: "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30",
-        dotClass: "bg-blue-500",
-        ringClass: "ring-blue-500/25",
+        badgeClass: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
+        dotClass: "bg-stage-new",
+        ringClass: "ring-stage-new/30",
     },
     "Changes Requested": {
         label: "Changes Requested",
-        badgeClass: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40",
-        dotClass: "bg-orange-500",
-        ringClass: "ring-orange-500/25",
+        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
+        dotClass: "bg-stage-negotiation",
+        ringClass: "ring-stage-negotiation/30",
     },
     "In Review": {
         label: "In Review",
-        badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
-        dotClass: "bg-amber-500",
-        ringClass: "ring-amber-500/25",
+        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
+        dotClass: "bg-stage-negotiation",
+        ringClass: "ring-stage-negotiation/30",
     },
     Done: {
         label: "Done",
-        badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
-        dotClass: "bg-emerald-500",
-        ringClass: "ring-emerald-500/25",
+        badgeClass: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
+        dotClass: "bg-brand-deep",
+        ringClass: "ring-brand-deep/30",
     },
 };
 
@@ -322,7 +322,7 @@ export function TaskDetailsDrawer({
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-2xl bg-background border-l border-border text-foreground p-0 flex flex-col h-full shadow-2xl overflow-hidden focus:outline-none"
+                className="w-full sm:max-w-2xl bg-background border-l border-border text-foreground p-0 flex flex-col h-full overflow-hidden focus:outline-none"
             >
                 {/* 1. Header Section */}
                 <SheetHeader className="px-5 sm:px-6 pt-5 pb-4 border-b border-border bg-background space-y-3.5 shrink-0">
@@ -344,7 +344,7 @@ export function TaskDetailsDrawer({
                             {/* Effort Weight */}
                             <Badge
                                 variant="outline"
-                                className="bg-muted/60 dark:bg-muted/30 text-foreground border-border text-xs font-mono font-bold flex items-center gap-1 px-2.5 py-1 rounded-md"
+                                className="bg-muted/60 dark:bg-muted/30 text-foreground border-border text-xs tabular-nums font-semibold flex items-center gap-1 px-2.5 py-1 rounded-md"
                             >
                                 <Hash className="w-3 h-3 text-muted-foreground" />
                                 <span>{task.weight ?? 1} pts</span>
@@ -355,16 +355,16 @@ export function TaskDetailsDrawer({
                                 <Badge
                                     variant="outline"
                                     className={cn(
-                                        "text-xs font-mono font-medium flex items-center gap-1 px-2.5 py-1 rounded-md",
+                                        "text-xs tabular-nums font-medium flex items-center gap-1 px-2.5 py-1 rounded-md",
                                         task.estimatedHours > 40
-                                            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold"
+                                            ? "bg-destructive/10 text-destructive dark:text-destructive border-destructive/30 font-semibold"
                                             : "bg-muted/60 dark:bg-muted/30 text-muted-foreground border-border"
                                     )}
                                 >
                                     <Clock className="w-3 h-3" />
                                     <span>{task.estimatedHours}h</span>
                                     {task.estimatedHours > 40 && (
-                                        <span className="text-[9px] uppercase tracking-wider font-bold text-rose-500 ml-0.5">
+                                        <span className="text-xs font-semibold text-destructive ml-0.5">
                                             Over
                                         </span>
                                     )}
@@ -378,9 +378,9 @@ export function TaskDetailsDrawer({
                                     className={cn(
                                         "text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-md",
                                         deadlineInfo.isOverdue
-                                            ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 font-semibold"
+                                            ? "bg-destructive/15 text-destructive dark:text-destructive border-destructive/30 font-semibold"
                                             : deadlineInfo.isUrgent
-                                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30"
+                                            ? "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30"
                                             : "bg-muted/60 dark:bg-muted/30 text-muted-foreground border-border"
                                     )}
                                 >
@@ -388,7 +388,7 @@ export function TaskDetailsDrawer({
                                         <span
                                             className={cn(
                                                 "w-1.5 h-1.5 rounded-full animate-ping shrink-0",
-                                                deadlineInfo.isOverdue ? "bg-rose-500" : "bg-amber-500"
+                                                deadlineInfo.isOverdue ? "bg-destructive" : "bg-stage-negotiation"
                                             )}
                                         />
                                     )}
@@ -402,11 +402,11 @@ export function TaskDetailsDrawer({
                         <div className="flex items-center gap-1.5">
                             <button
                                 onClick={handleCopyTaskId}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/40 hover:bg-muted/80 border border-border/60 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/40 hover:bg-muted/80 border border-border/60 text-xs tabular-nums text-muted-foreground hover:text-foreground transition-colors"
                                 title="Click to copy task ID"
                             >
                                 {copiedTaskId ? (
-                                    <Check className="w-3 h-3 text-emerald-500" />
+                                    <Check className="w-3 h-3 text-brand-deep" />
                                 ) : (
                                     <Copy className="w-3 h-3" />
                                 )}
@@ -423,9 +423,9 @@ export function TaskDetailsDrawer({
                                         <MoreVertical className="w-4 h-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-card border-border text-foreground w-48 shadow-xl">
+                                <DropdownMenuContent align="end" className="bg-card border-border text-foreground w-48 ">
                                     <DropdownMenuItem onClick={handleCopyTaskId} className="gap-2 cursor-pointer text-xs">
-                                        {copiedTaskId ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                                        {copiedTaskId ? <Check className="w-4 h-4 text-brand-deep" /> : <Copy className="w-4 h-4" />}
                                         <span>Copy Full Task ID</span>
                                     </DropdownMenuItem>
                                     {onDeleteTask && isManagerOrAdmin && (
@@ -436,7 +436,7 @@ export function TaskDetailsDrawer({
                                                     onClose();
                                                     onDeleteTask(task);
                                                 }}
-                                                className="gap-2 text-rose-500 focus:text-rose-500 focus:bg-rose-500/10 cursor-pointer text-xs"
+                                                className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer text-xs"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                                 <span>Delete Task</span>
@@ -455,7 +455,7 @@ export function TaskDetailsDrawer({
                                 <Input
                                     value={titleInput}
                                     onChange={(e) => setTitleInput(e.target.value)}
-                                    className="text-lg font-bold bg-background border-border focus:border-primary text-foreground"
+                                    className="text-lg font-semibold bg-background border-border focus:border-primary text-foreground"
                                     autoFocus
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") handleSaveTitle();
@@ -488,7 +488,7 @@ export function TaskDetailsDrawer({
                         ) : (
                             <div className="group flex items-start gap-2.5">
                                 <SheetTitle
-                                    className="text-xl sm:text-2xl font-bold text-foreground tracking-tight leading-snug break-words flex-1 cursor-pointer transition-colors hover:text-primary/90"
+                                    className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight leading-snug break-words flex-1 cursor-pointer transition-colors hover:text-primary/90"
                                     onClick={() => canManage && setIsEditingTitle(true)}
                                     title={canManage ? "Click to edit title" : undefined}
                                 >
@@ -512,7 +512,7 @@ export function TaskDetailsDrawer({
                     <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5 border-t border-border/50">
                         {/* Static Task Status Badge */}
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status:</span>
+                            <span className="text-xs font-semibold text-muted-foreground ">Status:</span>
                             <Badge
                                 className={cn(
                                     "h-8 text-xs font-semibold px-2.5 rounded-lg border gap-2 shadow-xs transition-all",
@@ -550,7 +550,7 @@ export function TaskDetailsDrawer({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 text-xs font-semibold gap-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-300 border-blue-500/30 shadow-xs"
+                                    className="h-8 text-xs font-semibold gap-1.5 bg-stage-new/15 hover:bg-stage-new/25 text-stage-new dark:text-stage-new border-stage-new/30 shadow-xs"
                                     onClick={() => {
                                         if (onSubmitTask) onSubmitTask(task);
                                         else onRequestVerificationReview?.(task);
@@ -568,7 +568,7 @@ export function TaskDetailsDrawer({
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-8 text-xs font-semibold gap-1.5 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10 shadow-xs"
+                                            className="h-8 text-xs font-semibold gap-1.5 text-destructive dark:text-destructive border-destructive/30 hover:bg-destructive/10 shadow-xs"
                                             onClick={() => onRequestChanges(task)}
                                         >
                                             <RotateCcw className="w-3.5 h-3.5" />
@@ -577,7 +577,7 @@ export function TaskDetailsDrawer({
                                     )}
                                     <Button
                                         size="sm"
-                                        className="h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                        className="h-8 text-xs font-semibold gap-1.5 bg-brand-deep hover:bg-brand-deep text-white shadow-xs"
                                         onClick={() => {
                                             if (onApproveTask) onApproveTask(task.id);
                                             else onStatusChangeRequest?.(task.id, "Done");
@@ -617,7 +617,7 @@ export function TaskDetailsDrawer({
                         {/* Changes Requested Banner */}
                         {isChangesRequested && task.reviewNote && (
                             <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive space-y-1.5 shadow-xs">
-                                <div className="font-bold flex items-center gap-2 text-sm text-destructive">
+                                <div className="font-semibold flex items-center gap-2 text-sm text-destructive">
                                     <AlertTriangle className="w-4 h-4 shrink-0" />
                                     <span>Changes Requested by Project Manager</span>
                                 </div>
@@ -631,19 +631,19 @@ export function TaskDetailsDrawer({
                             <div className="flex items-center justify-between pb-3 border-b border-border/60">
                                 <div className="flex items-center gap-2">
                                     <GitBranch className="w-4 h-4 text-primary" />
-                                    <h3 className="text-xs uppercase tracking-wider text-foreground font-semibold">
+                                    <h3 className="text-xs text-foreground font-semibold">
                                         Dependencies & Task Sequencing
                                     </h3>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <Badge
                                         variant="outline"
-                                        className="bg-primary/10 text-primary border-primary/25 text-[10px] font-mono font-semibold"
+                                        className="bg-primary/10 text-primary border-primary/25 text-xs tabular-nums font-semibold"
                                     >
                                         Graph Topology
                                     </Badge>
                                     {isPrerequisiteIncomplete && (
-                                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold flex items-center gap-1">
+                                        <Badge variant="outline" className="bg-stage-negotiation/10 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30 text-xs font-semibold flex items-center gap-1">
                                             <Lock className="w-3 h-3" />
                                             <span>Prerequisite Incomplete</span>
                                         </Badge>
@@ -654,7 +654,7 @@ export function TaskDetailsDrawer({
                             {/* 1. Prerequisite Task (Blocked By) */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                                         <Link2 className="w-3.5 h-3.5" />
                                         <span>Prerequisite Task (Blocked By)</span>
                                     </Label>
@@ -662,7 +662,7 @@ export function TaskDetailsDrawer({
                                         <Button
                                             size="sm"
                                             variant="ghost"
-                                            className="h-6 px-2 text-[11px] text-muted-foreground hover:text-rose-500 gap-1"
+                                            className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive gap-1"
                                             onClick={() => handlePrerequisiteChange("none")}
                                         >
                                             <Unlink className="w-3 h-3" />
@@ -692,7 +692,7 @@ export function TaskDetailsDrawer({
                                                                 {candMilestone ? `[M${candMilestone.order}] ` : ""}{cand.title}
                                                             </span>
                                                             <span className={cn(
-                                                                "text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0",
+                                                                "text-xs px-1.5 py-0.5 rounded tabular-nums shrink-0",
                                                                 STATUS_CONFIG[cand.status]?.badgeClass
                                                             )}>
                                                                 {cand.status}
@@ -717,19 +717,19 @@ export function TaskDetailsDrawer({
                                         className={cn(
                                             "rounded-lg border p-3 space-y-2 text-xs transition-colors",
                                             isPrerequisiteIncomplete
-                                                ? "bg-amber-500/10 border-amber-500/30"
+                                                ? "bg-stage-negotiation/10 border-stage-negotiation/30"
                                                 : "bg-muted/30 border-border"
                                         )}
                                     >
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2 min-w-0">
-                                                <Lock className={cn("w-3.5 h-3.5 shrink-0", isPrerequisiteIncomplete ? "text-amber-500" : "text-emerald-500")} />
+                                                <Lock className={cn("w-3.5 h-3.5 shrink-0", isPrerequisiteIncomplete ? "text-stage-negotiation" : "text-brand-deep")} />
                                                 <span className="font-semibold text-foreground truncate">{prerequisiteTask.title}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
                                                 <Badge
                                                     variant="outline"
-                                                    className={cn("text-[10px]", STATUS_CONFIG[prerequisiteTask.status]?.badgeClass)}
+                                                    className={cn("text-xs", STATUS_CONFIG[prerequisiteTask.status]?.badgeClass)}
                                                 >
                                                     {prerequisiteTask.status}
                                                 </Badge>
@@ -737,7 +737,7 @@ export function TaskDetailsDrawer({
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
-                                                        className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary/80"
+                                                        className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary/80"
                                                         onClick={() => onSelectTask(prerequisiteTask)}
                                                     >
                                                         <span>View</span>
@@ -748,12 +748,12 @@ export function TaskDetailsDrawer({
                                         </div>
 
                                         {isPrerequisiteIncomplete ? (
-                                            <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                                            <p className="text-xs text-stage-negotiation dark:text-stage-negotiation leading-relaxed">
                                                 ⚠️ This task is blocked from moving to <strong>In Progress</strong>, <strong>In Review</strong>, or <strong>Done</strong> until &ldquo;{prerequisiteTask.title}&rdquo; is completed.
                                             </p>
                                         ) : (
-                                            <p className="text-[11px] text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                            <p className="text-xs text-brand-deep dark:text-brand-deep flex items-center gap-1">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                                                 <span>Prerequisite completed! This task is unblocked.</span>
                                             </p>
                                         )}
@@ -764,14 +764,14 @@ export function TaskDetailsDrawer({
                             {/* 2. Blocks Downstream Tasks (Stitch Branch Tree Topology) */}
                             <div className="space-y-2.5 pt-2 border-t border-border/60">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                                         <ArrowRight className="w-3.5 h-3.5" />
                                         <span>Blocks Downstream Tasks</span>
                                     </Label>
                                     <Badge
                                         variant="outline"
                                         className={cn(
-                                            "text-[10px] font-mono font-semibold",
+                                            "text-xs tabular-nums font-semibold",
                                             blockedDownstreamTasks.length > 0
                                                 ? "bg-primary/10 text-primary border-primary/30"
                                                 : "bg-muted text-muted-foreground border-border"
@@ -793,7 +793,7 @@ export function TaskDetailsDrawer({
                                                     <span className="absolute -left-6 top-1/2 -translate-y-1/2 w-3.5 h-0.5 bg-border/60" />
                                                     <div className="flex items-center gap-2 min-w-0">
                                                         {m && (
-                                                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
+                                                            <span className="text-xs tabular-nums px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
                                                                 M{m.order}
                                                             </span>
                                                         )}
@@ -802,7 +802,7 @@ export function TaskDetailsDrawer({
                                                     <div className="flex items-center gap-1.5 shrink-0">
                                                         <Badge
                                                             variant="outline"
-                                                            className={cn("text-[10px]", STATUS_CONFIG[downstreamTask.status]?.badgeClass)}
+                                                            className={cn("text-xs", STATUS_CONFIG[downstreamTask.status]?.badgeClass)}
                                                         >
                                                             {downstreamTask.status}
                                                         </Badge>
@@ -810,7 +810,7 @@ export function TaskDetailsDrawer({
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                className="h-6 px-1.5 text-[11px] gap-1 text-primary hover:text-primary/80"
+                                                                className="h-6 px-1.5 text-xs gap-1 text-primary hover:text-primary/80"
                                                                 onClick={() => onSelectTask(downstreamTask)}
                                                             >
                                                                 <span>View</span>
@@ -821,7 +821,7 @@ export function TaskDetailsDrawer({
                                                 </div>
                                             );
                                         })}
-                                        <p className="text-[11px] text-muted-foreground pt-0.5">
+                                        <p className="text-xs text-muted-foreground pt-0.5">
                                             These tasks are waiting on this task to be marked Done before they can proceed.
                                         </p>
                                     </div>
@@ -838,17 +838,17 @@ export function TaskDetailsDrawer({
                             <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                 <div className="flex items-center gap-2">
                                     <Sliders className="w-4 h-4 text-primary" />
-                                    <h3 className="text-xs uppercase tracking-wider text-foreground font-semibold">
+                                    <h3 className="text-xs text-foreground font-semibold">
                                         Execution Specs
                                     </h3>
                                 </div>
-                                <span className="text-[11px] text-muted-foreground">Resource & Sprint Parameters</span>
+                                <span className="text-xs text-muted-foreground">Resource & Sprint Parameters</span>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {/* Assignees */}
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                    <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                         <Users className="w-3.5 h-3.5" />
                                         <span>Assignees</span>
                                     </Label>
@@ -862,7 +862,7 @@ export function TaskDetailsDrawer({
                                                     >
                                                         <Avatar className="w-5 h-5 border border-border">
                                                             {a.user.image && <AvatarImage src={a.user.image} />}
-                                                            <AvatarFallback className="text-[9px] bg-primary text-black font-bold">
+                                                            <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
                                                                 {a.user.name?.substring(0, 2).toUpperCase() || "U"}
                                                             </AvatarFallback>
                                                         </Avatar>
@@ -887,7 +887,7 @@ export function TaskDetailsDrawer({
 
                                 {/* Due Date */}
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                    <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                         <CalendarDays className="w-3.5 h-3.5 text-primary" />
                                         <span>Due Date</span>
                                     </Label>
@@ -918,7 +918,7 @@ export function TaskDetailsDrawer({
 
                                 {/* Effort Weight Points */}
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                    <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                         <Hash className="w-3.5 h-3.5 text-muted-foreground" />
                                         <span>Effort Weight</span>
                                     </Label>
@@ -946,12 +946,12 @@ export function TaskDetailsDrawer({
                                 {/* Estimated Hours with Progress Bar */}
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                        <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                             <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                                             <span>Estimated Hours</span>
                                         </Label>
                                         {task.estimatedHours != null && task.estimatedHours > 0 && (
-                                            <span className="text-[10px] font-mono text-muted-foreground">
+                                            <span className="text-xs tabular-nums text-muted-foreground">
                                                 {capacityPercent}% of 40h standard
                                             </span>
                                         )}
@@ -973,8 +973,8 @@ export function TaskDetailsDrawer({
                                                         className={cn(
                                                             "h-full rounded-full transition-all duration-300",
                                                             capacityPercent > 100
-                                                                ? "bg-rose-500"
-                                                                : "bg-gradient-to-r from-primary to-emerald-500"
+                                                                ? "bg-destructive"
+                                                                : "bg-brand-deep"
                                                         )}
                                                         style={{ width: `${Math.min(100, capacityPercent)}%` }}
                                                     />
@@ -995,12 +995,12 @@ export function TaskDetailsDrawer({
                             <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                 <div className="flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-primary" />
-                                    <h3 className="text-xs uppercase tracking-wider text-foreground font-semibold">
+                                    <h3 className="text-xs text-foreground font-semibold">
                                         Scope & Acceptance Criteria
                                     </h3>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded">
+                                    <span className="text-xs text-muted-foreground tabular-nums bg-muted/60 px-1.5 py-0.5 rounded">
                                         Markdown supported
                                     </span>
                                     {canManage && !isEditingDesc && (
@@ -1065,7 +1065,7 @@ export function TaskDetailsDrawer({
                         {/* Deliverables Header */}
                         <div className="flex items-center justify-between pb-3 border-b border-border/60">
                             <div>
-                                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                <h4 className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                     <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                                     <span>Task Deliverables & Verification</span>
                                 </h4>
@@ -1088,7 +1088,7 @@ export function TaskDetailsDrawer({
 
                         {/* Proof Links */}
                         <div className="space-y-3 pt-4 border-t border-border/60">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                            <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                 <ExternalLink className="w-3.5 h-3.5 text-primary" />
                                 <span>Attached Proof Links</span>
                             </Label>
@@ -1110,7 +1110,7 @@ export function TaskDetailsDrawer({
                                                     <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary">
                                                         {link.label || "Proof Deliverable"}
                                                     </p>
-                                                    <p className="text-[11px] text-muted-foreground truncate">{link.url}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{link.url}</p>
                                                 </div>
                                             </div>
                                             <span className="text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -1129,7 +1129,7 @@ export function TaskDetailsDrawer({
                         {/* Proof Notes */}
                         {task.proofNotes && (
                             <div className="space-y-2 pt-2">
-                                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                                <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                     <FileText className="w-3.5 h-3.5 text-primary" />
                                     <span>Submission Notes</span>
                                 </Label>
@@ -1143,16 +1143,16 @@ export function TaskDetailsDrawer({
                     {/* TAB 3: DETAILS & AUDIT */}
                     <TabsContent value="activity" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4 focus:outline-none">
                         <div className="space-y-3">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                            <Label className="text-xs text-muted-foreground font-semibold">
                                 System Audit Metadata
                             </Label>
                             <div className="bg-card p-4 rounded-xl border border-border space-y-3 text-xs shadow-xs">
                                 <div className="flex items-center justify-between py-1 border-b border-border/60">
                                     <span className="text-muted-foreground">Task ID</span>
-                                    <div className="flex items-center gap-1 font-mono text-[11px] text-foreground">
+                                    <div className="flex items-center gap-1 tabular-nums text-xs text-foreground">
                                         <span>{task.id}</span>
                                         <button onClick={handleCopyTaskId} className="p-1 hover:text-primary">
-                                            {copiedTaskId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                                            {copiedTaskId ? <Check className="w-3 h-3 text-brand-deep" /> : <Copy className="w-3 h-3" />}
                                         </button>
                                     </div>
                                 </div>
@@ -1180,7 +1180,7 @@ export function TaskDetailsDrawer({
 
                                 <div className="flex items-center justify-between py-1 border-b border-border/60">
                                     <span className="text-muted-foreground">Requires Quality Gate Proof</span>
-                                    <Badge variant="outline" className="text-[10px]">
+                                    <Badge variant="outline" className="text-xs">
                                         {task.requiresProof !== false ? "Yes" : "No"}
                                     </Badge>
                                 </div>
@@ -1209,13 +1209,13 @@ export function TaskDetailsDrawer({
 
                 {/* 4. Sticky Footer */}
                 <div className="px-6 py-3.5 border-t border-border bg-background flex items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
-                            Press <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-[10px] font-mono">Esc</kbd> to close
+                            Press <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-xs tabular-nums">Esc</kbd> to close
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
-                            <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-[10px] font-mono">Enter</kbd> to save title
+                            <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-xs tabular-nums">Enter</kbd> to save title
                         </span>
                     </div>
                     <Button

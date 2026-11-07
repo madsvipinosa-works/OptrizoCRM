@@ -111,7 +111,7 @@ export function MilestoneStrip({
                         >
                             <div className="flex items-center gap-1.5 truncate max-w-full">
                                 {isCompleted ? (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                                 ) : isCurrentInProgress ? (
                                     <Clock className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
                                 ) : null}
@@ -119,7 +119,7 @@ export function MilestoneStrip({
                             </div>
                             <span
                                 className={cn(
-                                    "text-[10px] font-normal tracking-wide",
+                                    "text-xs font-normal ",
                                     isSelected
                                         ? "text-primary-foreground/80"
                                         : isCurrentInProgress
@@ -140,9 +140,9 @@ export function MilestoneStrip({
 
             {/* If active milestone is In Progress and has 0 tasks, PM sees Mark Milestone Done */}
             {isManager && activeMilestone && activeMilestone.status === "In Progress" && (activeMilestone.taskCount === 0 || activeMilestone.taskCount === undefined) && (
-                <div className="flex items-center justify-between p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs">
+                <div className="flex items-center justify-between p-3 rounded-xl border border-stage-negotiation/30 bg-stage-negotiation/10 text-stage-negotiation dark:text-stage-negotiation text-xs">
                     <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <AlertCircle className="w-4 h-4 text-stage-negotiation dark:text-stage-negotiation shrink-0" />
                         <span>
                             <strong>{getDisplayName(activeMilestone.title)}</strong> has 0 tasks. As Project Manager, you can mark it done with a reason.
                         </span>
@@ -150,7 +150,7 @@ export function MilestoneStrip({
                     <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 text-xs border-amber-500/40 hover:bg-amber-500/20 text-amber-900 dark:text-amber-100 shrink-0 ml-2"
+                        className="h-7 text-xs border-stage-negotiation/30 hover:bg-stage-negotiation/20 text-stage-negotiation dark:text-stage-negotiation shrink-0 ml-2"
                         onClick={() => setEmptyDoneModalOpen(true)}
                     >
                         Mark Milestone Done
@@ -161,7 +161,7 @@ export function MilestoneStrip({
             {/* Display doneReason if selected milestone was completed with reason */}
             {activeMilestone && activeMilestone.status === "Completed" && activeMilestone.doneReason && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-muted/40 text-xs text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0" />
                     <span>
                         Completed reason: <em>&ldquo;{activeMilestone.doneReason}&rdquo;</em>
                     </span>
@@ -189,7 +189,7 @@ export function MilestoneStrip({
                             onChange={(e) => setEmptyDoneReason(e.target.value)}
                             maxLength={500}
                         />
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                             This action will complete the milestone, advance to the next milestone, and write an audit log entry.
                         </p>
                     </div>

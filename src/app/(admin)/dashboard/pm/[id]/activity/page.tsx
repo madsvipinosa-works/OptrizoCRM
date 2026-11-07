@@ -160,7 +160,7 @@ export default async function PmProjectActivityPage({
   }
 
   return (
-    <div className="space-y-4 w-full max-w-full min-w-0 animate-in fade-in duration-500">
+    <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-5 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <Button
@@ -174,15 +174,15 @@ export default async function PmProjectActivityPage({
             </Link>
           </Button>
           <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">
-              Business name: {businessName || "—"} · Client name: {clientName || "—"}
-            </p>
-            <h2
-              className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate"
+            <h1
+              className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
               title={projectRow.title}
             >
-              Project name: {projectRow.title}
-            </h2>
+              {projectRow.title}
+            </h1>
+            <p className="mt-1 truncate text-sm text-muted-foreground">
+              Business name: {businessName || "—"} · Client name: {clientName || "—"}
+            </p>
           </div>
         </div>
 
@@ -232,7 +232,7 @@ export default async function PmProjectActivityPage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold text-muted-foreground">
                   <th className="py-2.5 px-4 whitespace-nowrap w-[160px]">
                     When (Asia/Manila)
                   </th>
@@ -302,7 +302,7 @@ function FragmentGroup({
           key={row.id}
           className="border-b border-border/60 last:border-b-0 hover:bg-muted/20 transition-colors"
         >
-          <td className="py-2.5 px-4 text-xs text-muted-foreground whitespace-nowrap font-mono">
+          <td className="py-2.5 px-4 text-xs text-muted-foreground whitespace-nowrap tabular-nums">
             {formatManilaTime(row.createdAt)}
           </td>
           <td className="py-2.5 px-4 text-xs sm:text-sm font-medium text-foreground whitespace-nowrap">

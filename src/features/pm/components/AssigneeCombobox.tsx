@@ -81,7 +81,7 @@ export function AssigneeCombobox({
                                     {selectedMembers.slice(0, 3).map((m) => (
                                         <Avatar key={m.id} className="w-5 h-5 border border-border ring-1 ring-border/50">
                                             {m.image && <AvatarImage src={m.image} alt={m.name || "Member"} />}
-                                            <AvatarFallback className="text-[9px] bg-primary text-black font-bold">
+                                            <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
                                                 {m.name ? m.name.substring(0, 2).toUpperCase() : "U"}
                                             </AvatarFallback>
                                         </Avatar>
@@ -98,7 +98,7 @@ export function AssigneeCombobox({
                     <Users className="w-4 h-4 shrink-0 text-muted-foreground ml-2" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0 bg-card border-border text-foreground shadow-xl" align="start">
+            <PopoverContent className="w-[320px] p-0 bg-card border-border text-foreground " align="start">
                 <div className="p-2 border-b border-border">
                     <div className="relative flex items-center">
                         <Search className="w-4 h-4 absolute left-2.5 text-muted-foreground" />
@@ -141,7 +141,7 @@ export function AssigneeCombobox({
                                     <div className="flex items-center gap-2 truncate">
                                         <Avatar className="w-6 h-6 border border-border shrink-0">
                                             {member.image && <AvatarImage src={member.image} alt={member.name || "Member"} />}
-                                            <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-medium">
+                                            <AvatarFallback className="text-xs bg-muted text-muted-foreground font-medium">
                                                 {member.name ? member.name.substring(0, 2).toUpperCase() : "U"}
                                             </AvatarFallback>
                                         </Avatar>
@@ -150,7 +150,7 @@ export function AssigneeCombobox({
                                                 {member.name || "Unknown"}
                                             </span>
                                             {(member.jobTitle || member.role) && (
-                                                <span className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate uppercase font-mono">
+                                                <span className="text-xs text-muted-foreground leading-tight mt-0.5 truncate tabular-nums">
                                                     {member.jobTitle || member.role}
                                                 </span>
                                             )}
@@ -167,14 +167,14 @@ export function AssigneeCombobox({
 
                 {selectedIds.length > 0 && (
                     <div className="p-2 border-t border-border bg-card flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground font-medium">
+                        <span className="text-xs text-muted-foreground font-medium">
                             {selectedIds.length} selected
                         </span>
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => onSelectionChange([])}
-                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+                            className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
                         >
                             Clear All
                         </Button>
