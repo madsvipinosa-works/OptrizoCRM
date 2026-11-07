@@ -283,7 +283,7 @@ export function EditLeadModal({
                                 Acquisition Source
                             </Label>
                             <Select value={selectedSource} onValueChange={setSelectedSource}>
-                                <SelectTrigger className="h-8 text-xs bg-muted/30 border-border text-foreground">
+                                <SelectTrigger className="h-8 text-xs">
                                     <SelectValue placeholder="Source" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border text-foreground">
@@ -319,7 +319,7 @@ export function EditLeadModal({
                     <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-foreground">Priority Rating</Label>
                         <Select value={priority} onValueChange={(val: any) => setPriority(val)}>
-                            <SelectTrigger className="h-8 text-xs bg-muted/30 border-border text-foreground">
+                            <SelectTrigger className="h-8 text-xs">
                                 <SelectValue placeholder="Priority" />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border text-foreground text-xs">

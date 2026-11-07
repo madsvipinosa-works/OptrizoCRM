@@ -12,6 +12,7 @@ import { AutoFilterForm } from "@/components/ui/auto-filter-form";
 import { PmProposalQueue } from "@/features/proposals/components/PmProposalQueue";
 import { getProposalRequestsQueue } from "@/features/proposals/actions";
 import { formatDate } from "@/lib/datetime";
+import { FormSelect } from "@/components/ui/form-select";
 
 export const metadata = {
     title: "Proposals | Optrizo",
@@ -119,18 +120,18 @@ export default async function ProposalsPage({ searchParams }: { searchParams?: P
                     <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input name="q" type="search" defaultValue={params?.q ?? ""} placeholder="Search business, project or no." aria-label="Search business, project or proposal number" className="h-10 bg-card pl-9" />
                 </div>
-                <select
+                <FormSelect
                     name="status"
                     defaultValue={statusFilter}
                     aria-label="Filter by status"
                     className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+                 variant="plain">
                     {STATUS_FILTERS.map((s) => (
                         <option key={s.value} value={s.value}>
                             {s.label}
                         </option>
                     ))}
-                </select>
+                </FormSelect>
                 {(q || statusFilter) && (
                     <Link href="/dashboard/proposals" className="rounded-md px-2 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
                         Clear

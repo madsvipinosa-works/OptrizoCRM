@@ -485,7 +485,7 @@ export function LeadsDataTable({
                                     setCurrentPage(1);
                                 }}
                             >
-                                <SelectTrigger className="h-7 w-[68px] text-xs bg-card border-border text-foreground">
+                                <SelectTrigger className="h-7 w-[68px] text-xs bg-card border-border text-foreground" variant="plain">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border text-foreground">

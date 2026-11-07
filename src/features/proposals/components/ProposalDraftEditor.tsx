@@ -46,6 +46,7 @@ import {
     TermsDialog,
 } from "./draft-dialogs";
 import { ProposalDocumentSheet, type PricingLineItem, type ProposalDocumentData } from "./ProposalDocumentSheet";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type ProposalDraftEditorData = {
     proposalId: string;
@@ -74,9 +75,6 @@ export type ProposalDraftEditorData = {
 };
 
 const cardClass = "space-y-3 rounded-xl border border-border bg-card p-5";
-const selectClass =
-    "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60";
-
 function Counter({ value, max }: { value: string; max: number }) {
     return (
         <span className={value.length > max ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
@@ -507,16 +505,15 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="currency">Currency</Label>
-                                        <select
+                                        <FormSelect
                                             id="currency"
-                                            className={selectClass}
                                             disabled={!editable}
                                             value={fields.currency}
                                             onChange={(e) => set("currency", e.target.value as "PHP" | "USD")}
                                         >
                                             <option value="PHP">PHP (&#8369;)</option>
                                             <option value="USD">USD ($)</option>
-                                        </select>
+                                        </FormSelect>
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="total-price">Total price</Label>

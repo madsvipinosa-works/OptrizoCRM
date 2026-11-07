@@ -676,7 +676,7 @@ export function TaskDetailsDrawer({
                                         value={task.dependsOnTaskId || "none"}
                                         onValueChange={handlePrerequisiteChange}
                                     >
-                                        <SelectTrigger className="w-full text-xs h-9 bg-background border-border text-foreground">
+                                        <SelectTrigger className="w-full text-xs h-9">
                                             <SelectValue placeholder="Select a prerequisite task..." />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground max-h-56">
@@ -927,7 +927,7 @@ export function TaskDetailsDrawer({
                                             value={String(weightInput)}
                                             onValueChange={(val) => handleWeightChange(parseInt(val, 10))}
                                         >
-                                            <SelectTrigger className="bg-background border-border text-foreground text-xs h-8">
+                                            <SelectTrigger className="text-xs h-8">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="bg-card border-border text-foreground">

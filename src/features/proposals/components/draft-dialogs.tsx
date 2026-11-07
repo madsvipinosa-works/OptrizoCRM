@@ -21,9 +21,7 @@ import {
     type ScheduleDraftItem,
 } from "@/features/proposals/draft-logic";
 import { STANDARD_SECTIONS } from "@/features/proposals/standard-sections";
-
-const selectClass =
-    "h-9 w-full rounded-md border border-input bg-background px-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+import { FormSelect } from "@/components/ui/form-select";
 
 // ---------------------------------------------------------------------------
 // Needs and goals
@@ -473,9 +471,8 @@ export function ScheduleDialog({
                                     value={item.label}
                                     onChange={(e) => update(index, { label: e.target.value })}
                                 />
-                                <select
-                                    aria-label={`Payment ${index + 1} becomes due`}
-                                    className={`col-span-3 ${selectClass}`}
+                                <FormSelect
+                                    aria-label={`Payment ${index + 1} becomes due`} className="col-span-3"
                                     value={item.trigger}
                                     onChange={(e) => update(index, { trigger: e.target.value })}
                                 >
@@ -484,7 +481,7 @@ export function ScheduleDialog({
                                             {label}
                                         </option>
                                     ))}
-                                </select>
+                                </FormSelect>
                                 <Input
                                     aria-label={`Payment ${index + 1} percent`}
                                     type="number"

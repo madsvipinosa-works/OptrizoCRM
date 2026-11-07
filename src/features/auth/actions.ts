@@ -13,6 +13,7 @@ import { createVerificationToken, consumeVerificationToken, linkLeadsByEmail } f
 import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { getBaseUrl } from "@/lib/email-templates";
 import {
     checkRateLimit,
     formatRetryAfter,
@@ -236,7 +237,7 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
                 // If account exists with 'invited' status, create fresh token and resend with generic success message
                 try {
                     const token = await createVerificationToken(email);
-                    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+                    const baseUrl = getBaseUrl();
                     const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
                     await sendEmailVerificationEmail({
                         email,
@@ -278,7 +279,7 @@ export async function signUpWithEmail(prevState: unknown, formData: FormData): P
         // Create verification token and dispatch activation email in try/catch
         try {
             const token = await createVerificationToken(email);
-            const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+            const baseUrl = getBaseUrl();
             const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
             await sendEmailVerificationEmail({
@@ -446,7 +447,7 @@ export async function resendVerificationEmail(email: string): Promise<AuthAction
 
         if (user.status === "invited") {
             const token = await createVerificationToken(normalized);
-            const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+            const baseUrl = getBaseUrl();
             const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
             await sendEmailVerificationEmail({
@@ -509,7 +510,7 @@ export async function requestPasswordReset(prevState: unknown, formData: FormDat
             expiresAt,
         });
 
-        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        const baseUrl = getBaseUrl();
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
         await sendPasswordResetEmail(normalizedEmail, resetUrl);

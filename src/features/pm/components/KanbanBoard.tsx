@@ -36,6 +36,7 @@ import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
 import type { SprintWithCounts } from "@/features/sprints/queries";
+import { FormSelect } from "@/components/ui/form-select";
 import {
     filterBoardTasks,
     isDevelopmentMilestone,
@@ -828,10 +829,9 @@ export function KanbanBoard({
                                     <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                                         Sprint
                                     </Label>
-                                    <select
+                                    <FormSelect
                                         value={newTaskSprintChoice}
                                         onChange={(e) => setNewTaskSprintChoice(e.target.value)}
-                                        className="w-full h-9 rounded-md border border-border bg-background px-3 text-xs sm:text-sm text-foreground"
                                     >
                                         <option value="backlog">Backlog (no sprint yet)</option>
                                         {nonEndedSprints.map((s) => (
@@ -839,7 +839,7 @@ export function KanbanBoard({
                                                 {s.name} ({s.startDate} – {s.endDate})
                                             </option>
                                         ))}
-                                    </select>
+                                    </FormSelect>
                                     <p className="text-[11px] text-muted-foreground">
                                         Shown only for Development tasks. Leave it in the backlog and pick it when you plan a sprint, or put it in a sprint now.
                                     </p>

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
     buildInquiryReceivedEmail,
     buildMeetingCancelledEmail,
@@ -8,6 +8,7 @@ import {
     escapeHtml,
     firstNameOf,
     formatManilaDate,
+    getBaseUrl,
     formatManilaDateTime,
     formatManilaShort,
     meetingFormatLabel,
@@ -87,7 +88,6 @@ describe("inquiry received email", () => {
         clientName: "Maria Santos",
         businessName: "Santos Logistics",
         serviceName: "Mobile App",
-        serviceUrl: `${BASE}/services/mobile-app`,
         baseUrl: BASE,
     });
 
@@ -108,19 +108,10 @@ describe("inquiry received email", () => {
         expect(named.text).toContain("Ana Reyes from our sales team will contact you");
     });
 
-    it("has one button to the service page, or the website when there is no service page", () => {
+    it("has one button to the client portal home", () => {
         expect(buttons(email.html)).toBe(1);
-        expect(email.html).toContain(`href="${BASE}/services/mobile-app"`);
-        expect(email.html).toContain("View Mobile App");
-
-        const other = buildInquiryReceivedEmail({
-            clientName: "Maria",
-            businessName: "Santos Logistics",
-            serviceName: "Other",
-            baseUrl: BASE,
-        });
-        expect(buttons(other.html)).toBe(1);
-        expect(other.html).toContain(`href="${BASE}"`);
+        expect(email.html).toContain(`href="${BASE}/portal"`);
+        expect(email.html).toContain("View your availed service");
     });
 
     it("escapes what the visitor typed", () => {
@@ -311,5 +302,35 @@ describe("servicePageHref", () => {
         const other = { serviceName: "Other", serviceSlug: null };
         expect(servicePageHref(withService.serviceSlug)).toBe("/services/mobile-app");
         expect(servicePageHref(other.serviceSlug)).toBeNull();
+    });
+});
+
+describe("meeting email for a client in another timezone", () => {
+    it("gives their time and Manila time", () => {
+        const email = buildMeetingInviteEmail({ ...baseMeeting, timezone: "Asia/Dubai" });
+        expect(email.text).toMatch(/6:00\sAM GMT\+4 \(Nov 6, 2026, 10:00\sAM Manila time\)/);
+    });
+});
+
+describe("getBaseUrl", () => {
+    const keys = ["NEXTAUTH_URL", "AUTH_URL", "NEXT_PUBLIC_APP_URL", "VERCEL_PROJECT_PRODUCTION_URL"] as const;
+    const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    const restore = () => keys.forEach((k) => (saved[k] === undefined ? delete process.env[k] : (process.env[k] = saved[k])));
+
+    it("reads any of the app URL settings and drops a trailing slash", () => {
+        keys.forEach((k) => delete process.env[k]);
+        process.env.NEXT_PUBLIC_APP_URL = "https://optrizo.com/";
+        expect(getBaseUrl()).toBe("https://optrizo.com");
+        process.env.NEXTAUTH_URL = "https://crm.optrizo.com";
+        expect(getBaseUrl()).toBe("https://crm.optrizo.com");
+        restore();
+    });
+
+    it("never falls back to localhost in production", () => {
+        keys.forEach((k) => delete process.env[k]);
+        vi.stubEnv("NODE_ENV", "production");
+        expect(getBaseUrl()).toBe("https://optrizo.com");
+        vi.unstubAllEnvs();
+        restore();
     });
 });

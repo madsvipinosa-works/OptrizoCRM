@@ -137,7 +137,7 @@ export function ScheduleDiscoveryMeetingModal({
                         <div className="space-y-1">
                             <Label className="text-sm text-muted-foreground">Lead</Label>
                             <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
-                                <SelectTrigger className="text-sm h-9 bg-card border-border">
+                                <SelectTrigger className="text-sm h-9">
                                     <SelectValue placeholder="Choose a lead..." />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border">
@@ -184,7 +184,7 @@ export function ScheduleDiscoveryMeetingModal({
                         <div className="space-y-1">
                             <Label className="text-sm text-muted-foreground">Format</Label>
                             <Select value={format} onValueChange={(val: "video" | "phone" | "in_person" | "on_site") => setFormat(val)}>
-                                <SelectTrigger className="text-sm h-9 bg-card border-border">
+                                <SelectTrigger className="text-sm h-9">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-card border-border">
@@ -214,7 +214,7 @@ export function ScheduleDiscoveryMeetingModal({
                         </Label>
                         <Input value="Sales (required)" disabled className="bg-muted text-sm h-9" />
                         <Select value={pmId} onValueChange={setPmId}>
-                            <SelectTrigger className="text-sm h-9 bg-card border-border" aria-label="Project Manager (optional)">
+                            <SelectTrigger className="text-sm h-9" aria-label="Project Manager (optional)">
                                 <SelectValue placeholder="Project Manager (optional)" />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border">

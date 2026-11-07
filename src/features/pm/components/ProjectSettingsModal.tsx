@@ -290,7 +290,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                         Lifecycle Stage
                                     </Label>
                                     <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-                                        <SelectTrigger id="proj-status" className="h-9 text-xs bg-muted/30 border-border text-foreground focus:border-primary">
+                                        <SelectTrigger id="proj-status" className="h-9 text-xs">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground">
@@ -378,7 +378,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                                         <Users className="h-3.5 w-3.5 text-primary" /> Primary Client Stakeholder
                                     </Label>
                                     <Select value={clientUserId} onValueChange={setClientUserId}>
-                                        <SelectTrigger id="proj-client" className="h-9 text-xs bg-muted/30 border-border text-foreground focus:border-primary">
+                                        <SelectTrigger id="proj-client" className="h-9 text-xs">
                                             <SelectValue placeholder="Select Client Stakeholder" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-card border-border text-foreground">

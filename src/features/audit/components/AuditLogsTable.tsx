@@ -89,7 +89,7 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
         <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2.5">
                 <Select value={actionFilter} onValueChange={setActionFilter}>
-                    <SelectTrigger aria-label="Filter by action" className="h-10 w-full bg-card sm:w-[160px]">
+                    <SelectTrigger aria-label="Filter by action" className="h-10 w-full bg-card sm:w-[160px]" variant="plain">
                         <SelectValue placeholder="Action" />
                     </SelectTrigger>
                     <SelectContent>
@@ -103,7 +103,7 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
                 </Select>
 
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger aria-label="Filter by role" className="h-10 w-full bg-card sm:w-[170px]">
+                    <SelectTrigger aria-label="Filter by role" className="h-10 w-full bg-card sm:w-[170px]" variant="plain">
                         <SelectValue placeholder="Role" />
                     </SelectTrigger>
                     <SelectContent>

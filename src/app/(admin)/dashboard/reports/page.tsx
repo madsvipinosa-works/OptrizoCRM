@@ -8,6 +8,7 @@ import { auditLogs } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { generateReport } from "@/features/reports/generate-action";
 import { COMPARE_OPTIONS, REPORT_TYPES, isReportType, parsePeriod, periodOptions, reportLabel } from "@/features/reports/catalog";
+import { FormSelect } from "@/components/ui/form-select";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,7 @@ export default async function ReportsPage() {
                 <div className="mt-5 flex flex-wrap items-end gap-4">
                     <label className="grid gap-1.5 text-sm font-medium text-foreground">
                         Period
-                        <select name="period" defaultValue={periods[0].items[1]?.value ?? periods[0].items[0].value} className={`${field} min-w-48`}>
+                        <FormSelect name="period" defaultValue={periods[0].items[1]?.value ?? periods[0].items[0].value} className={`${field} min-w-48`} variant="plain">
                             {periods.map((g) => (
                                 <optgroup key={g.group} label={g.group}>
                                     {g.items.map((o) => (
@@ -85,17 +86,17 @@ export default async function ReportsPage() {
                                     ))}
                                 </optgroup>
                             ))}
-                        </select>
+                        </FormSelect>
                     </label>
                     <label className="grid gap-1.5 text-sm font-medium text-foreground">
                         Compare with
-                        <select name="compare" defaultValue="previous" className={`${field} min-w-48`}>
+                        <FormSelect name="compare" defaultValue="previous" className={`${field} min-w-48`} variant="plain">
                             {COMPARE_OPTIONS.map((o) => (
                                 <option key={o.value} value={o.value}>
                                     {o.label}
                                 </option>
                             ))}
-                        </select>
+                        </FormSelect>
                     </label>
                     <Button type="submit" className="h-10">
                         Generate report

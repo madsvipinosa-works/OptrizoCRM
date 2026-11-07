@@ -209,7 +209,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                             Project
                         </label>
                         <Select value={projectFilter} onValueChange={setProjectFilter}>
-                            <SelectTrigger className="h-9 text-xs sm:text-sm bg-card border-border">
+                            <SelectTrigger className="h-9 text-xs sm:text-sm bg-card border-border" variant="plain">
                                 <SelectValue placeholder="All projects" />
                             </SelectTrigger>
                             <SelectContent>
@@ -229,7 +229,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                             Status
                         </label>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="h-9 text-xs sm:text-sm bg-card border-border">
+                            <SelectTrigger className="h-9 text-xs sm:text-sm bg-card border-border" variant="plain">
                                 <SelectValue placeholder="All statuses" />
                             </SelectTrigger>
                             <SelectContent>

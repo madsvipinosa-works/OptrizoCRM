@@ -24,3 +24,24 @@ describe("datetime", () => {
         expect(isPastManila("2026-11-06", undefined, AT)).toBe(false);
     });
 });
+
+import { formatWithZone, zonedToDate, tzLabel, isValidTimezone } from "@/lib/datetime";
+
+describe("client timezone", () => {
+    const AT2 = new Date("2026-11-06T02:00:00.000Z"); // 10:00 AM Manila, 6:00 AM in Dubai
+    it("shows the client's time next to Manila time", () => {
+        expect(formatWithZone(AT2, "Asia/Dubai")).toMatch(/^Nov 6, 2026, 6:00\sAM GMT\+4 \(Nov 6, 2026, 10:00\sAM Manila time\)$/);
+        expect(formatWithZone(AT2, null)).toMatch(/^Nov 6, 2026, 10:00\sAM \(Manila time\)$/);
+        expect(formatWithZone(AT2, "Asia/Manila")).toMatch(/\(Manila time\)$/);
+        expect(tzLabel(AT2)).toBe("PHT");
+    });
+    it("reads a picked time in the client's zone, including daylight saving", () => {
+        expect(zonedToDate("2026-11-06", "06:00", "Asia/Dubai").toISOString()).toBe("2026-11-06T02:00:00.000Z");
+        expect(zonedToDate("2026-07-01", "09:00", "America/Los_Angeles").toISOString()).toBe("2026-07-01T16:00:00.000Z"); // PDT, UTC-7
+        expect(zonedToDate("2026-12-01", "09:00", "America/Los_Angeles").toISOString()).toBe("2026-12-01T17:00:00.000Z"); // PST, UTC-8
+    });
+    it("rejects names that are not timezones", () => {
+        expect(isValidTimezone("Asia/Dubai")).toBe(true);
+        expect(isValidTimezone("Mars/Olympus")).toBe(false);
+    });
+});

@@ -11,6 +11,7 @@ import { logAction } from "@/features/audit/log";
 import { sendStaffInviteEmail } from "@/lib/notifications";
 import { checkRateLimit, formatRetryAfter, getClientIp } from "@/lib/rate-limit";
 import { createStaffInvite, consumeStaffInvite } from "./invite";
+import { getBaseUrl } from "@/lib/email-templates";
 
 const STAFF_ROLES = ["sales", "manager", "developer", "content_editor"] as const;
 
@@ -137,7 +138,7 @@ export async function inviteStaff(input: InviteStaffInput): Promise<InviteAction
     }
 
     // Send invitation email after transaction commit
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = getBaseUrl();
     const inviteLink = `${baseUrl}/accept-invite?token=${encodeURIComponent(inviteToken)}`;
 
     let emailSent = false;
@@ -246,7 +247,7 @@ export async function resendStaffInvite(userId: string): Promise<InviteActionRes
     }
 
     // Send after commit
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = getBaseUrl();
     const inviteLink = `${baseUrl}/accept-invite?token=${encodeURIComponent(inviteToken)}`;
 
     let emailSent = false;

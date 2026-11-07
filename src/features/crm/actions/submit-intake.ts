@@ -9,8 +9,6 @@ import { sendInquiryConfirmationEmail } from "@/lib/notifications";
 import { parseBudgetToEstimatedValue } from "@/lib/utils";
 import { checkRateLimit, formatRetryAfter } from "@/lib/rate-limit";
 import { getPublishedServices as getPublishedServicesCms } from "@/features/cms/content/public-queries";
-import { getBaseUrl } from "@/lib/email-templates";
-import { servicePageHref } from "@/lib/service-links";
 
 export type IntakeFormValues = {
     businessName?: string;
@@ -145,13 +143,11 @@ export async function submitIntakeForm(prevState: IntakeState, formData: FormDat
             });
 
             // Send confirmation email
-            const serviceHref = servicePageHref(serviceSlug);
             await sendInquiryConfirmationEmail({
                 clientName: data.clientName,
                 email: data.email,
                 businessName: data.businessName,
                 serviceName: serviceTitle,
-                serviceUrl: serviceHref ? `${getBaseUrl()}${serviceHref}` : null,
             });
 
             return {

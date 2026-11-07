@@ -315,7 +315,7 @@ export function LeadsPipelineView({
 
                     {viewLayout === "table" && (
                         <Select value={selectedStageFilter} onValueChange={setSelectedStageFilter}>
-                            <SelectTrigger aria-label="Stage" className="h-10 w-[170px] bg-card text-sm">
+                            <SelectTrigger aria-label="Stage" className="h-10 w-[170px] bg-card text-sm" variant="plain">
                                 <SelectValue placeholder="Stage" />
                             </SelectTrigger>
                             <SelectContent>

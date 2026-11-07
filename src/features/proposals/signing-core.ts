@@ -10,6 +10,7 @@ import { provisionProjectFromProposal } from "@/features/crm/provisionLeadProjec
 import { isProposalExpired } from "@/features/proposals/utils/expiry";
 import { sendSignedProposalEmail, sendPaymentDueEmail } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
+import { getBaseUrl } from "@/lib/email-templates";
 
 export interface ProposalSignatureParams {
     proposalId: string;
@@ -270,7 +271,7 @@ export async function executeProposalSignature(
                     clientEmail,
                     clientName: signerName.trim(),
                     proposalCode: code,
-                    pdfUrl: `${process.env.NEXTAUTH_URL || ""}/api/proposals/${proposalId}/pdf`,
+                    pdfUrl: `${getBaseUrl()}/api/proposals/${proposalId}/pdf`,
                 });
             }
 
@@ -294,7 +295,7 @@ export async function executeProposalSignature(
                             amount: onSigningPayment.amount.toLocaleString(),
                             currency: onSigningPayment.currency,
                             dueDate: onSigningPayment.dueDate,
-                            paymentsUrl: `${process.env.NEXTAUTH_URL || ""}/portal/projects/${provisionedProjectId}/payments`,
+                            paymentsUrl: `${getBaseUrl()}/portal/projects/${provisionedProjectId}/payments`,
                         });
                     }
                 }

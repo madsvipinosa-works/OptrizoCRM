@@ -1,8 +1,21 @@
 import { db } from "@/db";
 import { logSystemError } from "@/features/audit/error-logger";
 import { sendMail } from "@/lib/mailer";
-import { formatDate } from "@/lib/datetime";
+import { formatDate, formatWithZone } from "@/lib/datetime";
+import { users } from "@/db/schema";
+import { sql } from "drizzle-orm";
+
+/** The client's saved timezone, or null (then emails use Manila time). Never blocks an email. */
+async function timezoneForEmail(email: string): Promise<string | null> {
+    try {
+        const [row] = await db.select({ tz: users.timezone }).from(users).where(sql`lower(${users.email}) = ${email.toLowerCase()}`).limit(1);
+        return row?.tz ?? null;
+    } catch {
+        return null;
+    }
+}
 import {
+    getBaseUrl,
     buildInquiryReceivedEmail,
     buildMeetingCancelledEmail,
     buildMeetingInviteEmail,
@@ -99,7 +112,7 @@ export async function sendClientWelcomeEmail(clientData: {
     projectName: string;
 }) {
     try {
-        const portalUrl = process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/portal` : "http://localhost:3000/portal";
+        const portalUrl = `${getBaseUrl()}/portal`;
 
         const result = await sendMail({
             to: clientData.email,
@@ -246,7 +259,7 @@ export async function sendTaskBlockedEmail(clientEmails: string[], projectName: 
                         Please log in to your Client Portal to provide the necessary assets, feedback, or approval to unblock our team.
                     </p>
                     <div style="margin: 30px 0; text-align: center;">
-                        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/portal" style="background-color: #ef4444; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                        <a href="${getBaseUrl()}/portal" style="background-color: #ef4444; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
                             Unblock Task in Portal
                         </a>
                     </div>
@@ -273,8 +286,6 @@ export async function sendInquiryConfirmationEmail(data: {
     email: string;
     businessName: string;
     serviceName: string;
-    /** Public page of the service they picked, when they picked one from the list. */
-    serviceUrl?: string | null;
     /** Sales person's name, when one is already assigned. */
     contactName?: string | null;
 }) {
@@ -284,7 +295,6 @@ export async function sendInquiryConfirmationEmail(data: {
             clientName: data.clientName,
             businessName: data.businessName,
             serviceName: data.serviceName,
-            serviceUrl: data.serviceUrl,
             contactName: data.contactName,
         }),
         "inquiry confirmation",
@@ -293,15 +303,15 @@ export async function sendInquiryConfirmationEmail(data: {
 
 // Meeting invite (mockup 025-4a, spec step 4). Content lives in src/lib/email-templates.ts.
 export async function sendMeetingInviteEmail(data: Parameters<typeof buildMeetingInviteEmail>[0]) {
-    return sendClientEmail(data.email, buildMeetingInviteEmail(data), "meeting invite");
+    return sendClientEmail(data.email, buildMeetingInviteEmail({ timezone: await timezoneForEmail(data.email), ...data }), "meeting invite");
 }
 
 export async function sendMeetingRescheduledEmail(data: Parameters<typeof buildMeetingRescheduledEmail>[0]) {
-    return sendClientEmail(data.email, buildMeetingRescheduledEmail(data), "meeting rescheduled");
+    return sendClientEmail(data.email, buildMeetingRescheduledEmail({ timezone: await timezoneForEmail(data.email), ...data }), "meeting rescheduled");
 }
 
 export async function sendMeetingCancelledEmail(data: Parameters<typeof buildMeetingCancelledEmail>[0]) {
-    return sendClientEmail(data.email, buildMeetingCancelledEmail(data), "meeting cancelled");
+    return sendClientEmail(data.email, buildMeetingCancelledEmail({ timezone: await timezoneForEmail(data.email), ...data }), "meeting cancelled");
 }
 
 export async function sendProposalSentEmail(data: Parameters<typeof buildProposalSentEmail>[0] & { email: string }) {
@@ -333,9 +343,9 @@ export async function sendMeetingReminderEmail(data: {
     startsAt: Date;
 }) {
     try {
-        const formattedDate = formatManilaDateTime(data.startsAt);
+        const formattedDate = formatWithZone(data.startsAt, await timezoneForEmail(data.email));
 
-        const portalBaseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        const portalBaseUrl = getBaseUrl();
         const appointmentsUrl = `${portalBaseUrl}/portal/appointments`;
 
         const result = await sendMail({
