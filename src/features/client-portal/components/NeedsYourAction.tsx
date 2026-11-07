@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { formatWithZone } from "@/lib/datetime";
+import { meetingTypeLabel } from "@/lib/email-templates";
 
 const day = (d: Date | string) => new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 const money = (amount: number, currency: string) => (currency === "PHP" ? `₱${amount.toLocaleString("en-PH")}` : `${currency} ${amount.toLocaleString("en-PH")}`);
@@ -8,14 +10,19 @@ type Item = { key: string; title: string; detail: string; href: string; action: 
 
 /**
  * Portal home "Needs your action" (mockup 089): one card for everything waiting on the client,
- * a proposal to sign, a payment due, and files Optrizo shared. Hidden when nothing waits.
+ * a proposal to sign, a meeting to confirm, a payment due, and files Optrizo shared. Hidden when nothing waits.
  */
 export function NeedsYourAction({
     proposals,
+    meetings,
+    timezone,
     payments,
     files,
 }: {
     proposals: { id: string; title: string; status: string; validUntil: Date | null }[];
+    meetings: { id: string; type: "discovery" | "budget_pricing" | "project_review" | "uat"; status: string; startsAt: Date }[];
+    /** The client's saved timezone, so meeting times read in their own time. */
+    timezone: string | null;
     payments: { id: string; projectId: string; label: string; amount: number; currency: string; status: string; dueDate: Date | null; project?: { title: string } | null }[];
     files: { id: string; title: string; projectId: string; createdAt: Date }[];
 }) {
@@ -31,6 +38,15 @@ export function NeedsYourAction({
                 action: "Sign now",
                 tone: "primary" as const,
             })),
+        // A meeting waits on the client to confirm; a confirmed one in the next 2 days is a heads-up.
+        ...meetings.map((m) => ({
+            key: `m-${m.id}`,
+            title: m.status === "awaiting_client" ? `Confirm your ${meetingTypeLabel(m.type)}` : `Coming up: ${meetingTypeLabel(m.type)}`,
+            detail: formatWithZone(m.startsAt, timezone),
+            href: "/portal/appointments",
+            action: m.status === "awaiting_client" ? "Respond" : "View",
+            tone: m.status === "awaiting_client" ? ("primary" as const) : ("link" as const),
+        })),
         ...payments.map((p) => ({
             key: `pay-${p.id}`,
             title: p.status === "proof_uploaded" ? `Payment proof sent: ${money(p.amount, p.currency)}` : `Payment due: ${money(p.amount, p.currency)}`,

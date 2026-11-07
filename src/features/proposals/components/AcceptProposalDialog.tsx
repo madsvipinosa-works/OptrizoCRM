@@ -171,6 +171,7 @@ export function AcceptProposalDialog({
                 toast.success(res.message);
                 onOpenChange(false);
                 router.refresh();
+                window.scrollTo({ top: 0, behavior: "smooth" });
             } else {
                 toast.error(res.message || "Failed to execute agreement.");
             }

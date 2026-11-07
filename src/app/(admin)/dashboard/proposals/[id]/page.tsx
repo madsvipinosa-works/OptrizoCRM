@@ -14,6 +14,7 @@ import type { ContractSettings } from "@/features/proposals/actions";
 import { PricingMeetingPanel } from "@/features/proposals/components/PricingMeetingPanel";
 import { BookPricingMeetingModal } from "@/features/meetings/components/BookPricingMeetingModal";
 import { PaperSigningForm } from "@/features/proposals/components/PaperSigningForm";
+import { SignedProposalSummary } from "@/features/proposals/components/SignedProposalSummary";
 import { ProposalThread } from "@/features/proposals/components/ProposalThread";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -171,11 +172,6 @@ export default async function StaffProposalViewPage({
 
     const settings = await getSiteSettings();
 
-    // Signed: the project was created from it; give the PM a way straight there (Sales cannot open projects).
-    const project =
-        isManager && proposal.status === "signed" && proposal.leadId
-            ? await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.leadId, proposal.leadId), columns: { id: true } })
-            : null;
 
     const documentData: ProposalDocumentData = {
         proposalCode: proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`,
@@ -214,6 +210,16 @@ export default async function StaffProposalViewPage({
         agencyFaviconUrl: settings?.faviconUrl || null,
     };
 
+    const isSigned = proposal.status === "signed";
+    const project = isSigned && proposal.leadId
+        ? await db.query.agencyProjects.findFirst({
+              where: eq(agencyProjects.leadId, proposal.leadId),
+              orderBy: (p, { desc }) => [desc(p.createdAt)],
+              columns: { id: true },
+          })
+        : null;
+    const firstPayment = [...proposal.paymentScheduleItems].sort((a, b) => a.sortOrder - b.sortOrder)[0] ?? null;
+
     const STATUS: Record<string, { label: string; tone: string }> = {
         draft: { label: "Draft", tone: "bg-muted text-muted-foreground" },
         sent: { label: "Sent", tone: "bg-stage-discovery/15 text-foreground" },
@@ -232,6 +238,29 @@ export default async function StaffProposalViewPage({
 
     return (
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
+            {/* Signed: the PM's signed view from main (SignedProposalSummary: details, PDF, next steps, Open project). */}
+            {isSigned && (
+                <SignedProposalSummary
+                    proposalId={proposal.id}
+                    proposalCode={proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`}
+                    version={proposal.version}
+                    businessName={proposal.lead?.businessName || proposal.lead?.contactName || "The client"}
+                    clientName={proposal.lead?.client?.name || proposal.lead?.contactName || "The client"}
+                    projectName={proposal.projectName}
+                    signedBy={proposal.acceptedByName || proposal.signerName || "The client"}
+                    signedAt={proposal.acceptedAt || proposal.signedAt}
+                    online={!!proposal.signatureData}
+                    total={proposal.total || 0}
+                    currency={proposal.currency}
+                    milestones={proposal.milestones}
+                    firstPayment={firstPayment ? { label: firstPayment.label, percent: firstPayment.percent } : null}
+                    projectId={project?.id ?? null}
+                    showNextSteps={isManager}
+                />
+            )}
+
+            {!isSigned && (
+            <>
             <Link
                 href="/dashboard/proposals"
                 className="inline-flex items-center gap-1 rounded-md text-sm text-muted-foreground outline-none underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
@@ -254,11 +283,6 @@ export default async function StaffProposalViewPage({
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {project && (
-                        <Button asChild className="font-semibold active:scale-[0.97]">
-                            <Link href={`/dashboard/pm/${project.id}`}>View project</Link>
-                        </Button>
-                    )}
                     <Button asChild variant="outline" className="bg-card active:scale-[0.97]">
                         <a href={`/api/proposals/${proposal.id}/pdf`} target="_blank" rel="noreferrer">
                             Download PDF
@@ -271,6 +295,8 @@ export default async function StaffProposalViewPage({
                     )}
                 </div>
             </header>
+            </>
+            )}
 
             {/* The client asked for changes: say so, and offer the next step right away (mockup 18d). */}
             {isManager && changesRequested && (

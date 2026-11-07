@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import React, { useState } from "react";
 import {
-    CheckCircle2,
     FileCheck,
     Loader2,
     Info,
@@ -20,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { formatDateTime } from "@/lib/datetime";
 import {
     Dialog,
     DialogContent,
@@ -102,13 +102,13 @@ interface Props {
         tax?: number;
     };
     isPreview?: boolean;
+    /** The project created from this proposal once it is signed. */
+    projectId?: string | null;
     canEditInStudio?: boolean;
     isCurrent?: boolean;
     isExpired?: boolean;
     whatChanged?: string[];
     messages?: ProposalMessageItem[];
-    /** The project created when this proposal was signed, for the View project link. */
-    projectId?: string | null;
     settings?: {
         logoUrl?: string | null;
         logoDarkUrl?: string | null;
@@ -122,12 +122,12 @@ export function ProposalClientView({
     parsedDeliverables,
     parsedPricing,
     isPreview = false,
+    projectId = null,
     canEditInStudio = false,
     isCurrent = true,
     isExpired = false,
     whatChanged = [],
     messages = [],
-    projectId = null,
     settings,
 }: Props) {
     const router = useRouter();
@@ -349,28 +349,25 @@ export function ProposalClientView({
             )}
 
             {/* Status Callout (Approved / Rejected) */}
+            {/* Signed: mockup 20, the confirmation the client lands on after signing */}
             {isApproved && (
-                <div className="no-print mx-auto max-w-[850px] space-y-3 rounded-xl border border-brand-deep/20 bg-brand-soft px-6 py-5 text-center">
-                    <div className="mx-auto grid size-10 place-items-center rounded-full bg-card text-brand-deep">
-                        <CheckCircle2 className="size-5" aria-hidden="true" />
-                    </div>
-                    {/* Mockup step 20 */}
-                    <h3 className="text-lg font-semibold tracking-tight text-foreground">Thank you. Your project has started.</h3>
-                    <p className="mx-auto max-w-md text-sm text-foreground/80">
-                        Signed by <strong className="font-semibold text-foreground">{proposal.acceptedByName || "you"}</strong>. Follow milestones, payments and files on
-                        your project page.
+                <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3.5 rounded-xl border border-border bg-card p-7 no-print">
+                    {proposal.acceptedAt && (
+                        <span className="self-start rounded-full bg-[var(--brand-soft)] px-3 py-0.5 text-sm font-semibold text-[var(--brand-deep)]">
+                            Signed {formatDateTime(proposal.acceptedAt)}
+                        </span>
+                    )}
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">Thank you. Your project has started.</h2>
+                    <p className="text-base text-muted-foreground">
+                        A copy of the signed proposal was emailed to you. You can follow every milestone from your portal.
                     </p>
-                    <div className="flex flex-wrap justify-center gap-2 pt-1">
-                        {projectId && (
-                            <Button asChild className="font-semibold active:scale-[0.97]">
-                                <Link href={`/portal/projects/${projectId}`}>View project</Link>
-                            </Button>
-                        )}
-                        <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="gap-1.5 bg-card active:scale-[0.97]">
-                            {isDownloadingPdf ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Printer className="size-4" aria-hidden="true" />}
-                            Download signed proposal (PDF)
-                        </Button>
-                    </div>
+                    <Button asChild className="h-12 w-full rounded-lg text-base font-semibold">
+                        <Link href={projectId ? `/portal/projects/${projectId}` : "/portal/projects"}>View project progress</Link>
+                    </Button>
+                    <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="h-10 w-full rounded-lg">
+                        {isDownloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Printer className="mr-1 h-4 w-4" />}
+                        Download signed proposal (PDF)
+                    </Button>
                 </div>
             )}
 

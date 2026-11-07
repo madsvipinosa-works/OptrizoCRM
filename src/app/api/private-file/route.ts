@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
+import { get } from "@vercel/blob";
 import path from "path";
 import { authorizeProject, fileBelongsToProject, requireSession } from "@/lib/authz";
 
 // Authenticated file proxy for private Vercel Blob + local dev private uploads.
 // Every request must name a project the caller can read, and the file must belong to that project.
+
+const LOCAL_TYPES: Record<string, string> = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".pdf": "application/pdf",
+};
 
 const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
 
@@ -58,7 +68,7 @@ export async function GET(request: NextRequest) {
             const buffer = await fs.readFile(filePath);
             return new NextResponse(buffer, {
                 headers: {
-                    "Content-Type": "application/octet-stream",
+                    "Content-Type": LOCAL_TYPES[path.extname(safeName).toLowerCase()] ?? "application/octet-stream",
                     "X-Content-Type-Options": "nosniff",
                     "Cache-Control": "no-store",
                 },
@@ -80,22 +90,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Blob token not configured" }, { status: 500 });
         }
 
-        const response = await fetch(fileRef, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-            cache: "no-store",
-        });
-
-        if (!response.ok || !response.body) {
+        const result = await get(fileRef, { access: "private", token });
+        if (!result || result.statusCode !== 200) {
             return NextResponse.json({ error: "Not found" }, { status: 404 });
         }
 
-        const contentType = response.headers.get("content-type") || "application/octet-stream";
-
-        return new NextResponse(response.body, {
+        return new NextResponse(result.stream, {
             headers: {
-                "Content-Type": contentType,
+                "Content-Type": result.blob.contentType || "application/octet-stream",
                 "X-Content-Type-Options": "nosniff",
                 "Cache-Control": "no-store",
             },

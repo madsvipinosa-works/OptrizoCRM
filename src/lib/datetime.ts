@@ -85,6 +85,10 @@ export function isPastIn(ymd: string, hm: string | undefined, tz: string, now: D
 }
 export const isPastManila = (ymd: string, hm?: string, now: Date = new Date()) => isPastIn(ymd, hm, APP_TZ, now);
 
+/** "Nov 2026" */
+export const formatMonthYear = (v: DateInput, tz = APP_TZ) =>
+  fmt(tz, "my", { month: "short", year: "numeric" }).format(toDate(v));
+
 /** "HH:mm" to "10:00 AM", for time pickers that hold a plain string. */
 export function formatHm(hm: string): string {
   return formatTime(manilaToDate("2000-01-01", hm));

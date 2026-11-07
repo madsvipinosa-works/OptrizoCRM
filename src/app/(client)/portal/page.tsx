@@ -24,8 +24,8 @@ export default async function ClientPortalPage() {
         redirect("/dashboard");
     }
 
-    const [{ pendingProposals, activeProjects, duePayments, recentNotifications, newFiles }, requests] = await Promise.all([
-        getClientHome(session.user.id),
+    const [{ pendingProposals, upcomingMeetings, timezone, activeProjects, duePayments, recentNotifications, newFiles }, requests] = await Promise.all([
+        getClientHome(session.user.id, session.user.email),
         getClientRequests(session.user.id, session.user.email),
     ]);
 
@@ -41,7 +41,7 @@ export default async function ClientPortalPage() {
                 </p>
             </div>
 
-            <NeedsYourAction proposals={pendingProposals} payments={duePayments} files={newFiles} />
+            <NeedsYourAction proposals={pendingProposals} meetings={upcomingMeetings} timezone={timezone} payments={duePayments} files={newFiles} />
 
             <ClientRequests requests={requests} />
 

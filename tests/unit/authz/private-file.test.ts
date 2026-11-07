@@ -3,8 +3,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 vi.mock("@/auth", async () => (await import("../../helpers/mock-auth")).authModuleMock());
 vi.mock("@/db", async () => ({ db: (await import("../../helpers/mock-db")).createMockDb() }));
 vi.mock("fs/promises", () => ({ default: { readFile: vi.fn() } }));
+vi.mock("@vercel/blob", () => ({ get: vi.fn() }));
 
 import fs from "fs/promises";
+import { get as blobGet } from "@vercel/blob";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
@@ -39,23 +41,25 @@ beforeEach(() => {
   mockDb.resetMocks();
   signInAs(auth, null);
   vi.stubEnv("BLOB_READ_WRITE_TOKEN", "secret-blob-token");
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response("file-bytes", { status: 200, headers: { "content-type": "application/pdf" } })),
-  );
+  vi.mocked(blobGet).mockReset();
+  vi.mocked(blobGet).mockResolvedValue({
+    statusCode: 200,
+    stream: new Response("file-bytes").body!,
+    headers: new Headers(),
+    blob: { contentType: "application/pdf" },
+  } as never);
   vi.mocked(fs.readFile).mockReset();
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
 });
 
 describe("/api/private-file access checks", () => {
   it("returns 401 with no session", async () => {
     const res = await get({ blobUrl: blob, projectId: "p1" });
     expect(res.status).toBe(401);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
   });
 
   it("returns 400 when no file is named", async () => {
@@ -67,7 +71,7 @@ describe("/api/private-file access checks", () => {
     signInAs(auth, role, "user-1");
     const res = await get({ blobUrl: blob });
     expect(res.status).toBe(400);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
     expect(fs.readFile).not.toHaveBeenCalled();
   });
 
@@ -76,7 +80,7 @@ describe("/api/private-file access checks", () => {
     projectHasFile(blob);
     const res = await get({ blobUrl: blob, projectId: "p1" });
     expect(res.status).toBe(403);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
   });
 
   it("returns 403 for a developer with no task in the project", async () => {
@@ -84,7 +88,7 @@ describe("/api/private-file access checks", () => {
     projectHasFile(blob);
     mockDb.setSelectRows([]);
     expect((await get({ blobUrl: blob, projectId: "p1" })).status).toBe(403);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
   });
 
   it("returns 403 for a client who is not on the project", async () => {
@@ -93,7 +97,7 @@ describe("/api/private-file access checks", () => {
     mockDb.query.projectStakeholders.findFirst.mockResolvedValue(undefined);
     mockDb.query.leads.findFirst.mockResolvedValue(undefined);
     expect((await get({ blobUrl: blob, projectId: "p1" })).status).toBe(403);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
   });
 
   it("returns 403 when the file belongs to a different project than the one named", async () => {
@@ -102,7 +106,7 @@ describe("/api/private-file access checks", () => {
     projectHasFile("https://abc123.public.blob.vercel-storage.com/tenants/u2/other-clients-file.pdf");
     const res = await get({ blobUrl: blob, projectId: "p1" });
     expect(res.status).toBe(403);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
   });
 
   it("returns 403 for a local path traversal that is not one of the project's files", async () => {
@@ -122,7 +126,7 @@ describe("/api/private-file serving", () => {
     projectHasFile(evil);
     const res = await get({ blobUrl: evil, projectId: "p1" });
     expect(res.status).toBe(400);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
   });
 
   it("rejects a look-alike host that only ends with the blob domain as a prefix", async () => {
@@ -130,7 +134,7 @@ describe("/api/private-file serving", () => {
     const lookalike = "https://blob.vercel-storage.com.evil.example/x.pdf";
     projectHasFile(lookalike);
     expect((await get({ blobUrl: lookalike, projectId: "p1" })).status).toBe(400);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(blobGet).not.toHaveBeenCalled();
   });
 
   it("serves a project file from Vercel Blob to the client on the project, with the token", async () => {
@@ -140,10 +144,8 @@ describe("/api/private-file serving", () => {
     const res = await get({ blobUrl: blob, projectId: "p1" });
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("file-bytes");
-    expect(fetch).toHaveBeenCalledTimes(1);
-    const [calledUrl, init] = vi.mocked(fetch).mock.calls[0];
-    expect(calledUrl).toBe(blob);
-    expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer secret-blob-token");
+    expect(blobGet).toHaveBeenCalledTimes(1);
+    expect(blobGet).toHaveBeenCalledWith(blob, { access: "private", token: "secret-blob-token" });
   });
 
   it("serves a local upload that belongs to the project to the manager", async () => {
