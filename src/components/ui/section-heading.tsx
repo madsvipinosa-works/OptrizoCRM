@@ -1,6 +1,3 @@
-"use client";
-
-import { TypewriterEffect } from "@/components/ui/typewriter-effect";
 import { cn } from "@/lib/utils";
 
 interface SectionHeadingProps {
@@ -8,18 +5,7 @@ interface SectionHeadingProps {
     className?: string;
 }
 
+/** A real h2 for public page sections. The section around it already fades up on scroll (ScrollReveal). */
 export function SectionHeading({ text, className }: SectionHeadingProps) {
-    const words = text.split(" ").map((word) => ({
-        text: word,
-        className: "text-foreground dark:text-white",
-    }));
-
-    return (
-        <TypewriterEffect
-            words={words}
-            className={cn("font-bold text-center justify-center", className)}
-            cursorClassName="hidden"
-            speed={0.04}
-        />
-    );
+    return <h2 className={cn("text-center font-semibold tracking-tight text-foreground [text-wrap:balance]", className)}>{text}</h2>;
 }
