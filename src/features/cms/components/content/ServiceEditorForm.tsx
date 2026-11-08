@@ -28,10 +28,11 @@ export type ServiceFormValues = {
     isPreset: boolean;
 };
 
+// Shown only near the limit, so a fresh form is not covered in "0 / 40".
 function Counter({ value, max }: { value: string; max: number }) {
-    const over = value.length > max;
+    if (value.length < max * 0.8) return null;
     return (
-        <span className={`text-sm tabular-nums ${over ? "text-destructive" : "text-muted-foreground"}`}>
+        <span className={`text-sm tabular-nums ${value.length > max ? "text-destructive" : "text-muted-foreground"}`}>
             {value.length} / {max}
         </span>
     );
@@ -103,7 +104,7 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
         >
             <div className="min-w-0">
                 <div className={`${sheet} ${formFields}`}>
-                    <FormSection title="Basics" description="The name and line visitors see on the service card and in the inquiry form.">
+                    <FormSection title="Basics">
                         <div className="grid gap-x-4 gap-y-5 sm:grid-cols-[minmax(0,1fr)_9rem]">
                             <div className="space-y-2">
                                 <div className="flex items-baseline justify-between">
@@ -116,7 +117,6 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
                             <div className="space-y-2">
                                 <div className="flex items-baseline justify-between">
                                     <Label htmlFor="service-order">Order</Label>
-                                    <span className="text-sm text-muted-foreground">Lower is first</span>
                                 </div>
                                 <Input id="service-order" type="number" min={0} max={9999} className="tabular-nums" value={order} onChange={(e) => setOrder(e.target.value)} />
                                 {err("order")}
@@ -132,7 +132,7 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
                         </div>
                     </FormSection>
 
-                    <FormSection title="What's included" description={`One item per line, up to ${LIMITS.service.inclusionItems}. Shown as a bullet list.`}>
+                    <FormSection title="What's included" description={`One item per line, up to ${LIMITS.service.inclusionItems}.`}>
                         <div className="space-y-2">
                             <Label htmlFor="service-inclusions" className="sr-only">{"What's included"}</Label>
                             <Textarea id="service-inclusions" rows={5} value={inclusions} onChange={(e) => setInclusions(e.target.value)} placeholder={"Domain registration or transfer\nHosting setup and SSL"} />
@@ -140,7 +140,7 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
                         </div>
                     </FormSection>
 
-                    <FormSection title="Image" description="Shown at the top of the service card.">
+                    <FormSection title="Image">
                         <ContentImageField label="Image" labelHidden value={images} onChange={setImages} max={1} error={fieldError("image")} />
                     </FormSection>
 
@@ -189,7 +189,7 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
             {/* Taste §8.2 "show what the setting produces": the card and the inquiry list, live. */}
             <aside aria-label="Live preview" className="space-y-5 lg:sticky lg:top-6">
                 <section className="space-y-2">
-                    <h2 className="text-sm text-muted-foreground">Preview · Services page</h2>
+                    <h2 className="text-sm text-muted-foreground">Preview</h2>
                     <div className={`${sheet} overflow-hidden`}>
                         <div className="relative aspect-[16/9] bg-muted">
                             {images[0] && (
@@ -218,21 +218,16 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
                     {!showOnServicesPage && <p className="text-sm text-muted-foreground">Hidden from the Services page.</p>}
                 </section>
 
-                <section className="space-y-2">
-                    <h2 className="text-sm text-muted-foreground">Preview · Inquiry form list</h2>
-                    <ul className={`${sheet} p-2 text-sm text-foreground`}>
-                        {inquiryList.map((name) => (
-                            <li key={name} className="rounded-md px-2.5 py-1.5">{name}</li>
-                        ))}
-                        {showInInquiry && (
-                            <li className="rounded-md bg-brand-soft px-2.5 py-1.5 font-medium text-brand-deep">
-                                {title.trim() || "This service"}
-                                {!service || service.status === "draft" ? " (new)" : ""}
-                            </li>
-                        )}
-                        <li className="rounded-md px-2.5 py-1.5 text-muted-foreground">Other</li>
-                    </ul>
-                </section>
+                <p className="text-sm text-muted-foreground">
+                    {showInInquiry ? (
+                        <>
+                            Shows in the inquiry form as <span className="font-medium text-foreground">&ldquo;{title.trim() || "Service name"}&rdquo;</span>
+                            {inquiryList.length > 0 && `, after ${inquiryList.length} other service${inquiryList.length === 1 ? "" : "s"}`}.
+                        </>
+                    ) : (
+                        "Not in the inquiry form."
+                    )}
+                </p>
             </aside>
         </form>
     );

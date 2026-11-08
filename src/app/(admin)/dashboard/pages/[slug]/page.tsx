@@ -1,5 +1,3 @@
-import { ArrowUpRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { CmsPageHeader } from "@/features/cms/components/content/cms-ui";
 import { PageTabs } from "@/features/cms/components/content/PageTabs";
 import { notFound } from "next/navigation";
@@ -97,13 +95,6 @@ export default async function PageEditorPage({ params }: Props) {
                 <CmsPageHeader
                     title="Pages"
                     description="Fixed pages. You edit the text and details, not the layout."
-                    actions={
-                        <Button asChild variant="outline" className="h-9 gap-1.5 bg-card active:scale-[0.97]">
-                            <a href={slug === "home" ? "/" : `/${slug}`} target="_blank" rel="noopener noreferrer">
-                                View live page <ArrowUpRight className="size-4" aria-hidden="true" />
-                            </a>
-                        </Button>
-                    }
                 />
                 <PageTabs tabs={PAGE_SLUGS.map((tab) => ({ slug: tab, label: TAB_LABELS[tab] }))} active={slug} />
             </div>

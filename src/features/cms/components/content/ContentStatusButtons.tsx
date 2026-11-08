@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { hideService, publishService, unhideService } from "@/features/cms/content/services.actions";
@@ -40,14 +41,24 @@ type Props = {
     status: Status;
 };
 
+// Errors fixed in the editor get a short line and a link there, instead of a long sentence in a narrow row.
+const FIX_IN_EDITOR: Record<string, string> = {
+    SERVICE_REQUIRED: "Pick a service first.",
+    SERVICE_NOT_FOUND: "Its service was removed.",
+    CONSENT_REQUIRED: "The client's real name is missing.",
+    VALIDATION_ERROR: "Some fields need fixing.",
+};
+
 /** Publish (draft), Hide (published) or Unhide (hidden). Buttons only, never a status dropdown. */
 export function ContentStatusButtons({ kind, id, status }: Props) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
+    const [errorCode, setErrorCode] = useState<string | null>(null);
 
     function run(action: "publish" | "hide" | "unhide") {
         setError(null);
+        setErrorCode(null);
         startTransition(async () => {
             const result =
                 kind === "service"
@@ -55,6 +66,7 @@ export function ContentStatusButtons({ kind, id, status }: Props) {
                     : await (action === "publish" ? publishPortfolio(id) : action === "hide" ? hidePortfolio(id) : unhidePortfolio(id));
             if ("error" in result) {
                 setError(contentErrorMessage(result.error));
+                setErrorCode(result.error);
                 return;
             }
             router.refresh();
@@ -80,7 +92,16 @@ export function ContentStatusButtons({ kind, id, status }: Props) {
             )}
             {error && (
                 <p role="alert" className="max-w-xs text-right text-sm text-destructive">
-                    {error}
+                    {errorCode && FIX_IN_EDITOR[errorCode] ? (
+                        <>
+                            {FIX_IN_EDITOR[errorCode]}{" "}
+                            <Link href={`/dashboard/${kind === "service" ? "services" : "portfolio"}/${id}`} className="font-medium underline underline-offset-4">
+                                Open editor
+                            </Link>
+                        </>
+                    ) : (
+                        error
+                    )}
                 </p>
             )}
         </div>

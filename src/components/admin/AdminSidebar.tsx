@@ -29,6 +29,7 @@ import {
     ScrollText,
     Users,
     type LucideIcon,
+    ArrowUpRight,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,8 @@ interface NavItem {
     label: string;
     icon: LucideIcon;
     allowedRoles: string[];
+    /** Opens in a new tab and is never shown as the current page. */
+    external?: boolean;
 }
 
 interface NavGroup {
@@ -79,7 +82,7 @@ const navGroups: NavGroup[] = [
         title: "Operations & content",
         items: [
             { href: "/dashboard/pm", label: "Projects", icon: FolderKanban, allowedRoles: ["manager", "developer"] },
-            { href: "/dashboard/cms", label: "Content Home", icon: Monitor, allowedRoles: ["content_editor"] },
+            { href: "/dashboard/cms", label: "Website content", icon: Monitor, allowedRoles: ["content_editor"] },
             { href: "/dashboard/services", label: "Services", icon: Layers, allowedRoles: ["content_editor"] },
             { href: "/dashboard/portfolio", label: "Portfolio", icon: FolderGit2, allowedRoles: ["content_editor"] },
             { href: "/dashboard/pages", label: "Pages", icon: Files, allowedRoles: ["content_editor"] },
@@ -98,6 +101,8 @@ const navGroups: NavGroup[] = [
 /** Account-level utilities live in the footer, beside dark mode and log out. */
 const footerLinks: NavItem[] = [
     { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ["superadmin"] },
+    // Mockup C1: the public site, one click away from every content screen.
+    { href: "/", label: "View website", icon: ArrowUpRight, allowedRoles: ["content_editor"], external: true },
 ];
 
 /** Menus this short show as one list with no headings. */
@@ -288,12 +293,13 @@ export function AdminSidebar({
                     {footerLinks
                         .filter((item) => item.allowedRoles.includes(userRole))
                         .map((item) => {
-                            const active = isActive(item.href);
+                            const active = !item.external && isActive(item.href);
                             return (
                                 <RailTip key={item.href} label={item.label} enabled={rail}>
                                     <Link
                                         href={item.href}
                                         aria-current={active ? "page" : undefined}
+                                        {...(item.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                                         onClick={() => setOpen(false)}
                                         className={cn(rowBase, railRow, active ? "text-foreground" : rowIdle)}
                                     >
