@@ -473,14 +473,16 @@ Side effects: sets `status = 'Completed'`, `completedAt = now()`, `warrantyEndsA
 
 ### submitProjectFeedback  (step 31)
 Who can call: client (own project only)
-Input:  `{ projectId: string, data: { rating: number, comment?: string } }`
+Input:  `{ projectId: string, data: { rating: number, comment?: string, recommendScore?: number, improvement?: string } }` (`recommendScore` is a whole number 0–10, `improvement` max 2000 characters; both optional)
 Output: `{ success: boolean, error?: string, message?: string }`
 Errors:
 - `FORBIDDEN`: caller is not client or does not own project.
 - `NOT_COMPLETED`: project status is not `Completed`.
 - `INVALID_RATING`: rating not an integer between 1 and 5.
+- `INVALID_RECOMMEND`: `recommendScore` not a whole number from 0 to 10.
 - `ALREADY_SUBMITTED`: feedback already submitted by this client for this project.
-Side effects: inserts record into `projectFeedback`; notifies PM; audit log row.
+Side effects: inserts record into `projectFeedback`; notifies PM (link goes to the completion page, where the feedback card shows the answers); audit log row.
+Read access: the PM sees rating, recommend score and both texts on the completion page. Super Admin analytics show response count, average rating and average recommend score only (no names, no comments).
 
 ### signUpWithEmail  (step 31b)
 Who can call: public (unauthenticated)

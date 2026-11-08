@@ -6,6 +6,7 @@ import { db } from "@/db";
 import {
     agencyProjects,
     auditLogs,
+    projectFeedback,
     leads,
     meetings,
     milestones,
@@ -128,14 +129,19 @@ export async function getBusinessAnalytics(months: BusinessPeriod) {
     const start = subMonths(now, months);
     const prevStart = subMonths(start, months);
 
-    const [allLeads, allProposals, allMeetings, allPayments, allMilestones, allProjects] = await Promise.all([
+    const [allLeads, allProposals, allMeetings, allPayments, allMilestones, allProjects, allFeedback] = await Promise.all([
         db.select({ id: leads.id, status: leads.status, createdAt: leads.createdAt, stageChangedAt: leads.stageChangedAt, isArchived: leads.isArchived }).from(leads),
         db.select({ id: proposals.id, leadId: proposals.leadId, status: proposals.status, version: proposals.version, sentAt: proposals.sentAt, signedAt: proposals.signedAt }).from(proposals).where(isNull(proposals.deletedAt)),
         db.select({ leadId: meetings.leadId }).from(meetings).where(eq(meetings.status, "done")),
         db.select({ amount: payments.amount, currency: payments.currency, status: payments.status, receivedAt: payments.receivedAt, dueDate: payments.dueDate }).from(payments),
         db.select({ status: milestones.status, endDate: milestones.endDate, completedAt: milestones.completedAt }).from(milestones).where(isNull(milestones.deletedAt)),
         db.select({ status: agencyProjects.status, startDate: agencyProjects.startDate, createdAt: agencyProjects.createdAt, completedAt: agencyProjects.completedAt }).from(agencyProjects).where(isNull(agencyProjects.deletedAt)),
+        // Ratings only: no names, no comments (Super Admin sees totals).
+        db.select({ rating: projectFeedback.rating, recommendScore: projectFeedback.recommendScore, createdAt: projectFeedback.createdAt }).from(projectFeedback),
     ]);
+    const fbIn = allFeedback.filter((f) => inRange(f.createdAt, start, now));
+    const recs = fbIn.map((f) => f.recommendScore).filter((n): n is number => n !== null);
+    const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
 
     const leadsIn = (from: Date, to: Date) => allLeads.filter((l) => inRange(l.createdAt, from, to));
     const cur = leadsIn(start, now);
@@ -223,6 +229,7 @@ export async function getBusinessAnalytics(months: BusinessPeriod) {
             avgLengthMonths: lengthMonths,
             revisionsPerProposal: sentCur.length ? Math.round((revised / sentCur.length) * 10) / 10 : null,
             paidLate: { late, total: paidInPeriod.length },
+            feedback: { responses: fbIn.length, avgRating: avg(fbIn.map((f) => f.rating)), avgRecommend: avg(recs), recommendResponses: recs.length },
         },
     };
 }

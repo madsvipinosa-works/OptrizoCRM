@@ -196,6 +196,18 @@ describe("submitProjectFeedback", () => {
     expect(res.success).toBe(false);
     expect(res.error).toMatch(/comment cannot exceed 2000 characters/i);
   });
+
+  it("rejects a recommend score outside 0-10 and an over-long improvement answer", async () => {
+    signInAs(auth, "client", "client-1");
+    for (const recommendScore of [-1, 11, 7.5]) {
+      const res = await submitProjectFeedback("proj-1", { rating: 5, recommendScore });
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/0 to 10/);
+    }
+    const long = await submitProjectFeedback("proj-1", { rating: 5, improvement: "a".repeat(2001) });
+    expect(long.success).toBe(false);
+    expect(long.error).toMatch(/cannot exceed 2000/i);
+  });
 });
 
 describe("Completed project guards in pm actions", () => {

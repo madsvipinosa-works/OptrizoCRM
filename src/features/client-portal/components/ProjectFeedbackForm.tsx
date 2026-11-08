@@ -15,6 +15,8 @@ interface ProjectFeedbackFormProps {
     existingFeedback?: {
         rating: number;
         comment: string | null;
+        recommendScore?: number | null;
+        improvement?: string | null;
         createdAt: Date | string;
     } | null;
 }
@@ -24,6 +26,8 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
     const [rating, setRating] = useState<number>(existingFeedback?.rating ?? 5);
     const [hoverRating, setHoverRating] = useState<number | null>(null);
     const [comment, setComment] = useState<string>(existingFeedback?.comment ?? "");
+    const [recommend, setRecommend] = useState<number | null>(null);
+    const [improvement, setImprovement] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     if (existingFeedback) {
@@ -50,6 +54,14 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
                         &quot;{existingFeedback.comment}&quot;
                     </p>
                 )}
+                {existingFeedback.recommendScore != null && (
+                    <p className="text-xs text-muted-foreground">Would recommend Optrizo: {existingFeedback.recommendScore} / 10</p>
+                )}
+                {existingFeedback.improvement && (
+                    <p className="text-xs text-muted-foreground italic bg-background/50 p-3 rounded-lg border border-border">
+                        Could be better: &quot;{existingFeedback.improvement}&quot;
+                    </p>
+                )}
                 <div className="text-[11px] text-muted-foreground">
                     Submitted on {new Date(existingFeedback.createdAt).toLocaleDateString()}
                 </div>
@@ -74,6 +86,8 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
             const res = await submitProjectFeedback(projectId, {
                 rating,
                 comment: comment.trim() || undefined,
+                recommendScore: recommend ?? undefined,
+                improvement: improvement.trim() || undefined,
             });
 
             if (res.success) {
@@ -147,6 +161,32 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                 />
+            </div>
+
+            <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">How likely are you to recommend Optrizo? (Optional)</Label>
+                <div className="flex flex-wrap gap-1" role="group" aria-label="Recommend score from 0 to 10">
+                    {Array.from({ length: 11 }, (_, n) => (
+                        <button
+                            key={n}
+                            type="button"
+                            aria-pressed={recommend === n}
+                            onClick={() => setRecommend(recommend === n ? null : n)}
+                            className={cn(
+                                "h-8 w-8 rounded-md border text-xs font-semibold tabular-nums transition-colors",
+                                recommend === n ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
+                            )}
+                        >
+                            {n}
+                        </button>
+                    ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">0 = not at all likely, 10 = extremely likely</p>
+            </div>
+
+            <div className="space-y-1.5">
+                <Label htmlFor="improvement" className="text-xs font-semibold">What could we have done better? (Optional)</Label>
+                <Textarea id="improvement" rows={2} maxLength={2000} value={improvement} onChange={(e) => setImprovement(e.target.value)} />
             </div>
 
             <div className="flex justify-end pt-1">
