@@ -18,6 +18,8 @@ export async function submitProjectFeedback(
     data: {
         rating: number;
         comment?: string;
+        recommendScore?: number;
+        improvement?: string;
     }
 ): Promise<{ success: boolean; error?: string; message?: string }> {
     const session = await auth();
@@ -36,6 +38,15 @@ export async function submitProjectFeedback(
     if (data.comment && data.comment.length > 2000) {
         return { success: false, error: "Comment cannot exceed 2000 characters." };
     }
+
+    const score = data.recommendScore;
+    if (score !== undefined && (!Number.isInteger(score) || score < 0 || score > 10)) {
+        return { success: false, error: "Recommendation must be a whole number from 0 to 10." };
+    }
+    if (data.improvement && data.improvement.length > 2000) {
+        return { success: false, error: "Answer cannot exceed 2000 characters." };
+    }
+    const improvement = data.improvement?.trim() || null;
 
     const rating = data.rating;
     const comment = data.comment ? data.comment.trim() : null;
@@ -101,6 +112,8 @@ export async function submitProjectFeedback(
                 clientId: session.user.id,
                 rating,
                 comment,
+                recommendScore: score ?? null,
+                improvement,
             });
 
             return { success: true };
@@ -117,7 +130,7 @@ export async function submitProjectFeedback(
                     leadId,
                     `Client submitted feedback for "${projectTitle}" (Rating: ${rating}/5).`,
                     "feedback",
-                    `/dashboard/pm/${projectId}`
+                    `/dashboard/pm/${projectId}/complete`
                 );
             }
 

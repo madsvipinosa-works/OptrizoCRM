@@ -1141,10 +1141,13 @@ export const projectFeedback = pgTable("project_feedback", {
         .references(() => users.id, { onDelete: "set null" }),
     rating: integer("rating").notNull(),
     comment: text("comment"),
+    recommendScore: integer("recommend_score"), // optional, 0-10
+    improvement: text("improvement"), // optional "what could we have done better"
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
     uniqueIndex("idx_project_feedback_one").on(t.projectId, t.clientId),
     check("project_feedback_rating_range", sql`"rating" >= 1 AND "rating" <= 5`),
+    check("project_feedback_recommend_range", sql`"recommend_score" IS NULL OR ("recommend_score" >= 0 AND "recommend_score" <= 10)`),
 ]);
 
 // 15. Payments

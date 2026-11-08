@@ -3,6 +3,7 @@ import { agencyProjects, document, milestones, payments } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
+import { FeedbackCard } from "@/features/pm/components/FeedbackCard";
 import { acceptanceState, canAssumeAcceptance } from "@/features/pm/acceptance-state";
 import { CompletionPanel, CompletionGateData, HandoverDoc } from "@/features/pm/components/CompletionPanel";
 
@@ -73,6 +74,11 @@ export default async function PmProjectCompletePage({
         createdAt: d.createdAt,
     }));
 
+    const feedback = await db.query.projectFeedback.findFirst({
+        where: (f, { eq }) => eq(f.projectId, id),
+        columns: { rating: true, comment: true, recommendScore: true, improvement: true, createdAt: true },
+    });
+
     const gateData: CompletionGateData = {
         projectId: project.id,
         projectTitle: project.title,
@@ -99,6 +105,8 @@ export default async function PmProjectCompletePage({
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
 
             <CompletionPanel data={gateData} />
+
+            <FeedbackCard feedback={feedback ?? null} completed={project.status === "Completed"} />
         </div>
     );
 }

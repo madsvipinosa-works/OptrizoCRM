@@ -167,6 +167,9 @@ export async function BusinessAnalytics({ months }: { months: BusinessPeriod }) 
                             extra={d.delivery.paidLate.total ? share({ done: d.delivery.paidLate.late, total: d.delivery.paidLate.total }) : undefined}
                             extraTone={d.delivery.paidLate.late > 0 ? "bad" : "good"}
                         />
+                        <MetricRow label="Client feedback responses" value={d.delivery.feedback.responses} />
+                        <MetricRow label="Average client rating" value={d.delivery.feedback.avgRating === null ? "No data" : `${d.delivery.feedback.avgRating} / 5`} />
+                        <MetricRow label="Average recommend score" value={d.delivery.feedback.avgRecommend === null ? "No data" : `${d.delivery.feedback.avgRecommend} / 10 (${d.delivery.feedback.recommendResponses} answers)`} />
                     </dl>
                 </Panel>
             </div>
