@@ -18,7 +18,7 @@ export function ProofPreview({ url, label = "View proof", title = "Payment proof
 
     return (
         <>
-            <Button variant="ghost" size="sm" className="h-8 text-xs text-primary" onClick={() => { setBroken(false); setOpen(true); }}>
+            <Button variant="ghost" size="sm" className="h-8 text-xs text-brand-deep" onClick={() => { setBroken(false); setOpen(true); }}>
                 <FileText className="size-3.5" aria-hidden="true" /> {label}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>

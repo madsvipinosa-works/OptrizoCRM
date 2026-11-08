@@ -188,7 +188,7 @@ export default async function KanbanBoardPage(props: {
     };
 
     return (
-        <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col space-y-4 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)]">
+        <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col space-y-4 pb-12">
             <ProjectHeader
                 projectId={project.id}
                 title={project.title}
@@ -232,7 +232,7 @@ export default async function KanbanBoardPage(props: {
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="flex flex-col">
                     <KanbanBoard
                         project={boardProject as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
                         teamMembers={teamMemberOptions as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}

@@ -85,7 +85,7 @@ export function ClientPaymentsList({
         <div className="space-y-4">
             <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-border">
+                    <thead className="bg-muted/50 text-xs text-muted-foreground border-b border-border">
                         <tr>
                             <th className="px-4 py-3 font-semibold">Payment Stage</th>
                             <th className="px-4 py-3 font-semibold">Amount</th>
@@ -114,7 +114,7 @@ export function ClientPaymentsList({
                                         <td className="px-4 py-3.5">
                                             <div className="font-medium text-foreground">{p.label}</div>
                                         </td>
-                                        <td className="px-4 py-3.5 font-mono font-medium text-foreground">
+                                        <td className="px-4 py-3.5 tabular-nums font-medium text-foreground">
                                             {p.currency} {p.amount.toLocaleString()}
                                         </td>
                                         <td className="px-4 py-3.5 text-xs">
@@ -133,17 +133,17 @@ export function ClientPaymentsList({
                                         </td>
                                         <td className="px-4 py-3.5">
                                             {p.status === "paid" && (
-                                                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 w-fit">
+                                                <Badge className="bg-brand-soft text-brand-deep border-brand-deep/30 flex items-center gap-1 w-fit">
                                                     <CheckCircle2 className="w-3 h-3" /> Paid
                                                 </Badge>
                                             )}
                                             {p.status === "proof_uploaded" && (
-                                                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 flex items-center gap-1 w-fit">
+                                                <Badge className="bg-stage-new/10 text-stage-new border-stage-new/30 flex items-center gap-1 w-fit">
                                                     <Clock className="w-3 h-3" /> Under Review
                                                 </Badge>
                                             )}
                                             {p.status === "due" && (
-                                                <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 w-fit">
+                                                <Badge className="bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30 flex items-center gap-1 w-fit">
                                                     <AlertCircle className="w-3 h-3" /> Payment Due
                                                 </Badge>
                                             )}
@@ -156,10 +156,10 @@ export function ClientPaymentsList({
                                         <td className="px-4 py-3.5 text-xs">
                                             {p.status === "paid" ? (
                                                 <div className="space-y-0.5">
-                                                    <div className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                                                    <div className="tabular-nums font-semibold text-brand-deep">
                                                         OR #{p.orNumber}
                                                     </div>
-                                                    <div className="text-muted-foreground text-[11px]">
+                                                    <div className="text-muted-foreground text-xs">
                                                         {p.confirmedAt ? new Date(p.confirmedAt).toLocaleDateString() : ""}
                                                     </div>
                                                 </div>

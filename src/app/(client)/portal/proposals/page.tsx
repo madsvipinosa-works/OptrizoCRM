@@ -66,7 +66,7 @@ export default async function ClientProposalsPage() {
             ) : (
                 <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-border">
+                        <thead className="bg-muted/50 text-xs text-muted-foreground border-b border-border">
                             <tr>
                                 <th className="px-4 py-3 font-semibold">Proposal / Code</th>
                                 <th className="px-4 py-3 font-semibold">Total Price</th>
@@ -101,9 +101,9 @@ export default async function ClientProposalsPage() {
                                                 variant="outline"
                                                 className={
                                                     p.status === "signed"
-                                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs"
+                                                        ? "border-brand-deep/30 text-brand-deep bg-brand-soft text-xs"
                                                         : isActionRequired
-                                                        ? "border-primary/30 text-primary bg-primary/10 text-xs"
+                                                        ? "border-primary/30 text-brand-deep bg-primary/10 text-xs"
                                                         : "text-muted-foreground text-xs"
                                                 }
                                             >
@@ -112,7 +112,7 @@ export default async function ClientProposalsPage() {
                                         </td>
                                         <td className="px-4 py-3.5 text-right space-x-2">
                                             {p.signedFileUrl && (
-                                                <Button variant="ghost" size="sm" asChild className="h-8 text-xs text-primary">
+                                                <Button variant="ghost" size="sm" asChild className="h-8 text-xs text-brand-deep">
                                                     <a
                                                         href={p.signedFileUrl}
                                                         target="_blank"

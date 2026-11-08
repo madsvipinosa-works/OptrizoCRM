@@ -301,7 +301,7 @@ export function ProposalClientView({
 
             {/* Staff Preview Banner */}
             {isPreview && (
-                <div className="bg-sky-500/10 border border-sky-500/20 rounded-lg p-3 text-center text-xs text-sky-400 font-mono no-print flex items-center justify-center gap-2">
+                <div className="bg-stage-new/10 border border-stage-new/30 rounded-lg p-3 text-center text-xs text-stage-new tabular-nums no-print flex items-center justify-center gap-2">
                     <Info className="h-4 w-4 shrink-0" />
                     <span>
                         <strong>Staff Preview Mode:</strong> You are viewing this document with administrative privileges.
@@ -313,7 +313,7 @@ export function ProposalClientView({
             {proposal.fileUrl && (
                 <div className="bg-muted/40 border border-border/80 rounded-xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 no-print">
                     <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+                        <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center text-brand-deep shrink-0">
                             <FileCheck className="h-6 w-6" />
                         </div>
                         <div>
@@ -336,7 +336,7 @@ export function ProposalClientView({
                 <div className="max-w-[850px] mx-auto bg-destructive/10 border border-destructive/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print flex items-start gap-3">
                     <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                     <div className="space-y-1">
-                        <h4 className="font-bold text-destructive text-sm">Proposal Expired</h4>
+                        <h4 className="font-semibold text-destructive text-sm">Proposal Expired</h4>
                         <p className="text-muted-foreground">
                             The validity period for this proposal has lapsed. Please reach out to your Project Manager for an updated proposal.
                         </p>
@@ -346,8 +346,8 @@ export function ProposalClientView({
 
             {/* What Changed Banner for Revised Versions */}
             {whatChanged && whatChanged.length > 0 && (
-                <div className="max-w-[850px] mx-auto bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print space-y-2">
-                    <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
+                <div className="max-w-[850px] mx-auto bg-stage-negotiation/10 border border-stage-negotiation/30 rounded-xl p-4 md:p-5 text-xs text-foreground no-print space-y-2">
+                    <div className="flex items-center gap-2 font-semibold text-stage-negotiation">
                         <Info className="h-4 w-4 shrink-0" />
                         <span>Updates in this Revised Version (v{proposal.version || 2})</span>
                     </div>
@@ -356,7 +356,7 @@ export function ProposalClientView({
                     </p>
                     <div className="flex flex-wrap gap-2 pt-1">
                         {whatChanged.map((section) => (
-                            <Badge key={section} variant="secondary" className="bg-amber-500/20 text-foreground border-amber-500/30 font-medium">
+                            <Badge key={section} variant="secondary" className="bg-stage-negotiation/20 text-foreground border-stage-negotiation/30 font-medium">
                                 {section}
                             </Badge>
                         ))}
@@ -381,7 +381,7 @@ export function ProposalClientView({
                     <div className="mx-auto h-10 w-10 bg-destructive/20 rounded-full flex items-center justify-center text-destructive">
                         <XCircle className="h-5 w-5" />
                     </div>
-                    <h3 className="text-lg font-bold text-destructive">Proposal Declined</h3>
+                    <h3 className="text-lg font-semibold text-destructive">Proposal Declined</h3>
                     <p className="text-xs text-muted-foreground max-w-md mx-auto">
                         This proposal was declined. Our agency team has been notified to follow up regarding revisions.
                     </p>
@@ -390,12 +390,12 @@ export function ProposalClientView({
 
             {/* Floating Action Bar (Pill Container) */}
             {!isApproved && !isRejected && (
-                <div className="floating-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-background/90 backdrop-blur-md border border-border shadow-2xl rounded-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 sm:gap-6 no-print w-[92%] sm:w-auto max-w-xl">
+                <div className="floating-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-background/90 border border-border rounded-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 sm:gap-6 no-print w-[92%] sm:w-auto max-w-xl">
                     <div className="hidden sm:block text-left">
-                        <div className="text-[10px] uppercase font-mono text-muted-foreground tracking-wider">
+                        <div className="text-xs tabular-nums text-muted-foreground ">
                             Total Investment
                         </div>
-                        <div className="text-base font-bold font-mono text-primary leading-tight">
+                        <div className="text-base font-semibold tabular-nums text-brand-deep leading-tight">
                             {currencyFormatter.format(grandTotal)}
                         </div>
                     </div>
@@ -426,7 +426,7 @@ export function ProposalClientView({
                                         Decline
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="glass-card border-border text-foreground">
+                                <DialogContent className="bg-card border-border text-foreground">
                                     <DialogHeader>
                                         <DialogTitle>Decline Proposal</DialogTitle>
                                         <DialogDescription className="text-xs text-muted-foreground">
@@ -465,7 +465,7 @@ export function ProposalClientView({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsRequestChangesOpen(true)}
-                                className="h-9 px-3 text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                className="h-9 px-3 text-xs border-stage-negotiation/30 text-stage-negotiation hover:bg-stage-negotiation/10"
                             >
                                 Request Changes
                             </Button>
@@ -485,7 +485,7 @@ export function ProposalClientView({
                                 proposal.status === "pricing_meeting_requested" ? (
                                     <Badge
                                         variant="outline"
-                                        className="h-9 px-3 text-xs bg-amber-500/10 text-amber-500 border-amber-500/20 flex items-center gap-1.5"
+                                        className="h-9 px-3 text-xs bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30 flex items-center gap-1.5"
                                     >
                                         <Calendar className="h-3.5 w-3.5" />
                                         Meeting Requested
@@ -495,7 +495,7 @@ export function ProposalClientView({
                                         size="sm"
                                         onClick={handleRequestPricingMeeting}
                                         disabled={isRequestingPricing}
-                                        className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
+                                        className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-primary/20 flex items-center gap-1.5"
                                     >
                                         {isRequestingPricing ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -509,7 +509,7 @@ export function ProposalClientView({
                                 <Button
                                     size="sm"
                                     onClick={() => setIsAcceptDialogOpen(true)}
-                                    className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-lg shadow-primary/20 flex items-center gap-1.5"
+                                    className="h-9 px-4 sm:px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-primary/20 flex items-center gap-1.5"
                                 >
                                     <CheckSquare className="h-4 w-4" />
                                     Accept & Sign

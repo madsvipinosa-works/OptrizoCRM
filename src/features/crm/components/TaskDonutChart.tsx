@@ -17,11 +17,11 @@ const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const item = payload[0];
         return (
-            <div className="bg-card/95 border border-border p-2.5 rounded-xl shadow-2xl backdrop-blur-md text-xs text-foreground">
+            <div className="bg-card/95 border border-border p-2.5 rounded-xl text-xs text-foreground">
                 <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.payload.fill }} />
                     <span className="font-semibold text-foreground">{item.name}:</span>
-                    <span className="font-bold font-mono text-primary">{item.value} tasks</span>
+                    <span className="font-semibold tabular-nums text-brand-deep">{item.value} tasks</span>
                 </div>
             </div>
         );
@@ -33,10 +33,10 @@ export function TaskDonutChart({ data }: TaskDonutChartProps) {
     const totalTasks = data.reduce((acc, curr) => acc + curr.value, 0);
 
     return (
-        <Card className="glass-card border-border shadow-xs relative overflow-hidden flex flex-col justify-between">
+        <Card className="bg-card border-border shadow-xs relative overflow-hidden flex flex-col justify-between">
             <CardHeader className="pb-2 border-b border-border/50">
                 <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-                    <PieChartIcon className="w-4 h-4 text-primary" />
+                    <PieChartIcon className="w-4 h-4 text-brand-deep" />
                     Task Delivery Load
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
@@ -66,8 +66,8 @@ export function TaskDonutChart({ data }: TaskDonutChartProps) {
                     </ResponsiveContainer>
                     {/* Centered label */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-2xl font-bold font-mono text-foreground">{totalTasks}</span>
-                        <span className="text-[10px] uppercase font-mono font-medium text-muted-foreground tracking-wider">Total Tasks</span>
+                        <span className="text-2xl font-semibold tabular-nums text-foreground">{totalTasks}</span>
+                        <span className="text-xs tabular-nums font-medium text-muted-foreground ">Total Tasks</span>
                     </div>
                 </div>
 
@@ -77,9 +77,9 @@ export function TaskDonutChart({ data }: TaskDonutChartProps) {
                         <div key={item.name} className="flex items-center justify-between p-1.5 rounded-lg bg-muted/40 border border-border/40">
                             <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }} />
-                                <span className="text-foreground font-medium text-[11px]">{item.name}</span>
+                                <span className="text-foreground font-medium text-xs">{item.name}</span>
                             </div>
-                            <span className="font-mono font-semibold text-foreground text-[11px]">{item.value}</span>
+                            <span className="tabular-nums font-semibold text-foreground text-xs">{item.value}</span>
                         </div>
                     ))}
                 </div>

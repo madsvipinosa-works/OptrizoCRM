@@ -71,6 +71,8 @@ interface PmKanbanBoardProps {
     onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
     isViewOnly?: boolean;
+    /** Mockup 27: this card shows "Approved just now". */
+    recentlyApprovedId?: string | null;
     /** PM only. New tasks always start in To do, so that is where Add task lives (Trello's "Add a card"). */
     onAddTask?: () => void;
 }
@@ -141,6 +143,7 @@ export function PmKanbanBoard({
     onClickTask,
     isViewOnly = false,
     onAddTask,
+    recentlyApprovedId,
 }: PmKanbanBoardProps) {
     const [selectedMobileColumn, setSelectedMobileColumn] = useState<"to_do" | "in_progress" | "in_review" | "done">("to_do");
     const boardScrollRef = React.useRef<HTMLDivElement>(null);
@@ -181,7 +184,7 @@ export function PmKanbanBoard({
     };
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden">
+        <div className="flex w-full flex-col">
             {/* Quick Switch Tab Bar on Mobile */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 lg:hidden scrollbar-none px-1 shrink-0">
                 {COLUMNS.map((col) => {
@@ -225,7 +228,7 @@ export function PmKanbanBoard({
             <div
                 ref={boardScrollRef}
                 onScroll={handleBoardScroll}
-                className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden pb-2 scrollbar-none snap-x snap-mandatory lg:snap-none"
+                className="w-full overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory lg:snap-none lg:overflow-visible"
             >
                 <div className="flex lg:grid lg:grid-cols-4 gap-3 items-stretch w-full min-w-0 h-full">
                     {COLUMNS.map((col) => {
@@ -253,6 +256,7 @@ export function PmKanbanBoard({
                                 onClickTask={onClickTask}
                                 isViewOnly={isViewOnly}
                                 onAddTask={col.id === "to_do" ? onAddTask : undefined}
+                                recentlyApprovedId={recentlyApprovedId}
                             />
                         );
                     })}
@@ -276,8 +280,10 @@ function PmKanbanColumn({
     onClickTask,
     isViewOnly,
     onAddTask,
+    recentlyApprovedId,
 }: {
     onAddTask?: () => void;
+    recentlyApprovedId?: string | null;
     column: {
         id: "to_do" | "in_progress" | "in_review" | "done";
         title: string;
@@ -316,7 +322,7 @@ function PmKanbanColumn({
             </div>
 
             {/* Cards List */}
-            <div className="flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-21rem)] sm:max-h-[calc(100vh-17rem)] pr-1 scrollbar-thin">
+            <div className="flex flex-col gap-2">
                 {tasks.length === 0 ? (
                     <p className="px-0.5 pt-1 text-sm text-muted-foreground">{column.empty}</p>
                 ) : (
@@ -334,6 +340,7 @@ function PmKanbanColumn({
                             onDeleteTask={onDeleteTask}
                             onClickTask={onClickTask}
                             isViewOnly={isViewOnly}
+                            justApproved={task.id === recentlyApprovedId}
                         />
                     ))
                 )}
@@ -362,7 +369,9 @@ function TaskCard({
     onDeleteTask,
     onClickTask,
     isViewOnly,
+    justApproved,
 }: {
+    justApproved?: boolean;
     task: PmTask;
     allTasks: PmTask[];
     currentUserId?: string;
@@ -513,6 +522,10 @@ function TaskCard({
                     <span className="text-muted-foreground">Unassigned</span>
                 )}
             </div>
+
+            {justApproved && normStatus === "done" && (
+                <span className="w-fit rounded-full bg-brand-soft px-2.5 py-0.5 text-sm font-semibold text-brand-deep">Approved just now</span>
+            )}
 
             {/* One action per card (mockup 22). Request changes is in the task drawer, where the comment goes. */}
             {!isViewOnly && (

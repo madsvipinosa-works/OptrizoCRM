@@ -225,7 +225,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                 >
                     <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
                     {(documents.length > 0 || (stagingUrls && stagingUrls.length > 0)) && (
-                        <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-brand-deep px-1 text-[11px] leading-4 tabular-nums text-white">
+                        <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-brand-deep px-1 text-xs leading-4 tabular-nums text-white">
                             {documents.length + (stagingUrls?.filter(Boolean).length || 0)}
                         </span>
                     )}

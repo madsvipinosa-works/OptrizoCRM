@@ -180,14 +180,14 @@ export default function ClientAppointmentsPage() {
             {/* Top Banner: New invitation · needs your reply (Mockup 076-4c) */}
             {pendingInvite && (
                 <div className="p-5 rounded-2xl border-2 border-primary bg-card shadow-sm space-y-4">
-                    <div className="text-base font-bold text-foreground flex items-center gap-2">
-                        <CalendarCheck className="h-5 w-5 text-primary" />
+                    <div className="text-base font-semibold text-foreground flex items-center gap-2">
+                        <CalendarCheck className="h-5 w-5 text-brand-deep" />
                         New invitation · needs your reply
                     </div>
 
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-border pt-3">
                         <div className="space-y-1 text-sm">
-                            <div className="font-bold text-foreground">
+                            <div className="font-semibold text-foreground">
                                 {pendingInvite.type === "discovery"
                                     ? "Discovery meeting"
                                     : pendingInvite.type === "budget_pricing"
@@ -216,7 +216,7 @@ export default function ClientAppointmentsPage() {
                                 size="sm"
                                 onClick={() => handleConfirm(pendingInvite.id)}
                                 disabled={isSubmitting}
-                                className="h-9 px-4 text-xs font-semibold bg-primary text-black hover:bg-primary/90"
+                                className="h-9 px-4 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                             >
                                 <Check className="h-3.5 w-3.5 mr-1" />
                                 Confirm
@@ -249,7 +249,7 @@ export default function ClientAppointmentsPage() {
                                     })
                                 }
                                 disabled={isSubmitting}
-                                className="h-9 px-3 text-xs font-semibold text-rose-500 border-rose-500/30 hover:bg-rose-500/10"
+                                className="h-9 px-3 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10"
                             >
                                 <X className="h-3.5 w-3.5 mr-1" />
                                 Decline
@@ -263,7 +263,7 @@ export default function ClientAppointmentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Upcoming */}
                 <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-                    <h2 className="text-base font-bold text-foreground">Upcoming</h2>
+                    <h2 className="text-base font-semibold text-foreground">Upcoming</h2>
                     {upcomingList.length === 0 ? (
                         <p className="text-xs text-muted-foreground py-6 text-center">No upcoming meetings.</p>
                     ) : (
@@ -282,9 +282,9 @@ export default function ClientAppointmentsPage() {
                                     <Badge
                                         variant="outline"
                                         className={`text-xs font-semibold ${
-                                            m.status === "confirmed"
-                                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                                                : "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
+ m.status === "confirmed"
+                                                ? "bg-brand-soft text-brand-deep border-brand-deep/30"
+                                                : "bg-stage-discovery/10 text-stage-discovery border-stage-discovery/30"
                                         }`}
                                     >
                                         {m.status === "confirmed" ? "Confirmed" : "Reschedule requested"}
@@ -297,7 +297,7 @@ export default function ClientAppointmentsPage() {
 
                 {/* Past */}
                 <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-                    <h2 className="text-base font-bold text-foreground">Past</h2>
+                    <h2 className="text-base font-semibold text-foreground">Past</h2>
                     {pastList.length === 0 ? (
                         <p className="text-xs text-muted-foreground py-6 text-center">No past meetings.</p>
                     ) : (
@@ -316,9 +316,9 @@ export default function ClientAppointmentsPage() {
                                     <Badge
                                         variant="outline"
                                         className={`text-xs font-semibold ${
-                                            m.status === "done"
+ m.status === "done"
                                                 ? "bg-muted text-muted-foreground border-border"
-                                                : "bg-rose-500/10 text-rose-500 border-rose-500/30"
+                                                : "bg-destructive/10 text-destructive border-destructive/30"
                                         }`}
                                     >
                                         {m.status === "done" ? "Done" : "Cancelled"}
@@ -334,7 +334,7 @@ export default function ClientAppointmentsPage() {
             <Dialog open={suggestModal.isOpen} onOpenChange={(open) => !open && setSuggestModal((prev) => ({ ...prev, isOpen: false }))}>
                 <DialogContent className="max-w-md bg-card border-border text-foreground">
                     <DialogHeader>
-                        <DialogTitle className="text-lg font-bold">Suggest another time</DialogTitle>
+                        <DialogTitle className="text-lg font-semibold">Suggest another time</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-3 pt-2">
                         <div className="space-y-1">
@@ -360,7 +360,7 @@ export default function ClientAppointmentsPage() {
                             type="button"
                             onClick={handleSuggestSubmit}
                             disabled={isSubmitting}
-                            className="text-xs h-9 bg-primary text-black font-semibold"
+                            className="text-xs h-9 bg-primary text-primary-foreground font-semibold"
                         >
                             {isSubmitting ? "Sending..." : "Submit preference"}
                         </Button>
@@ -372,7 +372,7 @@ export default function ClientAppointmentsPage() {
             <Dialog open={declineModal.isOpen} onOpenChange={(open) => !open && setDeclineModal((prev) => ({ ...prev, isOpen: false }))}>
                 <DialogContent className="max-w-md bg-card border-border text-foreground">
                     <DialogHeader>
-                        <DialogTitle className="text-lg font-bold">Decline Meeting Invitation</DialogTitle>
+                        <DialogTitle className="text-lg font-semibold">Decline Meeting Invitation</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-3 pt-2">
                         <div className="space-y-1">
@@ -399,7 +399,7 @@ export default function ClientAppointmentsPage() {
                             type="button"
                             onClick={handleDeclineSubmit}
                             disabled={isSubmitting}
-                            className="text-xs h-9 bg-rose-600 text-white font-semibold hover:bg-rose-700"
+                            className="text-xs h-9 bg-destructive text-white font-semibold hover:bg-destructive/90"
                         >
                             {isSubmitting ? "Declining..." : "Decline meeting"}
                         </Button>

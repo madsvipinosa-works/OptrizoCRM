@@ -80,7 +80,7 @@ export default async function ClientDocumentsPage() {
                                             </a>
                                         </Button>
                                     ) : (
-                                        <Button variant="ghost" size="sm" asChild className="h-8 text-xs text-primary">
+                                        <Button variant="ghost" size="sm" asChild className="h-8 text-xs text-brand-deep">
                                             <Link href={`/proposal/${p.id}`}>
                                                 View Proposal <ExternalLink className="w-3 h-3 ml-1" />
                                             </Link>

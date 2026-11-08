@@ -27,8 +27,8 @@ export default async function ProposalPage({
     if (!session?.user?.id) {
         return (
             <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
-                <div className="text-center space-y-4 max-w-md p-8 rounded-xl border border-border bg-card shadow-lg">
-                    <h1 className="text-2xl font-serif font-bold">Authentication Required</h1>
+                <div className="text-center space-y-4 max-w-md p-8 rounded-xl border border-border bg-card ">
+                    <h1 className="text-2xl font-serif font-semibold">Authentication Required</h1>
                     <p className="text-sm text-muted-foreground">You must sign in to review and execute this project proposal.</p>
                 </div>
             </div>
@@ -62,7 +62,7 @@ export default async function ProposalPage({
         return (
             <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
                 <div className="text-center space-y-4 max-w-md bg-destructive/10 border border-destructive/20 p-8 rounded-xl">
-                    <h1 className="text-2xl font-bold text-destructive font-serif">Access Denied</h1>
+                    <h1 className="text-2xl font-semibold text-destructive font-serif">Access Denied</h1>
                     <p className="text-foreground/80 text-sm">You do not have permission to view this proposal.</p>
                 </div>
             </div>

@@ -58,14 +58,14 @@ export default async function ClientProjectsPage() {
                             >
                                 <div className="space-y-2">
                                     <div className="flex items-start justify-between gap-2">
-                                        <h3 className="font-bold text-foreground text-base line-clamp-1">
+                                        <h3 className="font-semibold text-foreground text-base line-clamp-1">
                                             {p.title}
                                         </h3>
                                         <Badge
                                             variant="outline"
                                             className={
                                                 isCompleted
-                                                    ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs"
+                                                    ? "border-brand-deep/30 text-brand-deep bg-brand-soft text-xs"
                                                     : "text-foreground text-xs"
                                             }
                                         >
@@ -80,7 +80,7 @@ export default async function ClientProjectsPage() {
                                     )}
 
                                     {isCompleted && p.warrantyEndsAt && (
-                                        <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium pt-1">
+                                        <div className="flex items-center gap-1.5 text-xs text-brand-deep font-medium pt-1">
                                             <ShieldCheck className="w-3.5 h-3.5" />
                                             <span>Warranty active until {new Date(p.warrantyEndsAt).toLocaleDateString()}</span>
                                         </div>

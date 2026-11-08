@@ -35,9 +35,9 @@ export function ClientAccountSettings({ name, email }: Props) {
 
     return (
         <div className="space-y-6">
-            <section className="glass-card rounded-2xl border border-border p-5 md:p-7">
+            <section className="bg-card rounded-2xl border border-border p-5 md:p-7">
                 <div className="mb-6 flex items-start gap-3">
-                    <span className="rounded-xl bg-primary/10 p-2.5 text-primary"><UserRound className="h-5 w-5" /></span>
+                    <span className="rounded-xl bg-primary/10 p-2.5 text-brand-deep"><UserRound className="h-5 w-5" /></span>
                     <div><h2 className="text-lg font-semibold">Profile</h2><p className="text-sm text-muted-foreground">Update the name shown on your account.</p></div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -50,10 +50,10 @@ export function ClientAccountSettings({ name, email }: Props) {
                 </div>
             </section>
 
-            <section className="glass-card rounded-2xl border border-border p-5 md:p-7">
+            <section className="bg-card rounded-2xl border border-border p-5 md:p-7">
                 <div className="mb-6 flex items-start gap-3">
-                    <span className="rounded-xl bg-primary/10 p-2.5 text-primary"><KeyRound className="h-5 w-5" /></span>
-                    <div><h2 className="text-lg font-semibold">Change password</h2><p className="text-sm text-muted-foreground">Choose a password with at least 8 characters, one uppercase letter, and one number or symbol.</p></div>
+                    <span className="rounded-xl bg-primary/10 p-2.5 text-brand-deep"><KeyRound className="h-5 w-5" /></span>
+                    <div><h2 className="text-lg font-semibold">Change password</h2><p className="text-sm text-muted-foreground">Choose a password with at least 8 characters, one  letter, and one number or symbol.</p></div>
                 </div>
                 <form id="account-password-form" action={savePassword} className="max-w-xl space-y-4">
                     <label className="block space-y-2 text-sm font-medium">Current password<Input name="currentPassword" type="password" autoComplete="current-password" required /></label>

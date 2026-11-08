@@ -366,7 +366,7 @@ function PipelineCard({
             <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
                 {owner ? (
                     <span className="flex min-w-0 items-center gap-1.5" title={`Owner: ${owner.name || "Sales"}`}>
-                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-foreground">
+                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-foreground">
                             {initialsOf(owner.name)}
                         </span>
                         <span className="truncate text-xs text-muted-foreground">{owner.name || "Sales"}</span>

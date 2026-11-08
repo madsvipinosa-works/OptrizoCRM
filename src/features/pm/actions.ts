@@ -387,11 +387,14 @@ export async function createTask(
     assigneeIds?: string[],
     weight: number = 1,
     estimatedHours?: number,
-    opts?: { sprintId?: string | null; toBacklog?: boolean }
+    opts?: { sprintId?: string | null; toBacklog?: boolean; dueDate?: string | null }
 ): Promise<ActionState> {
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
         return { success: false, message: "Unauthorized" };
+    }
+    if (opts?.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(opts.dueDate)) {
+        return { success: false, message: "Due date must be a date (YYYY-MM-DD)" };
     }
 
     const access = await authorizeProject(projectId, "write");
@@ -431,6 +434,7 @@ export async function createTask(
 
         let initialStatus: "backlog" | "to_do" = isDevMilestone ? "backlog" : "to_do";
         let resolvedSprintId: string | null = null;
+        let sprintEndDate: string | null = null;
 
         if (isDevMilestone && opts?.sprintId && !opts?.toBacklog) {
             const targetSprint = await db.query.sprints.findFirst({
@@ -444,7 +448,10 @@ export async function createTask(
             }
             initialStatus = "to_do";
             resolvedSprintId = targetSprint.id;
+            sprintEndDate = targetSprint.endDate;
         }
+        // Mockup 23a: a task put in a sprint is due on the sprint's end date unless a date was given.
+        const dueYmd = opts?.dueDate || sprintEndDate;
 
         const [newTask] = await db.insert(tasks).values({
             projectId,
@@ -454,7 +461,8 @@ export async function createTask(
             description,
             status: initialStatus,
             weight: weight || 1,
-            estimatedHours: estimatedHours || null
+            estimatedHours: estimatedHours || null,
+            dueDate: dueYmd ? new Date(dueYmd) : null,
         }).returning();
 
         if (cleanAssigneeIds.length > 0) {

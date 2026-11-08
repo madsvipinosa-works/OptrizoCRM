@@ -1,1231 +1,249 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-} from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import React, { useEffect, useState } from "react";
+import { format } from "date-fns";
+import { Loader2, X } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/ui/date-picker";
-import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import {
-    Calendar,
-    Play,
-    Send,
-    RotateCcw,
-    Clock,
-    AlertTriangle,
-    ShieldCheck,
-    FileText,
-    ExternalLink,
-    Pencil,
-    Trash2,
-    Users,
-    Copy,
-    Check,
-    Lock,
-    ArrowRight,
-    CheckCircle2,
-    Layers,
-    MoreVertical,
-    CalendarDays,
-    Hash,
-    Loader2,
-    GitBranch,
-    Link2,
-    Unlink,
-    Sliders,
-} from "lucide-react";
-import { format, formatDistanceToNow, isPast, isToday, isTomorrow, differenceInDays } from "date-fns";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PmTask } from "./PmKanbanBoard";
-import { AssigneeCombobox, type TeamMemberItem } from "./AssigneeCombobox";
+import type { TeamMemberItem } from "./AssigneeCombobox";
 
 interface TaskDetailsDrawerProps {
     task: PmTask | null;
     isOpen: boolean;
     onClose: () => void;
-    teamMembers: TeamMemberItem[];
     milestones: { id: string; title: string; order: number; status: string }[];
-    allTasks: PmTask[];
     currentUserId?: string;
     currentUserRole?: string;
     onStartTask?: (taskId: string) => void;
     onSubmitTask?: (task: PmTask) => void;
     onApproveTask?: (taskId: string) => void;
+    /** Mockup 26: the PM's comment is typed in the panel; resolves true when saved. */
+    onRequestChangesWithComment?: (task: PmTask, comment: string) => Promise<boolean>;
+    // Kept so callers do not break; the mockup panel has no editing (mockups 24b, 26).
+    teamMembers?: TeamMemberItem[];
+    allTasks?: PmTask[];
     onRequestChanges?: (task: PmTask) => void;
-    onStatusChangeRequest?: (taskId: string, targetStatus: PmTask["status"]) => void;
-    onUpdateTaskDetails: (
-        taskId: string,
-        data: {
-            title?: string;
-            description?: string;
-            assigneeIds?: string[];
-            dueDate?: Date | null;
-            weight?: number;
-            estimatedHours?: number | null;
-            dependsOnTaskId?: string | null;
-        }
-    ) => Promise<boolean>;
+    onUpdateTaskDetails?: (...args: never[]) => Promise<boolean>;
     onDeleteTask?: (task: PmTask) => void;
-    onRequestVerificationReview?: (task: PmTask) => void;
     onSelectTask?: (task: PmTask) => void;
 }
 
-const STATUS_CONFIG: Record<
-    string,
-    { label: string; badgeClass: string; dotClass: string; ringClass: string }
-> = {
-    to_do: {
-        label: "To Do",
-        badgeClass: "bg-muted text-foreground border-border",
-        dotClass: "bg-muted-foreground",
-        ringClass: "ring-muted-foreground/20",
-    },
-    in_progress: {
-        label: "In Progress",
-        badgeClass: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
-        dotClass: "bg-stage-new",
-        ringClass: "ring-stage-new/30",
-    },
-    changes_requested: {
-        label: "Changes Requested",
-        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
-        dotClass: "bg-stage-negotiation",
-        ringClass: "ring-stage-negotiation/30",
-    },
-    in_review: {
-        label: "In Review",
-        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
-        dotClass: "bg-stage-negotiation",
-        ringClass: "ring-stage-negotiation/30",
-    },
-    done: {
-        label: "Done",
-        badgeClass: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
-        dotClass: "bg-brand-deep",
-        ringClass: "ring-brand-deep/30",
-    },
-    Todo: {
-        label: "To Do",
-        badgeClass: "bg-muted text-foreground border-border",
-        dotClass: "bg-muted-foreground",
-        ringClass: "ring-muted-foreground/20",
-    },
-    "In Progress": {
-        label: "In Progress",
-        badgeClass: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
-        dotClass: "bg-stage-new",
-        ringClass: "ring-stage-new/30",
-    },
-    "Changes Requested": {
-        label: "Changes Requested",
-        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
-        dotClass: "bg-stage-negotiation",
-        ringClass: "ring-stage-negotiation/30",
-    },
-    "In Review": {
-        label: "In Review",
-        badgeClass: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
-        dotClass: "bg-stage-negotiation",
-        ringClass: "ring-stage-negotiation/30",
-    },
-    Done: {
-        label: "Done",
-        badgeClass: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
-        dotClass: "bg-brand-deep",
-        ringClass: "ring-brand-deep/30",
-    },
+type Norm = "backlog" | "to_do" | "in_progress" | "changes_requested" | "in_review" | "done";
+
+const norm = (s: PmTask["status"]): Norm => {
+    const v = String(s).toLowerCase().replace(/\s+/g, "_");
+    if (v === "todo") return "to_do";
+    return (["backlog", "to_do", "in_progress", "changes_requested", "in_review", "done"].includes(v) ? v : "to_do") as Norm;
 };
 
+// Status chip: one hue per state, pale tint with dark text.
+const STATUS: Record<Norm, { label: string; tone: string }> = {
+    backlog: { label: "Backlog", tone: "bg-muted text-muted-foreground" },
+    to_do: { label: "To do", tone: "bg-muted text-foreground" },
+    in_progress: { label: "In progress", tone: "bg-stage-new/15 text-stage-new" },
+    changes_requested: { label: "Changes requested", tone: "bg-destructive/10 text-destructive" },
+    in_review: { label: "In review", tone: "bg-stage-discovery/15 text-stage-discovery" },
+    done: { label: "Done", tone: "bg-brand-soft text-brand-deep" },
+};
+
+const firstName = (name?: string | null) => (name || "the developer").split(" ")[0];
+
+/**
+ * The task panel (mockups 24b developer, 26 PM review, 26a changes requested).
+ * Read-only details; the only actions are the workflow ones, so status never changes by hand.
+ */
 export function TaskDetailsDrawer({
     task,
     isOpen,
     onClose,
-    teamMembers,
     milestones,
-    allTasks,
     currentUserId,
     currentUserRole,
     onStartTask,
     onSubmitTask,
     onApproveTask,
-    onRequestChanges,
-    onStatusChangeRequest,
-    onUpdateTaskDetails,
-    onDeleteTask,
-    onRequestVerificationReview,
-    onSelectTask,
+    onRequestChangesWithComment,
 }: TaskDetailsDrawerProps) {
-    const [activeTab, setActiveTab] = useState<"overview" | "deliverables" | "activity">("overview");
-
-    // Inline edit states
-    const [isEditingTitle, setIsEditingTitle] = useState(false);
-    const [titleInput, setTitleInput] = useState("");
-
-    const [isEditingDesc, setIsEditingDesc] = useState(false);
-    const [descInput, setDescInput] = useState("");
-
-    const [weightInput, setWeightInput] = useState<number>(1);
-    const [hoursInput, setHoursInput] = useState<string>("");
-    const [dueDateInput, setDueDateInput] = useState<string>("");
-    const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
-
-    const [isSaving, setIsSaving] = useState(false);
-    const [copiedTaskId, setCopiedTaskId] = useState(false);
-
-    // Synchronize local form inputs when task changes
-    useEffect(() => {
-        if (task) {
-            setTitleInput(task.title || "");
-            setDescInput(task.description || "");
-            setWeightInput(task.weight ?? 1);
-            setHoursInput(task.estimatedHours != null ? String(task.estimatedHours) : "");
-            setDueDateInput(
-                task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""
-            );
-            setSelectedAssigneeIds(task.assignees?.map((a) => a.user.id) || []);
-            setIsEditingTitle(false);
-            setIsEditingDesc(false);
-        }
-    }, [task?.id, task]);
+    const [comment, setComment] = useState("");
+    const [saving, setSaving] = useState(false);
+    useEffect(() => setComment(""), [task?.id]);
 
     if (!task) return null;
 
-    const currentMilestone = milestones.find((m) => m.id === task.milestoneId);
-    const prerequisiteTask = task.dependsOnTaskId ? allTasks.find((t) => t.id === task.dependsOnTaskId) : null;
-    const isPrerequisiteIncomplete = prerequisiteTask && prerequisiteTask.status !== "Done";
-    const blockedDownstreamTasks = allTasks.filter((t) => t.dependsOnTaskId === task.id);
-    const eligiblePrerequisites = allTasks.filter(
-        (t) => t.id !== task.id && t.dependsOnTaskId !== task.id
-    );
-
-    const canManage = ["manager"].includes(currentUserRole || "");
+    const status = norm(task.status);
+    const isManager = currentUserRole === "manager" || currentUserRole === "admin";
     const isDeveloper = currentUserRole === "developer";
-    const isAssignedToUser = currentUserId ? task.assignees?.some((a) => a.user.id === currentUserId) : false;
-    const isChangesRequested = task.status === "changes_requested" || (task.status as string) === "Changes Requested";
-    const isManagerOrAdmin = ["manager"].includes(currentUserRole || "");
+    const isMine = !!currentUserId && task.assignees?.some((a) => a.user.id === currentUserId);
+    const milestone = milestones.find((m) => m.id === task.milestoneId);
+    const devName = task.assignees?.[0]?.user.name;
+    const assignedTo = task.assignees?.length
+        ? task.assignees.map((a) => `${firstName(a.user.name || a.user.email)} (Developer)`).join(", ")
+        : "Not assigned yet";
 
-    // Format deadline
-    const getDeadlineDisplay = () => {
-        if (!task.dueDate) return null;
-        const d = new Date(task.dueDate);
-        if (isPast(d) && task.status !== "Done") {
-            const daysAgo = Math.abs(differenceInDays(new Date(), d));
-            return {
-                text: daysAgo === 0 ? "Overdue today" : `Overdue by ${daysAgo}d`,
-                isOverdue: true,
-                isUrgent: true,
-            };
-        }
-        if (isToday(d)) return { text: "Due today", isOverdue: false, isUrgent: true };
-        if (isTomorrow(d)) return { text: "Due tomorrow", isOverdue: false, isUrgent: true };
-        const daysLeft = differenceInDays(d, new Date());
-        return {
-            text: `Due in ${daysLeft}d (${format(d, "MMM d")})`,
-            isOverdue: false,
-            isUrgent: daysLeft <= 3,
-        };
-    };
+    const history: { what: string; when: string }[] = [];
+    if (task.createdAt) history.push({ what: task.assignees?.length ? "Task created and assigned" : "Task created", when: `${format(new Date(task.createdAt), "MMM d")} · by PM` });
+    if (status === "in_progress") history.push({ what: "Moved to In progress", when: `automatic, ${firstName(devName)} started work` });
+    if (status === "in_review") history.push({ what: "Moved to In review", when: `automatic, ${firstName(devName)} submitted it` });
+    if (status === "changes_requested") history.push({ what: "Changes requested", when: "by PM, back to the developer" });
+    if (status === "done") history.push({ what: "Approved and moved to Done", when: "by PM" });
 
-    const deadlineInfo = getDeadlineDisplay();
+    const reviewing = isManager && status === "in_review";
 
-    // Capacity allocation percentage (based on standard 40h sprint capacity)
-    const capacityPercent =
-        task.estimatedHours != null && task.estimatedHours > 0
-            ? Math.min(100, Math.round((task.estimatedHours / 40) * 100))
-            : 0;
-
-    // Handlers
-    const handleSaveTitle = async () => {
-        if (!titleInput.trim() || titleInput === task.title) {
-            setIsEditingTitle(false);
-            setTitleInput(task.title);
-            return;
-        }
-        setIsSaving(true);
-        const success = await onUpdateTaskDetails(task.id, { title: titleInput.trim() });
-        setIsSaving(false);
-        if (success) {
-            setIsEditingTitle(false);
-        }
-    };
-
-    const handleSaveDescription = async () => {
-        setIsSaving(true);
-        const success = await onUpdateTaskDetails(task.id, { description: descInput.trim() });
-        setIsSaving(false);
-        if (success) {
-            setIsEditingDesc(false);
-        }
-    };
-
-    const handleAssigneesChange = async (newIds: string[]) => {
-        setSelectedAssigneeIds(newIds);
-        await onUpdateTaskDetails(task.id, { assigneeIds: newIds });
-    };
-
-    const handleDueDateChange = async (val: string) => {
-        setDueDateInput(val);
-        const dateObj = val ? new Date(val) : null;
-        await onUpdateTaskDetails(task.id, { dueDate: dateObj });
-    };
-
-    const handleWeightChange = async (newWeight: number) => {
-        setWeightInput(newWeight);
-        await onUpdateTaskDetails(task.id, { weight: newWeight });
-    };
-
-    const handleHoursChange = async (val: string) => {
-        setHoursInput(val);
-        const parsed = val ? parseInt(val, 10) : null;
-        await onUpdateTaskDetails(task.id, { estimatedHours: isNaN(parsed || 0) ? null : parsed });
-    };
-
-    const handlePrerequisiteChange = async (val: string) => {
-        const nextId = val === "none" ? null : val;
-        await onUpdateTaskDetails(task.id, { dependsOnTaskId: nextId });
-    };
-
-    const handleCopyTaskId = () => {
-        navigator.clipboard.writeText(task.id);
-        setCopiedTaskId(true);
-        toast.success("Task ID copied to clipboard");
-        setTimeout(() => setCopiedTaskId(false), 2000);
+    const requestChanges = async () => {
+        if (!onRequestChangesWithComment || !comment.trim()) return;
+        setSaving(true);
+        const ok = await onRequestChangesWithComment(task, comment.trim());
+        setSaving(false);
+        if (ok) onClose();
     };
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <SheetContent
-                side="right"
-                className="w-full sm:max-w-2xl bg-background border-l border-border text-foreground p-0 flex flex-col h-full overflow-hidden focus:outline-none"
-            >
-                {/* 1. Header Section */}
-                <SheetHeader className="px-5 sm:px-6 pt-5 pb-4 border-b border-border bg-background space-y-3.5 shrink-0">
-                    {/* Top Row: Milestone & Metadata Badges */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {currentMilestone && (
-                                <Badge
-                                    variant="outline"
-                                    className="bg-brand-soft text-brand-deep border-brand-deep/30 text-xs font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md"
-                                >
-                                    <Layers className="w-3 h-3 text-brand-deep" />
-                                    <span>
-                                        [M{currentMilestone.order}: {currentMilestone.title}]
-                                    </span>
-                                </Badge>
-                            )}
-
-                            {/* Effort Weight */}
-                            <Badge
-                                variant="outline"
-                                className="bg-muted/60 dark:bg-muted/30 text-foreground border-border text-xs tabular-nums font-semibold flex items-center gap-1 px-2.5 py-1 rounded-md"
-                            >
-                                <Hash className="w-3 h-3 text-muted-foreground" />
-                                <span>{task.weight ?? 1} pts</span>
-                            </Badge>
-
-                            {/* Hours with Capacity & Guardrail */}
-                            {task.estimatedHours != null && task.estimatedHours > 0 && (
-                                <Badge
-                                    variant="outline"
-                                    className={cn(
-                                        "text-xs tabular-nums font-medium flex items-center gap-1 px-2.5 py-1 rounded-md",
-                                        task.estimatedHours > 40
-                                            ? "bg-destructive/10 text-destructive dark:text-destructive border-destructive/30 font-semibold"
-                                            : "bg-muted/60 dark:bg-muted/30 text-muted-foreground border-border"
-                                    )}
-                                >
-                                    <Clock className="w-3 h-3" />
-                                    <span>{task.estimatedHours}h</span>
-                                    {task.estimatedHours > 40 && (
-                                        <span className="text-xs font-semibold text-destructive ml-0.5">
-                                            Over
-                                        </span>
-                                    )}
-                                </Badge>
-                            )}
-
-                            {/* Due date badge with Urgency Indicator */}
-                            {deadlineInfo && (
-                                <Badge
-                                    variant="outline"
-                                    className={cn(
-                                        "text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-md",
-                                        deadlineInfo.isOverdue
-                                            ? "bg-destructive/15 text-destructive dark:text-destructive border-destructive/30 font-semibold"
-                                            : deadlineInfo.isUrgent
-                                            ? "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30"
-                                            : "bg-muted/60 dark:bg-muted/30 text-muted-foreground border-border"
-                                    )}
-                                >
-                                    {deadlineInfo.isUrgent && (
-                                        <span
-                                            className={cn(
-                                                "w-1.5 h-1.5 rounded-full animate-ping shrink-0",
-                                                deadlineInfo.isOverdue ? "bg-destructive" : "bg-stage-negotiation"
-                                            )}
-                                        />
-                                    )}
-                                    <Calendar className="w-3 h-3 shrink-0" />
-                                    <span>{deadlineInfo.text}</span>
-                                </Badge>
-                            )}
-                        </div>
-
-                        {/* Top Right Utilities: Quick ID Copy & Overflow Menu */}
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                onClick={handleCopyTaskId}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/40 hover:bg-muted/80 border border-border/60 text-xs tabular-nums text-muted-foreground hover:text-foreground transition-colors"
-                                title="Click to copy task ID"
-                            >
-                                {copiedTaskId ? (
-                                    <Check className="w-3 h-3 text-brand-deep" />
-                                ) : (
-                                    <Copy className="w-3 h-3" />
-                                )}
-                                <span>#{task.id.slice(0, 8)}</span>
-                            </button>
-
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
-                                    >
-                                        <MoreVertical className="w-4 h-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-card border-border text-foreground w-48 ">
-                                    <DropdownMenuItem onClick={handleCopyTaskId} className="gap-2 cursor-pointer text-xs">
-                                        {copiedTaskId ? <Check className="w-4 h-4 text-brand-deep" /> : <Copy className="w-4 h-4" />}
-                                        <span>Copy Full Task ID</span>
-                                    </DropdownMenuItem>
-                                    {onDeleteTask && isManagerOrAdmin && (
-                                        <>
-                                            <DropdownMenuSeparator className="bg-border/60" />
-                                            <DropdownMenuItem
-                                                onClick={() => {
-                                                    onClose();
-                                                    onDeleteTask(task);
-                                                }}
-                                                className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer text-xs"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                                <span>Delete Task</span>
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
+            <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[540px] [&>button.absolute]:hidden">
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-6 pb-4">
+                    <div className="flex items-start justify-between gap-4">
+                        <p className="text-sm text-muted-foreground">Task · {milestone?.title || "Milestone"}</p>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="-mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            Close <X className="size-4" aria-hidden="true" />
+                        </button>
                     </div>
+                    <SheetTitle className="mt-0.5 text-2xl font-semibold tracking-tight text-foreground">{task.title}</SheetTitle>
+                    <SheetDescription className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        <span className={cn("rounded-full px-2.5 py-0.5 text-sm font-semibold", STATUS[status].tone)}>{STATUS[status].label}</span>
+                        {isDeveloper ? "Status changes when you act" : "Status is set automatically"}
+                    </SheetDescription>
 
-                    {/* Task Title (Inline Editable with Modern Typography) */}
-                    <div className="pt-0.5">
-                        {isEditingTitle && canManage ? (
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    value={titleInput}
-                                    onChange={(e) => setTitleInput(e.target.value)}
-                                    className="text-lg font-semibold bg-background border-border focus:border-primary text-foreground"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") handleSaveTitle();
-                                        if (e.key === "Escape") {
-                                            setIsEditingTitle(false);
-                                            setTitleInput(task.title);
-                                        }
-                                    }}
-                                />
-                                <Button
-                                    size="sm"
-                                    className="bg-primary hover:bg-primary/90 text-black font-semibold shrink-0"
-                                    onClick={handleSaveTitle}
-                                    disabled={isSaving}
-                                >
-                                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-muted-foreground hover:text-foreground shrink-0"
-                                    onClick={() => {
-                                        setIsEditingTitle(false);
-                                        setTitleInput(task.title);
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="group flex items-start gap-2.5">
-                                <SheetTitle
-                                    className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight leading-snug break-words flex-1 cursor-pointer transition-colors hover:text-brand-deep"
-                                    onClick={() => canManage && setIsEditingTitle(true)}
-                                    title={canManage ? "Click to edit title" : undefined}
-                                >
-                                    {task.title}
-                                </SheetTitle>
-                                {canManage && (
-                                    <button
-                                        onClick={() => setIsEditingTitle(true)}
-                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-brand-deep hover:bg-muted/40 transition-all mt-0.5 shrink-0"
-                                        title="Edit title"
-                                    >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                        <SheetDescription className="sr-only">Task details for {task.title}</SheetDescription>
-                    </div>
-
-                    {/* 2. Interactive Action Bar: Glowing Status Dropdown & Contextual Action Buttons */}
-                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5 border-t border-border/50">
-                        {/* Static Task Status Badge */}
-                        <div className="flex items-center gap-2">
-                            <span className="sr-only">Status:</span>
-                            <Badge
-                                className={cn(
-                                    "h-8 text-xs font-semibold px-2.5 rounded-lg border gap-2 shadow-xs transition-all",
-                                    STATUS_CONFIG[task.status]?.badgeClass
-                                )}
-                            >
-                                <span
-                                    className={cn(
-                                        "w-2 h-2 rounded-full shrink-0 ring-4",
-                                        STATUS_CONFIG[task.status]?.dotClass,
-                                        STATUS_CONFIG[task.status]?.ringClass
-                                    )}
-                                />
-                                <span>{STATUS_CONFIG[task.status]?.label || task.status}</span>
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">Status is set automatically</span>
+                    <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <dt className="text-muted-foreground">{isDeveloper ? "Assigned by" : "Assigned to"}</dt>
+                            <dd className="mt-0.5 text-base text-foreground">{isDeveloper ? "Project Manager" : assignedTo}</dd>
                         </div>
-
-                        {/* Quick Contextual Actions */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            {/* 1. Developer Start */}
-                            {(task.status === "to_do" || (task.status as string) === "Todo") && isDeveloper && isAssignedToUser && onStartTask && (
-                                <Button
-                                    size="sm"
-                                    disabled={Boolean(isPrerequisiteIncomplete)}
-                                    className="h-8 text-xs font-semibold gap-1.5 shadow-xs"
-                                    onClick={() => onStartTask(task.id)}
-                                >
-                                    <Play className="w-3.5 h-3.5 fill-current" />
-                                    <span>Start Task</span>
-                                </Button>
-                            )}
-
-                            {/* 2. Developer Submit */}
-                            {(task.status === "in_progress" || (task.status as string) === "In Progress" || isChangesRequested) && isDeveloper && isAssignedToUser && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs font-semibold gap-1.5 bg-stage-new/15 hover:bg-stage-new/25 text-stage-new dark:text-stage-new border-stage-new/30 shadow-xs"
-                                    onClick={() => {
-                                        if (onSubmitTask) onSubmitTask(task);
-                                        else onRequestVerificationReview?.(task);
-                                    }}
-                                >
-                                    <Send className="w-3.5 h-3.5" />
-                                    <span>Submit Work</span>
-                                </Button>
-                            )}
-
-                            {/* 3. PM Review Actions */}
-                            {(task.status === "in_review" || (task.status as string) === "In Review") && isManagerOrAdmin && (
-                                <>
-                                    {onRequestChanges && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-9 text-sm font-semibold gap-1.5 bg-card active:scale-[0.97]"
-                                            onClick={() => onRequestChanges(task)}
-                                        >
-                                            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-                                            <span>Request changes</span>
-                                        </Button>
-                                    )}
-                                    <Button
-                                        size="sm"
-                                        className="h-9 text-sm font-semibold gap-1.5 bg-brand-deep hover:bg-brand-deep/90 text-white active:scale-[0.97]"
-                                        onClick={() => {
-                                            if (onApproveTask) onApproveTask(task.id);
-                                            else onStatusChangeRequest?.(task.id, "Done");
-                                        }}
-                                    >
-                                        <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                        <span>Approve</span>
-                                    </Button>
-                                </>
-                            )}
+                        <div>
+                            <dt className="text-muted-foreground">Due</dt>
+                            <dd className="mt-0.5 text-base tabular-nums text-foreground">{task.dueDate ? format(new Date(task.dueDate), "MMM d") : "No due date"}</dd>
                         </div>
-                    </div>
-                </SheetHeader>
+                    </dl>
 
-                {/* 3. Tabbed Content Body */}
-                <Tabs
-                    value={activeTab}
-                    onValueChange={(val) => setActiveTab(val as any)}
-                    className="flex-1 flex flex-col min-h-0 overflow-hidden"
-                >
-                    <div className="px-5 sm:px-6 pt-2.5 border-b border-border bg-background shrink-0">
-                        <TabsList className="grid grid-cols-3 w-full sm:w-[410px] bg-muted/60 p-1 rounded-lg border border-border">
-                            <TabsTrigger value="overview" className="text-xs font-semibold">
-                                Overview
-                            </TabsTrigger>
-                            <TabsTrigger value="deliverables" className="text-xs font-semibold flex items-center gap-1.5">
-                                <span>Deliverables</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="activity" className="text-xs font-semibold">
-                                Details & Audit
-                            </TabsTrigger>
-                        </TabsList>
-                    </div>
+                    <p className="mt-5 whitespace-pre-wrap text-base leading-relaxed text-foreground">
+                        {task.description || <span className="text-muted-foreground">No description.</span>}
+                    </p>
 
-                    {/* TAB 1: OVERVIEW */}
-                    <TabsContent value="overview" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-6 focus:outline-none">
-                        {/* Changes Requested Banner */}
-                        {isChangesRequested && task.reviewNote && (
-                            <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive space-y-1.5 shadow-xs">
-                                <div className="font-semibold flex items-center gap-2 text-sm text-destructive">
-                                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                                    <span>Changes Requested by Project Manager</span>
-                                </div>
-                                <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap pl-6">
-                                    {task.reviewNote}
-                                </p>
-                            </div>
-                        )}
-                        {/* Task Dependencies & Sequencing Section (Graph Topology) */}
-                        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
-                            <div className="flex items-center justify-between pb-3 border-b border-border/60">
-                                <div className="flex items-center gap-2">
-                                    <GitBranch className="w-4 h-4 text-brand-deep" />
-                                    <h3 className="text-xs text-foreground font-semibold">
-                                        Dependencies & Task Sequencing
-                                    </h3>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <Badge
-                                        variant="outline"
-                                        className="bg-brand-soft text-brand-deep border-brand-deep/30 text-xs tabular-nums font-semibold"
+                    {/* Changes requested (mockup 26a): what the PM asked for. */}
+                    {status === "changes_requested" && task.reviewNote && (
+                        <div className="mt-5 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-foreground">
+                            <span className="font-semibold text-destructive">Changes requested:</span> {task.reviewNote}
+                        </div>
+                    )}
+
+                    {/* Submitted files (mockup 26). */}
+                    {task.proofLinks && task.proofLinks.length > 0 && (
+                        <ul className="mt-5 space-y-2">
+                            {task.proofLinks.map((link, i) => (
+                                <li key={`${link.url}-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-base text-foreground">{link.label || link.url}</p>
+                                        <p className="text-sm text-muted-foreground">Submitted by {firstName(devName)}</p>
+                                    </div>
+                                    <a
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="shrink-0 rounded-md text-sm font-semibold text-brand-deep outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                                     >
-                                        Graph Topology
-                                    </Badge>
-                                    {isPrerequisiteIncomplete && (
-                                        <Badge variant="outline" className="bg-stage-negotiation/10 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30 text-xs font-semibold flex items-center gap-1">
-                                            <Lock className="w-3 h-3" />
-                                            <span>Prerequisite Incomplete</span>
-                                        </Badge>
-                                    )}
-                                </div>
-                            </div>
+                                        View
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {task.proofNotes && (
+                        <p className="mt-3 rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">Developer note: {task.proofNotes}</p>
+                    )}
 
-                            {/* 1. Prerequisite Task (Blocked By) */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                                        <Link2 className="w-3.5 h-3.5" />
-                                        <span>Prerequisite Task (Blocked By)</span>
-                                    </Label>
-                                    {task.dependsOnTaskId && canManage && (
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive gap-1"
-                                            onClick={() => handlePrerequisiteChange("none")}
-                                        >
-                                            <Unlink className="w-3 h-3" />
-                                            <span>Remove</span>
-                                        </Button>
-                                    )}
-                                </div>
-
-                                {canManage ? (
-                                    <Select
-                                        value={task.dependsOnTaskId || "none"}
-                                        onValueChange={handlePrerequisiteChange}
-                                    >
-                                        <SelectTrigger className="w-full text-xs h-9">
-                                            <SelectValue placeholder="Select a prerequisite task..." />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-card border-border text-foreground max-h-56">
-                                            <SelectItem value="none" className="text-xs cursor-pointer text-muted-foreground">
-                                                None (No prerequisite — can start anytime)
-                                            </SelectItem>
-                                            {eligiblePrerequisites.map((cand) => {
-                                                const candMilestone = milestones.find((m) => m.id === cand.milestoneId);
-                                                return (
-                                                    <SelectItem key={cand.id} value={cand.id} className="text-xs cursor-pointer">
-                                                        <div className="flex items-center justify-between gap-3 w-full">
-                                                            <span className="truncate max-w-[260px] font-medium">
-                                                                {candMilestone ? `[M${candMilestone.order}] ` : ""}{cand.title}
-                                                            </span>
-                                                            <span className={cn(
-                                                                "text-xs px-1.5 py-0.5 rounded tabular-nums shrink-0",
-                                                                STATUS_CONFIG[cand.status]?.badgeClass
-                                                            )}>
-                                                                {cand.status}
-                                                            </span>
-                                                        </div>
-                                                    </SelectItem>
-                                                );
-                                            })}
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    prerequisiteTask ? (
-                                        <p className="text-xs text-foreground font-medium">{prerequisiteTask.title}</p>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground italic">None</p>
-                                    )
-                                )}
-
-                                {/* Selected Prerequisite Detail Card & Warning */}
-                                {prerequisiteTask && (
-                                    <div
-                                        className={cn(
-                                            "rounded-lg border p-3 space-y-2 text-xs transition-colors",
-                                            isPrerequisiteIncomplete
-                                                ? "bg-stage-negotiation/10 border-stage-negotiation/30"
-                                                : "bg-muted/30 border-border"
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <Lock className={cn("w-3.5 h-3.5 shrink-0", isPrerequisiteIncomplete ? "text-stage-negotiation" : "text-brand-deep")} />
-                                                <span className="font-semibold text-foreground truncate">{prerequisiteTask.title}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <Badge
-                                                    variant="outline"
-                                                    className={cn("text-xs", STATUS_CONFIG[prerequisiteTask.status]?.badgeClass)}
-                                                >
-                                                    {prerequisiteTask.status}
-                                                </Badge>
-                                                {onSelectTask && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="h-6 px-2 text-xs gap-1 text-brand-deep hover:text-brand-deep"
-                                                        onClick={() => onSelectTask(prerequisiteTask)}
-                                                    >
-                                                        <span>View</span>
-                                                        <ArrowRight className="w-3 h-3" />
-                                                    </Button>
-                                                )}
-                                            </div>
+                    {/* History (mockup 26), PM only. */}
+                    {isManager && history.length > 0 && (
+                        <section aria-labelledby="task-history" className="mt-6">
+                            <h3 id="task-history" className="text-sm text-muted-foreground">History</h3>
+                            <ol className="mt-2 space-y-3">
+                                {history.map((h) => (
+                                    <li key={h.what} className="flex gap-3">
+                                        <span className="mt-2 size-2 shrink-0 rounded-full bg-brand-deep" aria-hidden="true" />
+                                        <div>
+                                            <p className="text-base text-foreground">{h.what}</p>
+                                            <p className="text-sm text-muted-foreground">{h.when}</p>
                                         </div>
-
-                                        {isPrerequisiteIncomplete ? (
-                                            <p className="text-xs text-stage-negotiation dark:text-stage-negotiation leading-relaxed">
-                                                ⚠️ This task is blocked from moving to <strong>In Progress</strong>, <strong>In Review</strong>, or <strong>Done</strong> until &ldquo;{prerequisiteTask.title}&rdquo; is completed.
-                                            </p>
-                                        ) : (
-                                            <p className="text-xs text-brand-deep dark:text-brand-deep flex items-center gap-1">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep shrink-0" />
-                                                <span>Prerequisite completed! This task is unblocked.</span>
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* 2. Blocks Downstream Tasks (Stitch Branch Tree Topology) */}
-                            <div className="space-y-2.5 pt-2 border-t border-border/60">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                                        <ArrowRight className="w-3.5 h-3.5" />
-                                        <span>Blocks Downstream Tasks</span>
-                                    </Label>
-                                    <Badge
-                                        variant="outline"
-                                        className={cn(
-                                            "text-xs tabular-nums font-semibold",
-                                            blockedDownstreamTasks.length > 0
-                                                ? "bg-brand-soft text-brand-deep border-brand-deep/30"
-                                                : "bg-muted text-muted-foreground border-border"
-                                        )}
-                                    >
-                                        Blocks {blockedDownstreamTasks.length} {blockedDownstreamTasks.length === 1 ? "task" : "tasks"}
-                                    </Badge>
-                                </div>
-
-                                {blockedDownstreamTasks.length > 0 ? (
-                                    <div className="relative pl-6 space-y-2.5 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-border/60">
-                                        {blockedDownstreamTasks.map((downstreamTask) => {
-                                            const m = milestones.find((milestone) => milestone.id === downstreamTask.milestoneId);
-                                            return (
-                                                <div
-                                                    key={downstreamTask.id}
-                                                    className="relative flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border bg-background hover:border-brand-deep/30 transition-colors text-xs"
-                                                >
-                                                    <span className="absolute -left-6 top-1/2 -translate-y-1/2 w-3.5 h-0.5 bg-border/60" />
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        {m && (
-                                                            <span className="text-xs tabular-nums px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
-                                                                M{m.order}
-                                                            </span>
-                                                        )}
-                                                        <span className="font-medium text-foreground truncate">{downstreamTask.title}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 shrink-0">
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={cn("text-xs", STATUS_CONFIG[downstreamTask.status]?.badgeClass)}
-                                                        >
-                                                            {downstreamTask.status}
-                                                        </Badge>
-                                                        {onSelectTask && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                className="h-6 px-1.5 text-xs gap-1 text-brand-deep hover:text-brand-deep"
-                                                                onClick={() => onSelectTask(downstreamTask)}
-                                                            >
-                                                                <span>View</span>
-                                                                <ArrowRight className="w-3 h-3" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        <p className="text-xs text-muted-foreground pt-0.5">
-                                            These tasks are waiting on this task to be marked Done before they can proceed.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-muted-foreground italic bg-muted/10 p-2.5 rounded-lg border border-border/60">
-                                        No other tasks currently depend on this task.
-                                    </p>
-                                )}
-                            </div>
+                                    </li>
+                                ))}
+                            </ol>
                         </section>
+                    )}
 
-                        {/* Metadata Grid ("Execution Specs") */}
-                        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4 shadow-xs">
-                            <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                                <div className="flex items-center gap-2">
-                                    <Sliders className="w-4 h-4 text-brand-deep" />
-                                    <h3 className="text-xs text-foreground font-semibold">
-                                        Execution Specs
-                                    </h3>
-                                </div>
-                                <span className="text-xs text-muted-foreground">Resource & Sprint Parameters</span>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {/* Assignees */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                        <Users className="w-3.5 h-3.5" />
-                                        <span>Assignees</span>
-                                    </Label>
-                                    <div className="space-y-2">
-                                        <div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
-                                            {task.assignees && task.assignees.length > 0 ? (
-                                                task.assignees.map((a) => (
-                                                    <div
-                                                        key={a.user.id}
-                                                        className="flex items-center gap-1.5 bg-background border border-border px-2.5 py-1 rounded-md text-xs font-medium shadow-xs"
-                                                    >
-                                                        <Avatar className="w-5 h-5 border border-border">
-                                                            {a.user.image && <AvatarImage src={a.user.image} />}
-                                                            <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
-                                                                {a.user.name?.substring(0, 2).toUpperCase() || "U"}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <span>{a.user.name}</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <span className="text-xs text-muted-foreground italic">Unassigned</span>
-                                            )}
-                                        </div>
-                                        {canManage && (
-                                            <AssigneeCombobox
-                                                teamMembers={teamMembers}
-                                                selectedIds={selectedAssigneeIds}
-                                                onSelectionChange={handleAssigneesChange}
-                                                placeholder="+ Add / Remove staff..."
-                                                className="w-full text-xs h-8"
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Due Date */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                        <CalendarDays className="w-3.5 h-3.5 text-brand-deep" />
-                                        <span>Due Date</span>
-                                    </Label>
-                                    {canManage ? (
-                                        <div className="flex items-center gap-2">
-                                            <DatePicker value={dueDateInput} onChange={handleDueDateChange} min={todayYmd()} className="bg-background border-border text-xs h-8" />
-                                            {dueDateInput && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                                    onClick={() => {
-                                                        setDueDateInput("");
-                                                        onUpdateTaskDetails(task.id, { dueDate: null });
-                                                    }}
-                                                    title="Clear due date"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-foreground font-medium pt-1">
-                                            {task.dueDate ? format(new Date(task.dueDate), "MMMM d, yyyy") : "No due date set"}
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Effort Weight Points */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                        <Hash className="w-3.5 h-3.5 text-muted-foreground" />
-                                        <span>Effort Weight</span>
-                                    </Label>
-                                    {canManage ? (
-                                        <Select
-                                            value={String(weightInput)}
-                                            onValueChange={(val) => handleWeightChange(parseInt(val, 10))}
-                                        >
-                                            <SelectTrigger className="text-xs h-8">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-card border-border text-foreground">
-                                                <SelectItem value="1">1 pt (Very Minor)</SelectItem>
-                                                <SelectItem value="2">2 pts (Minor)</SelectItem>
-                                                <SelectItem value="3">3 pts (Standard)</SelectItem>
-                                                <SelectItem value="5">5 pts (Major)</SelectItem>
-                                                <SelectItem value="8">8 pts (Complex)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <p className="text-xs text-foreground font-medium pt-1">{task.weight ?? 1} pts</p>
-                                    )}
-                                </div>
-
-                                {/* Estimated Hours with Progress Bar */}
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                                            <span>Estimated Hours</span>
-                                        </Label>
-                                        {task.estimatedHours != null && task.estimatedHours > 0 && (
-                                            <span className="text-xs tabular-nums text-muted-foreground">
-                                                {capacityPercent}% of 40h standard
-                                            </span>
-                                        )}
-                                    </div>
-                                    {canManage ? (
-                                        <div className="space-y-1.5">
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                max="160"
-                                                placeholder="e.g. 12"
-                                                value={hoursInput}
-                                                onChange={(e) => handleHoursChange(e.target.value)}
-                                                className="bg-background border-border text-foreground text-xs h-8"
-                                            />
-                                            {capacityPercent > 0 && (
-                                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                                                    <div
-                                                        className={cn(
-                                                            "h-full rounded-full transition-all duration-300",
-                                                            capacityPercent > 100
-                                                                ? "bg-destructive"
-                                                                : "bg-brand-deep"
-                                                        )}
-                                                        style={{ width: `${Math.min(100, capacityPercent)}%` }}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-foreground font-medium pt-1">
-                                            {task.estimatedHours != null ? `${task.estimatedHours} hours` : "Not estimated"}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* Description Section ("Scope & Acceptance Criteria") */}
-                        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 shadow-xs">
-                            <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                                <div className="flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-brand-deep" />
-                                    <h3 className="text-xs text-foreground font-semibold">
-                                        Scope & Acceptance Criteria
-                                    </h3>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground tabular-nums bg-muted/60 px-1.5 py-0.5 rounded">
-                                        Markdown supported
-                                    </span>
-                                    {canManage && !isEditingDesc && (
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-                                            onClick={() => setIsEditingDesc(true)}
-                                        >
-                                            <Pencil className="w-3 h-3" />
-                                            <span>Edit</span>
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {isEditingDesc && canManage ? (
-                                <div className="space-y-2">
-                                    <Textarea
-                                        value={descInput}
-                                        onChange={(e) => setDescInput(e.target.value)}
-                                        rows={5}
-                                        placeholder="Add scope details, requirements, acceptance criteria..."
-                                        className="bg-background border-border focus:border-primary text-foreground text-xs sm:text-sm leading-relaxed"
-                                    />
-                                    <div className="flex items-center justify-end gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="text-xs text-muted-foreground hover:text-foreground"
-                                            onClick={() => {
-                                                setIsEditingDesc(false);
-                                                setDescInput(task.description || "");
-                                            }}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs"
-                                            onClick={handleSaveDescription}
-                                            disabled={isSaving}
-                                        >
-                                            {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save Scope"}
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-xs sm:text-sm bg-muted/20 p-4 rounded-xl whitespace-pre-wrap border border-border/60 leading-relaxed text-foreground min-h-[80px]">
-                                    {task.description ? (
-                                        task.description
-                                    ) : (
-                                        <span className="text-muted-foreground italic">No detailed description provided.</span>
-                                    )}
-                                </div>
-                            )}
-                        </section>
-                    </TabsContent>
-
-                    {/* TAB 2: DELIVERABLES & AI QUALITY GATE */}
-                    <TabsContent value="deliverables" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-6 focus:outline-none">
-                        {/* Deliverables Header */}
-                        <div className="flex items-center justify-between pb-3 border-b border-border/60">
-                            <div>
-                                <h4 className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-brand-deep" />
-                                    <span>Task Deliverables & Verification</span>
-                                </h4>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Deliverables, attachments, and proof links submitted for review.
-                                </p>
-                            </div>
-                            {onRequestVerificationReview && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs gap-1 border-brand-deep/30 text-brand-deep hover:bg-brand-soft shadow-xs"
-                                    onClick={() => onRequestVerificationReview(task)}
-                                >
-                                    <ShieldCheck className="w-3.5 h-3.5" />
-                                    <span>Update Deliverables</span>
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* Proof Links */}
-                        <div className="space-y-3 pt-4 border-t border-border/60">
-                            <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                <ExternalLink className="w-3.5 h-3.5 text-brand-deep" />
-                                <span>Attached Proof Links</span>
+                    {reviewing && (
+                        <div className="mt-6 space-y-1.5">
+                            <Label htmlFor="review-comment" className="text-sm text-muted-foreground">
+                                Comment for {firstName(devName)} (needed to request changes)
                             </Label>
-                            {task.proofLinks && task.proofLinks.length > 0 ? (
-                                <div className="space-y-2">
-                                    {task.proofLinks.map((link, idx) => (
-                                        <a
-                                            key={idx}
-                                            href={link.url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="group flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20 hover:border-brand-deep/30 transition-colors shadow-xs"
-                                        >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className="w-7 h-7 rounded-lg bg-brand-soft text-brand-deep flex items-center justify-center shrink-0">
-                                                    <ExternalLink className="w-3.5 h-3.5" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-xs font-semibold text-foreground truncate group-hover:text-brand-deep">
-                                                        {link.label || "Proof Deliverable"}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-xs text-brand-deep font-medium opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                                Open ↗
-                                            </span>
-                                        </a>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-muted-foreground italic bg-muted/20 p-3 rounded-lg border border-border/60">
-                                    No proof links attached to this task.
-                                </p>
-                            )}
+                            <Textarea
+                                id="review-comment"
+                                rows={3}
+                                maxLength={2000}
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                className="resize-y bg-card text-sm"
+                            />
                         </div>
-
-                        {/* Proof Notes */}
-                        {task.proofNotes && (
-                            <div className="space-y-2 pt-2">
-                                <Label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                    <FileText className="w-3.5 h-3.5 text-brand-deep" />
-                                    <span>Submission Notes</span>
-                                </Label>
-                                <div className="text-xs bg-muted/20 p-4 rounded-xl whitespace-pre-wrap border border-border/60 leading-relaxed text-foreground">
-                                    {task.proofNotes}
-                                </div>
-                            </div>
-                        )}
-                    </TabsContent>
-
-                    {/* TAB 3: DETAILS & AUDIT */}
-                    <TabsContent value="activity" className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4 focus:outline-none">
-                        <div className="space-y-3">
-                            <Label className="text-xs text-muted-foreground font-semibold">
-                                System Audit Metadata
-                            </Label>
-                            <div className="bg-card p-4 rounded-xl border border-border space-y-3 text-xs shadow-xs">
-                                <div className="flex items-center justify-between py-1 border-b border-border/60">
-                                    <span className="text-muted-foreground">Task ID</span>
-                                    <div className="flex items-center gap-1 tabular-nums text-xs text-foreground">
-                                        <span>{task.id}</span>
-                                        <button onClick={handleCopyTaskId} className="p-1 hover:text-brand-deep">
-                                            {copiedTaskId ? <Check className="w-3 h-3 text-brand-deep" /> : <Copy className="w-3 h-3" />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between py-1 border-b border-border/60">
-                                    <span className="text-muted-foreground">Milestone</span>
-                                    <span className="font-medium text-foreground">
-                                        {currentMilestone ? `Milestone ${currentMilestone.order}: ${currentMilestone.title}` : "Unassigned"}
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center justify-between py-1 border-b border-border/60">
-                                    <span className="text-muted-foreground">Prerequisite (Blocked By)</span>
-                                    <span className="font-medium text-foreground">
-                                        {prerequisiteTask ? prerequisiteTask.title : "None (Independent)"}
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center justify-between py-1 border-b border-border/60">
-                                    <span className="text-muted-foreground">Blocks Downstream</span>
-                                    <span className="font-medium text-foreground">
-                                        {blockedDownstreamTasks.length > 0 ? `${blockedDownstreamTasks.length} task(s)` : "None"}
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center justify-between py-1 border-b border-border/60">
-                                    <span className="text-muted-foreground">Requires Quality Gate Proof</span>
-                                    <Badge variant="outline" className="text-xs">
-                                        {task.requiresProof !== false ? "Yes" : "No"}
-                                    </Badge>
-                                </div>
-
-                                {task.createdAt && (
-                                    <div className="flex items-center justify-between py-1 border-b border-border/60">
-                                        <span className="text-muted-foreground">Created</span>
-                                        <span className="text-foreground">
-                                            {format(new Date(task.createdAt), "MMM d, yyyy 'at' h:mm a")} ({formatDistanceToNow(new Date(task.createdAt))} ago)
-                                        </span>
-                                    </div>
-                                )}
-
-                                {task.updatedAt && (
-                                    <div className="flex items-center justify-between py-1">
-                                        <span className="text-muted-foreground">Last Updated</span>
-                                        <span className="text-foreground">
-                                            {format(new Date(task.updatedAt), "MMM d, yyyy 'at' h:mm a")} ({formatDistanceToNow(new Date(task.updatedAt))} ago)
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </TabsContent>
-                </Tabs>
-
-                {/* 4. Sticky Footer */}
-                <div className="px-6 py-3.5 border-t border-border bg-background flex items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                            Press <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-xs tabular-nums">Esc</kbd> to close
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                            <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border text-xs tabular-nums">Enter</kbd> to save title
-                        </span>
-                    </div>
-                    <Button
-                        className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs px-5 shadow-sm active:scale-[0.98] transition-all"
-                        onClick={onClose}
-                    >
-                        Done
-                    </Button>
+                    )}
                 </div>
+
+                {/* The one workflow action for this person and state. */}
+                {(reviewing || (isDeveloper && isMine && (status === "to_do" || status === "in_progress" || status === "changes_requested"))) && (
+                    <div className="flex shrink-0 gap-3 px-6 pt-2 pb-6">
+                        {reviewing ? (
+                            <>
+                                <Button
+                                    className="h-11 flex-1 bg-brand-deep text-base font-semibold text-white hover:bg-brand-deep/90 active:scale-[0.97]"
+                                    onClick={() => {
+                                        onApproveTask?.(task.id);
+                                        onClose();
+                                    }}
+                                >
+                                    Approve
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-11 flex-1 bg-card text-base active:scale-[0.97]"
+                                    disabled={!comment.trim() || saving}
+                                    onClick={requestChanges}
+                                >
+                                    {saving && <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" />}
+                                    Request changes
+                                </Button>
+                            </>
+                        ) : status === "to_do" ? (
+                            <Button className="h-11 flex-1 text-base font-semibold active:scale-[0.97]" onClick={() => onStartTask?.(task.id)}>
+                                Start work
+                            </Button>
+                        ) : (
+                            <Button
+                                className="h-11 flex-1 text-base font-semibold active:scale-[0.97]"
+                                onClick={() => {
+                                    onClose();
+                                    onSubmitTask?.(task);
+                                }}
+                            >
+                                {status === "changes_requested" ? "Resubmit for review" : "Submit for review"}
+                            </Button>
+                        )}
+                    </div>
+                )}
             </SheetContent>
         </Sheet>
     );

@@ -109,7 +109,7 @@ export function DiscoveryTracker({
             {isFormSubmitted && (
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                             <CheckCircle2 className="h-4 w-4 text-success" />
                             Discovery form submitted
                         </span>
@@ -222,8 +222,8 @@ export function DiscoverySteps({
                 <li key={step.label} aria-current={step.current ? "step" : undefined} className="flex items-center gap-1.5">
                     <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-300 ${
-                            step.done
-                                ? "bg-brand-soft text-brand-deep"
+ step.done
+ ? "bg-brand-soft text-brand-deep"
                                 : step.current
                                 ? "bg-card text-foreground ring-1 ring-inset ring-brand-deep/50"
                                 : "bg-muted text-muted-foreground"

@@ -55,11 +55,11 @@ export function PricingMeetingPanel({
     // Meeting is completed -> Manager needs to open revision and add price
     if (pricingMeeting?.status === "done") {
         return (
-            <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-sm">
+            <Card className="border-brand-deep/30 bg-brand-soft shadow-sm">
                 <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 text-xs font-semibold">
+                            <Badge variant="outline" className="bg-brand-soft text-brand-deep border-brand-deep/30 text-xs font-semibold">
                                 <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Pricing Meeting Completed
                             </Badge>
                             <span className="text-xs text-muted-foreground">
@@ -96,11 +96,11 @@ export function PricingMeetingPanel({
     // Meeting is requested by client, but not scheduled yet
     if (proposalStatus === "pricing_meeting_requested" && (!pricingMeeting || pricingMeeting.status === "cancelled")) {
         return (
-            <Card className="border-amber-500/30 bg-amber-500/5 shadow-sm">
+            <Card className="border-stage-negotiation/30 bg-stage-negotiation/5 shadow-sm">
                 <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30 text-xs font-semibold">
+                            <Badge variant="outline" className="bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30 text-xs font-semibold">
                                 <AlertCircle className="h-3.5 w-3.5 mr-1" /> Pricing Meeting Requested
                             </Badge>
                         </div>
@@ -138,11 +138,11 @@ export function PricingMeetingPanel({
                             <Badge
                                 variant="outline"
                                 className={`text-xs font-semibold ${
-                                    pricingMeeting.status === "confirmed"
-                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+ pricingMeeting.status === "confirmed"
+                                        ? "bg-brand-soft text-brand-deep border-brand-deep/30"
                                         : pricingMeeting.status === "reschedule_requested"
-                                        ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
-                                        : "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                                        ? "bg-stage-discovery/10 text-stage-discovery border-stage-discovery/30"
+                                        : "bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30"
                                 }`}
                             >
                                 <Clock className="h-3.5 w-3.5 mr-1" />
