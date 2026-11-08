@@ -1,6 +1,6 @@
 import "server-only";
 
-import { isNull } from "drizzle-orm";
+import { and, count, desc, gte, isNull } from "drizzle-orm";
 import { subMonths } from "date-fns";
 import { db } from "@/db";
 import { agencyProjects, projectFeedback } from "@/db/schema";
@@ -21,13 +21,28 @@ export async function getFeedbackSummary(months: FeedbackPeriod, page: number) {
     if (!hasRole(session, ["superadmin"])) return null;
 
     const from = subMonths(new Date(), months);
-    const [all, projects] = await Promise.all([
-        db.select().from(projectFeedback),
-        db.select({ completedAt: agencyProjects.completedAt }).from(agencyProjects).where(isNull(agencyProjects.deletedAt)),
+    // Filter and count in SQL: the page must not pull every project and every full feedback row into the function.
+    const [rows, [{ completed }]] = await Promise.all([
+        db
+            .select({
+                id: projectFeedback.id,
+                createdAt: projectFeedback.createdAt,
+                rating: projectFeedback.rating,
+                wouldRecommend: projectFeedback.wouldRecommend,
+                ratingCommunication: projectFeedback.ratingCommunication,
+                ratingQuality: projectFeedback.ratingQuality,
+                ratingOnTime: projectFeedback.ratingOnTime,
+                ratingValue: projectFeedback.ratingValue,
+                ratingPmSupport: projectFeedback.ratingPmSupport,
+            })
+            .from(projectFeedback)
+            .where(gte(projectFeedback.createdAt, from))
+            .orderBy(desc(projectFeedback.createdAt)),
+        db
+            .select({ completed: count() })
+            .from(agencyProjects)
+            .where(and(isNull(agencyProjects.deletedAt), gte(agencyProjects.completedAt, from))),
     ]);
-
-    const rows = all.filter((f) => f.createdAt >= from).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    const completed = projects.filter((p) => p.completedAt && p.completedAt >= from).length;
     const rec = (v: string) => rows.filter((r) => r.wouldRecommend === v).length;
 
     const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
