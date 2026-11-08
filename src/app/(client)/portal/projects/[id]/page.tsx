@@ -42,6 +42,8 @@ export default async function ClientProjectDetailPage({
         ? Math.round((project.stats.completed / project.stats.total) * 100)
         : project.progressPercentage ?? 0;
 
+    // Only http(s) links are rendered, so a bad value saved by staff can never become a script link.
+    const previewUrls = (project.stagingUrls ?? []).filter((u) => /^https?:\/\//i.test(u));
     const duePaymentCount = project.payments.filter((p) => p.status === "due").length;
 
     return (
@@ -123,6 +125,27 @@ export default async function ClientProjectDetailPage({
                                 {project.warrantyEndsAt ? new Date(project.warrantyEndsAt).toLocaleDateString() : "N/A"}
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Preview links the PM shared (the "New preview links" notification points here) */}
+            {previewUrls.length > 0 && (
+                <div className="rounded-xl bg-card border border-border p-5 space-y-3">
+                    <h3 className="text-base font-bold text-foreground">Preview your project</h3>
+                    <div className="divide-y divide-border/60">
+                        {previewUrls.map((url) => (
+                            <a
+                                key={url}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-between gap-3 py-2 text-sm text-primary hover:underline"
+                            >
+                                <span className="truncate">{url}</span>
+                                <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+                            </a>
+                        ))}
                     </div>
                 </div>
             )}

@@ -24,6 +24,8 @@ type DatePickerProps = {
   min?: string
   /** Latest pickable day, "YYYY-MM-DD". Use `todayYmd()` to block the future. */
   max?: string
+  /** Inclusive "YYYY-MM-DD" ranges that cannot be picked, e.g. days already taken by another sprint. */
+  disabledRanges?: { from: string; to: string }[]
   placeholder?: string
   disabled?: boolean
   required?: boolean
@@ -37,6 +39,7 @@ function DatePicker({
   onChange,
   min,
   max,
+  disabledRanges,
   placeholder = "Pick a date",
   disabled,
   required,
@@ -80,6 +83,7 @@ function DatePicker({
           disabled={[
             ...(min ? [{ before: toLocalDate(min) }] : []),
             ...(max ? [{ after: toLocalDate(max) }] : []),
+            ...(disabledRanges ?? []).map((r) => ({ from: toLocalDate(r.from), to: toLocalDate(r.to) })),
           ]}
           autoFocus
         />
