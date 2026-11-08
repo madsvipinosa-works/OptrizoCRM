@@ -10,6 +10,52 @@ import { logAction } from "@/features/audit/log";
 import { notifyProjectClients } from "@/features/notifications/send";
 import { sendProjectCompleteEmail } from "@/lib/notifications";
 import { getBaseUrl } from "@/lib/email-templates";
+import { ACCEPTANCE_WAIT_DAYS, acceptanceState, canAssumeAcceptance } from "@/features/pm/acceptance-state";
+import { getClientProjectIds } from "@/features/client-portal/queries";
+import { notifyLeadPms } from "@/features/notifications/send";
+
+type Db = Pick<typeof db, "query">;
+
+/** Why the project cannot be handed over yet (milestones, final payment, handover files), or null when ready. */
+async function readinessError(tx: Db, projectId: string): Promise<string | null> {
+    const projectMilestones = await tx.query.milestones.findMany({
+        where: and(eq(milestones.projectId, projectId), isNull(milestones.deletedAt)),
+        columns: { id: true, title: true, status: true },
+    });
+    if (projectMilestones.length === 0) return "Project has no milestones to complete.";
+    const open = projectMilestones.find((m) => m.status !== "Completed");
+    if (open) return `Milestone "${open.title}" is not Completed (status: ${open.status}).`;
+
+    const projectPayments = await tx.query.payments.findMany({
+        where: eq(payments.projectId, projectId),
+        with: { scheduleItem: { columns: { sortOrder: true } } },
+    });
+    if (projectPayments.length === 0) return "Project has no payment records.";
+    const finalPayment = [...projectPayments].sort(
+        (a, b) => (b.scheduleItem?.sortOrder ?? 0) - (a.scheduleItem?.sortOrder ?? 0)
+    )[0];
+    if (finalPayment.status !== "paid") {
+        return `Final payment "${finalPayment.label}" must be marked as paid before completion (current status: ${finalPayment.status}).`;
+    }
+
+    const handoverFiles = await tx.query.document.findMany({ where: eq(document.projectId, projectId), columns: { id: true } });
+    if (handoverFiles.length === 0) return "At least one handover document must be uploaded first.";
+    return null;
+}
+
+// Shared links the PM may attach instead of uploading a file. Hosts are listed one by one so nothing else slips through.
+const SHARED_LINK_HOSTS = ["docs.google.com", "drive.google.com"];
+
+/** An uploaded file of this project, or an https link on a Google Docs / Drive host. */
+async function validateHandoverRef(projectId: string, url: string) {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol === "https:" && SHARED_LINK_HOSTS.includes(parsed.hostname)) return { ok: true as const };
+    } catch {
+        // Not an absolute URL: it may be an uploaded file path, checked below.
+    }
+    return validateFileUrlForProject(projectId, url);
+}
 
 /**
  * Uploads/attaches a handover document to a project.
@@ -55,7 +101,7 @@ export async function addHandoverFile(
             return { success: false, error: "Cannot add handover files to a completed project." };
         }
 
-        const fileValidation = await validateFileUrlForProject(projectId, fileUrl);
+        const fileValidation = await validateHandoverRef(projectId, fileUrl);
         if (!fileValidation.ok) {
             return { success: false, error: fileValidation.error };
         }
@@ -139,7 +185,7 @@ export async function recordSignOff(
                 return { success: false, error: "Sign-off cannot be modified on a completed project." };
             }
 
-            const fileValidation = await validateFileUrlForProject(projectId, signOffFileUrl);
+            const fileValidation = await validateHandoverRef(projectId, signOffFileUrl);
             if (!fileValidation.ok) {
                 return { success: false, error: fileValidation.error };
             }
@@ -193,7 +239,8 @@ export async function recordSignOff(
  * 6. Sends completion email and portal notification.
  */
 export async function completeProject(
-    projectId: string
+    projectId: string,
+    opts?: { assumedReason?: string }
 ): Promise<{ success: boolean; error?: string; message?: string }> {
     const session = await auth();
     if (!session?.user?.id || !hasRole(session, ["manager"])) {
@@ -227,66 +274,15 @@ export async function completeProject(
             resolvedProjectId = project.id;
             projectTitle = project.title;
 
-            // 1. Verify all milestones are Completed
-            const projectMilestones = await tx.query.milestones.findMany({
-                where: and(eq(milestones.projectId, projectId), isNull(milestones.deletedAt)),
-                columns: { id: true, title: true, status: true },
-            });
+            const notReady = await readinessError(tx, projectId);
+            if (notReady) return { success: false, error: notReady };
 
-            if (projectMilestones.length === 0) {
-                return { success: false, error: "Project has no milestones to complete." };
-            }
-
-            const uncompletedMilestone = projectMilestones.find((m) => m.status !== "Completed");
-            if (uncompletedMilestone) {
+            // 4. The client must have accepted, or the wait has passed and the PM gives a reason.
+            const assumed = !project.acceptedAt && Boolean(opts?.assumedReason?.trim());
+            if (!project.acceptedAt && (!assumed || !canAssumeAcceptance(project))) {
                 return {
                     success: false,
-                    error: `Milestone "${uncompletedMilestone.title}" is not Completed (status: ${uncompletedMilestone.status}).`,
-                };
-            }
-
-            // 2. Verify final payment is Paid
-            const projectPayments = await tx.query.payments.findMany({
-                where: eq(payments.projectId, projectId),
-                with: {
-                    scheduleItem: { columns: { sortOrder: true } },
-                },
-            });
-
-            if (projectPayments.length === 0) {
-                return { success: false, error: "Project has no payment records." };
-            }
-
-            const sortedPayments = projectPayments.sort(
-                (a, b) => (b.scheduleItem?.sortOrder ?? 0) - (a.scheduleItem?.sortOrder ?? 0)
-            );
-            const finalPayment = sortedPayments[0];
-
-            if (finalPayment.status !== "paid") {
-                return {
-                    success: false,
-                    error: `Final payment "${finalPayment.label}" must be marked as paid before completion (current status: ${finalPayment.status}).`,
-                };
-            }
-
-            // 3. Verify handover documents exist
-            const handoverFiles = await tx.query.document.findMany({
-                where: eq(document.projectId, projectId),
-                columns: { id: true },
-            });
-
-            if (handoverFiles.length === 0) {
-                return {
-                    success: false,
-                    error: "At least one handover document must be uploaded before completing the project.",
-                };
-            }
-
-            // 4. Verify sign-off is recorded
-            if (!project.signOffFileUrl || !project.signedOffAt) {
-                return {
-                    success: false,
-                    error: "Client sign-off must be recorded before completing the project.",
+                    error: `The client must accept the handover first. After ${ACCEPTANCE_WAIT_DAYS} days without an answer you can complete it with a reason.`,
                 };
             }
 
@@ -295,6 +291,7 @@ export async function completeProject(
                 .update(agencyProjects)
                 .set({
                     status: "Completed",
+                    ...(assumed ? { acceptanceAssumed: true, acceptanceAssumedReason: opts!.assumedReason!.trim() } : {}),
                     completedAt: sql`now()`,
                     warrantyEndsAt: sql`now() + interval '3 months'`,
                     updatedAt: sql`now()`,
@@ -377,4 +374,75 @@ export async function completeProject(
             error: error instanceof Error ? error.message : "Failed to complete project.",
         };
     }
+}
+
+
+type Result = { success: boolean; error?: string; message?: string };
+
+/** PM asks the client to review the handover. Allowed once milestones, final payment and handover files are in place. */
+export async function requestClientAcceptance(projectId: string): Promise<Result> {
+    const session = await auth();
+    if (!session?.user?.id || !hasRole(session, ["manager"])) return { success: false, error: "Unauthorized: Managers only." };
+
+    const project = await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.id, projectId) });
+    if (!project || project.isArchived) return { success: false, error: "Project not found or archived." };
+    if (project.status === "Completed") return { success: false, error: "Project is already completed." };
+    if (project.acceptedAt) return { success: false, error: "The client has already accepted." };
+    if (acceptanceState(project) === "awaiting") return { success: false, error: "Acceptance was already requested." };
+
+    const notReady = await readinessError(db, projectId);
+    if (notReady) return { success: false, error: notReady };
+
+    await db.update(agencyProjects).set({ acceptanceRequestedAt: new Date(), updatedAt: new Date() }).where(eq(agencyProjects.id, projectId));
+    await logAction("UPDATE", "Project", `Requested client acceptance for "${project.title}"`, session.user.id, projectId);
+    await notifyProjectClients(
+        projectId,
+        `Your project "${project.title}" is ready for your review. Please check the handover files and accept or request fixes.`,
+        "project",
+        `/portal/projects/${projectId}`
+    );
+    revalidatePath(`/dashboard/pm/${projectId}/complete`);
+    revalidatePath(`/portal/projects/${projectId}`);
+    return { success: true, message: "Acceptance requested. The client has been notified." };
+}
+
+async function clientProject(projectId: string) {
+    const session = await auth();
+    if (!session?.user?.id || !hasRole(session, ["client"])) return { error: "Unauthorized." as const };
+    if (!(await getClientProjectIds(session.user.id)).includes(projectId)) return { error: "Unauthorized." as const };
+    const project = await db.query.agencyProjects.findFirst({ where: eq(agencyProjects.id, projectId) });
+    if (!project || project.isArchived) return { error: "Project not found." as const };
+    if (acceptanceState(project) !== "awaiting") return { error: "There is nothing to accept right now." as const };
+    return { session, project };
+}
+
+/** The client confirms the handover. Only the project's own client can do this. */
+export async function acceptCompletion(projectId: string): Promise<Result> {
+    const r = await clientProject(projectId);
+    if ("error" in r) return { success: false, error: r.error };
+    await db.update(agencyProjects).set({ acceptedAt: new Date(), acceptedBy: r.session.user.id, updatedAt: new Date() }).where(eq(agencyProjects.id, projectId));
+    await logAction("UPDATE", "Project", `Client accepted the handover of "${r.project.title}"`, r.session.user.id, projectId);
+    if (r.project.leadId) {
+        await notifyLeadPms(r.project.leadId, `The client accepted the handover of "${r.project.title}". You can now mark it complete.`, "project", `/dashboard/pm/${projectId}/complete`);
+    }
+    revalidatePath(`/dashboard/pm/${projectId}/complete`);
+    revalidatePath(`/portal/projects/${projectId}`);
+    return { success: true, message: "Thank you. You accepted the handover." };
+}
+
+/** The client asks for fixes instead. A comment is required; the PM can add files and request acceptance again. */
+export async function requestCompletionFixes(projectId: string, comment: string): Promise<Result> {
+    const text = (comment || "").trim();
+    if (!text) return { success: false, error: "Please tell us what needs fixing." };
+    if (text.length > 2000) return { success: false, error: "Comment is too long (max 2000 characters)." };
+    const r = await clientProject(projectId);
+    if ("error" in r) return { success: false, error: r.error };
+    await db.update(agencyProjects).set({ fixesRequestedAt: new Date(), fixesComment: text, updatedAt: new Date() }).where(eq(agencyProjects.id, projectId));
+    await logAction("UPDATE", "Project", `Client requested fixes on "${r.project.title}"`, r.session.user.id, projectId);
+    if (r.project.leadId) {
+        await notifyLeadPms(r.project.leadId, `The client requested fixes on "${r.project.title}": ${text.slice(0, 120)}`, "project", `/dashboard/pm/${projectId}/complete`);
+    }
+    revalidatePath(`/dashboard/pm/${projectId}/complete`);
+    revalidatePath(`/portal/projects/${projectId}`);
+    return { success: true, message: "Your request was sent to the project manager." };
 }

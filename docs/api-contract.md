@@ -189,6 +189,26 @@ Errors:
 - `FINAL_PAYMENT_NOT_PAID`: the final payment is not `paid`.
 Side effects: saves `signedOffBy`, `signedOffAt` and `signOffFileUrl`; audit log row. There is no client online sign-off.
 
+### requestClientAcceptance  (step 30)
+Who can call: manager
+Input:  `{ projectId: string }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors: not manager; project completed or archived; already accepted; already awaiting; milestones not done; final payment not paid; no handover files.
+Side effects: sets `acceptanceRequestedAt`; client notified; audit log row.
+
+### acceptCompletion  (step 31)
+Who can call: client of the project only
+Input:  `{ projectId: string }`
+Output: `{ success: boolean, error?: string, message?: string }`
+Errors: not the project's client; acceptance not awaiting.
+Side effects: sets `acceptedAt`, `acceptedBy`; PM notified (every PM if none assigned); audit log row.
+
+### requestCompletionFixes  (step 31)
+Who can call: client of the project only
+Input:  `{ projectId: string, comment: string }` (comment required, max 2000)
+Output: `{ success: boolean, error?: string, message?: string }`
+Side effects: sets `fixesRequestedAt`, `fixesComment`; PM notified; audit log row. The PM can add files and call `requestClientAcceptance` again.
+
 ### completeProject  (step 30)
 Who can call: manager
 Input:  `{ projectId: string }`
@@ -198,7 +218,8 @@ Errors:
 - `MILESTONES_NOT_DONE`: a milestone is not `done`.
 - `FINAL_PAYMENT_NOT_PAID`: the final payment is not `paid`.
 - `HANDOVER_FILES_MISSING`: no handover file is uploaded.
-- `SIGN_OFF_MISSING`: the completion sign-off is not recorded.
+- `ACCEPTANCE_MISSING`: the client has not accepted, and 14 days have not passed since the request (or no reason was given).
+Input also takes `assumedReason?: string`, used only when the client has not accepted after 14 days; it is saved as assumed acceptance.
 Side effects: project status → `completed`; `completedAt` set; `warrantyEndsAt` = `completedAt` + 3 months (always 3 months); the client is notified automatically; audit log row. Handover notes are optional.
 
 ### requestPasswordReset  (sign-in, forgot password)

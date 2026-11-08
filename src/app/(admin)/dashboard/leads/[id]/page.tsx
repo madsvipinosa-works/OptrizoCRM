@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { leads } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, ne, or, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
 import { LeadDetailView } from "@/features/crm/components/LeadDetailView";
@@ -45,6 +45,29 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     const isUnassigned = lead.assignees.length === 0;
     if (!assignedToMe && !isUnassigned) notFound();
 
+    // Returning contact: other leads from the same portal account or the same email. Matching only, no merging.
+    const email = lead.contactEmail?.trim().toLowerCase();
+    const matchers = [
+        lead.clientId ? eq(leads.clientId, lead.clientId) : undefined,
+        email ? sql`lower(${leads.contactEmail}) = ${email}` : undefined,
+    ].filter((m) => m !== undefined);
+    const earlier = matchers.length
+        ? await db.query.leads.findMany({
+              where: and(ne(leads.id, lead.id), or(...matchers)),
+              columns: { id: true, status: true, createdAt: true, lossReason: true },
+              with: { assignees: { columns: { userId: true } } },
+              orderBy: (l, { desc }) => [desc(l.createdAt)],
+          })
+        : [];
+    const previousLeads = earlier.map((l) => ({
+        id: l.id,
+        status: l.status,
+        createdAt: l.createdAt.toISOString(),
+        lossReason: l.lossReason,
+        // Sales may open only leads that are theirs or unclaimed, the same rule as above.
+        canOpen: l.assignees.length === 0 || l.assignees.some((a) => a.userId === currentUserId),
+    }));
+
     const serialized = {
         ...lead,
         createdAt: lead.createdAt.toISOString(),
@@ -56,6 +79,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     };
 
     return (
-        <LeadDetailView lead={serialized as unknown as LeadItem} />
+        <LeadDetailView lead={serialized as unknown as LeadItem} previousLeads={previousLeads} />
     );
 }
