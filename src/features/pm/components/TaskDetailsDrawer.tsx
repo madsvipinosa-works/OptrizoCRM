@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { normalizeProofUrl } from "@/lib/proof-url";
 import { format } from "date-fns";
 import { Clock, Loader2, Pencil, X } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -291,16 +292,24 @@ export function TaskDetailsDrawer({
                                                 <li key={`${link.url}-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
                                                     <div className="min-w-0">
                                                         <p className="truncate text-base text-foreground">{link.label || link.url}</p>
-                                                        <p className="text-sm text-muted-foreground">Submitted by {firstName(devName)}</p>
+                                                        <p className="truncate text-sm text-muted-foreground">
+                                                            {normalizeProofUrl(link.url) ? `Submitted by ${firstName(devName)}` : `"${link.url}" is not a full link. Ask ${firstName(devName)} to resubmit.`}
+                                                        </p>
                                                     </div>
-                                                    <a
-                                                        href={link.url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="shrink-0 rounded-md text-sm font-semibold text-brand-deep outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                                                    >
-                                                        View
-                                                    </a>
+                                                    {normalizeProofUrl(link.url) ? (
+                                                        <a
+                                                            href={normalizeProofUrl(link.url) as string}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="shrink-0 rounded-md px-2 py-1.5 text-sm font-semibold text-brand-deep outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                                                        >
+                                                            View<span className="sr-only"> {link.label || "submitted work"}</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="shrink-0 text-sm text-muted-foreground" title={link.url}>
+                                                            Can&apos;t open
+                                                        </span>
+                                                    )}
                                                 </li>
                                             ))}
                                         </ul>

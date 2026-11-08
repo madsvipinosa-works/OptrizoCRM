@@ -1,31 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogDescription,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createLead } from "@/features/crm/actions";
-import { DEFAULT_CRM_PLAYBOOK, PlaybookTaskTemplate } from "@/config/crm-playbook";
+import { getPublishedServices } from "@/features/crm/actions/submit-intake";
+import { CONTACT_PREFERENCES, INDUSTRY_OPTIONS, URGENCY_OPTIONS } from "@/components/public/ServiceCardItem";
 import { STANDARD_LEAD_SOURCES } from "@/lib/schemas";
 import { toast } from "sonner";
-import { Plus, UserPlus, Loader2, UserCheck, Zap, ChevronDown, ChevronUp, Trash2, Clock, CheckSquare, Tag } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 interface AssignableUser {
     id: string;
     name: string | null;
-    image?: string | null;
     role?: string | null;
-    jobTitle?: string | null;
 }
 
 interface CreateLeadModalProps {
@@ -33,89 +25,59 @@ interface CreateLeadModalProps {
     assignableUsers?: AssignableUser[];
 }
 
+// A lead Sales adds by hand never comes from the website or the portal.
+const MANUAL_SOURCES = STANDARD_LEAD_SOURCES.filter((s) => s !== "Website Form" && s !== "Client Intake Portal");
+const DEFAULT_SOURCE = "Inbound Phone / Direct Email";
+
+const labelClass = "text-sm font-medium text-foreground";
+const triggerClass = "h-9 w-full text-sm";
+
+/**
+ * "New opportunity" on the pipeline: a lead that came in by phone, referral or walk-in.
+ * Same fields as the website inquiry (spec step 1); no budget and no score.
+ */
 export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadModalProps) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [services, setServices] = useState<{ id: string; title: string }[]>([]);
+    const [source, setSource] = useState<string>(DEFAULT_SOURCE);
+    const salesUsers = assignableUsers.filter((u) => u.role === "sales");
 
-    // Rep Assignment
-    const [assignedRepId, setAssignedRepId] = useState<string>("auto");
-    const [selectedSource, setSelectedSource] = useState<string>("Website Form");
-    const [customSource, setCustomSource] = useState<string>("");
-
-    // Playbook tasks customization
-    const [enablePlaybook, setEnablePlaybook] = useState<boolean>(true);
-    const [showPlaybookAccordion, setShowPlaybookAccordion] = useState<boolean>(false);
-    const [playbookTasks, setPlaybookTasks] = useState<PlaybookTaskTemplate[]>(() =>
-        DEFAULT_CRM_PLAYBOOK.defaultTasks.map(t => ({ ...t }))
-    );
-
-    // New custom task inline input
-    const [newTaskTitle, setNewTaskTitle] = useState("");
-    const [newTaskType, setNewTaskType] = useState<"Call" | "Email" | "Meeting" | "To-do">("To-do");
-    const [newTaskHours, setNewTaskHours] = useState<number>(48);
-
-    const handleAddPlaybookTask = () => {
-        if (!newTaskTitle.trim()) return;
-        setPlaybookTasks((prev) => [
-            ...prev,
-            {
-                title: newTaskTitle.trim(),
-                taskType: newTaskType,
-                priority: "Medium",
-                dueHours: newTaskHours || 24,
-            },
-        ]);
-        setNewTaskTitle("");
-    };
-
-    const handleRemovePlaybookTask = (index: number) => {
-        setPlaybookTasks((prev) => prev.filter((_, i) => i !== index));
-    };
+    useEffect(() => {
+        if (open && services.length === 0) getPublishedServices().then(setServices);
+    }, [open, services.length]);
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
+        const form = e.currentTarget;
+        const fd = new FormData(form);
+        const get = (k: string) => (fd.get(k) as string | null)?.trim() || undefined;
+
         setIsLoading(true);
-        const formData = new FormData(e.currentTarget);
-
-        const businessName = formData.get("businessName") as string;
-        const contactName = formData.get("contactName") as string;
-        const contactEmail = formData.get("contactEmail") as string;
-        const contactPhone = formData.get("contactPhone") as string;
-        const industry = formData.get("industry") as string;
-        const budget = formData.get("budget") as string;
-        const goals = formData.get("goals") as string;
-        const timelineExpectation = formData.get("timeline") as string;
-
-        const finalSource = selectedSource === "Other"
-            ? (customSource.trim().slice(0, 40) || "Other")
-            : selectedSource;
-
         const res = await createLead({
-            businessName: businessName || contactName,
-            contactName: contactName || undefined,
-            contactEmail,
-            contactPhone: contactPhone || undefined,
-            industry: industry || undefined,
-            source: finalSource,
-            budget: budget || undefined,
-            timelineExpectation: timelineExpectation || undefined,
-            goals: goals || undefined,
-            assignedRepId: assignedRepId,
-            tasksPlaybook: enablePlaybook ? playbookTasks : [],
+            businessName: get("businessName") ?? "",
+            contactName: get("contactName"),
+            contactEmail: get("contactEmail") ?? "",
+            contactPhone: get("contactPhone"),
+            serviceId: get("serviceId"),
+            industry: get("industry"),
+            roleInCompany: get("roleInCompany"),
+            urgency: get("urgency"),
+            contactPreference: get("contactPreference"),
+            details: get("details"),
+            source: source === "Other" ? get("customSource")?.slice(0, 40) || "Other" : source,
+            assignedRepId: get("owner") ?? "unassigned",
+            tasksPlaybook: [],
         });
-
         setIsLoading(false);
 
         if (res.success) {
-            toast.success(res.message || "Opportunity created successfully");
+            toast.success(`${get("businessName")} is in New lead.`);
+            form.reset();
+            setSource(DEFAULT_SOURCE);
             setOpen(false);
-            // Reset to defaults
-            setPlaybookTasks(DEFAULT_CRM_PLAYBOOK.defaultTasks.map(t => ({ ...t })));
-            setAssignedRepId("auto");
-            setSelectedSource("Website Form");
-            setCustomSource("");
         } else {
-            toast.error(res.message || "Failed to create opportunity");
+            toast.error(res.message || "Could not add this lead");
         }
     }
 
@@ -124,319 +86,144 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
             <DialogTrigger asChild>
                 {children || (
                     <Button className="gap-1.5 font-semibold active:scale-[0.97]">
-                        <Plus className="h-4 w-4" /> New Opportunity
+                        <Plus className="size-4" aria-hidden="true" /> New Opportunity
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto bg-card border-border text-foreground rounded-xl">
-                <DialogHeader className="space-y-1">
-                    <div className="flex items-center gap-2 text-brand-deep text-sm font-semibold">
-                        <UserPlus className="h-4 w-4" /> CRM Pipeline Intake
-                    </div>
-                    <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">New opportunity</DialogTitle>
+            <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card text-foreground sm:max-w-[560px]">
+                <DialogHeader>
+                    <DialogTitle className="text-xl font-semibold tracking-tight">New opportunity</DialogTitle>
                     <DialogDescription className="text-sm text-muted-foreground">
-                        Create a qualified sales opportunity directly in the pipeline with automated scoring and playbooks.
+                        For a lead that came in by phone, referral or walk-in. It starts in New lead, like an inquiry from the website.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={onSubmit} className="space-y-4 mt-2">
-                    <div className="grid grid-cols-2 gap-3">
+                <form onSubmit={onSubmit} className="space-y-4 pt-1">
+                    <div className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                            <Label htmlFor="businessName" className="text-sm font-medium text-foreground">Company / Business <span className="text-brand-deep">*</span></Label>
-                            <Input
-                                id="businessName"
-                                name="businessName"
-                                placeholder="Acme Studios"
-                                required
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                            />
+                            <Label htmlFor="businessName" className={labelClass}>Business name</Label>
+                            <Input id="businessName" name="businessName" required maxLength={120} autoComplete="organization" className="h-9 text-sm" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="contactName" className="text-sm font-medium text-foreground">Contact Person</Label>
-                            <Input
-                                id="contactName"
-                                name="contactName"
-                                placeholder="John Doe"
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                            />
+                            <Label htmlFor="contactName" className={labelClass}>Client name <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                            <Input id="contactName" name="contactName" maxLength={120} autoComplete="name" className="h-9 text-sm" />
                         </div>
-                    </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="contactEmail" className={labelClass}>Email</Label>
+                            <Input id="contactEmail" name="contactEmail" type="email" required autoComplete="email" className="h-9 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="contactPhone" className={labelClass}>Phone <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                            <Input id="contactPhone" name="contactPhone" type="tel" autoComplete="tel" placeholder="+63 912 345 6789" className="h-9 text-sm" />
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                            <Label htmlFor="contactEmail" className="text-sm font-medium text-foreground">Contact Email <span className="text-brand-deep">*</span></Label>
-                            <Input
-                                id="contactEmail"
-                                name="contactEmail"
-                                type="email"
-                                placeholder="john@acme.com"
-                                required
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="contactPhone" className="text-sm font-medium text-foreground">Phone Number</Label>
-                            <Input
-                                id="contactPhone"
-                                name="contactPhone"
-                                type="tel"
-                                placeholder="+1 555-0192"
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="budget" className="text-sm font-medium text-foreground">Budget / Value</Label>
-                            <Input
-                                id="budget"
-                                name="budget"
-                                placeholder="e.g. $10,000"
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="source" className="text-sm font-medium text-foreground">Lead Source</Label>
-                            <Select value={selectedSource} onValueChange={setSelectedSource}>
-                                <SelectTrigger className="text-sm h-9">
-                                    <SelectValue placeholder="Source" />
+                            <Label htmlFor="serviceId" className={labelClass}>Service</Label>
+                            <Select name="serviceId">
+                                <SelectTrigger id="serviceId" className={triggerClass}>
+                                    <SelectValue placeholder={services.length ? "Choose a service" : "Loading services"} />
                                 </SelectTrigger>
-                                <SelectContent className="bg-card border-border text-foreground">
-                                    {STANDARD_LEAD_SOURCES.map(source => (
-                                        <SelectItem key={source} value={source} className="text-sm">
-                                            {source === "Other" ? "Other (Please specify...)" : source}
-                                        </SelectItem>
+                                <SelectContent>
+                                    {services.map((s) => (
+                                        <SelectItem key={s.id} value={s.id} className="text-sm">{s.title}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
-                    </div>
-
-                    {selectedSource === "Other" && (
-                        <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/25 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <Label htmlFor="customSource" className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                                <Tag className="h-3.5 w-3.5 text-brand-deep" />
-                                Specify Custom Lead Source
-                            </Label>
-                            <Input
-                                id="customSource"
-                                placeholder="e.g. Tech Expo 2026, TikTok Ads, Billboard, Podcast, Clutch.co..."
-                                value={customSource}
-                                maxLength={40}
-                                onChange={(e) => setCustomSource(e.target.value)}
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                                autoFocus
-                                required
-                            />
-                            <p className="text-sm text-muted-foreground">
-                                This custom channel will be automatically tracked in CRM filters and analytics charts.
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                            <Label htmlFor="industry" className="text-sm font-medium text-foreground">Industry / Focus</Label>
-                            <Input
-                                id="industry"
-                                name="industry"
-                                placeholder="e.g. SaaS / Ecommerce"
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="timeline" className="text-sm font-medium text-foreground">Timeline Urgency</Label>
-                            <Input
-                                id="timeline"
-                                name="timeline"
-                                placeholder="e.g. Immediate / 1 Month"
-                                className="bg-muted/30 border-border text-foreground text-sm h-9 placeholder:text-muted-foreground focus:border-primary"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Sales Rep Assignment */}
-                    <div className="space-y-1.5 p-3 rounded-lg bg-muted/20 border border-border">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                                <UserCheck className="h-3.5 w-3.5 text-brand-deep" /> Sales Rep Assignment
-                            </Label>
-                            <span className="text-sm text-muted-foreground">Deal ownership</span>
-                        </div>
-                        <Select value={assignedRepId} onValueChange={setAssignedRepId}>
-                            <SelectTrigger className="h-9 text-sm">
-                                <SelectValue placeholder="Select Assignee" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-card border-border text-foreground">
-                                <SelectItem value="auto" className="text-sm font-medium">
-                                    Auto-assign (least busy sales rep)
-                                </SelectItem>
-                                <SelectItem value="unassigned" className="text-sm text-muted-foreground">
-                                    Leave unassigned
-                                </SelectItem>
-                                {assignableUsers.map((user) => (
-                                    <SelectItem key={user.id} value={user.id} className="text-sm">
-                                        {user.name || "User"} {user.role ? `(${user.role})` : ""}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {/* Automated Sales Playbook Tasks Section */}
-                    <div className="p-3 rounded-lg bg-muted/20 border border-border space-y-2.5">
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
-                                <input
-                                    type="checkbox"
-                                    checked={enablePlaybook}
-                                    onChange={(e) => setEnablePlaybook(e.target.checked)}
-                                    className="h-4 w-4 rounded border-border text-brand-deep focus:ring-primary accent-primary"
-                                />
-                                <div className="flex items-center gap-1.5">
-                                    <Zap className="h-3.5 w-3.5 text-stage-negotiation" />
-                                    <span className="text-sm font-semibold text-foreground">
-                                        Auto-Provision Sales Playbook Tasks
-                                    </span>
-                                </div>
-                            </label>
-
-                            {enablePlaybook && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPlaybookAccordion(!showPlaybookAccordion)}
-                                    className="flex items-center gap-1 text-sm text-brand-deep hover:underline font-medium"
-                                >
-                                    <span>{playbookTasks.length} task{playbookTasks.length === 1 ? "" : "s"}</span>
-                                    {showPlaybookAccordion ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                </button>
-                            )}
-                        </div>
-
-                        {enablePlaybook && showPlaybookAccordion && (
-                            <div className="pt-2 border-t border-border/60 space-y-2">
-                                <p className="text-sm text-muted-foreground">
-                                    These follow-up actions will automatically populate into the sales tasks queue for this deal:
-                                </p>
-                                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                                    {playbookTasks.map((task, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="flex items-center justify-between p-2 rounded-md bg-muted/40 border border-border text-sm"
-                                        >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <CheckSquare className="h-3.5 w-3.5 text-brand-deep shrink-0" />
-                                                <span className="truncate font-medium text-foreground">{task.title}</span>
-                                                <span className="text-sm px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
-                                                    +{task.dueHours}h ({task.taskType})
-                                                </span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemovePlaybookTask(idx)}
-                                                className="text-muted-foreground hover:text-destructive p-1 transition-colors"
-                                                title="Remove Task"
-                                            >
-                                                <Trash2 className="h-3 w-3" />
-                                            </button>
-                                        </div>
+                            <Label htmlFor="urgency" className={labelClass}>Urgency</Label>
+                            <Select name="urgency" defaultValue="Within 1 month">
+                                <SelectTrigger id="urgency" className={triggerClass}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {URGENCY_OPTIONS.map((u) => (
+                                        <SelectItem key={u} value={u} className="text-sm">{u}</SelectItem>
                                     ))}
-                                    {playbookTasks.length === 0 && (
-                                        <div className="text-center py-2 text-sm text-muted-foreground italic">
-                                            No automated tasks queued for this lead.
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Add quick custom playbook task */}
-                                <div className="flex items-center gap-1.5 pt-1">
-                                    <Input
-                                        placeholder="Add quick custom task..."
-                                        value={newTaskTitle}
-                                        onChange={(e) => setNewTaskTitle(e.target.value)}
-                                        className="h-7 text-sm bg-muted/30 border-border text-foreground py-0"
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                handleAddPlaybookTask();
-                                            }
-                                        }}
-                                    />
-                                    <Select
-                                        value={newTaskType}
-                                        onValueChange={(val: any) => setNewTaskType(val)}
-                                    >
-                                        <SelectTrigger className="h-7 w-20 text-sm py-0">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-card border-border text-foreground">
-                                            <SelectItem value="Call" className="text-sm">Call</SelectItem>
-                                            <SelectItem value="Email" className="text-sm">Email</SelectItem>
-                                            <SelectItem value="Meeting" className="text-sm">Meeting</SelectItem>
-                                            <SelectItem value="To-do" className="text-sm">To-do</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                        <Clock className="h-3 w-3 text-muted-foreground" />
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            value={newTaskHours}
-                                            onChange={(e) => setNewTaskHours(Number(e.target.value))}
-                                            className="h-7 w-14 text-sm bg-muted/30 border-border text-foreground py-0 text-center"
-                                            title="Due in hours"
-                                        />
-                                        <span className="text-sm text-muted-foreground">h</span>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={handleAddPlaybookTask}
-                                        disabled={!newTaskTitle.trim()}
-                                        className="h-7 shrink-0 px-2 text-sm font-semibold"
-                                    >
-                                        <Plus className="h-3 w-3" />
-                                    </Button>
-                                </div>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="industry" className={labelClass}>Industry</Label>
+                            <Select name="industry">
+                                <SelectTrigger id="industry" className={triggerClass}>
+                                    <SelectValue placeholder="Choose an industry" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {INDUSTRY_OPTIONS.map((i) => (
+                                        <SelectItem key={i} value={i} className="text-sm">{i}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="roleInCompany" className={labelClass}>Role in the company</Label>
+                            <Input id="roleInCompany" name="roleInCompany" maxLength={80} placeholder="e.g. Owner" className="h-9 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="contactPreference" className={labelClass}>Preferred contact</Label>
+                            <Select name="contactPreference" defaultValue="Email">
+                                <SelectTrigger id="contactPreference" className={triggerClass}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {CONTACT_PREFERENCES.map((c) => (
+                                        <SelectItem key={c} value={c} className="text-sm">{c}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="source" className={labelClass}>How they found us</Label>
+                            <Select value={source} onValueChange={setSource}>
+                                <SelectTrigger id="source" className={triggerClass}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {MANUAL_SOURCES.map((s) => (
+                                        <SelectItem key={s} value={s} className="text-sm">{s}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {source === "Other" && (
+                            <div className="space-y-1.5 sm:col-span-2">
+                                <Label htmlFor="customSource" className={labelClass}>Where from?</Label>
+                                <Input id="customSource" name="customSource" required maxLength={40} placeholder="e.g. Tech Expo 2026" className="h-9 text-sm" autoFocus />
                             </div>
                         )}
                     </div>
 
                     <div className="space-y-1.5">
-                        <Label htmlFor="goals" className="text-sm font-medium text-foreground">Project Goals / Notes</Label>
-                        <Textarea
-                            id="goals"
-                            name="goals"
-                            placeholder="Describe client requirements, objectives, or initial discovery notes..."
-                            rows={2}
-                            className="bg-muted/30 border-border text-foreground text-sm resize-none placeholder:text-muted-foreground focus:border-primary"
-                        />
+                        <Label htmlFor="details" className={labelClass}>Project details</Label>
+                        <Textarea id="details" name="details" rows={3} maxLength={5000} placeholder="What they want built, and anything they already told you." className="text-sm" />
                     </div>
 
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setOpen(false)}
-                            className="text-sm text-muted-foreground hover:text-foreground hover:bg-muted"
-                        >
+                    <div className="space-y-1.5">
+                        <Label htmlFor="owner" className={labelClass}>Owner</Label>
+                        <Select name="owner" defaultValue="unassigned">
+                            <SelectTrigger id="owner" className={triggerClass}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="unassigned" className="text-sm">Unassigned</SelectItem>
+                                {salesUsers.map((u) => (
+                                    <SelectItem key={u.id} value={u.id} className="text-sm">{u.name || "Sales"}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-sm text-muted-foreground">Unassigned leads can be claimed by any Sales user.</p>
+                    </div>
+
+                    <DialogFooter className="gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading} className="h-9 text-sm">
                             Cancel
                         </Button>
-                        <Button
-                            type="submit"
-                            disabled={isLoading}
-                            className="gap-1.5 font-semibold active:scale-[0.97]"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
-                                </>
-                            ) : (
-                                "Add to Pipeline"
-                            )}
+                        <Button type="submit" disabled={isLoading} className="h-9 gap-1.5 font-semibold active:scale-[0.97]">
+                            {isLoading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                            {isLoading ? "Adding" : "Add to pipeline"}
                         </Button>
-                    </div>
+                    </DialogFooter>
                 </form>
             </DialogContent>
         </Dialog>

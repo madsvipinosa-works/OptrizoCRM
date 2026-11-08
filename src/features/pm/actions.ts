@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/db";
+import { normalizeProofUrl } from "@/lib/proof-url";
 import { agencyProjects, milestones, tasks, sprints, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { eq, and, isNull, ne, inArray } from "drizzle-orm";
@@ -517,10 +518,16 @@ export async function submitTask(input: {
         return { ok: false, error: "FORBIDDEN" };
     }
 
-    const combinedProofLinks: { label: string; url: string }[] = [
-        ...(input.links || []).filter((l) => l && l.trim().length > 0).map((url) => ({ label: "Link", url: url.trim() })),
-        ...(input.files || []).filter((f) => f && f.trim().length > 0).map((fileUrl) => ({ label: "File", url: fileUrl.trim() })),
+    // Only links that can be opened are stored (no "dada", no "javascript:").
+    const toProof = (label: string) => (raw: string) => ({ label, url: normalizeProofUrl(raw) });
+    const proofCandidates = [
+        ...(input.links || []).filter((l) => l && l.trim().length > 0).map(toProof("Link")),
+        ...(input.files || []).filter((f) => f && f.trim().length > 0).map(toProof("File")),
     ];
+    if (proofCandidates.some((p) => p.url === null)) {
+        return { ok: false, error: "INVALID_LINK" };
+    }
+    const combinedProofLinks = proofCandidates as { label: string; url: string }[];
 
     let taskTitle = "";
     let taskProjectId: string | null = null;

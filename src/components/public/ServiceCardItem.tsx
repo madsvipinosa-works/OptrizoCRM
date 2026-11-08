@@ -57,7 +57,7 @@ const DEFAULT_SERVICE_IMAGES: Record<string, string> = {
   "Cloud & DevOps": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1000&auto=format&fit=crop",
 };
 
-const URGENCY_OPTIONS = [
+export const URGENCY_OPTIONS = [
   "Within 1 month",
   "1-2 months",
   "3-6 months",
@@ -65,7 +65,7 @@ const URGENCY_OPTIONS = [
   "Flexible",
 ];
 
-const INDUSTRY_OPTIONS = [
+export const INDUSTRY_OPTIONS = [
   "Retail",
   "E-commerce",
   "Technology & SaaS",
@@ -78,7 +78,7 @@ const INDUSTRY_OPTIONS = [
   "Other",
 ];
 
-const CONTACT_PREFERENCES = [
+export const CONTACT_PREFERENCES = [
   "Phone call",
   "Email",
   "Video meeting",

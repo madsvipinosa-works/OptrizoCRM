@@ -284,25 +284,6 @@ export function LeadDetailView({ lead, previousLeads = [] }: LeadDetailViewProps
                             {stageLabel}
                         </span>
                     </div>
-                    {previousLeads.length > 0 && (
-                        <div role="note" className="mt-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
-                            <span className="font-semibold">Returning contact.</span> Earlier inquiries from this contact:
-                            <ul className="mt-1 space-y-0.5 text-muted-foreground">
-                                {previousLeads.map((p) => {
-                                    const label = `${p.status}${p.lossReason ? ` (${p.lossReason})` : ""} · ${format(new Date(p.createdAt), "MMM d, yyyy")}`;
-                                    return (
-                                        <li key={p.id}>
-                                            {p.canOpen ? (
-                                                <Link href={`/dashboard/leads/${p.id}`} className="text-primary hover:underline">{label}</Link>
-                                            ) : (
-                                                label
-                                            )}
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    )}
                     <p className="mt-1.5 text-base text-muted-foreground">
                         <span className="font-medium text-foreground">{clientName || "Client name not given"}</span>
                         {[service, lead.urgency].filter(Boolean).map((part) => (
@@ -326,6 +307,26 @@ export function LeadDetailView({ lead, previousLeads = [] }: LeadDetailViewProps
                     </Link>
                 </div>
             </header>
+
+            {previousLeads.length > 0 && (
+                <div role="note" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+                    <span className="font-semibold">Returning contact.</span> Earlier inquiries from this contact:
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                        {previousLeads.map((p) => {
+                            const label = `${p.status}${p.lossReason ? ` (${p.lossReason})` : ""} · ${format(new Date(p.createdAt), "MMM d, yyyy")}`;
+                            return (
+                                <li key={p.id}>
+                                    {p.canOpen ? (
+                                        <Link href={`/dashboard/leads/${p.id}`} className="font-medium text-brand-deep underline-offset-4 hover:underline">{label}</Link>
+                                    ) : (
+                                        label
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            )}
 
             {!isClosed && (
                 <DiscoverySteps

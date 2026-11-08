@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SaveBar, formFields, sheet } from "./cms-ui";
 import { publishPage, saveDraft } from "@/features/cms/content/pages.actions";
 import type { PageSlugValue } from "@/features/cms/content/schemas";
 import { contentErrorMessage } from "./ContentStatusButtons";
@@ -124,58 +125,50 @@ export function PageEditor({
     }
 
     return (
-        <div className="space-y-6 rounded-xl border border-border p-6">
-            <p className="text-sm text-muted-foreground">
-                {publishedAt
-                    ? `Last published ${manilaDateTime.format(new Date(publishedAt))}${publishedByName ? ` by ${publishedByName}` : ""}`
-                    : "Not published yet"}
-                {" · "}
-                {hasUnpublished ? "you have unpublished changes" : "no unpublished changes"}
-            </p>
-
-            {slug === "home" && (
-                <HomeSection
-                    values={values as HomeValues}
-                    onChange={setValues}
-                    errors={fieldErrors}
-                    services={services}
-                    portfolio={portfolio}
-                />
-            )}
-            {slug === "about" && <AboutSection values={values as AboutValues} onChange={setValues} errors={fieldErrors} />}
-            {slug === "contact" && (
-                <ContactSection values={values as ContactValues} onChange={setValues} errors={fieldErrors} />
-            )}
-
-            {error && (
-                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                    {error}
-                </p>
-            )}
-            {notice && (
-                <p role="status" className="rounded-md border border-border bg-muted/40 p-3 text-sm">
-                    {notice}
-                </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" variant="outline" onClick={() => setShowPreview((on) => !on)}>
-                    {showPreview ? "Hide preview" : "Preview"}
-                </Button>
-                <Button type="button" variant="outline" disabled={pending || !dirty} onClick={save}>
-                    Save draft
-                </Button>
-                <Button type="button" disabled={pending || !hasUnpublished} onClick={publish}>
-                    Publish
-                </Button>
+        <div>
+            <div className={`${sheet} ${formFields}`}>
+                {slug === "home" && (
+                    <HomeSection values={values as HomeValues} onChange={setValues} errors={fieldErrors} services={services} portfolio={portfolio} />
+                )}
+                {slug === "about" && <AboutSection values={values as AboutValues} onChange={setValues} errors={fieldErrors} />}
+                {slug === "contact" && <ContactSection values={values as ContactValues} onChange={setValues} errors={fieldErrors} />}
             </div>
 
+            {error && <p role="alert" className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
+            {notice && <p role="status" className="composer-enter mt-4 rounded-xl bg-brand-soft px-4 py-3 text-sm text-brand-deep">{notice}</p>}
+
             {showPreview && (
-                <div className="space-y-3 rounded-lg border border-dashed border-border p-4">
-                    <p className="text-sm font-medium">Preview of your current edits (not published)</p>
+                <section aria-label="Preview of your edits" className={`${sheet} composer-enter mt-4 space-y-3 p-5 sm:p-6`}>
+                    <h2 className="text-base font-semibold text-foreground">Preview of your edits</h2>
+                    <p className="text-sm text-muted-foreground">Not published yet. This is the text visitors will see.</p>
                     <PlainFieldsView slug={slug} fields={values} titles={titles} />
-                </div>
+                </section>
             )}
+
+            {/* Mockup C7: status on the left, actions on the right; floats while you scroll the long pages. */}
+            <SaveBar
+                status={
+                    <>
+                        {publishedAt
+                            ? `Last published ${manilaDateTime.format(new Date(publishedAt))}${publishedByName ? ` by ${publishedByName}` : ""}`
+                            : "Not published yet"}
+                        {" · "}
+                        <span className={hasUnpublished ? "font-medium text-foreground" : undefined}>
+                            {dirty ? "unsaved edits" : hasUnpublished ? "draft not published" : "no unpublished changes"}
+                        </span>
+                    </>
+                }
+            >
+                <Button type="button" variant="ghost" className="h-9 active:scale-[0.97]" aria-expanded={showPreview} onClick={() => setShowPreview((on) => !on)}>
+                    {showPreview ? "Hide preview" : "Preview"}
+                </Button>
+                <Button type="button" variant="outline" className="h-9 bg-card active:scale-[0.97]" disabled={pending || !dirty} onClick={save}>
+                    Save draft
+                </Button>
+                <Button type="button" className="h-9 font-semibold active:scale-[0.97]" disabled={pending || !hasUnpublished} onClick={publish}>
+                    Publish
+                </Button>
+            </SaveBar>
         </div>
     );
 }

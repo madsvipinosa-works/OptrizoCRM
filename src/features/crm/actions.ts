@@ -56,6 +56,11 @@ export async function createLead(data: {
     timelineExpectation?: string;
     goals?: string;
     industry?: string;
+    // Same fields as the inquiry form (spec step 1), so a lead added by Sales reads like one from the website.
+    urgency?: string;
+    roleInCompany?: string;
+    contactPreference?: string;
+    details?: string;
     source?: string;
     assignedRepId?: string | null;
     tasksPlaybook?: PlaybookTaskTemplate[];
@@ -105,6 +110,10 @@ export async function createLead(data: {
                 timelineExpectation: data.timelineExpectation,
                 goals: data.goals,
                 industry: data.industry,
+                urgency: data.urgency?.trim().slice(0, 40) || null,
+                roleInCompany: data.roleInCompany?.trim().slice(0, 80) || null,
+                contactPreference: data.contactPreference?.trim().slice(0, 40) || null,
+                details: data.details?.trim().slice(0, 5000) || null,
                 status: "New Lead",
                 source: data.source || "Manual Entry",
                 lastContactedAt: new Date(),

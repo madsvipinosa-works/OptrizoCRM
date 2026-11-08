@@ -554,6 +554,50 @@ export async function sendProjectCompleteEmail(data: {
 }
 
 /**
+ * Asks the client to review the handover and accept it or request fixes (spec steps 30-30a).
+ */
+export async function sendHandoverReviewEmail(data: {
+    clientEmail: string;
+    clientName: string;
+    projectTitle: string;
+    portalUrl: string;
+}) {
+    try {
+        const result = await sendMail({
+            to: data.clientEmail,
+            subject: `Please review the handover: ${data.projectTitle}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px 20px; color: #0b0f14;">
+                    <div style="margin-bottom: 24px;">
+                        <span style="font-size: 18px; font-weight: 700; color: #0b7a3e; letter-spacing: -0.02em;">OPTRIZO</span>
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 22px; font-weight: 600; color: #0b0f14;">Your project is ready for review</h2>
+                    <p style="margin: 0 0 16px; font-size: 15px; color: #68736e; line-height: 1.5;">
+                        Hello ${data.clientName}, the final files for <strong>${data.projectTitle}</strong> are ready. Please check them in your portal, then accept the handover or tell us what needs fixing.
+                    </p>
+                    <div style="margin: 24px 0;">
+                        <a href="${data.portalUrl}" style="background-color: #0b7a3e; color: #ffffff; padding: 12px 22px; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 14px;">
+                            Review the handover
+                        </a>
+                    </div>
+                    <p style="font-size: 12px; color: #68736e; margin: 24px 0 0;">
+                        Optrizo Digital Solutions &bull; If we don't hear back within 14 days, the project may be completed as accepted.
+                    </p>
+                </div>
+            `,
+        });
+        if (!result.ok && !result.skipped) {
+            console.error("Email Error sending handover review email:", result.error);
+            return { success: false, error: result.error };
+        }
+        return { success: true, mock: result.skipped };
+    } catch (err) {
+        console.error("sendHandoverReviewEmail error:", err);
+        return { success: false, error: err };
+    }
+}
+
+/**
  * Sends an email verification link during client registration.
  */
 export async function sendEmailVerificationEmail(data: {

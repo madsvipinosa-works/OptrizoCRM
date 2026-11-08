@@ -1,6 +1,6 @@
-import Link from "next/link";
+import { CmsPageHeader } from "@/features/cms/components/content/cms-ui";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { services } from "@/db/schema";
 import { requireRole } from "@/lib/authz";
@@ -20,15 +20,16 @@ export default async function EditServicePage({ params }: Props) {
     const [service] = await db.select().from(services).where(eq(services.id, id)).limit(1);
     if (!service) notFound();
 
+    // Live preview: the inquiry form's other published services, in website order.
+    const inquiryList = (
+        await db.select({ title: services.title }).from(services).where(and(eq(services.status, "published"), eq(services.showInInquiry, true), ne(services.id, id))).orderBy(asc(services.order), asc(services.title))
+    ).map((r) => r.title);
+
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
-            <div>
-                <Link href="/dashboard/services" className="text-sm text-muted-foreground hover:underline">
-                    ← Back to services
-                </Link>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-2">Edit service</h1>
-            </div>
+        <div className="mx-auto w-full max-w-[1200px] space-y-6 pb-12">
+            <CmsPageHeader title={service.title} description="Edit service" back={{ href: "/dashboard/services", label: "Back to services" }} />
             <ServiceEditorForm
+                inquiryList={inquiryList}
                 service={{
                     id: service.id,
                     title: service.title,

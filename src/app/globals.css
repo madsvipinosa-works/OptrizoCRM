@@ -119,11 +119,11 @@
   --warning: oklch(0.6972 0.1687 54.22);
   --warning-foreground: oklch(15% 0.0500 54.22);
 
-  /* Pipeline stage hues: one per stage, icon/accents only (text stays --foreground). */
+  /* Pipeline stage hues, cool to warm to green (no violet: taste rule). Bars and icons; text stays --foreground. */
   --stage-new: oklch(58% 0.15 250);
   --stage-discovery: oklch(58% 0.11 195);
-  --stage-proposal: oklch(56% 0.17 295);
-  --stage-negotiation: oklch(64% 0.16 60);
+  --stage-proposal: oklch(55% 0.12 75);
+  --stage-negotiation: oklch(57% 0.17 40);
   --stage-closed: oklch(60% 0.16 149);
 
   /* Border Radius */
@@ -141,7 +141,7 @@
   --secondary-foreground: var(--default-foreground);
   --destructive: var(--danger);
   --destructive-foreground: var(--danger-foreground);
-  --input: var(--field-background);
+  --input: #cfd7d3; /* Field border (shadcn border-input). It was the white field background, so fields had no edge. */
   --ring: var(--focus);
 }
 
@@ -185,8 +185,8 @@
 
   --stage-new: oklch(74% 0.12 250);
   --stage-discovery: oklch(76% 0.11 195);
-  --stage-proposal: oklch(74% 0.14 295);
-  --stage-negotiation: oklch(80% 0.14 65);
+  --stage-proposal: oklch(80% 0.13 80);
+  --stage-negotiation: oklch(74% 0.15 42);
   --stage-closed: oklch(77% 0.18 149);
   
   /* Shadcn Aliases Setup */
@@ -200,7 +200,7 @@
   --secondary-foreground: var(--default-foreground);
   --destructive: var(--danger);
   --destructive-foreground: var(--danger-foreground);
-  --input: var(--field-background);
+  --input: #34413a;
   --ring: var(--focus);
 }
 

@@ -127,27 +127,17 @@ export function ProjectTeamDrawer({
             <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
                 <DialogContent className="sm:max-w-md max-w-[95vw] p-0 overflow-hidden gap-0">
                     {/* Header */}
-                    <div className="flex items-center justify-between p-5 border-b border-border bg-card">
-                        <div>
-                            <DialogTitle className="text-lg font-semibold text-foreground">
-                                Project team
-                            </DialogTitle>
-                            <DialogDescription className="sr-only">
-                                Manage team members and view project assignments
-                            </DialogDescription>
-                        </div>
-                        {projectTitle && (
-                            <span
-                                className="text-xs font-medium text-muted-foreground truncate max-w-[180px]"
-                                title={projectTitle}
-                            >
-                                {projectTitle}
-                            </span>
-                        )}
+                    <div className="border-b border-border bg-card p-5 pr-12">
+                        <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
+                            Project team
+                        </DialogTitle>
+                        <DialogDescription className="mt-0.5 truncate text-sm text-muted-foreground" title={projectTitle || undefined}>
+                            {projectTitle || "Who works on this project"}
+                        </DialogDescription>
                     </div>
 
                     {/* Body */}
-                    <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto overflow-x-hidden">
                         {/* Project Manager Section */}
                         <div className="space-y-1.5">
                             <h4 className="text-sm text-muted-foreground">
@@ -263,13 +253,13 @@ export function ProjectTeamDrawer({
 
                         {/* Read-only client line */}
                         <div className="space-y-1.5 pt-2 border-t border-border">
-                            <h4 className="text-sm text-muted-foreground">
-                                Client name
-                            </h4>
-                            <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                                <span className="truncate">
-                                    {clientInfo?.name || "Client"} ({clientInfo?.businessName || "Client Business"}) · can see progress only
-                                </span>
+                            <h4 className="text-sm text-muted-foreground">Client</h4>
+                            <div className="min-w-0 rounded-lg bg-muted/40 px-3 py-2">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                    {clientInfo?.name || "Client"}
+                                    {clientInfo?.businessName && <span className="font-normal text-muted-foreground"> · {clientInfo.businessName}</span>}
+                                </p>
+                                <p className="text-sm text-muted-foreground">Can see progress only.</p>
                             </div>
                         </div>
                     </div>

@@ -8,11 +8,17 @@ import { auth, hasRole } from "@/auth";
 import { validateFileUrlForProject } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
 import { notifyProjectClients } from "@/features/notifications/send";
-import { sendProjectCompleteEmail } from "@/lib/notifications";
+import { sendHandoverReviewEmail, sendProjectCompleteEmail } from "@/lib/notifications";
 import { getBaseUrl } from "@/lib/email-templates";
 import { ACCEPTANCE_WAIT_DAYS, acceptanceState, canAssumeAcceptance } from "@/features/pm/acceptance-state";
 import { getClientProjectIds } from "@/features/client-portal/queries";
-import { notifyLeadPms } from "@/features/notifications/send";
+import { notifyLeadPms, notifyAllAdmins } from "@/features/notifications/send";
+
+// A hand-off to the PM must reach someone: the lead's PM, or every PM when there is no lead (CLAUDE.md).
+async function notifyProjectPms(leadId: string | null, message: string, link: string) {
+    if (leadId) await notifyLeadPms(leadId, message, "project", link);
+    else await notifyAllAdmins(message, "project", link); // notifyAllAdmins notifies every manager
+}
 
 type Db = Pick<typeof db, "query">;
 
@@ -401,6 +407,25 @@ export async function requestClientAcceptance(projectId: string): Promise<Result
         "project",
         `/portal/projects/${projectId}`
     );
+    // Email too, so the client sees it outside the portal (user asked 2026-11-08).
+    try {
+        const details = await db.query.agencyProjects.findFirst({
+            where: eq(agencyProjects.id, projectId),
+            with: { lead: { with: { client: true } }, stakeholders: { with: { user: true } } },
+        });
+        const clientUser = details?.lead?.client || details?.stakeholders?.find((s) => s.user?.role === "client")?.user;
+        const clientEmail = clientUser?.email || details?.lead?.contactEmail;
+        if (clientEmail) {
+            await sendHandoverReviewEmail({
+                clientEmail,
+                clientName: clientUser?.name || details?.lead?.contactName || "there",
+                projectTitle: project.title,
+                portalUrl: `${getBaseUrl()}/portal/projects/${projectId}`,
+            });
+        }
+    } catch (err) {
+        console.error("Handover review email failed:", err); // the request itself already succeeded
+    }
     revalidatePath(`/dashboard/pm/${projectId}/complete`);
     revalidatePath(`/portal/projects/${projectId}`);
     return { success: true, message: "Acceptance requested. The client has been notified." };
@@ -422,9 +447,7 @@ export async function acceptCompletion(projectId: string): Promise<Result> {
     if ("error" in r) return { success: false, error: r.error };
     await db.update(agencyProjects).set({ acceptedAt: new Date(), acceptedBy: r.session.user.id, updatedAt: new Date() }).where(eq(agencyProjects.id, projectId));
     await logAction("UPDATE", "Project", `Client accepted the handover of "${r.project.title}"`, r.session.user.id, projectId);
-    if (r.project.leadId) {
-        await notifyLeadPms(r.project.leadId, `The client accepted the handover of "${r.project.title}". You can now mark it complete.`, "project", `/dashboard/pm/${projectId}/complete`);
-    }
+    await notifyProjectPms(r.project.leadId, `The client accepted the handover of "${r.project.title}". You can now mark it complete.`, `/dashboard/pm/${projectId}/complete`);
     revalidatePath(`/dashboard/pm/${projectId}/complete`);
     revalidatePath(`/portal/projects/${projectId}`);
     return { success: true, message: "Thank you. You accepted the handover." };
@@ -439,9 +462,7 @@ export async function requestCompletionFixes(projectId: string, comment: string)
     if ("error" in r) return { success: false, error: r.error };
     await db.update(agencyProjects).set({ fixesRequestedAt: new Date(), fixesComment: text, updatedAt: new Date() }).where(eq(agencyProjects.id, projectId));
     await logAction("UPDATE", "Project", `Client requested fixes on "${r.project.title}"`, r.session.user.id, projectId);
-    if (r.project.leadId) {
-        await notifyLeadPms(r.project.leadId, `The client requested fixes on "${r.project.title}": ${text.slice(0, 120)}`, "project", `/dashboard/pm/${projectId}/complete`);
-    }
+    await notifyProjectPms(r.project.leadId, `The client requested fixes on "${r.project.title}": ${text.slice(0, 120)}`, `/dashboard/pm/${projectId}/complete`);
     revalidatePath(`/dashboard/pm/${projectId}/complete`);
     revalidatePath(`/portal/projects/${projectId}`);
     return { success: true, message: "Your request was sent to the project manager." };
