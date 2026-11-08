@@ -1,4 +1,3 @@
-import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { notFound, redirect } from "next/navigation";
 import { GanttTimeline } from "@/features/pm/components/GanttTimeline";
 import { buildGanttLayout } from "@/features/sprints/gantt-layout";
@@ -14,7 +13,7 @@ export default async function PmProjectTimelinePage({
   params: Promise<{ id: string }>;
 }) {
   // 1. Strict manager-only guard FIRST before any DB or query call
-  const authz = await requireRole(["manager"]);
+  const authz = await requireRole(["manager", "developer"]);
   if (!authz.ok) {
     redirect("/");
   }
@@ -45,13 +44,6 @@ export default async function PmProjectTimelinePage({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-5 pb-12">
-      <ProjectHeader
-        projectId={data.project.id}
-        title={data.project.title}
-        businessName={data.project.businessName}
-        clientName={data.project.clientName}
-        current="timeline"
-      />
 
       <GanttTimeline layout={layout} />
     </div>

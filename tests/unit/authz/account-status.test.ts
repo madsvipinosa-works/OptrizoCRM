@@ -451,7 +451,8 @@ describe("team list and detail runtime behavior (Session 10 / STOP 5)", () => {
     expect(mockDb.query.users.findMany).toHaveBeenCalledTimes(1);
     const invalidCallArg = mockDb.query.users.findMany.mock.calls[0][0];
     expect(invalidCallArg.columns).not.toHaveProperty("password");
-    expect(invalidCallArg.limit).toBe(100);
+    expect(invalidCallArg.limit).toBe(10); // 10 per page
+    expect(invalidCallArg.offset).toBe(0);
     const invalidWhereStr = util.inspect(invalidCallArg.where, { depth: 8 });
     expect(invalidWhereStr).not.toContain("not_a_role");
     expect(invalidWhereStr).not.toContain("not_a_status");
