@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { normalizeProofUrl } from "@/lib/proof-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,16 +123,19 @@ export function TaskProofValidationModal({
 
                 if (url === "") url = label;
 
-                if (!/^https?:\/\//i.test(url)) {
-                    url = `https://${url}`;
-                }
-                return { label: label || "Proof Link", url };
+                return { label: label || "Proof Link", url: normalizeProofUrl(url) ?? url };
             });
 
-        const validFiles = proofFiles.filter((f) => f.trim().length > 0);
+        const typedFiles = proofFiles.filter((f) => f.trim().length > 0);
         if (newFileUrl.trim()) {
-            validFiles.push(newFileUrl.trim());
+            typedFiles.push(newFileUrl.trim());
         }
+        const badFile = typedFiles.find((f) => !normalizeProofUrl(f));
+        if (badFile) {
+            setError(`"${badFile}" is not a link that can be opened. Paste the full link, e.g. https://drive.google.com/...`);
+            return;
+        }
+        const validFiles = typedFiles.map((f) => normalizeProofUrl(f) as string);
 
         // Per spec: at least one file or link required for submitTask
         if (validLinks.length === 0 && validFiles.length === 0) {
@@ -139,13 +143,10 @@ export function TaskProofValidationModal({
             return;
         }
 
-        for (const link of validLinks) {
-            try {
-                new URL(link.url);
-            } catch {
-                setError(`Invalid URL format: ${link.url}`);
-                return;
-            }
+        const badLink = validLinks.find((l) => !normalizeProofUrl(l.url));
+        if (badLink) {
+            setError(`"${badLink.url}" is not a link that can be opened. Paste the full link, e.g. https://figma.com/...`);
+            return;
         }
 
         try {

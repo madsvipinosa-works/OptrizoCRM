@@ -278,7 +278,7 @@ export function KanbanBoard({
                 setProofingTask(null);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to submit work");
+                toast.error(res.error === "INVALID_LINK" ? "One of the links cannot be opened. Paste the full link." : res.error || "Failed to submit work");
             }
         } catch (error) {
             console.error("Submit work error:", error);
