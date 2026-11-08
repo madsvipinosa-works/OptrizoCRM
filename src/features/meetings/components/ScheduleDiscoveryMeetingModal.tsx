@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,7 +11,8 @@ import { toast } from "sonner";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { isPastManila, manilaToDate, nowHm, todayYmd } from "@/lib/datetime";
-import { Users, FileText } from "lucide-react";
+
+const labelClass = "text-sm font-medium text-foreground";
 
 interface ScheduleDiscoveryMeetingModalProps {
     isOpen: boolean;
@@ -126,68 +126,52 @@ export function ScheduleDiscoveryMeetingModal({
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-lg bg-card border-border text-foreground">
                 <DialogHeader>
-                    <DialogTitle className="text-xl font-semibold tracking-tight">
-                        Schedule appointment
-                    </DialogTitle>
+                    <DialogTitle className="text-xl font-semibold tracking-tight">Schedule appointment</DialogTitle>
+                    {(initialLeadId || availableLeads.length === 0) && (
+                        <DialogDescription className="text-sm text-muted-foreground">
+                            Discovery meeting with <span className="font-medium text-foreground">{displayBusinessName}</span> ({displayClientName}). Pricing meetings are booked by the PM.
+                        </DialogDescription>
+                    )}
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                    {/* Lead Selection if not preselected */}
-                    {!initialLeadId && availableLeads.length > 0 ? (
-                        <div className="space-y-1">
-                            <Label className="text-sm text-muted-foreground">Lead</Label>
+                <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+                    {!initialLeadId && availableLeads.length > 0 && (
+                        <div className="space-y-1.5">
+                            <Label htmlFor="meeting-lead" className={labelClass}>Lead</Label>
                             <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
-                                <SelectTrigger className="text-sm h-9">
-                                    <SelectValue placeholder="Choose a lead..." />
+                                <SelectTrigger id="meeting-lead" className="h-9 w-full text-sm">
+                                    <SelectValue placeholder="Choose a lead" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-card border-border">
+                                <SelectContent>
                                     {availableLeads.map((l) => (
                                         <SelectItem key={l.id} value={l.id} className="text-sm">
-                                            {l.businessName || l.contactName || "Unnamed Opportunity"} ({l.contactName || "Contact"})
+                                            {l.businessName || l.contactName || "Unnamed lead"}
+                                            {l.contactName && l.businessName ? ` (${l.contactName})` : ""}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label className="text-sm text-muted-foreground">Business name</Label>
-                                <Input
-                                    value={displayBusinessName}
-                                    disabled
-                                    className="bg-muted text-sm h-9"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <Label className="text-sm text-muted-foreground">Client name</Label>
-                                <Input
-                                    value={displayClientName}
-                                    disabled
-                                    className="bg-muted text-sm h-9"
-                                />
-                            </div>
+                            <p className="text-sm text-muted-foreground">Discovery meeting. Pricing meetings are booked by the PM.</p>
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                            <Label className="text-sm text-muted-foreground">Meeting type</Label>
-                            <Input
-                                value="Discovery"
-                                disabled
-                                className="bg-muted text-sm h-9 font-semibold"
-                            />
-                            <p className="text-sm text-muted-foreground">Pricing meetings are booked by the PM.</p>
+                    {/* Mockup step 4: Date | Time, Format | Attendees */}
+                    <div className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <Label className={labelClass}>Date</Label>
+                            <DatePicker value={date} onChange={setDate} min={todayYmd()} required />
                         </div>
-
-                        <div className="space-y-1">
-                            <Label className="text-sm text-muted-foreground">Format</Label>
+                        <div className="space-y-1.5">
+                            <Label className={labelClass}>Time</Label>
+                            <TimePicker value={time} onChange={setTime} min={date === todayYmd() ? nowHm() : undefined} aria-label="Time" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="meeting-format" className={labelClass}>Format</Label>
                             <Select value={format} onValueChange={(val: "video" | "phone" | "in_person" | "on_site") => setFormat(val)}>
-                                <SelectTrigger className="text-sm h-9">
+                                <SelectTrigger id="meeting-format" className="h-9 w-full text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-card border-border">
+                                <SelectContent>
                                     <SelectItem value="video" className="text-sm">Video call</SelectItem>
                                     <SelectItem value="phone" className="text-sm">Phone call</SelectItem>
                                     <SelectItem value="in_person" className="text-sm">In person</SelectItem>
@@ -195,52 +179,34 @@ export function ScheduleDiscoveryMeetingModal({
                                 </SelectContent>
                             </Select>
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                            <Label className="text-sm text-muted-foreground">Date</Label>
-                            <DatePicker value={date} onChange={setDate} min={todayYmd()} required className="bg-card border-border" />
+                        <div className="space-y-1.5">
+                            <Label htmlFor="meeting-pm" className={labelClass}>Project Manager</Label>
+                            <Select value={pmId} onValueChange={setPmId}>
+                                <SelectTrigger id="meeting-pm" className="h-9 w-full text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none" className="text-sm">None</SelectItem>
+                                    {managers.map((m) => (
+                                        <SelectItem key={m.id} value={m.id} className="text-sm">{m.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <div className="space-y-1">
-                            <Label className="text-sm text-muted-foreground">Time</Label>
-                            <TimePicker value={time} onChange={setTime} min={date === todayYmd() ? nowHm() : undefined} className="bg-card border-border" />
-                        </div>
-                    </div>
-
-                    <div className="space-y-1">
-                        <Label className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Users className="h-3 w-3" /> Attendees
-                        </Label>
-                        <Input value="Sales (required)" disabled className="bg-muted text-sm h-9" />
-                        <Select value={pmId} onValueChange={setPmId}>
-                            <SelectTrigger className="text-sm h-9" aria-label="Project Manager (optional)">
-                                <SelectValue placeholder="Project Manager (optional)" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-card border-border">
-                                <SelectItem value="none" className="text-sm">No Project Manager</SelectItem>
-                                {managers.map((m) => (
-                                    <SelectItem key={m.id} value={m.id} className="text-sm">
-                                        {m.name} (Project Manager, optional)
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-sm text-muted-foreground">
-                            The Project Manager is optional. If you pick one, they are notified and can hear the requirements first-hand.
+                        <p className="text-sm text-muted-foreground sm:col-span-2">
+                            You attend as Sales. A Project Manager is optional; if you add one, they are notified and hear the requirements first-hand.
                         </p>
                     </div>
 
-                    <div className="space-y-1">
-                        <Label className="text-sm text-muted-foreground flex items-center gap-1">
-                            <FileText className="h-3 w-3" /> Agenda or notes
-                        </Label>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="meeting-agenda" className={labelClass}>Agenda or notes</Label>
                         <Textarea
+                            id="meeting-agenda"
                             rows={3}
                             value={agenda}
                             onChange={(e) => setAgenda(e.target.value)}
                             placeholder="Learn their goals, the features they need and their timeline."
-                            className="text-sm bg-card border-border"
+                            className="text-sm"
                         />
                     </div>
 

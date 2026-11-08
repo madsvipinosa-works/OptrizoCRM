@@ -43,43 +43,37 @@ interface LeadsKanbanBoardProps {
  * lost leads are reached from the table view, where Sales can reopen them.
  * There is no drag-and-drop: the spec forbids manual stage changes.
  */
-// Each stage has its own hue (tokens --stage-*): icon tile, title color, count.
-// Card text stays on --foreground so contrast never depends on the hue.
-const COLUMNS: { status: string; title: string; hint: string; icon: LucideIcon; tone: { tile: string; text: string; count: string } }[] = [
+// Every column: the icon in its stage colour; title, count and cards stay neutral.
+const COLUMNS: { status: string; title: string; icon: LucideIcon; ink: string }[] = [
     {
         status: "New Lead",
         title: "New lead",
-        hint: "Auto: inquiry received",
         icon: Sparkles,
-        tone: { tile: "bg-stage-new/15 text-stage-new", text: "text-stage-new", count: "bg-stage-new/12 ring-stage-new/30" },
+        ink: "text-stage-new",
     },
     {
         status: "Discovery & Qualifying",
         title: "Discovery",
-        hint: "Auto: first interaction logged",
         icon: MessagesSquare,
-        tone: { tile: "bg-stage-discovery/15 text-stage-discovery", text: "text-stage-discovery", count: "bg-stage-discovery/12 ring-stage-discovery/30" },
+        ink: "text-stage-discovery",
     },
     {
         status: "Proposal Sent",
         title: "Proposal sent",
-        hint: "Auto: proposal sent",
         icon: Send,
-        tone: { tile: "bg-stage-proposal/15 text-stage-proposal", text: "text-stage-proposal", count: "bg-stage-proposal/12 ring-stage-proposal/30" },
+        ink: "text-stage-proposal",
     },
     {
         status: "In Negotiation",
         title: "Negotiation",
-        hint: "Auto: client requests changes",
         icon: RefreshCw,
-        tone: { tile: "bg-stage-negotiation/15 text-stage-negotiation", text: "text-stage-negotiation", count: "bg-stage-negotiation/12 ring-stage-negotiation/30" },
+        ink: "text-stage-negotiation",
     },
     {
         status: "Closed Won",
         title: "Closed",
-        hint: "Auto: client signed",
         icon: CheckCircle2,
-        tone: { tile: "bg-stage-closed/15 text-stage-closed", text: "text-stage-closed", count: "bg-stage-closed/12 ring-stage-closed/30" },
+        ink: "text-stage-closed",
     },
 ];
 
@@ -159,10 +153,8 @@ function BoardColumn({
         >
             <header className="px-2 pb-3 pt-1.5">
                 <div className="flex items-center gap-2">
-                    <span className={`grid size-6 shrink-0 place-items-center rounded-md ${column.tone.tile}`}>
-                        <column.icon className="size-3.5" aria-hidden="true" />
-                    </span>
-                    <h3 id={headingId} className="text-sm font-semibold tracking-tight text-foreground">
+                    <column.icon className={`size-4 shrink-0 ${column.ink}`} aria-hidden="true" />
+                    <h3 id={headingId} className="text-base font-semibold tracking-tight text-foreground">
                         {column.title}
                     </h3>
                     <motion.span
@@ -170,13 +162,12 @@ function BoardColumn({
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ type: "spring", duration: 0.3, bounce: 0.2 }}
-                        className={`ml-auto min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-foreground ring-1 ring-inset ${column.tone.count}`}
+                        className={`ml-auto min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-foreground bg-foreground/[0.06]`}
                         aria-label={`${leads.length} ${leads.length === 1 ? "lead" : "leads"}`}
                     >
                         {leads.length}
                     </motion.span>
                 </div>
-                <p className="mt-1 text-[11.5px] text-muted-foreground">{column.hint}</p>
             </header>
 
             <ul className="column-scroll -mx-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-1 pb-6">
@@ -193,11 +184,6 @@ function BoardColumn({
                         />
                     ))}
                 </AnimatePresence>
-                {leads.length === 0 && (
-                    <li className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border px-3 text-center text-xs text-muted-foreground">
-                        No leads here yet
-                    </li>
-                )}
             </ul>
         </section>
     );
@@ -325,7 +311,7 @@ function PipelineCard({
                         {title}
                     </div>
                     {(service || detail) && (
-                        <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                        <div className="mt-0.5 text-sm leading-snug text-muted-foreground">
                             {[service, detail].filter(Boolean).join(" · ")}
                         </div>
                     )}
@@ -363,21 +349,21 @@ function PipelineCard({
                 <SubStatusChip status={subStatus} />
             </div>
 
-            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
-                {owner ? (
-                    <span className="flex min-w-0 items-center gap-1.5" title={`Owner: ${owner.name || "Sales"}`}>
-                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-foreground">
-                            {initialsOf(owner.name)}
+            {(owner || days > 0) && (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                    {owner ? (
+                        <span className="flex min-w-0 items-center gap-1.5" title={`Owner: ${owner.name || "Sales"}`}>
+                            <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-foreground">
+                                {initialsOf(owner.name)}
+                            </span>
+                            <span className="truncate text-sm text-muted-foreground">{owner.name || "Sales"}</span>
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">{owner.name || "Sales"}</span>
-                    </span>
-                ) : (
-                    <span className="text-xs text-muted-foreground">Unclaimed</span>
-                )}
-                <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
-                    {days === 0 ? "Today" : `${days}d in stage`}
-                </span>
-            </div>
+                    ) : (
+                        <span />
+                    )}
+                    {days > 0 && <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{days}d in stage</span>}
+                </div>
+            )}
         </motion.li>
     );
 }
