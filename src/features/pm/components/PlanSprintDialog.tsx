@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, AlertTriangle } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -156,14 +156,14 @@ export function PlanSprintDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-5 sm:p-6 pb-3 border-b border-border shrink-0">
-          <DialogTitle className="text-lg font-semibold text-foreground">Plan sprint</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]">
+        <SheetHeader className="shrink-0 border-b border-border p-5 sm:p-6 pb-4">
+          <SheetTitle className="text-lg font-semibold tracking-tight text-foreground">Plan sprint</SheetTitle>
+          <SheetDescription className="text-sm text-muted-foreground">
             {projectTitle} · Development{devRange ? ` (${devRange})` : ""}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
@@ -249,7 +249,7 @@ export function PlanSprintDialog({
                   empty sprint.
                 </div>
               ) : (
-                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-1.5">
                   {backlogTasks.map((task) => {
                     const checked = selectedIds.includes(task.id);
                     const isCarried = isTaskCarriedOver(task) || !isBacklogTask(task);
@@ -298,7 +298,7 @@ export function PlanSprintDialog({
             </div>
           </div>
 
-          <DialogFooter className="p-4 sm:px-6 border-t border-border bg-card flex items-center justify-between gap-3 shrink-0">
+          <SheetFooter className="shrink-0 flex-row items-center justify-between gap-3 border-t border-border bg-card p-4 sm:px-6">
             <span className="text-sm text-muted-foreground hidden sm:inline">
               On save: the assigned developers are notified, and the sprint is saved in Activity.
             </span>
@@ -316,10 +316,10 @@ export function PlanSprintDialog({
                 Save sprint
               </Button>
             </div>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 

@@ -210,9 +210,8 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" className="h-9 shrink-0 gap-1.5 px-3 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.97]">
+                <Button variant="outline" size="icon" aria-label="Project settings" title="Project settings" className="size-9 shrink-0 bg-card text-muted-foreground hover:text-foreground active:scale-[0.97]">
                     <Settings className="size-4" aria-hidden="true" />
-                    Settings
                 </Button>
             </DialogTrigger>
             <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] p-0 flex flex-col bg-card border-border text-foreground rounded-xl overflow-hidden focus:outline-none">

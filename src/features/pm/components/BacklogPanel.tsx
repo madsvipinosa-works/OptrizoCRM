@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { createTask, deleteTask } from "@/features/pm/actions";
+import { deleteTask } from "@/features/pm/actions";
 import { moveTaskToSprint } from "@/features/sprints/actions";
 import type { SprintWithCounts } from "@/features/sprints/queries";
 import { isBacklogTask, isTaskCarriedOver } from "@/features/sprints/task-filters";
@@ -21,19 +20,18 @@ interface BacklogPanelProps {
   sprints: SprintWithCounts[];
   onOpenPlanSprint: (selectedIds?: string[]) => void;
   onTasksChanged?: () => void;
+  /** Opens the board's Add task dialog with Sprint = Backlog (mockup 23a). */
+  onAddTask?: () => void;
 }
 
 export function BacklogPanel({
-  projectId,
-  developmentMilestoneId,
   backlogTasks,
   sprints,
   onOpenPlanSprint,
   onTasksChanged,
+  onAddTask,
 }: BacklogPanelProps) {
   const router = useRouter();
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
@@ -44,39 +42,6 @@ export function BacklogPanel({
     setSelectedTaskIds((prev) =>
       prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]
     );
-  };
-
-  const handleQuickAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const title = newTaskTitle.trim();
-    if (!title || !developmentMilestoneId) return;
-
-    setIsAdding(true);
-    try {
-      const res = await createTask(
-        projectId,
-        developmentMilestoneId,
-        title,
-        undefined,
-        undefined,
-        1,
-        undefined,
-        { toBacklog: true }
-      );
-      if (res.success) {
-        toast.success("Task added to backlog");
-        setNewTaskTitle("");
-        onTasksChanged?.();
-        router.refresh();
-      } else {
-        toast.error(res.message || "Failed to add task to backlog");
-      }
-    } catch (err) {
-      console.error("Add backlog task error:", err);
-      toast.error("An error occurred while adding task");
-    } finally {
-      setIsAdding(false);
-    }
   };
 
   const handleDeleteBacklogTask = async (taskId: string) => {
@@ -131,13 +96,19 @@ export function BacklogPanel({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {onAddTask && (
+            <Button variant="outline" size="sm" onClick={onAddTask} className="h-9 gap-1.5 bg-card text-sm font-medium active:scale-[0.97]">
+              <Plus className="size-4" aria-hidden="true" /> Add task
+            </Button>
+          )}
           <Button
             size="sm"
+            variant={selectedTaskIds.length > 0 ? "default" : "outline"}
             onClick={() =>
               onOpenPlanSprint(selectedTaskIds.length > 0 ? selectedTaskIds : undefined)
             }
-            className="h-9 text-sm font-semibold active:scale-[0.97]"
+            className={`h-9 text-sm font-semibold active:scale-[0.97] ${selectedTaskIds.length > 0 ? "" : "bg-card"}`}
           >
             {selectedTaskIds.length > 0
               ? `Plan sprint with selected (${selectedTaskIds.length})`
@@ -146,33 +117,11 @@ export function BacklogPanel({
         </div>
       </div>
 
-      {/* Add Task Inline Field */}
-      <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
-        <Input
-          value={newTaskTitle}
-          onChange={(e) => setNewTaskTitle(e.target.value)}
-          aria-label="New backlog task name"
-          placeholder="Add a Development task to the backlog"
-          className="h-9 text-sm bg-card flex-1"
-          disabled={isAdding}
-        />
-        <Button
-          type="submit"
-          variant="outline"
-          size="sm"
-          disabled={isAdding || !newTaskTitle.trim()}
-          className="h-9 text-sm font-semibold gap-1.5 shrink-0 bg-card active:scale-[0.97]"
-        >
-          {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-          <span>Add task</span>
-        </Button>
-      </form>
-
       {/* Backlog & Carried-Over Table */}
       <div className="flex-1 overflow-x-auto">
         {backlogTasks.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
-            No tasks in the backlog. Use the field above to add Development tasks.
+            No tasks in the backlog. Use Add task to put Development work here.
           </div>
         ) : (
           <table className="w-full border-collapse text-left">
