@@ -406,7 +406,7 @@ export function StandardSectionsDialog({ open, onOpenChange }: { open: boolean; 
                                 onClick={() => setActiveKey(section.key)}
                                 className={
                                     section.key === active.key
-                                        ? "rounded-md bg-primary/10 px-3 py-2 text-left text-sm font-semibold text-primary"
+                                        ? "rounded-md bg-primary/10 px-3 py-2 text-left text-sm font-semibold text-brand-deep"
                                         : "rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent"
                                 }
                             >
@@ -525,7 +525,7 @@ export function ScheduleDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[55vh] space-y-2 overflow-y-auto py-1">
-                    <div className="grid grid-cols-12 gap-2 border-b border-border/60 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="grid grid-cols-12 gap-2 border-b border-border/60 pb-2 text-xs font-semibold text-muted-foreground">
                         <span className="col-span-4">Payment due</span>
                         <span className="col-span-3">Becomes due</span>
                         <span className="col-span-2 text-right">Percent</span>
@@ -587,7 +587,7 @@ export function ScheduleDialog({
                         >
                             + Add payment
                         </Button>
-                        <span className={validation.ok ? "text-sm font-semibold text-emerald-600" : "text-sm font-semibold text-destructive"}>
+                        <span className={validation.ok ? "text-sm font-semibold text-brand-deep" : "text-sm font-semibold text-destructive"}>
                             Total {total}%{totalPrice !== null ? ` · ${symbol}${totalPrice.toLocaleString()}` : ""}
                         </span>
                     </div>

@@ -70,11 +70,11 @@ export function RequestChangesDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md w-full glass-card border-border text-foreground">
+            <DialogContent className="max-w-md w-full bg-card border-border text-foreground">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <DialogHeader>
-                        <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                            <MessageSquarePlus className="h-5 w-5 text-primary" />
+                        <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+                            <MessageSquarePlus className="h-5 w-5 text-brand-deep" />
                             Request Proposal Changes
                         </DialogTitle>
                         <DialogDescription className="text-xs text-muted-foreground">

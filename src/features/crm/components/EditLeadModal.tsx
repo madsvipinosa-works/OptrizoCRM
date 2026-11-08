@@ -142,12 +142,12 @@ export function EditLeadModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="sm:max-w-[560px] bg-card border-border text-foreground shadow-2xl rounded-xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[560px] bg-card border-border text-foreground rounded-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="space-y-1 pb-2 border-b border-border/60">
-                    <div className="flex items-center gap-2 text-primary text-xs font-semibold">
+                    <div className="flex items-center gap-2 text-brand-deep text-xs font-semibold">
                         <Edit3 className="h-4 w-4" /> Edit Opportunity
                     </div>
-                    <DialogTitle className="text-xl font-bold text-foreground">
+                    <DialogTitle className="text-xl font-semibold text-foreground">
                         {lead.businessName || lead.contactName || "Opportunity Details"}
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground">
@@ -228,7 +228,7 @@ export function EditLeadModal({
                                 step="500"
                                 value={estimatedValue}
                                 onChange={(e) => setEstimatedValue(e.target.value)}
-                                className="h-8 text-xs bg-muted/30 border-border text-foreground tabular-nums font-bold text-brand-deep"
+                                className="h-8 text-xs bg-muted/30 border-border text-foreground tabular-nums font-semibold text-brand-deep"
                             />
                         </div>
 
@@ -299,7 +299,7 @@ export function EditLeadModal({
                         {selectedSource === "Other" && (
                             <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/25 animate-in fade-in slide-in-from-top-1 duration-200">
                                 <Label htmlFor="edit-custom-source" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                    <Tag className="h-3 w-3 text-primary" />
+                                    <Tag className="h-3 w-3 text-brand-deep" />
                                     Specify Custom Acquisition Channel
                                 </Label>
                                 <Input
@@ -359,7 +359,7 @@ export function EditLeadModal({
                             type="submit"
                             size="sm"
                             disabled={isLoading}
-                            className="h-8 text-xs bg-primary text-black font-semibold hover:bg-primary/90"
+                            className="h-8 text-xs bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
                         >
                             {isLoading ? (
                                 <>

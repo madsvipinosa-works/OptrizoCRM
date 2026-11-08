@@ -73,21 +73,21 @@ export default async function ClientProjectPaymentsPage({
 
             {/* Financial Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase tabular-nums text-muted-foreground">Contract Total</div>
-                    <div className="text-xl sm:text-2xl font-bold tabular-nums text-foreground mt-1">
+                <div className="bg-card rounded-xl border border-border p-4">
+                    <div className="text-xs tabular-nums text-muted-foreground">Contract Total</div>
+                    <div className="text-xl sm:text-2xl font-semibold tabular-nums text-foreground mt-1">
                         {currency} {totalAmount.toLocaleString()}
                     </div>
                 </div>
-                <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase tabular-nums text-emerald-600 dark:text-emerald-400">Total Paid</div>
-                    <div className="text-xl sm:text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
+                <div className="bg-card rounded-xl border border-border p-4">
+                    <div className="text-xs tabular-nums text-brand-deep">Total Paid</div>
+                    <div className="text-xl sm:text-2xl font-semibold tabular-nums text-brand-deep mt-1">
                         {currency} {paidAmount.toLocaleString()}
                     </div>
                 </div>
-                <div className="glass-card rounded-xl border border-border p-4">
-                    <div className="text-xs uppercase tabular-nums text-amber-600 dark:text-amber-400">Balance Remaining</div>
-                    <div className="text-xl sm:text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400 mt-1">
+                <div className="bg-card rounded-xl border border-border p-4">
+                    <div className="text-xs tabular-nums text-stage-negotiation">Balance Remaining</div>
+                    <div className="text-xl sm:text-2xl font-semibold tabular-nums text-stage-negotiation mt-1">
                         {currency} {pendingAmount.toLocaleString()}
                     </div>
                 </div>

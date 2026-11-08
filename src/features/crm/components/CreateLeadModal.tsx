@@ -128,9 +128,9 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto bg-card border-border text-foreground shadow-2xl rounded-xl">
+            <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto bg-card border-border text-foreground rounded-xl">
                 <DialogHeader className="space-y-1">
-                    <div className="flex items-center gap-2 text-primary text-sm font-semibold">
+                    <div className="flex items-center gap-2 text-brand-deep text-sm font-semibold">
                         <UserPlus className="h-4 w-4" /> CRM Pipeline Intake
                     </div>
                     <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">New opportunity</DialogTitle>
@@ -142,7 +142,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                 <form onSubmit={onSubmit} className="space-y-4 mt-2">
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                            <Label htmlFor="businessName" className="text-sm font-medium text-foreground">Company / Business <span className="text-primary">*</span></Label>
+                            <Label htmlFor="businessName" className="text-sm font-medium text-foreground">Company / Business <span className="text-brand-deep">*</span></Label>
                             <Input
                                 id="businessName"
                                 name="businessName"
@@ -164,7 +164,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                            <Label htmlFor="contactEmail" className="text-sm font-medium text-foreground">Contact Email <span className="text-primary">*</span></Label>
+                            <Label htmlFor="contactEmail" className="text-sm font-medium text-foreground">Contact Email <span className="text-brand-deep">*</span></Label>
                             <Input
                                 id="contactEmail"
                                 name="contactEmail"
@@ -216,7 +216,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                     {selectedSource === "Other" && (
                         <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/25 animate-in fade-in slide-in-from-top-1 duration-200">
                             <Label htmlFor="customSource" className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                                <Tag className="h-3.5 w-3.5 text-primary" />
+                                <Tag className="h-3.5 w-3.5 text-brand-deep" />
                                 Specify Custom Lead Source
                             </Label>
                             <Input
@@ -260,7 +260,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                     <div className="space-y-1.5 p-3 rounded-lg bg-muted/20 border border-border">
                         <div className="flex items-center justify-between">
                             <Label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                                <UserCheck className="h-3.5 w-3.5 text-primary" /> Sales Rep Assignment
+                                <UserCheck className="h-3.5 w-3.5 text-brand-deep" /> Sales Rep Assignment
                             </Label>
                             <span className="text-sm text-muted-foreground">Deal ownership</span>
                         </div>
@@ -292,7 +292,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                     type="checkbox"
                                     checked={enablePlaybook}
                                     onChange={(e) => setEnablePlaybook(e.target.checked)}
-                                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary accent-primary"
+                                    className="h-4 w-4 rounded border-border text-brand-deep focus:ring-primary accent-primary"
                                 />
                                 <div className="flex items-center gap-1.5">
                                     <Zap className="h-3.5 w-3.5 text-stage-negotiation" />
@@ -306,7 +306,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                 <button
                                     type="button"
                                     onClick={() => setShowPlaybookAccordion(!showPlaybookAccordion)}
-                                    className="flex items-center gap-1 text-sm text-primary hover:underline font-medium"
+                                    className="flex items-center gap-1 text-sm text-brand-deep hover:underline font-medium"
                                 >
                                     <span>{playbookTasks.length} task{playbookTasks.length === 1 ? "" : "s"}</span>
                                     {showPlaybookAccordion ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -326,7 +326,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                                             className="flex items-center justify-between p-2 rounded-md bg-muted/40 border border-border text-sm"
                                         >
                                             <div className="flex items-center gap-2 min-w-0">
-                                                <CheckSquare className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                <CheckSquare className="h-3.5 w-3.5 text-brand-deep shrink-0" />
                                                 <span className="truncate font-medium text-foreground">{task.title}</span>
                                                 <span className="text-sm px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border shrink-0">
                                                     +{task.dueHours}h ({task.taskType})

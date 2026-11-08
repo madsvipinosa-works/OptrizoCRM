@@ -185,19 +185,19 @@ export function AcceptProposalDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="glass-card border-border/80 text-foreground max-w-lg w-full p-6 sm:p-8 space-y-6">
+            <DialogContent className="bg-card border-border/80 text-foreground max-w-lg w-full p-6 sm:p-8 space-y-6">
                 <DialogHeader className="space-y-2 text-left">
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                        <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-brand-deep">
                             <ShieldCheck className="h-4 w-4" />
                         </div>
-                        <DialogTitle className="text-xl font-serif font-bold">
+                        <DialogTitle className="text-xl font-serif font-semibold">
                             Execute & Digitally Sign Proposal
                         </DialogTitle>
                     </div>
                     <DialogDescription className="text-xs text-muted-foreground">
                         Reviewing {proposalCode || "Proposal"} • Total Investment:{" "}
-                        <span className="font-semibold text-foreground font-mono">
+                        <span className="font-semibold text-foreground tabular-nums">
                             {currencyFormatter.format(totalAmount || 0)}
                         </span>
                     </DialogDescription>
@@ -307,7 +307,7 @@ export function AcceptProposalDialog({
                             {/* Type Signature Tab */}
                             <TabsContent value="type" className="mt-3">
                                 <div className="p-4 rounded-md bg-muted/30 border border-border flex items-center justify-center min-h-[90px]">
-                                    <span className="font-serif italic text-2xl sm:text-3xl text-primary tracking-wide">
+                                    <span className="font-serif italic text-2xl sm:text-3xl text-brand-deep">
                                         {legalName.trim() || "Your Signature"}
                                     </span>
                                 </div>
@@ -339,7 +339,7 @@ export function AcceptProposalDialog({
                                         <RotateCcw className="h-3 w-3 mr-1" /> Clear
                                     </Button>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground text-center">
+                                <p className="text-xs text-muted-foreground text-center">
                                     Draw your signature in the box above using your mouse or finger.
                                 </p>
                             </TabsContent>
@@ -353,7 +353,7 @@ export function AcceptProposalDialog({
                             type="checkbox"
                             checked={agreedToTerms}
                             onChange={(e) => setAgreedToTerms(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                            className="mt-0.5 h-4 w-4 rounded border-border text-brand-deep focus:ring-primary cursor-pointer"
                         />
                         <label htmlFor="termsCheckbox" className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none">
                             I verify that I am authorized to accept proposals on behalf of my organization. By submitting, I confirm agreement to the scope of work and authorize project onboarding via the Optrizo Client Portal.
@@ -375,7 +375,7 @@ export function AcceptProposalDialog({
                         type="button"
                         onClick={handleExecuteAcceptance}
                         disabled={isLoading || !legalName.trim() || !agreedToTerms}
-                        className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-lg shadow-primary/20"
+                        className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-primary/20"
                     >
                         {isLoading ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
