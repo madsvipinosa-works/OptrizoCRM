@@ -137,10 +137,9 @@ export async function getBusinessAnalytics(months: BusinessPeriod) {
         db.select({ status: milestones.status, endDate: milestones.endDate, completedAt: milestones.completedAt }).from(milestones).where(isNull(milestones.deletedAt)),
         db.select({ status: agencyProjects.status, startDate: agencyProjects.startDate, createdAt: agencyProjects.createdAt, completedAt: agencyProjects.completedAt }).from(agencyProjects).where(isNull(agencyProjects.deletedAt)),
         // Ratings only: no names, no comments (Super Admin sees totals).
-        db.select({ rating: projectFeedback.rating, recommendScore: projectFeedback.recommendScore, createdAt: projectFeedback.createdAt }).from(projectFeedback),
+        db.select({ rating: projectFeedback.rating, createdAt: projectFeedback.createdAt }).from(projectFeedback),
     ]);
     const fbIn = allFeedback.filter((f) => inRange(f.createdAt, start, now));
-    const recs = fbIn.map((f) => f.recommendScore).filter((n): n is number => n !== null);
     const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
 
     const leadsIn = (from: Date, to: Date) => allLeads.filter((l) => inRange(l.createdAt, from, to));
@@ -229,7 +228,7 @@ export async function getBusinessAnalytics(months: BusinessPeriod) {
             avgLengthMonths: lengthMonths,
             revisionsPerProposal: sentCur.length ? Math.round((revised / sentCur.length) * 10) / 10 : null,
             paidLate: { late, total: paidInPeriod.length },
-            feedback: { responses: fbIn.length, avgRating: avg(fbIn.map((f) => f.rating)), avgRecommend: avg(recs), recommendResponses: recs.length },
+            feedback: { responses: fbIn.length, avgRating: avg(fbIn.map((f) => f.rating)) },
         },
     };
 }

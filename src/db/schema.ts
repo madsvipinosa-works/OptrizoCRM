@@ -1141,13 +1141,22 @@ export const projectFeedback = pgTable("project_feedback", {
         .references(() => users.id, { onDelete: "set null" }),
     rating: integer("rating").notNull(),
     comment: text("comment"),
-    recommendScore: integer("recommend_score"), // optional, 0-10
-    improvement: text("improvement"), // optional "what could we have done better"
+    // Survey (step 31): `rating` is the overall score, `comment` is "what did we do well".
+    improvement: text("improvement"), // "what should we improve"
+    ratingCommunication: integer("rating_communication"),
+    ratingQuality: integer("rating_quality"),
+    ratingOnTime: integer("rating_on_time"),
+    ratingValue: integer("rating_value"),
+    ratingPmSupport: integer("rating_pm_support"),
+    wouldRecommend: text("would_recommend"), // 'yes' | 'maybe' | 'no'
+    testimonialAllowed: boolean("testimonial_allowed").default(false).notNull(),
+    followupNote: text("followup_note"), // PM's internal note
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
     uniqueIndex("idx_project_feedback_one").on(t.projectId, t.clientId),
     check("project_feedback_rating_range", sql`"rating" >= 1 AND "rating" <= 5`),
-    check("project_feedback_recommend_range", sql`"recommend_score" IS NULL OR ("recommend_score" >= 0 AND "recommend_score" <= 10)`),
+    check("project_feedback_recommend_check", sql`"would_recommend" IS NULL OR "would_recommend" IN ('yes', 'maybe', 'no')`),
 ]);
 
 // 15. Payments

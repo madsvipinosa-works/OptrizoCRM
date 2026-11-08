@@ -473,16 +473,23 @@ Side effects: sets `status = 'Completed'`, `completedAt = now()`, `warrantyEndsA
 
 ### submitProjectFeedback  (step 31)
 Who can call: client (own project only)
-Input:  `{ projectId: string, data: { rating: number, comment?: string, recommendScore?: number, improvement?: string } }` (`recommendScore` is a whole number 0–10, `improvement` max 2000 characters; both optional)
+Input:  `{ projectId: string, data: { rating: number, areas?: { ratingCommunication, ratingQuality, ratingOnTime, ratingValue, ratingPmSupport }, wouldRecommend?: "yes" | "maybe" | "no", comment?: string, improvement?: string, testimonialAllowed?: boolean } }` (areas are whole numbers 1–5; texts max 2000 characters; all but `rating` optional)
 Output: `{ success: boolean, error?: string, message?: string }`
 Errors:
 - `FORBIDDEN`: caller is not client or does not own project.
 - `NOT_COMPLETED`: project status is not `Completed`.
 - `INVALID_RATING`: rating not an integer between 1 and 5.
-- `INVALID_RECOMMEND`: `recommendScore` not a whole number from 0 to 10.
+- `INVALID_AREA`: an area rating is not a whole number from 1 to 5.
+- `INVALID_RECOMMEND`: `wouldRecommend` is not yes, maybe or no.
 - `ALREADY_SUBMITTED`: feedback already submitted by this client for this project.
-Side effects: inserts record into `projectFeedback`; notifies PM (link goes to the completion page, where the feedback card shows the answers); audit log row.
-Read access: the PM sees rating, recommend score and both texts on the completion page. Super Admin analytics show response count, average rating and average recommend score only (no names, no comments).
+Side effects: inserts record into `projectFeedback`; notifies PM (link goes to the project Feedback tab; the message suggests a follow-up when an area is rated below 4); audit log row.
+Read access: the PM sees every answer on the Feedback tab. Super Admin `/dashboard/feedback` shows CSAT %, response count, averages by area and a table of date, overall and lowest area only (no names, comments or links).
+
+### saveFeedbackFollowUp  (step 31)
+Who can call: manager of the project
+Input:  `{ projectId: string, note: string, action: "note" | "call" | "reviewed" }` (note max 2000)
+Output: `{ success: boolean, error?: string, message?: string }`
+Side effects: saves `followupNote`; `reviewed` also sets `reviewedAt`; audit log row. The client's answers are never changed.
 
 ### signUpWithEmail  (step 31b)
 Who can call: public (unauthenticated)
