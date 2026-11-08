@@ -1494,8 +1494,8 @@ describe("projectId passed to logAction across project/task/milestone/payment/co
           title: "Delivery App",
           status: "In Review",
           isArchived: false,
-          signOffFileUrl: "/uploads/signoff.pdf",
-          signedOffAt: new Date("2026-11-10T01:00:00Z"),
+          // The client accepted the handover (the completion gate since the acceptance change).
+          acceptedAt: new Date("2026-11-10T01:00:00Z"),
         },
       ],
     ]);

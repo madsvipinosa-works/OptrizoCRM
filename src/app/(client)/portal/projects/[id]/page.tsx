@@ -14,6 +14,8 @@ import {
     } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AcceptanceCard } from "@/features/client-portal/components/AcceptanceCard";
+import { acceptanceState } from "@/features/pm/acceptance-state";
 import { ProjectFeedbackForm } from "@/features/client-portal/components/ProjectFeedbackForm";
 
 export const dynamic = "force-dynamic";
@@ -127,6 +129,10 @@ export default async function ClientProjectDetailPage({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {!isCompleted && acceptanceState(project) === "awaiting" && (
+                <AcceptanceCard projectId={project.id} documents={project.handoverDocuments} />
             )}
 
             {/* Preview links the PM shared (the "New preview links" notification points here) */}

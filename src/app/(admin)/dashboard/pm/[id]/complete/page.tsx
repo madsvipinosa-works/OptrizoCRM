@@ -4,6 +4,7 @@ import { agencyProjects, document, milestones, payments } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
+import { acceptanceState, canAssumeAcceptance } from "@/features/pm/acceptance-state";
 import { CompletionPanel, CompletionGateData, HandoverDoc } from "@/features/pm/components/CompletionPanel";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +88,12 @@ export default async function PmProjectCompletePage({
         finalPaymentLabel: finalPayment?.label || "Final Milestone Payment",
         finalPaymentStatus: finalPayment?.status || "none",
         handoverDocuments,
+        acceptance: acceptanceState(project),
+        acceptanceRequestedAt: project.acceptanceRequestedAt,
+        acceptedAt: project.acceptedAt,
+        acceptanceAssumed: project.acceptanceAssumed,
+        fixesComment: project.fixesComment,
+        canAssume: canAssumeAcceptance(project),
     };
 
     return (

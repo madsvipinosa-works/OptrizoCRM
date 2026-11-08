@@ -12,10 +12,12 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { FileUpload } from "@/components/ui/file-upload";
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
-import { addHandoverFile, recordSignOff, completeProject } from "@/features/pm/completion-actions";
+import { addHandoverFile, recordSignOff, completeProject, requestClientAcceptance } from "@/features/pm/completion-actions";
+import { Textarea } from "@/components/ui/textarea";
 import {
     CheckCircle2,
     Circle,
@@ -52,6 +54,40 @@ export interface CompletionGateData {
     finalPaymentLabel: string;
     finalPaymentStatus: string;
     handoverDocuments: HandoverDoc[];
+    acceptance: "not_requested" | "awaiting" | "fixes_requested" | "accepted";
+    acceptanceRequestedAt: Date | string | null;
+    acceptedAt: Date | string | null;
+    acceptanceAssumed: boolean;
+    fixesComment: string | null;
+    /** True once the client has had the full wait without answering (computed on the server). */
+    canAssume: boolean;
+}
+
+const FILE_ACCEPT = ".pdf,.doc,.docx,.zip,.png,.jpg,.jpeg,.webp";
+
+/** Upload a file, or paste a Google Docs / Drive link. Reports one value: the file path or the link. */
+function FileOrLinkField({ value, onChange, projectId, label }: { value: string; onChange: (v: string) => void; projectId: string; label: string }) {
+    const [mode, setMode] = useState<"upload" | "link">(/^https:\/\/(docs|drive)\.google\.com\//.test(value) ? "link" : "upload");
+    return (
+        <div className="space-y-2">
+            <div className="flex gap-2" role="group" aria-label={`${label} source`}>
+                {(["upload", "link"] as const).map((m) => (
+                    <Button key={m} type="button" size="sm" variant={mode === m ? "default" : "outline"} onClick={() => { setMode(m); onChange(""); }}>
+                        {m === "upload" ? "Upload file" : "Google Docs / Drive link"}
+                    </Button>
+                ))}
+            </div>
+            {mode === "upload" ? (
+                <FileUpload label={label} value={value} onChange={onChange} projectId={projectId} accept={FILE_ACCEPT} hint="PDF, Word, ZIP or image (MAX. 15MB)" />
+            ) : (
+                <div className="space-y-1.5">
+                    <Label>{label}</Label>
+                    <Input type="url" inputMode="url" placeholder="https://docs.google.com/... or https://drive.google.com/..." value={value} onChange={(e) => onChange(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Set sharing so the client can open it. Only docs.google.com and drive.google.com links are accepted.</p>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export function CompletionPanel({ data }: { data: CompletionGateData }) {
@@ -63,10 +99,10 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
     const [isSignOffOpen, setIsSignOffOpen] = useState(false);
     const [isCompleteConfirmOpen, setIsCompleteConfirmOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [assumedReason, setAssumedReason] = useState("");
 
     // Handover form
     const [docTitle, setDocTitle] = useState("");
-    const [docFileName, setDocFileName] = useState("");
     const [docFileUrl, setDocFileUrl] = useState("");
 
     // Sign-off form
@@ -77,19 +113,41 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
             : new Date().toISOString().split("T")[0]
     );
 
+    const fileNameFrom = (url: string, fallback: string) => {
+        try {
+            return decodeURIComponent(new URL(url, "http://x").pathname.split("/").pop() || "") || fallback.trim();
+        } catch {
+            return fallback.trim();
+        }
+    };
+
     const hasSignOff = Boolean(data.signOffFileUrl && data.signedOffAt);
     const hasHandoverFiles = data.handoverDocuments.length > 0;
-    const gatesDone = [data.allMilestonesCompleted, data.finalPaymentPaid, data.handoverDocuments.length > 0, hasSignOff].filter(Boolean).length;
-    const allGatesPassed =
-        data.allMilestonesCompleted &&
-        data.finalPaymentPaid &&
-        hasHandoverFiles &&
-        hasSignOff;
+    const baseReady = data.allMilestonesCompleted && data.finalPaymentPaid && hasHandoverFiles;
+    const accepted = data.acceptance === "accepted";
+    const gatesDone = [data.allMilestonesCompleted, data.finalPaymentPaid, hasHandoverFiles, accepted].filter(Boolean).length;
+    // Complete after the client accepts, or after the wait with a reason (assumed acceptance).
+    const allGatesPassed = baseReady && (accepted || data.canAssume);
+
+    const handleRequestAcceptance = async () => {
+        setIsLoading(true);
+        try {
+            const res = await requestClientAcceptance(data.projectId);
+            if (res.success) {
+                toast.success(res.message || "Acceptance requested.");
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to request acceptance.");
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleAddHandoverSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!docTitle.trim() || !docFileName.trim() || !docFileUrl.trim()) {
-            toast.error("Please fill in all document fields.");
+        if (!docTitle.trim() || !docFileUrl.trim()) {
+            toast.error("Add a title and upload a file or paste a link.");
             return;
         }
 
@@ -97,7 +155,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
         try {
             const res = await addHandoverFile(data.projectId, {
                 title: docTitle.trim(),
-                fileName: docFileName.trim(),
+                fileName: fileNameFrom(docFileUrl, docTitle),
                 fileUrl: docFileUrl.trim(),
             });
 
@@ -105,7 +163,6 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                 toast.success(res.message || "Handover document added successfully.");
                 setIsHandoverOpen(false);
                 setDocTitle("");
-                setDocFileName("");
                 setDocFileUrl("");
                 router.refresh();
             } else {
@@ -154,7 +211,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
     const handleExecuteCompletion = async () => {
         setIsLoading(true);
         try {
-            const res = await completeProject(data.projectId);
+            const res = await completeProject(data.projectId, accepted ? undefined : { assumedReason });
             if (res.success) {
                 toast.success(res.message || "Project marked as Completed!");
                 setIsCompleteConfirmOpen(false);
@@ -210,7 +267,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                     <div>
                         <h3 className="text-lg font-semibold text-foreground">Handover checklist</h3>
                         <p className="text-sm text-muted-foreground">
-                            {gatesDone} of 4 done. All four are needed to mark the project complete.
+                            {gatesDone} of 4 done. The client must accept the handover before you can mark the project complete.
                         </p>
                     </div>
                     {allGatesPassed && !isCompleted ? (
@@ -302,7 +359,35 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                         )}
                     </div>
 
-                    {/* Gate 4: Formal Sign-off */}
+                    {/* Gate 4: Client acceptance */}
+                    <div className="flex items-start justify-between gap-3 p-3.5 rounded-xl border border-border/80 bg-background/50">
+                        <div className="flex items-start gap-3">
+                            {accepted ? (
+                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
+                            ) : (
+                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
+                            )}
+                            <div>
+                                <div className="text-sm font-semibold text-foreground">Client accepted the handover</div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {accepted
+                                        ? `Accepted on ${new Date(data.acceptedAt!).toLocaleDateString()}.`
+                                        : data.acceptance === "awaiting"
+                                            ? `Requested on ${new Date(data.acceptanceRequestedAt!).toLocaleDateString()}. Waiting for the client.${data.canAssume ? " The wait is over: you can complete with a reason." : ""}`
+                                            : data.acceptance === "fixes_requested"
+                                                ? `The client asked for fixes: "${data.fixesComment ?? ""}". Make the fixes, add files if needed, then request acceptance again.`
+                                                : "Finish the three steps above, then ask the client to review."}
+                                </p>
+                            </div>
+                        </div>
+                        {!isCompleted && !accepted && data.acceptance !== "awaiting" && (
+                            <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" disabled={!baseReady || isLoading} onClick={handleRequestAcceptance}>
+                                Request client acceptance
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* Optional: signed paper form kept as supporting evidence */}
                     <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
                         <div className="flex items-start gap-3">
                             {hasSignOff ? (
@@ -312,12 +397,12 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             )}
                             <div>
                                 <div className="text-sm font-semibold text-foreground">
-                                    Client signed final completion
+                                    Signed completion form (optional)
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                     {hasSignOff
                                         ? `Sign-off recorded on ${new Date(data.signedOffAt!).toLocaleDateString()}.`
-                                        : "Record the signed completion form and its date."}
+                                        : "Attach a signed paper form as supporting evidence, if you have one."}
                                 </p>
                             </div>
                         </div>
@@ -419,29 +504,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                                 required
                             />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="docFileName">File name *</Label>
-                            <Input
-                                id="docFileName"
-                                placeholder="e.g. optrizo-assets.zip"
-                                value={docFileName}
-                                onChange={(e) => setDocFileName(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="docFileUrl">File link *</Label>
-                            <Input
-                                id="docFileUrl"
-                                placeholder="/uploads/optrizo-assets.zip"
-                                value={docFileUrl}
-                                onChange={(e) => setDocFileUrl(e.target.value)}
-                                required
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Allowed storage: /api/private-file, /uploads/, or .blob.vercel-storage.com
-                            </p>
-                        </div>
+                        <FileOrLinkField label="File *" value={docFileUrl} onChange={setDocFileUrl} projectId={data.projectId} />
                         <DialogFooter className="pt-2">
                             <Button
                                 type="button"
@@ -469,19 +532,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleRecordSignOffSubmit} className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="signOffUrl">Signed sign-off file link *</Label>
-                            <Input
-                                id="signOffUrl"
-                                placeholder="/uploads/client-acceptance.pdf"
-                                value={signOffUrl}
-                                onChange={(e) => setSignOffUrl(e.target.value)}
-                                required
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Allowed storage: /api/private-file, /uploads/, or .blob.vercel-storage.com
-                            </p>
-                        </div>
+                        <FileOrLinkField label="Signed sign-off file *" value={signOffUrl} onChange={setSignOffUrl} projectId={data.projectId} />
                         <div className="space-y-1.5">
                             <Label htmlFor="signOffDate">Date signed *</Label>
                             <DatePicker id="signOffDate" max={todayYmd()} value={signOffDate} onChange={setSignOffDate} required />
@@ -514,6 +565,13 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                             Are you sure you want to mark &quot;{data.projectTitle}&quot; as Completed?
                         </DialogDescription>
                     </DialogHeader>
+                    {!accepted && (
+                        <div className="space-y-1.5 py-1">
+                            <Label htmlFor="assumedReason">Why complete without the client&apos;s answer? *</Label>
+                            <Textarea id="assumedReason" value={assumedReason} onChange={(e) => setAssumedReason(e.target.value)} placeholder="e.g. Called twice and emailed, no reply." />
+                            <p className="text-xs text-muted-foreground">Recorded as assumed acceptance in the audit log.</p>
+                        </div>
+                    )}
                     <div className="text-xs text-muted-foreground space-y-2 py-2">
                         <p>This action will:</p>
                         <ul className="list-disc pl-5 space-y-1">
@@ -534,7 +592,7 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
                         </Button>
                         <Button
                             onClick={handleExecuteCompletion}
-                            disabled={isLoading}
+                            disabled={isLoading || (!accepted && !assumedReason.trim())}
                             className="bg-brand-deep hover:bg-brand-deep text-white"
                         >
                             {isLoading ? "Completing..." : "Confirm & Complete"}

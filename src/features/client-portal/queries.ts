@@ -281,7 +281,7 @@ export async function getClientProject(projectId: string, userId: string) {
     const milestoneStatsMap = await getProjectMilestoneStats([projectId]);
     const stats = milestoneStatsMap[projectId] || { total: 0, completed: 0, inProgress: 0, pending: 0 };
 
-    const handoverDocs = project.status === "Completed"
+    const handoverDocs = project.status === "Completed" || project.acceptanceRequestedAt
         ? await db.query.document.findMany({
               where: eq(document.projectId, projectId),
               orderBy: (d, { desc }) => [desc(d.createdAt)],
