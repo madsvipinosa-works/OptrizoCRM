@@ -247,7 +247,7 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                     Project Resources
                                 </SheetTitle>
                                 <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-brand-soft text-brand-deep border border-brand-deep/30">
-                                    Asset Hub
+                                    Internal resources
                                 </span>
                             </div>
                         </div>
