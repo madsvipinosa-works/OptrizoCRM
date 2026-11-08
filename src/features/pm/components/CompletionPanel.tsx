@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -18,17 +18,7 @@ import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { addHandoverFile, recordSignOff, completeProject, requestClientAcceptance } from "@/features/pm/completion-actions";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    CheckCircle2,
-    Circle,
-    FileText,
-    FileCheck,
-    ShieldCheck,
-    Award,
-    ExternalLink,
-    UploadCloud,
-    AlertTriangle,
-} from "lucide-react";
+import { CheckCircle2, Circle, FileText, UploadCloud, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -226,262 +216,208 @@ export function CompletionPanel({ data }: { data: CompletionGateData }) {
         }
     };
 
+    const fmt = (d: Date | string | null) => (d ? new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "Not set");
+    const warrantyDaysLeft = data.warrantyEndsAt ? Math.max(0, Math.ceil((new Date(data.warrantyEndsAt).getTime() - new Date().getTime()) / 86_400_000)) : null;
+
+    const files = (
+        <ul className="space-y-2">
+            {data.handoverDocuments.map((doc) => (
+                <li key={doc.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                    <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{doc.title}</p>
+                        <p className="text-sm text-muted-foreground">Added {fmt(doc.createdAt)}</p>
+                    </div>
+                    <a
+                        href={doc.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 rounded-md text-sm font-semibold text-brand-deep outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                        Open
+                    </a>
+                </li>
+            ))}
+        </ul>
+    );
+
+    // ---- After completion: what is true now, and where to go next.
+    if (isCompleted) {
+        return (
+            <>
+                <section aria-labelledby="done-heading" className="space-y-5 rounded-xl border border-border bg-card p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h2 id="done-heading" className="text-xl font-semibold tracking-tight text-foreground">Project complete</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">Completed on {fmt(data.completedAt)}. The 3-month warranty is running.</p>
+                        </div>
+                        <span className="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-deep">Completed</span>
+                    </div>
+
+                    <dl className="grid grid-cols-1 gap-4 rounded-xl bg-muted/50 p-4 text-sm sm:grid-cols-3">
+                        <div>
+                            <dt className="text-muted-foreground">Warranty ends</dt>
+                            <dd className="mt-1 text-base font-medium tabular-nums text-foreground">
+                                {fmt(data.warrantyEndsAt)}
+                                {warrantyDaysLeft !== null && <span className="ml-1.5 text-sm font-normal text-muted-foreground">({warrantyDaysLeft} days left)</span>}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="text-muted-foreground">Client acceptance</dt>
+                            <dd className="mt-1 text-base font-medium text-foreground">
+                                {data.acceptanceAssumed ? "Assumed (no answer in 14 days)" : data.acceptedAt ? `Accepted ${fmt(data.acceptedAt)}` : "Recorded"}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="text-muted-foreground">Handover files</dt>
+                            <dd className="mt-1 text-base font-medium tabular-nums text-foreground">{data.handoverDocuments.length}</dd>
+                        </div>
+                    </dl>
+
+                    {data.handoverDocuments.length > 0 && files}
+
+                    <div className="space-y-3 border-t border-border pt-5">
+                        <h3 className="text-base font-semibold text-foreground">What happens now</h3>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                            <li>The client got an email and a portal notice, and can download the handover files.</li>
+                            <li>The client is asked for feedback (1 to 5 with a comment) in their portal.</li>
+                            <li>Fixes found before {fmt(data.warrantyEndsAt)} are covered by the warranty.</li>
+                        </ul>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            <Button asChild className="h-10 font-semibold active:scale-[0.97]">
+                                <Link href="/dashboard/pm">Back to projects</Link>
+                            </Button>
+                            <Button asChild variant="outline" className="h-10 bg-card active:scale-[0.97]">
+                                <Link href={`/dashboard/pm/${data.projectId}`}>Open the board</Link>
+                            </Button>
+                            <Button asChild variant="outline" className="h-10 bg-card active:scale-[0.97]">
+                                <Link href={`/dashboard/pm/${data.projectId}/activity`}>See activity</Link>
+                            </Button>
+                        </div>
+                    </div>
+                </section>
+            </>
+        );
+    }
+
+    const steps: { done: boolean; title: string; detail: string; action?: React.ReactNode }[] = [
+        {
+            done: data.allMilestonesCompleted,
+            title: "All milestones are complete",
+            detail: data.allMilestonesCompleted ? "Every milestone is done." : `${data.uncompletedMilestones.length} still open.`,
+        },
+        {
+            done: data.finalPaymentPaid,
+            title: "Final payment received",
+            detail: data.finalPaymentPaid ? `"${data.finalPaymentLabel}" is paid.` : `"${data.finalPaymentLabel}" is not paid yet (${data.finalPaymentStatus.replace(/_/g, " ")}).`,
+        },
+        {
+            done: hasHandoverFiles,
+            title: "Final files uploaded",
+            detail: hasHandoverFiles ? `${data.handoverDocuments.length} file${data.handoverDocuments.length === 1 ? "" : "s"} in the handover pack.` : "Add at least one file to the handover pack.",
+        },
+        {
+            done: accepted,
+            title: "Client accepted the handover",
+            detail: accepted
+                ? `Accepted ${fmt(data.acceptedAt)}.`
+                : data.acceptance === "awaiting"
+                    ? `Asked ${fmt(data.acceptanceRequestedAt)}. Waiting for the client.`
+                    : data.acceptance === "fixes_requested"
+                        ? "The client asked for fixes (see the handover pack)."
+                        : "Ask the client once the steps above are done.",
+        },
+        {
+            done: hasSignOff,
+            title: "Signed completion form (optional)",
+            detail: hasSignOff ? `Recorded ${fmt(data.signedOffAt)}.` : "Supporting evidence, if you have a signed paper form.",
+            action: (
+                <div className="flex shrink-0 items-center gap-2">
+                    {data.signOffFileUrl && (
+                        <a href={data.signOffFileUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-brand-deep hover:underline">
+                            View
+                        </a>
+                    )}
+                    <Button size="sm" variant="outline" className="h-8 bg-card active:scale-[0.97]" onClick={() => setIsSignOffOpen(true)}>
+                        {hasSignOff ? "Update" : "Record sign-off"}
+                    </Button>
+                </div>
+            ),
+        },
+    ];
+
+    // ---- Before completion (mockup 30): checklist on the left, handover pack on the right.
     return (
         <div className="space-y-6">
-            {isCompleted ? (
-                <div className="rounded-xl border border-brand-deep/30 bg-brand-soft p-6 space-y-4">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-brand-soft text-brand-deep flex items-center justify-center shrink-0">
-                            <Award className="w-6 h-6" />
-                        </div>
-                        <div className="space-y-1">
-                            <h2 className="text-xl font-semibold text-foreground">Project complete</h2>
-                            <p className="text-sm text-muted-foreground">
-                                All deliverables handed over, client sign-off recorded, and final payment cleared.
-                            </p>
-                        </div>
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+                <section aria-labelledby="checklist-heading" className="rounded-xl border border-border bg-card p-5">
+                    <div className="flex items-baseline justify-between gap-3">
+                        <h2 id="checklist-heading" className="text-lg font-semibold tracking-tight text-foreground">Handover checklist</h2>
+                        <span className="text-sm tabular-nums text-muted-foreground">{gatesDone} of 4 done</span>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        <div className="bg-card rounded-xl border border-border p-3.5 space-y-0.5">
-                            <div className="text-xs tabular-nums text-muted-foreground">Completion Date</div>
-                            <div className="text-sm font-semibold text-foreground">
-                                {data.completedAt ? new Date(data.completedAt).toLocaleDateString() : "N/A"}
-                            </div>
-                        </div>
-                        <div className="bg-card rounded-xl border border-border p-3.5 space-y-0.5">
-                            <div className="text-xs tabular-nums text-muted-foreground flex items-center gap-1">
-                                <ShieldCheck className="w-3.5 h-3.5 text-brand-deep" /> Warranty Period Ends
-                            </div>
-                            <div className="text-sm font-semibold text-foreground tabular-nums">
-                                {data.warrantyEndsAt ? new Date(data.warrantyEndsAt).toLocaleDateString() : "N/A"}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
-
-            {/* Quality & Completion Gates Checklist */}
-            <div className="bg-card rounded-xl border border-border p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h3 className="text-lg font-semibold text-foreground">Handover checklist</h3>
-                        <p className="text-sm text-muted-foreground">
-                            {gatesDone} of 4 done. The client must accept the handover before you can mark the project complete.
-                        </p>
-                    </div>
-                    {allGatesPassed && !isCompleted ? (
-                        <Badge className="bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30">
-                            Ready to complete
-                        </Badge>
-                    ) : isCompleted ? (
-                        <Badge className="bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30">
-                            Completed
-                        </Badge>
-                    ) : (
-                        <Badge variant="outline" className="text-muted-foreground tabular-nums">
-                            {gatesDone} of 4
-                        </Badge>
-                    )}
-                </div>
-
-                <div className="space-y-3 pt-1">
-                    {/* Gate 1: Milestones */}
-                    <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
-                        <div className="flex items-start gap-3">
-                            {data.allMilestonesCompleted ? (
-                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
-                            ) : (
-                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
-                            )}
-                            <div>
-                                <div className="text-sm font-semibold text-foreground">
-                                    All milestones are complete
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    {data.allMilestonesCompleted
-                                        ? "All project milestones are fully completed."
-                                        : `${data.uncompletedMilestones.length} milestone(s) remaining incomplete.`}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Gate 2: Final Payment */}
-                    <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
-                        <div className="flex items-start gap-3">
-                            {data.finalPaymentPaid ? (
-                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
-                            ) : (
-                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
-                            )}
-                            <div>
-                                <div className="text-sm font-semibold text-foreground">
-                                    Final payment received
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    {data.finalPaymentPaid
-                                        ? `Final payment "${data.finalPaymentLabel}" has been confirmed as paid.`
-                                        : `"${data.finalPaymentLabel}" is not paid yet (${data.finalPaymentStatus.replace(/_/g, " ")}).`}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Gate 3: Handover Documents */}
-                    <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
-                        <div className="flex items-start gap-3">
-                            {hasHandoverFiles ? (
-                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
-                            ) : (
-                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
-                            )}
-                            <div>
-                                <div className="text-sm font-semibold text-foreground">
-                                    Final files uploaded
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    {hasHandoverFiles
-                                        ? `${data.handoverDocuments.length} handover file(s) uploaded.`
-                                        : "At least one handover document must be attached."}
-                                </p>
-                            </div>
-                        </div>
-                        {!isCompleted && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs shrink-0"
-                                onClick={() => setIsHandoverOpen(true)}
-                            >
-                                <UploadCloud className="w-3.5 h-3.5 mr-1" /> Add File
-                            </Button>
-                        )}
-                    </div>
-
-                    {/* Gate 4: Client acceptance */}
-                    <div className="flex items-start justify-between gap-3 p-3.5 rounded-xl border border-border/80 bg-background/50">
-                        <div className="flex items-start gap-3">
-                            {accepted ? (
-                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
-                            ) : (
-                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
-                            )}
-                            <div>
-                                <div className="text-sm font-semibold text-foreground">Client accepted the handover</div>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    {accepted
-                                        ? `Accepted on ${new Date(data.acceptedAt!).toLocaleDateString()}.`
-                                        : data.acceptance === "awaiting"
-                                            ? `Requested on ${new Date(data.acceptanceRequestedAt!).toLocaleDateString()}. Waiting for the client.${data.canAssume ? " The wait is over: you can complete with a reason." : ""}`
-                                            : data.acceptance === "fixes_requested"
-                                                ? `The client asked for fixes: "${data.fixesComment ?? ""}". Make the fixes, add files if needed, then request acceptance again.`
-                                                : "Finish the three steps above, then ask the client to review."}
-                                </p>
-                            </div>
-                        </div>
-                        {!isCompleted && !accepted && data.acceptance !== "awaiting" && (
-                            <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" disabled={!baseReady || isLoading} onClick={handleRequestAcceptance}>
-                                Request client acceptance
-                            </Button>
-                        )}
-                    </div>
-
-                    {/* Optional: signed paper form kept as supporting evidence */}
-                    <div className="flex items-start justify-between p-3.5 rounded-xl border border-border/80 bg-background/50">
-                        <div className="flex items-start gap-3">
-                            {hasSignOff ? (
-                                <CheckCircle2 className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
-                            ) : (
-                                <Circle className="w-5 h-5 text-muted-foreground/60 shrink-0 mt-0.5" aria-label="Not done yet" />
-                            )}
-                            <div>
-                                <div className="text-sm font-semibold text-foreground">
-                                    Signed completion form (optional)
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    {hasSignOff
-                                        ? `Sign-off recorded on ${new Date(data.signedOffAt!).toLocaleDateString()}.`
-                                        : "Attach a signed paper form as supporting evidence, if you have one."}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                            {data.signOffFileUrl && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    asChild
-                                    className="h-8 text-xs text-brand-deep"
-                                >
-                                    <a
-                                        href={data.signOffFileUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1"
-                                    >
-                                        <ExternalLink className="w-3.5 h-3.5" /> View
-                                    </a>
-                                </Button>
-                            )}
-                            {!isCompleted && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs"
-                                    onClick={() => setIsSignOffOpen(true)}
-                                >
-                                    <FileCheck className="w-3.5 h-3.5 mr-1" aria-hidden="true" /> {hasSignOff ? "Update sign-off" : "Record sign-off"}
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Handover Documents List */}
-                {data.handoverDocuments.length > 0 && (
-                    <div className="pt-3 border-t border-border">
-                        <h4 className="text-xs tabular-nums text-muted-foreground font-semibold mb-2">
-                            Uploaded Handover Files
-                        </h4>
-                        <div className="space-y-1.5">
-                            {data.handoverDocuments.map((doc) => (
-                                <div
-                                    key={doc.id}
-                                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border text-xs"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="w-4 h-4 text-brand-deep" />
-                                        <span className="font-medium text-foreground">{doc.title}</span>
-                                        <span className="text-muted-foreground">({doc.fileName})</span>
+                    <ul className="mt-4 space-y-4">
+                        {steps.map((st) => (
+                            <li key={st.title} className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3">
+                                    {st.done ? (
+                                        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-brand-deep" aria-label="Done" />
+                                    ) : (
+                                        <Circle className="mt-0.5 size-5 shrink-0 text-muted-foreground/50" aria-label="Not done yet" />
+                                    )}
+                                    <div>
+                                        <p className="text-base text-foreground">{st.title}</p>
+                                        <p className="text-sm text-muted-foreground">{st.detail}</p>
                                     </div>
-                                    <a
-                                        href={doc.fileUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-brand-deep hover:underline inline-flex items-center gap-1"
-                                    >
-                                        Open <ExternalLink className="w-3 h-3" />
-                                    </a>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                                {st.action}
+                            </li>
+                        ))}
+                    </ul>
+                </section>
 
-                {/* Execution Button */}
-                {!isCompleted && (
-                    <div className="pt-4 border-t border-border flex justify-end">
-                        <Button
-                            size="lg"
-                            disabled={!allGatesPassed || isLoading}
-                            className="font-semibold active:scale-[0.97]"
-                            onClick={() => setIsCompleteConfirmOpen(true)}
-                        >
-                            <Award className="w-4 h-4 mr-2" aria-hidden="true" /> Mark project complete
+                <section aria-labelledby="pack-heading" className="space-y-4 rounded-xl border border-border bg-card p-5">
+                    <div className="flex items-baseline justify-between gap-3">
+                        <h2 id="pack-heading" className="text-lg font-semibold tracking-tight text-foreground">Handover pack</h2>
+                        <Button size="sm" variant="outline" className="h-8 gap-1.5 bg-card active:scale-[0.97]" onClick={() => setIsHandoverOpen(true)}>
+                            <UploadCloud className="size-4" aria-hidden="true" /> Add file
                         </Button>
                     </div>
-                )}
+
+                    {hasHandoverFiles ? files : <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">No files yet. Add the final files or a Google Drive link.</p>}
+
+                    {data.acceptance === "fixes_requested" && (
+                        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-foreground">
+                            <span className="font-semibold text-destructive">The client asked for fixes:</span> {data.fixesComment}
+                            <p className="mt-1 text-muted-foreground">Make the fixes, add files if needed, then ask the client again.</p>
+                        </div>
+                    )}
+                    {data.acceptance === "awaiting" && (
+                        <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                            Waiting for the client since {fmt(data.acceptanceRequestedAt)}. They got an email and a portal notice.
+                            {data.canAssume && " It has been 14 days: you can complete with a reason."}
+                        </p>
+                    )}
+
+                    <div className="space-y-2 border-t border-border pt-4">
+                        {!accepted && data.acceptance !== "awaiting" && (
+                            <>
+                                <Button className="h-11 w-full text-base font-semibold active:scale-[0.97]" disabled={!baseReady || isLoading} onClick={handleRequestAcceptance}>
+                                    {data.acceptance === "fixes_requested" ? "Ask the client again" : "Request client acceptance"}
+                                </Button>
+                                {!baseReady && <p className="text-center text-sm text-muted-foreground">Finish the milestones, final payment and files first.</p>}
+                            </>
+                        )}
+                        <p className="text-sm text-muted-foreground">Marking complete starts the 3-month warranty and tells the client.</p>
+                        <Button
+                            variant={accepted || data.canAssume ? "default" : "outline"}
+                            className="h-11 w-full text-base font-semibold active:scale-[0.97]"
+                            disabled={!allGatesPassed || isLoading}
+                            onClick={() => setIsCompleteConfirmOpen(true)}
+                        >
+                            Mark project complete
+                        </Button>
+                    </div>
+                </section>
             </div>
 
             {/* Add Handover File Modal */}
