@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogDescription,
-    DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -17,21 +9,7 @@ import { todayYmd } from "@/lib/datetime";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-    Settings,
-    Archive,
-    AlertTriangle,
-    Calendar,
-    Users,
-    Briefcase,
-    CheckCircle2,
-    RotateCcw,
-    Loader2,
-    Sparkles,
-    Clock,
-} from "lucide-react";
+import { Settings, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { updateProjectDetails, archiveProject, unarchiveProject, getClientUsers } from "@/features/pm/actions";
 import { useRouter } from "next/navigation";
@@ -214,289 +192,189 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                     <Settings className="size-4" aria-hidden="true" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] p-0 flex flex-col bg-card border-border text-foreground rounded-xl overflow-hidden focus:outline-none">
-                {/* Modal Header */}
-                <DialogHeader className="shrink-0 p-5 sm:p-6 pb-4 border-b border-border bg-card/95 z-10">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-brand-deep">
-                            <Briefcase className="h-3.5 w-3.5" /> Project Lifecycle & Configuration
-                        </div>
-                        <Badge
-                            variant="outline"
-                            className={`text-xs tabular-nums font-semibold ${
- status === "Completed"
-                                    ? "bg-brand-soft text-brand-deep border-brand-deep/30"
-                                    : status === "In Progress"
-                                    ? "bg-brand-soft text-brand-deep border-brand-deep/30"
-                                    : status === "In Review"
-                                    ? "bg-stage-discovery/10 text-stage-discovery border-stage-discovery/30"
-                                    : "bg-stage-new/10 text-stage-new border-stage-new/30"
-                            }`}
-                        >
-                            {status}
-                        </Badge>
+            <DialogContent className="w-[95vw] max-h-[90vh] gap-0 overflow-hidden rounded-xl p-0 sm:max-w-xl flex flex-col">
+                <DialogHeader className="shrink-0 space-y-3 px-6 pt-6 pb-3 text-left">
+                    <div>
+                        <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">Project settings</DialogTitle>
+                        <DialogDescription className="mt-1 text-sm text-muted-foreground">
+                            Name, dates, client account and archiving. The project&apos;s status changes on its own as milestones finish.
+                        </DialogDescription>
                     </div>
-                    <DialogTitle className="text-xl font-semibold text-foreground tracking-tight">
-                        Project Settings
-                    </DialogTitle>
-                    <DialogDescription className="text-muted-foreground text-xs mt-0.5">
-                        Manage project scope, delivery timeline, client assignment, and lifecycle controls.
-                    </DialogDescription>
+                    <div role="group" aria-label="Settings sections" className="grid grid-cols-4 gap-1 rounded-lg bg-muted p-1 ring-1 ring-inset ring-border/60">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("general")}
+                                aria-pressed={activeTab === "general"}
+                                className={`flex h-8 items-center justify-center rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring ${
+                                    activeTab === "general" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Details
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("timeline")}
+                                aria-pressed={activeTab === "timeline"}
+                                className={`flex h-8 items-center justify-center rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring ${
+                                    activeTab === "timeline" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Dates
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("stakeholders")}
+                                aria-pressed={activeTab === "stakeholders"}
+                                className={`flex h-8 items-center justify-center rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring ${
+                                    activeTab === "stakeholders" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Client
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("danger")}
+                                aria-pressed={activeTab === "danger"}
+                                className={`flex h-8 items-center justify-center rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring ${
+                                    activeTab === "danger" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Archive
+                            </button>
+                    </div>
                 </DialogHeader>
 
-                {/* Tabs Navigation */}
-                <form onSubmit={handleSave} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <div className="px-5 sm:px-6 pt-3 shrink-0">
-                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-                            <TabsList className="grid grid-cols-4 bg-muted/40 border border-border h-9">
-                                <TabsTrigger value="general" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black font-medium">
-                                    General
-                                </TabsTrigger>
-                                <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black font-medium">
-                                    Timeline
-                                </TabsTrigger>
-                                <TabsTrigger value="stakeholders" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-black font-medium">
-                                    Client & Deal
-                                </TabsTrigger>
-                                <TabsTrigger value="danger" className="text-xs data-[state=active]:bg-destructive data-[state=active]:text-white font-medium">
-                                    Danger Zone
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
-                    </div>
-
-                    {/* Tab Contents */}
-                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
-                        {/* Tab 1: General & Status */}
+                <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
+                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-3">
                         {activeTab === "general" && (
-                            <div className="space-y-4">
+                            <>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="proj-title" className="text-xs font-medium text-foreground">
-                                        Project Title <span className="text-brand-deep">*</span>
-                                    </Label>
-                                    <Input
-                                        id="proj-title"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        placeholder="e.g. Acme SaaS Platform MVP"
-                                        required
-                                        className="h-9 text-xs bg-muted/30 border-border text-foreground focus:border-primary"
-                                    />
+                                    <Label htmlFor="proj-title" className="text-sm text-muted-foreground">Project name</Label>
+                                    <Input id="proj-title" value={title} onChange={(e) => setTitle(e.target.value)} required className="h-10 bg-card text-sm" />
                                 </div>
-
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="proj-status" className="text-xs font-medium text-foreground">
-                                        Lifecycle Stage
-                                    </Label>
-                                    <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-                                        <SelectTrigger id="proj-status" className="h-9 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-card border-border text-foreground">
-                                            <SelectItem value="Kickoff" className="text-xs">
-                                                🔵 Kickoff (Onboarding & SOW Alignment)
-                                            </SelectItem>
-                                            <SelectItem value="In Progress" className="text-xs">
-                                                🟢 In Progress (Active Sprints & Engineering)
-                                            </SelectItem>
-                                            <SelectItem value="In Review" className="text-xs">
-                                                🟡 In Review (Client QA & Quality Gate Inspection)
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-xs text-muted-foreground">
-                                        Stage transitions govern milestone gating and client approval requirements.
-                                    </p>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="proj-desc" className="text-xs font-medium text-foreground">
-                                        Scope Description & Objectives
-                                    </Label>
+                                    <Label htmlFor="proj-desc" className="text-sm text-muted-foreground">Description</Label>
                                     <Textarea
                                         id="proj-desc"
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="Outline high-level deliverable goals, technical parameters, and business objectives..."
+                                        placeholder="What the project delivers, in a few lines."
                                         rows={4}
-                                        className="text-xs bg-muted/30 border-border text-foreground resize-none focus:border-primary"
+                                        className="resize-none bg-card text-sm"
                                     />
                                 </div>
-                            </div>
+                            </>
                         )}
 
-                        {/* Tab 2: Delivery Schedule */}
                         {activeTab === "timeline" && (
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="proj-start" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                            <Calendar className="h-3.5 w-3.5 text-brand-deep" /> Start Date
-                                        </Label>
-                                        <DatePicker id="proj-start" value={startDate} onChange={setStartDate} className="bg-muted/30 border-border text-xs" />
+                                        <Label htmlFor="proj-start" className="text-sm text-muted-foreground">Start date</Label>
+                                        <DatePicker id="proj-start" value={startDate} onChange={setStartDate} className="bg-card text-sm" />
                                     </div>
-
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="proj-target" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                            <Clock className="h-3.5 w-3.5 text-stage-negotiation" /> Target Delivery Date
-                                        </Label>
-                                        <DatePicker id="proj-target" value={targetDate} onChange={setTargetDate} min={startDate || todayYmd()} className="bg-muted/30 border-border text-xs" />
+                                        <Label htmlFor="proj-target" className="text-sm text-muted-foreground">Target delivery date</Label>
+                                        <DatePicker id="proj-target" value={targetDate} onChange={setTargetDate} min={startDate || todayYmd()} className="bg-card text-sm" />
                                     </div>
                                 </div>
-
                                 {timelineSummary && (
-                                    <div
-                                        className={`p-3 rounded-lg border text-xs flex items-center gap-2 ${
- timelineSummary.isWarning
- ? "bg-stage-negotiation/10 border-stage-negotiation/30 text-stage-negotiation"
-                                                : "bg-brand-soft border-brand-deep/30 text-brand-deep"
+                                    <p
+                                        className={`rounded-lg px-4 py-3 text-sm ${
+                                            timelineSummary.isWarning ? "bg-stage-negotiation/10 text-stage-negotiation" : "bg-brand-soft text-brand-deep"
                                         }`}
                                     >
-                                        <Sparkles className="h-4 w-4 shrink-0" />
-                                        <span>{timelineSummary.text}</span>
-                                    </div>
-                                )}
-
-                                <div className="p-3.5 rounded-lg bg-muted/20 border border-border text-xs space-y-2">
-                                    <h4 className="font-semibold text-foreground text-xs flex items-center gap-1.5">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-brand-deep" /> SLA Gating Rules
-                                    </h4>
-                                    <p className="text-muted-foreground text-xs leading-relaxed">
-                                        Milestones and individual task deadlines are bounded by the target delivery date. Active tasks with due dates past the target delivery will trigger warning banners on the PM engine dashboard.
+                                        {timelineSummary.text}
                                     </p>
-                                </div>
-                            </div>
+                                )}
+                                <p className="text-sm text-muted-foreground">Task due dates should fall on or before the target delivery date.</p>
+                            </>
                         )}
 
-                        {/* Tab 3: Stakeholders & Originating Deal */}
                         {activeTab === "stakeholders" && (
-                            <div className="space-y-4">
-                                {/* Client Stakeholder Selection */}
+                            <>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="proj-client" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                                        <Users className="h-3.5 w-3.5 text-brand-deep" /> Primary Client Stakeholder
-                                    </Label>
+                                    <Label htmlFor="proj-client" className="text-sm text-muted-foreground">Client account</Label>
                                     <Select value={clientUserId} onValueChange={setClientUserId}>
-                                        <SelectTrigger id="proj-client" className="h-9 text-xs">
-                                            <SelectValue placeholder="Select Client Stakeholder" />
+                                        <SelectTrigger id="proj-client" className="h-10 bg-card text-sm">
+                                            <SelectValue placeholder="Pick the client account" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-card border-border text-foreground">
-                                            <SelectItem value="unassigned" className="text-xs text-muted-foreground">
-                                                ⚪ Unassigned (No Client Portal Access)
-                                            </SelectItem>
+                                        <SelectContent>
+                                            <SelectItem value="unassigned" className="text-sm text-muted-foreground">No client account (no portal access)</SelectItem>
                                             {availableClients.map((client) => (
-                                                <SelectItem key={client.id} value={client.id} className="text-xs">
-                                                    👤 {client.name || "Client"} ({client.email})
+                                                <SelectItem key={client.id} value={client.id} className="text-sm">
+                                                    {client.name || "Client"} ({client.email})
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-xs text-muted-foreground">
-                                        The assigned client receives automated milestone sign-off requests and client portal visibility.
-                                    </p>
+                                    <p className="text-sm text-muted-foreground">This person sees the project in the client portal and gets its updates.</p>
                                 </div>
 
-                                {/* Originating Deal Card */}
                                 {project.lead ? (
-                                    <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2.5">
-                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                                            <Briefcase className="h-3.5 w-3.5 text-brand-deep" /> Originating Sales Deal
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <section aria-labelledby="settings-lead" className="rounded-lg border border-border px-4 py-3">
+                                        <h3 id="settings-lead" className="text-sm font-semibold text-foreground">From the sales lead</h3>
+                                        <dl className="mt-2 grid grid-cols-2 gap-3 text-sm">
                                             <div>
-                                                <span className="text-xs text-muted-foreground block">Company / Lead</span>
-                                                <span className="font-semibold text-foreground truncate block">
-                                                    {project.lead.businessName || project.lead.contactName || "Direct Inquiry"}
-                                                </span>
+                                                <dt className="text-muted-foreground">Business name</dt>
+                                                <dd className="text-foreground">{project.lead.businessName || project.lead.contactName || "Not given"}</dd>
                                             </div>
                                             <div>
-                                                <span className="text-xs text-muted-foreground block">Commercial Value</span>
-                                                <span className="font-semibold tabular-nums text-brand-deep block">
-                                                    {project.lead.budget || (project.lead.estimatedValue ? `₱${project.lead.estimatedValue.toLocaleString("en-PH")}` : "N/A")}
-                                                </span>
+                                                <dt className="text-muted-foreground">Estimated value</dt>
+                                                <dd className="tabular-nums text-foreground">
+                                                    {project.lead.budget || (project.lead.estimatedValue ? `₱${project.lead.estimatedValue.toLocaleString("en-PH")}` : "Not given")}
+                                                </dd>
                                             </div>
                                             {project.lead.contactEmail && (
                                                 <div className="col-span-2">
-                                                    <span className="text-xs text-muted-foreground block">Contact Coordinates</span>
-                                                    <span className="text-muted-foreground text-xs truncate block">
-                                                        {project.lead.contactEmail} {project.lead.contactPhone ? `• ${project.lead.contactPhone}` : ""}
-                                                    </span>
+                                                    <dt className="text-muted-foreground">Contact</dt>
+                                                    <dd className="truncate text-foreground">
+                                                        {project.lead.contactEmail}{project.lead.contactPhone ? ` · ${project.lead.contactPhone}` : ""}
+                                                    </dd>
                                                 </div>
                                             )}
-                                        </div>
-                                    </div>
+                                        </dl>
+                                    </section>
                                 ) : (
-                                    <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
-                                        This project was initialized directly in the PM Engine without an originating sales lead.
-                                    </div>
+                                    <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">This project wasn&apos;t created from a sales lead.</p>
                                 )}
-                            </div>
+                            </>
                         )}
 
-                        {/* Tab 4: Danger Zone */}
                         {activeTab === "danger" && (
-                            <div className="space-y-4">
-                                <div className="space-y-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
-                                    <div className="flex items-center gap-2 text-destructive font-semibold">
-                                        <AlertTriangle className="h-4 w-4 shrink-0" />
-                                        <h4 className="text-sm">
-                                            {project.isArchived ? "Restore Project" : "Archive Project"}
-                                        </h4>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        {project.isArchived
-                                            ? "This project is currently archived. Restoring it will make it visible again on active delivery boards, client portals, and milestone analytics."
-                                            : "Archiving this project will hide it from the active delivery board. Tasks and milestones remain safely preserved in historical records and can be restored at any time."}
-                                    </p>
-                                    <Button
-                                        type="button"
-                                        variant={project.isArchived ? "outline" : "destructive"}
-                                        className="w-full text-xs font-semibold gap-1.5"
-                                        onClick={handleArchiveToggle}
-                                        disabled={isArchiving}
-                                    >
-                                        {project.isArchived ? (
-                                            <>
-                                                <RotateCcw className="h-3.5 w-3.5" />
-                                                {isArchiving ? "Restoring..." : "Restore to Active Delivery"}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Archive className="h-3.5 w-3.5" />
-                                                {isArchiving ? "Archiving..." : "Archive Project"}
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
+                            <section aria-labelledby="settings-archive" className="space-y-3 rounded-lg bg-destructive/5 px-4 py-4">
+                                <h3 id="settings-archive" className="text-base font-semibold text-foreground">
+                                    {project.isArchived ? "Restore this project" : "Archive this project"}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                    {project.isArchived
+                                        ? "It comes back to the projects list and the client portal."
+                                        : "It leaves the projects list. Tasks, files and history are kept, and you can restore it any time."}
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant={project.isArchived ? "outline" : "destructive"}
+                                    className="h-10 w-full font-semibold active:scale-[0.97]"
+                                    onClick={handleArchiveToggle}
+                                    disabled={isArchiving}
+                                >
+                                    {project.isArchived ? (isArchiving ? "Restoring..." : "Restore project") : isArchiving ? "Archiving..." : "Archive project"}
+                                </Button>
+                            </section>
                         )}
                     </div>
 
-                    {/* Modal Footer */}
-                    <DialogFooter className="p-4 border-t border-border bg-card/95 flex justify-end gap-2 shrink-0">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setOpen(false)}
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={isSaving}
-                            className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs gap-1.5"
-                        >
-                            {isSaving ? (
-                                <>
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving Changes...
-                                </>
-                            ) : (
-                                "Save Settings"
-                            )}
-                        </Button>
-                    </DialogFooter>
+                    {activeTab !== "danger" && (
+                        <div className="flex shrink-0 gap-3 px-6 pt-3 pb-6">
+                            <Button type="submit" disabled={isSaving} className="h-10 flex-1 font-semibold active:scale-[0.97]">
+                                {isSaving && <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" />}
+                                Save changes
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="h-10 bg-card px-5 active:scale-[0.97]">
+                                Cancel
+                            </Button>
+                        </div>
+                    )}
                 </form>
             </DialogContent>
         </Dialog>
