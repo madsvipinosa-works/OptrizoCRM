@@ -99,23 +99,24 @@ export function MilestoneStrip({
                             type="button"
                             onClick={() => onSelectMilestone(m.id)}
                             aria-pressed={isSelected}
+                            title={displayName}
                             className={cn(
-                                "flex-1 min-w-[132px] sm:min-w-0 px-3 py-2 rounded-lg text-sm font-semibold text-center flex flex-col items-center justify-center gap-0.5 border outline-none transition-[color,background-color,border-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]",
+                                "flex-1 min-w-[132px] sm:min-w-0 h-9 px-3 rounded-lg text-sm font-semibold text-center flex items-center justify-center border outline-none transition-[color,background-color,border-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]",
                                 isSelected
                                     ? "bg-brand-deep text-white border-brand-deep dark:text-background"
                                     : isCompleted
                                     ? "bg-brand-soft text-brand-deep border-transparent hover:border-brand-deep/30"
                                     : isCurrentInProgress
                                     ? "bg-card text-foreground border-brand-deep/40 hover:bg-muted/50"
-                                    : "bg-muted/60 text-muted-foreground border-transparent hover:text-foreground"
+                                    : "bg-muted text-foreground/80 border-transparent hover:text-foreground"
                             )}
                         >
-                            <span className="flex items-center gap-1.5 leading-tight">
+                            <span className="flex items-center gap-1.5 truncate">
                                 {isCompleted && <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />}
-                                <span>{displayName}</span>
+                                <span className="truncate">{displayName}</span>
                             </span>
-                            <span className={cn("text-xs font-normal", isSelected ? "opacity-80" : "text-muted-foreground", isCompleted && !isSelected && "text-brand-deep/80")}>
-                                {isCurrentInProgress ? "In progress" : isCompleted ? "Done" : "Not started"}
+                            <span className="sr-only">
+                                {isCurrentInProgress ? ", in progress" : isCompleted ? ", done" : ", not started"}
                             </span>
                         </button>
                     );

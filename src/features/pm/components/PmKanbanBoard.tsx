@@ -1,17 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
-import {
-    Calendar,
-    Lock,
-    Trash2,
-    Play,
-    Send,
-    CheckCircle2,
-    RotateCcw,
-} from "lucide-react";
+import { Clock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -80,6 +71,8 @@ interface PmKanbanBoardProps {
     onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
     isViewOnly?: boolean;
+    /** PM only. New tasks always start in To do, so that is where Add task lives (Trello's "Add a card"). */
+    onAddTask?: () => void;
 }
 
 // 4 Canonical columns: To Do, In Progress, In Review, Done
@@ -90,6 +83,7 @@ const COLUMNS: {
     dotColor: string;
     badgeColor: string;
     subtitle: string;
+    empty: string;
 }[] = [
     {
         id: "to_do",
@@ -97,6 +91,7 @@ const COLUMNS: {
         dotColor: "bg-muted-foreground",
         badgeColor: "bg-muted text-foreground border-border",
         subtitle: "Auto: task created and assigned",
+        empty: "Nothing waiting to start.",
     },
     {
         id: "in_progress",
@@ -104,6 +99,7 @@ const COLUMNS: {
         dotColor: "bg-stage-new",
         badgeColor: "bg-stage-new/15 text-stage-new dark:text-stage-new border-stage-new/30",
         subtitle: "Auto: developer starts work",
+        empty: "No one is working on a task.",
     },
     {
         id: "in_review",
@@ -111,6 +107,7 @@ const COLUMNS: {
         dotColor: "bg-stage-negotiation",
         badgeColor: "bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30",
         subtitle: "Auto: developer submits it",
+        empty: "Nothing to review.",
     },
     {
         id: "done",
@@ -118,6 +115,7 @@ const COLUMNS: {
         dotColor: "bg-brand-deep",
         badgeColor: "bg-brand-soft text-brand-deep dark:text-brand-deep border-brand-deep/30",
         subtitle: "Auto: PM approves",
+        empty: "No tasks approved yet.",
     },
 ];
 
@@ -142,6 +140,7 @@ export function PmKanbanBoard({
     onDeleteTask,
     onClickTask,
     isViewOnly = false,
+    onAddTask,
 }: PmKanbanBoardProps) {
     const [selectedMobileColumn, setSelectedMobileColumn] = useState<"to_do" | "in_progress" | "in_review" | "done">("to_do");
     const boardScrollRef = React.useRef<HTMLDivElement>(null);
@@ -149,12 +148,16 @@ export function PmKanbanBoard({
     // Exclude backlog tasks from board columns
     const boardTasks = tasks.filter((t) => !isBacklogTask(t));
 
+    // A column's distance from the first column = its scroll position inside the strip.
+    const columnOffset = (el: HTMLElement) =>
+        el.offsetLeft - (document.getElementById(`pm-column-${COLUMNS[0].id}`)?.offsetLeft ?? 0);
+
     const scrollToColumn = (colId: "to_do" | "in_progress" | "in_review" | "done") => {
         setSelectedMobileColumn(colId);
         const el = document.getElementById(`pm-column-${colId}`);
         if (el && boardScrollRef.current) {
             boardScrollRef.current.scrollTo({
-                left: el.offsetLeft - 16,
+                left: columnOffset(el),
                 behavior: "smooth",
             });
         }
@@ -163,9 +166,15 @@ export function PmKanbanBoard({
     const handleBoardScroll = () => {
         if (!boardScrollRef.current) return;
         const scrollLeft = boardScrollRef.current.scrollLeft;
-        const width = boardScrollRef.current.offsetWidth;
-        const index = Math.round(scrollLeft / (width * 0.8));
-        const targetCol = COLUMNS[Math.min(index, COLUMNS.length - 1)];
+        // The chip follows the column whose left edge is nearest the scroll position (works for any column width).
+        let targetCol = COLUMNS[0];
+        let best = Infinity;
+        for (const col of COLUMNS) {
+            const el = document.getElementById(`pm-column-${col.id}`);
+            if (!el) continue;
+            const d = Math.abs(columnOffset(el) - scrollLeft);
+            if (d < best) { best = d; targetCol = col; }
+        }
         if (targetCol && targetCol.id !== selectedMobileColumn) {
             setSelectedMobileColumn(targetCol.id);
         }
@@ -174,7 +183,7 @@ export function PmKanbanBoard({
     return (
         <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden">
             {/* Quick Switch Tab Bar on Mobile */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 md:hidden scrollbar-none px-1 shrink-0">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 lg:hidden scrollbar-none px-1 shrink-0">
                 {COLUMNS.map((col) => {
                     const count = boardTasks.filter((t) => {
                         const norm = normalizeStatus(t.status);
@@ -193,7 +202,7 @@ export function PmKanbanBoard({
                             className={cn(
                                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shrink-0",
                                 isSelected
-                                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                                    ? "bg-brand-deep text-white border-brand-deep"
                                     : "bg-card/90 text-muted-foreground border-border hover:text-foreground hover:bg-muted"
                             )}
                         >
@@ -202,7 +211,7 @@ export function PmKanbanBoard({
                             <span
                                 className={cn(
                                     "text-xs px-1.5 py-0.2 rounded-full tabular-nums",
-                                    isSelected ? "bg-primary-foreground/20 text-primary-foreground font-semibold" : "bg-muted text-foreground"
+                                    isSelected ? "bg-white/20 text-white font-semibold" : "bg-muted text-foreground"
                                 )}
                             >
                                 {count}
@@ -216,9 +225,9 @@ export function PmKanbanBoard({
             <div
                 ref={boardScrollRef}
                 onScroll={handleBoardScroll}
-                className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden pb-2 scrollbar-none snap-x snap-mandatory md:snap-none"
+                className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden pb-2 scrollbar-none snap-x snap-mandatory lg:snap-none"
             >
-                <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch w-full min-w-0 md:min-w-[950px] lg:min-w-full h-full">
+                <div className="flex lg:grid lg:grid-cols-4 gap-3 items-stretch w-full min-w-0 h-full">
                     {COLUMNS.map((col) => {
                         const columnTasks = boardTasks.filter((t) => {
                             const norm = normalizeStatus(t.status);
@@ -243,6 +252,7 @@ export function PmKanbanBoard({
                                 onDeleteTask={onDeleteTask}
                                 onClickTask={onClickTask}
                                 isViewOnly={isViewOnly}
+                                onAddTask={col.id === "to_do" ? onAddTask : undefined}
                             />
                         );
                     })}
@@ -265,13 +275,16 @@ function PmKanbanColumn({
     onDeleteTask,
     onClickTask,
     isViewOnly,
+    onAddTask,
 }: {
+    onAddTask?: () => void;
     column: {
         id: "to_do" | "in_progress" | "in_review" | "done";
         title: string;
         dotColor: string;
         badgeColor: string;
         subtitle: string;
+        empty: string;
     };
     tasks: PmTask[];
     allTasks: PmTask[];
@@ -289,30 +302,23 @@ function PmKanbanColumn({
         <div
             id={`pm-column-${column.id}`}
             className={cn(
-                "bg-card/75 border border-border rounded-xl p-3.5 sm:p-4 flex flex-col h-full min-h-[460px] transition-all shadow-xs",
-                "w-[84vw] max-w-[320px] min-w-[270px] shrink-0 snap-center md:w-auto md:max-w-none md:min-w-0 md:shrink"
+                "bg-muted/70 rounded-xl p-3 flex flex-col h-full min-h-[460px]",
+                "w-[84vw] max-w-[320px] min-w-[270px] shrink-0 snap-start lg:w-auto lg:max-w-none lg:min-w-0 lg:shrink"
             )}
         >
             {/* Column Header */}
-            <div className="mb-3 px-1">
-                <div className="flex items-center gap-2">
-                    <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", column.dotColor)} aria-hidden="true" />
-                    <h3 className="font-semibold text-foreground text-sm tracking-tight">
-                        {column.title}
-                    </h3>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full tabular-nums font-semibold border", column.badgeColor)}>
-                        {tasks.length}
-                    </span>
-                </div>
-                <p className="mt-0.5 text-sm text-muted-foreground">{column.subtitle}</p>
+            <div className="mb-2.5 px-0.5">
+                <h3 className="flex items-baseline justify-between gap-2 text-base font-semibold tracking-tight text-foreground">
+                    <span>{column.title}</span>
+                    <span className="text-sm font-medium tabular-nums text-muted-foreground" aria-label={`${tasks.length} tasks`}>{tasks.length}</span>
+                </h3>
+                <p className="text-sm text-muted-foreground">{column.subtitle}</p>
             </div>
 
             {/* Cards List */}
-            <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-21rem)] sm:max-h-[calc(100vh-17rem)] pr-1 scrollbar-thin">
+            <div className="flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-21rem)] sm:max-h-[calc(100vh-17rem)] pr-1 scrollbar-thin">
                 {tasks.length === 0 ? (
-                    <div className="h-24 rounded-xl border-2 border-dashed border-border/70 flex items-center justify-center text-xs text-muted-foreground font-medium text-center px-4">
-                        No tasks in {column.title.toLowerCase()}
-                    </div>
+                    <p className="px-0.5 pt-1 text-sm text-muted-foreground">{column.empty}</p>
                 ) : (
                     tasks.map((task) => (
                         <TaskCard
@@ -332,6 +338,15 @@ function PmKanbanColumn({
                     ))
                 )}
             </div>
+            {onAddTask && (
+                <button
+                    type="button"
+                    onClick={onAddTask}
+                    className="mt-2 flex h-9 w-full items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-foreground outline-none transition-colors duration-150 hover:bg-card focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+                >
+                    <Plus className="size-4 text-brand-deep" aria-hidden="true" /> Add task
+                </button>
+            )}
         </div>
     );
 }
@@ -344,7 +359,6 @@ function TaskCard({
     onStartTask,
     onSubmitTask,
     onApproveTask,
-    onRequestChanges,
     onDeleteTask,
     onClickTask,
     isViewOnly,
@@ -368,6 +382,8 @@ function TaskCard({
     const isChangesRequested = normStatus === "changes_requested";
     const isCarriedOver = isTaskCarriedOver(task);
     const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && normStatus !== "done";
+    // Trello habit: amber when due within two days.
+    const isDueSoon = !!task.dueDate && !isOverdue && normStatus !== "done" && new Date(task.dueDate).getTime() - new Date().getTime() < 2 * 24 * 60 * 60 * 1000;
 
     // Permission checks
     const isAssignedToUser = currentUserId ? task.assignees?.some((a) => a.user.id === currentUserId) : false;
@@ -376,34 +392,50 @@ function TaskCard({
 
     return (
         <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Open task ${task.title}`}
             onClick={() => onClickTask?.(task)}
+            onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    onClickTask?.(task);
+                }
+            }}
             className={cn(
-                "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-xl border shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer p-3.5 gap-2.5",
-                isChangesRequested
-                    ? "bg-destructive/15 border-destructive/30 hover:border-destructive/30 shadow-rose-950/10"
-                    : "bg-card border-border hover:border-brand-deep/30 text-foreground"
+                "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-lg border bg-card p-3 gap-2.5 text-foreground cursor-pointer outline-none transition-colors duration-150 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring",
+                isChangesRequested ? "border-destructive/40" : "border-border/70"
             )}
         >
             {/* Header: Title, Tags & Delete Button */}
             <div className="flex items-start justify-between gap-2 min-w-0">
                 <div className="flex flex-col gap-1 flex-1 min-w-0">
                     {/* Status & Carried Over Badge Tags */}
-                    {(isChangesRequested || isCarriedOver) && (
+                    {(isChangesRequested || isCarriedOver || isLocked) && (
                         <div className="flex flex-wrap items-center gap-1">
                             {isChangesRequested && (
                                 <Badge
-                                    variant="destructive"
-                                    className="text-xs font-semibold px-2 py-0.5 bg-destructive text-white shrink-0 whitespace-nowrap"
+                                    variant="outline"
+                                    className="text-xs font-semibold px-2 py-0 bg-destructive/10 text-destructive border-transparent shrink-0 whitespace-nowrap"
                                 >
-                                    Changes Requested
+                                    Changes requested
                                 </Badge>
                             )}
                             {isCarriedOver && (
                                 <Badge
                                     variant="secondary"
-                                    className="text-xs font-semibold px-2 py-0.5 bg-stage-negotiation/15 text-stage-negotiation dark:text-stage-negotiation border-stage-negotiation/30 shrink-0 whitespace-nowrap"
+                                    className="text-xs font-semibold px-2 py-0 bg-stage-negotiation/15 text-stage-negotiation border-transparent shrink-0 whitespace-nowrap"
                                 >
                                     Carried over
+                                </Badge>
+                            )}
+                            {isLocked && (
+                                <Badge
+                                    variant="secondary"
+                                    title={`Waiting for "${prerequisiteTask?.title}"`}
+                                    className="text-xs font-semibold px-2 py-0 bg-muted text-muted-foreground border-transparent shrink-0 whitespace-nowrap"
+                                >
+                                    Blocked
                                 </Badge>
                             )}
                         </div>
@@ -411,8 +443,7 @@ function TaskCard({
 
                     <h4
                         className={cn(
-                            "font-semibold text-sm leading-snug break-words line-clamp-2",
-                            isChangesRequested ? "text-destructive dark:text-destructive" : "text-foreground"
+                            "text-base font-semibold leading-snug break-words line-clamp-2 text-foreground"
                         )}
                         title={task.title}
                     >
@@ -431,6 +462,7 @@ function TaskCard({
                             }}
                             className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                             title="Delete task"
+                            aria-label={`Delete ${task.title}`}
                         >
                             <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -438,137 +470,67 @@ function TaskCard({
                 )}
             </div>
 
-            {/* Description */}
-            {task.description && (
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                    {task.description}
-                </p>
-            )}
-
-            {/* Review Note Callout if Changes Requested */}
-            {isChangesRequested && task.reviewNote && (
-                <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive dark:text-destructive line-clamp-2">
-                    <span className="font-semibold">Note: </span>
-                    {task.reviewNote}
-                </div>
-            )}
-
-            {/* Metadata Footer */}
-            <div className="flex flex-wrap gap-1.5 items-center justify-between pt-1 border-t border-border/40 text-xs">
-                {/* Left side: Assignees & Due Date */}
-                <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    {/* Assignee Avatar Stack */}
-                    {task.assignees && task.assignees.length > 0 ? (
-                        <div className="flex items-center -space-x-1.5 shrink-0">
-                            {task.assignees.slice(0, 3).map((a) => (
-                                <Avatar key={a.user.id} className="w-5 h-5 border-2 border-background ring-1 ring-border shrink-0">
-                                    <AvatarImage src={a.user.image || ""} />
-                                    <AvatarFallback className="text-xs font-semibold">
-                                        {(a.user.name || a.user.email || "U")[0].toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                            ))}
-                            {task.assignees.length > 3 && (
-                                <span className="text-xs text-muted-foreground pl-1 tabular-nums">
-                                    +{task.assignees.length - 3}
-                                </span>
-                            )}
-                        </div>
-                    ) : (
-                        <span className="text-xs text-muted-foreground italic shrink-0">Unassigned</span>
-                    )}
-
-                    {/* Due Date */}
-                    {task.dueDate && (
-                        <span
-                            className={cn(
-                                "inline-flex items-center gap-1 text-xs whitespace-nowrap shrink-0",
-                                isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
-                            )}
-                        >
-                            <Calendar className="w-3 h-3 shrink-0" />
-                            <span>{format(new Date(task.dueDate), "MMM d")}</span>
-                        </span>
-                    )}
-
-                    {/* Prerequisite Indicator */}
-                    {isLocked && (
-                        <span
-                            className="inline-flex items-center gap-1 text-xs text-stage-negotiation dark:text-stage-negotiation font-medium whitespace-nowrap shrink-0"
-                            title={`Prerequisite task "${prerequisiteTask?.title}" must be completed first`}
-                        >
-                            <Lock className="w-3 h-3" />
-                            <span>Blocked</span>
-                        </span>
-                    )}
-                </div>
-
-                {/* Right side: Weight */}
-                {task.weight != null && (
-                    <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap shrink-0">
-                        {task.weight} pts
+            {/* Foot, Trello-style: due date chip on the left, the person on the right (mockup 22 content). */}
+            <div className="flex items-center justify-between gap-2 text-sm">
+                {task.dueDate ? (
+                    <span
+                        className={cn(
+                            "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium tabular-nums",
+                            normStatus === "done"
+                                ? "bg-brand-soft text-brand-deep"
+                                : isOverdue
+                                ? "bg-destructive/10 text-destructive"
+                                : isDueSoon
+                                ? "bg-stage-negotiation/15 text-stage-negotiation"
+                                : "text-muted-foreground"
+                        )}
+                    >
+                        <Clock className="size-3.5" aria-hidden="true" />
+                        {normStatus === "done" ? "Done" : isOverdue ? "Overdue" : "Due"} {format(new Date(task.dueDate), "MMM d")}
                     </span>
+                ) : (
+                    <span className="text-xs text-muted-foreground">No due date</span>
+                )}
+                {task.assignees && task.assignees.length > 0 ? (
+                    <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                        <span className="flex -space-x-1.5">
+                            {task.assignees.slice(0, 3).map((a) => (
+                                <span
+                                    key={a.user.id}
+                                    aria-hidden="true"
+                                    className="flex size-6 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-deep ring-2 ring-card"
+                                >
+                                    {(a.user.name || a.user.email || "D").trim()[0].toUpperCase()}
+                                </span>
+                            ))}
+                        </span>
+                        <span className="truncate">
+                            {(task.assignees[0].user.name || "Developer").split(" ")[0]} (Dev)
+                            {task.assignees.length > 1 ? ` +${task.assignees.length - 1}` : ""}
+                        </span>
+                    </span>
+                ) : (
+                    <span className="text-muted-foreground">Unassigned</span>
                 )}
             </div>
 
-            {/* Quick Action Buttons (Role and state specific) */}
+            {/* One action per card (mockup 22). Request changes is in the task drawer, where the comment goes. */}
             {!isViewOnly && (
-                <div className="pt-1 flex items-center justify-end gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                    {/* 1. Developer Start Task */}
+                <div onClick={(e) => e.stopPropagation()} className="empty:hidden">
                     {normStatus === "to_do" && isDeveloper && isAssignedToUser && onStartTask && (
-                        <Button
-                            size="sm"
-                            variant="default"
-                            disabled={isLocked}
-                            className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg shadow-xs"
-                            onClick={() => onStartTask(task.id)}
-                        >
-                            <Play className="w-3 h-3 fill-current" />
-                            <span>Start</span>
+                        <Button size="sm" disabled={isLocked} className="h-9 w-full text-sm font-semibold active:scale-[0.97]" onClick={() => onStartTask(task.id)}>
+                            Start
                         </Button>
                     )}
-
-                    {/* 2. Developer Submit Work */}
-                    {(normStatus === "in_progress" || normStatus === "changes_requested") &&
-                        isDeveloper &&
-                        isAssignedToUser &&
-                        onSubmitTask && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg border-stage-new/30 text-stage-new dark:text-stage-new bg-stage-new/10 hover:bg-stage-new/20 shadow-xs"
-                                onClick={() => onSubmitTask(task)}
-                            >
-                                <Send className="w-3 h-3" />
-                                <span>Submit</span>
-                            </Button>
-                        )}
-
-                    {/* 3. PM Review Actions: Approve or Request Changes */}
-                    {normStatus === "in_review" && isManager && (
-                        <div className="flex items-center gap-1.5">
-                            {onRequestChanges && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs font-semibold gap-1 px-2 rounded-lg text-destructive dark:text-destructive border-destructive/30 hover:bg-destructive/10 shadow-xs"
-                                    onClick={() => onRequestChanges(task)}
-                                >
-                                    <RotateCcw className="w-3 h-3" />
-                                    <span>Changes</span>
-                                </Button>
-                            )}
-                            {onApproveTask && (
-                                <Button
-                                    size="sm"
-                                    className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg bg-brand-deep hover:bg-brand-deep text-white shadow-xs"
-                                    onClick={() => onApproveTask(task.id)}
-                                >
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    <span>Approve</span>
-                                </Button>
-                            )}
-                        </div>
+                    {(normStatus === "in_progress" || normStatus === "changes_requested") && isDeveloper && isAssignedToUser && onSubmitTask && (
+                        <Button size="sm" variant="outline" className="h-9 w-full bg-card text-sm font-semibold active:scale-[0.97]" onClick={() => onSubmitTask(task)}>
+                            Submit for review
+                        </Button>
+                    )}
+                    {normStatus === "in_review" && isManager && onApproveTask && (
+                        <Button size="sm" className="h-9 w-full bg-brand-deep text-sm font-semibold text-white hover:bg-brand-deep/90 active:scale-[0.97]" onClick={() => onApproveTask(task.id)}>
+                            Approve
+                        </Button>
                     )}
                 </div>
             )}

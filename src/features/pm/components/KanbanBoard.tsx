@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
     startTask,
     submitTask,
@@ -94,6 +95,9 @@ export function KanbanBoard({
     backlogTasks?: PmTask[];
 }) {
     const router = useRouter();
+    // Team sits in the page header (mockup 22); the slot exists only after mount.
+    const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+    useEffect(() => setHeaderSlot(document.getElementById("project-header-actions")), []);
     const [optimisticTasks, setOptimisticTasks] = useState<PmTask[]>(project.tasks || []);
     const [optimisticMilestones, setOptimisticMilestones] = useState<KanbanMilestone[]>(
         project.milestones?.sort((a, b) => a.order - b.order) || []
@@ -481,7 +485,7 @@ export function KanbanBoard({
     return (
         <div className="flex flex-col flex-1 min-h-0 space-y-4 w-full">
             {/* Top Bar Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className={`flex flex-wrap items-center justify-between gap-3 shrink-0 ${isDeveloper ? "" : "hidden"}`}>
                 <div className="flex items-center gap-2">
                     {/* Developer: My Tasks vs All Tasks Toggle */}
                     {isDeveloper && (
@@ -526,13 +530,13 @@ export function KanbanBoard({
                     )}
                 </div>
 
-                <div className="flex items-center gap-2 ml-auto">
+                {headerSlot && createPortal(<>
                     {/* Manager: Team Drawer Button */}
                     {isManager && (
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-9 gap-1.5 bg-card text-sm font-medium active:scale-[0.97]"
+                            className="h-9 shrink-0 gap-1.5 bg-card px-3 text-sm font-medium text-foreground active:scale-[0.97]"
                             onClick={() => setTeamDrawerOpen(true)}
                         >
                             <Users className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -541,19 +545,7 @@ export function KanbanBoard({
                         </Button>
                     )}
 
-                    {/* Manager: Add Task Button */}
-                    {isManager && (
-                        <Button
-                            size="sm"
-                            disabled={!activeMilestone || activeMilestone.status === "Completed"}
-                            className="h-9 gap-1.5 text-sm font-semibold active:scale-[0.97]"
-                            onClick={() => setIsAddingTask(true)}
-                        >
-                            <Plus className="size-4" aria-hidden="true" />
-                            <span>Add task</span>
-                        </Button>
-                    )}
-                </div>
+                </>, headerSlot)}
             </div>
 
             {/* 5 Sequential Milestones Strip */}
@@ -628,6 +620,10 @@ export function KanbanBoard({
                                 developmentMilestoneId={activeMilestone.id}
                                 backlogTasks={managerBacklogList}
                                 sprints={sprints}
+                                onAddTask={() => {
+                                    setNewTaskSprintChoice("backlog");
+                                    setIsAddingTask(true);
+                                }}
                                 onOpenPlanSprint={(ids) => {
                                     setPlanSprintPreselectedIds(ids);
                                     setIsPlanSprintOpen(true);
@@ -642,6 +638,10 @@ export function KanbanBoard({
                         developmentMilestoneId={activeMilestone.id}
                         backlogTasks={managerBacklogList}
                         sprints={sprints}
+                        onAddTask={() => {
+                            setNewTaskSprintChoice("backlog");
+                            setIsAddingTask(true);
+                        }}
                         onOpenPlanSprint={(ids) => {
                             setPlanSprintPreselectedIds(ids);
                             setIsPlanSprintOpen(true);
@@ -664,6 +664,7 @@ export function KanbanBoard({
                         onDeleteTask={(task) => setDeletingTask(task)}
                         onClickTask={(task) => setViewingTaskDetails(task)}
                         isViewOnly={isDeveloper && showAllTasks}
+                        onAddTask={isManager && activeMilestone && activeMilestone.status !== "Completed" ? () => setIsAddingTask(true) : undefined}
                     />
                 )}
             </div>
@@ -815,23 +816,27 @@ export function KanbanBoard({
                                     required
                                 />
                             </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             {/* The task goes into the milestone open on the board; it cannot be changed here (mockup 22b). */}
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5 min-w-0">
                                 <Label htmlFor="new-task-milestone" className="text-sm text-muted-foreground">Milestone (fixed)</Label>
                                 <Input id="new-task-milestone" value={activeMilestone?.title || "No milestone"} readOnly disabled className="bg-muted text-sm text-foreground" />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="new-task-desc" className="text-sm text-muted-foreground">Description (optional)</Label>
-                                <Textarea
-                                    id="new-task-desc"
-                                    className="resize-none bg-card text-sm text-foreground placeholder:text-muted-foreground"
-                                    rows={3}
-                                    value={newTaskDesc}
-                                    onChange={(e) => setNewTaskDesc(e.target.value)}
-                                    placeholder="e.g. List the screens the dispatcher needs, with a short note for each."
+                            <div className="space-y-1.5 min-w-0">
+                                <Label className="text-sm text-muted-foreground">Assign to</Label>
+                                <AssigneeCombobox
+                                    teamMembers={teamMembers}
+                                    selectedIds={newAssigneeIds}
+                                    onSelectionChange={setNewAssigneeIds}
+                                    placeholder="Pick a developer on the team"
                                 />
+                                {teamMembers.length === 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        No developers on the project team yet. Add them with Team first.
+                                    </p>
+                                )}
                             </div>
-
+                            </div>
                             {isDevelopment && (
                                 <div className="space-y-1.5">
                                     <Label className="text-sm text-muted-foreground">Sprint</Label>
@@ -846,11 +851,23 @@ export function KanbanBoard({
                                             </option>
                                         ))}
                                     </FormSelect>
-                                    <p className="text-xs text-muted-foreground">
-                                        Shown only for Development tasks. Leave it in the backlog and pick it when you plan a sprint, or put it in a sprint now.
+                                    <p className="text-sm text-muted-foreground">
+                                        Development only. Leave it in the backlog and pick it when you plan a sprint, or put it in a sprint now.
                                     </p>
                                 </div>
                             )}
+
+                            <div className="space-y-2">
+                                <Label htmlFor="new-task-desc" className="text-sm text-muted-foreground">Description (optional)</Label>
+                                <Textarea
+                                    id="new-task-desc"
+                                    className="resize-none bg-card text-sm text-foreground placeholder:text-muted-foreground"
+                                    rows={3}
+                                    value={newTaskDesc}
+                                    onChange={(e) => setNewTaskDesc(e.target.value)}
+                                    placeholder="e.g. List the screens the dispatcher needs, with a short note for each."
+                                />
+                            </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
@@ -893,20 +910,6 @@ export function KanbanBoard({
                                 <DatePicker value={newTaskDueDate} onChange={setNewTaskDueDate} min={todayYmd()} className="bg-card text-sm" />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-sm text-muted-foreground">Assign to</Label>
-                                <AssigneeCombobox
-                                    teamMembers={teamMembers}
-                                    selectedIds={newAssigneeIds}
-                                    onSelectionChange={setNewAssigneeIds}
-                                    placeholder="Pick a developer on the team"
-                                />
-                                {teamMembers.length === 0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        No developers on the project team yet. Add them with Team first.
-                                    </p>
-                                )}
-                            </div>
                         </div>
 
                         <DialogFooter className="p-4 border-t border-border bg-card/95">

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type View = "board" | "timeline" | "activity" | "payments" | "completion";
@@ -40,20 +39,12 @@ export function ProjectHeader({
     ];
 
     return (
-        <>
-            <Link
-                href={current === "board" ? "/dashboard/pm" : base}
-                className="inline-flex w-fit items-center gap-1 rounded-md text-sm text-muted-foreground outline-none underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-            >
-                <ArrowLeft className="size-3.5" aria-hidden="true" /> {current === "board" ? "Back to projects" : "Back to the board"}
-            </Link>
-
-            <header className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
-                <div className="min-w-[min(100%,22rem)] flex-1">
+            <header className="flex shrink-0 flex-col gap-3">
+                <div>
                     <p className="text-sm text-muted-foreground">
                         Business name: {businessName || "Not given"} · Client name: {clientName || "Not given"}
                     </p>
-                    <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight text-foreground">Project name: {title}</h1>
+                    <h1 className="mt-0.5 break-words text-2xl font-semibold tracking-tight text-foreground">Project name: {title}</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <nav aria-label="Project views" className="inline-flex items-center rounded-lg bg-muted p-1 ring-1 ring-inset ring-border/60">
@@ -72,15 +63,15 @@ export function ProjectHeader({
                         ))}
                     </nav>
                     {showTools && (
-                        <div role="group" aria-label="Project tools" className="flex flex-wrap items-center gap-0.5 sm:ml-2">
+                        <div role="group" aria-label="Project tools" className="ml-auto flex flex-wrap items-center gap-2">
                             {tools.map(([key, label, href]) => (
                                 <Link
                                     key={key}
                                     href={href}
                                     aria-current={current === key ? "page" : undefined}
                                     className={cn(
-                                        "inline-flex h-9 items-center rounded-md px-3 text-sm font-medium outline-none transition-[color,background-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
-                                        current === key ? "bg-brand-soft text-brand-deep" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        "inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium outline-none transition-[color,background-color,transform] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
+                                        current === key ? "border-brand-deep/40 bg-brand-soft text-brand-deep" : "border-border bg-card text-foreground hover:bg-muted"
                                     )}
                                 >
                                     {label}
@@ -89,8 +80,9 @@ export function ProjectHeader({
                             {extraTools}
                         </div>
                     )}
+                    {/* The board puts Team here (KanbanBoard renders into this slot). */}
+                    <div id="project-header-actions" className="flex items-center gap-2 empty:hidden" />
                 </div>
             </header>
-        </>
     );
 }
