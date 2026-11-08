@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AutoFilterForm } from "@/components/ui/auto-filter-form";
 import { UserActiveToggle } from "@/features/cms/team/components/UserActiveToggle";
-import { UserPlus, Search } from "lucide-react";
+import { UserPlus, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { auditLogs, users } from "@/db/schema";
-import { ilike, or, and, eq, isNull, max } from "drizzle-orm";
+import { ilike, or, and, eq, isNull, max, count } from "drizzle-orm";
 import { format } from "date-fns";
 import { FormSelect } from "@/components/ui/form-select";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 10;
 
 const VALID_ROLES = [
   "superadmin",
@@ -41,6 +43,7 @@ interface TeamPageSearchParams {
   q?: string;
   role?: string;
   status?: string;
+  page?: string;
 }
 
 export default async function TeamPage({
@@ -74,6 +77,18 @@ export default async function TeamPage({
     ? or(ilike(users.name, `%${query}%`), ilike(users.email, `%${query}%`))
     : undefined;
 
+  const where = and(
+    isNull(users.deletedAt),
+    roleFilter ? eq(users.role, roleFilter) : undefined,
+    statusFilter ? eq(users.status, statusFilter) : undefined,
+    searchFilter
+  );
+  const [countRow] = await db.select({ total: count() }).from(users).where(where);
+  const total = Number(countRow?.total ?? 0);
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const requestedPage = Number.parseInt(typeof params?.page === "string" ? params.page : "1", 10);
+  const page = Number.isFinite(requestedPage) ? Math.min(Math.max(requestedPage, 1), pageCount) : 1;
+
   const accountRows = await db.query.users.findMany({
     columns: {
       id: true,
@@ -85,13 +100,9 @@ export default async function TeamPage({
       jobTitle: true,
       deletedAt: true,
     },
-    where: and(
-      isNull(users.deletedAt),
-      roleFilter ? eq(users.role, roleFilter) : undefined,
-      statusFilter ? eq(users.status, statusFilter) : undefined,
-      searchFilter
-    ),
-    limit: 100,
+    where,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
     orderBy: (u, { asc }) => [asc(u.name), asc(u.email)],
   });
 
@@ -104,6 +115,18 @@ export default async function TeamPage({
   const lastByUser = new Map(lastSignIns.map((r) => [r.userId, r.last]));
 
   const hasFilters = Boolean(query || roleFilter || statusFilter);
+  // Page links keep the current filters.
+  const pageHref = (n: number) => {
+    const sp = new URLSearchParams();
+    if (query) sp.set("q", query);
+    if (roleFilter) sp.set("role", roleFilter);
+    if (statusFilter) sp.set("status", statusFilter);
+    if (n > 1) sp.set("page", String(n));
+    const qs = sp.toString();
+    return qs ? `/dashboard/team?${qs}` : "/dashboard/team";
+  };
+  const firstShown = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const lastShown = Math.min(page * PAGE_SIZE, total);
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
@@ -126,7 +149,7 @@ export default async function TeamPage({
       </div>
 
       <AutoFilterForm className="flex flex-wrap items-center gap-2.5">
-        <div className="relative w-full sm:w-72">
+        <div className="relative w-full sm:w-80">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             type="search"
@@ -141,7 +164,7 @@ export default async function TeamPage({
           name="role"
           defaultValue={roleFilter ?? ""}
           aria-label="Filter by role"
-          className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-48"
          variant="plain">
           <option value="">All roles</option>
           <option value="sales">Sales</option>
@@ -156,7 +179,7 @@ export default async function TeamPage({
           name="status"
           defaultValue={statusFilter ?? ""}
           aria-label="Filter by status"
-          className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-48"
          variant="plain">
           <option value="">All statuses</option>
           <option value="active">Active</option>
@@ -178,7 +201,15 @@ export default async function TeamPage({
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          {/* Fixed layout so the five columns share the width evenly instead of sizing to their content. */}
+          <table className="w-full min-w-[760px] table-fixed text-sm text-left">
+            <colgroup>
+              <col className="w-[26%]" />
+              <col className="w-[28%]" />
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
+              <col className="w-[16%]" />
+            </colgroup>
             <thead className="bg-muted/40 border-b border-border text-muted-foreground font-medium">
               <tr>
                 <th className="py-2.5 px-4">Name</th>
@@ -186,7 +217,7 @@ export default async function TeamPage({
                 <th className="py-2.5 px-4">Role</th>
                 <th className="py-2.5 px-4">Status</th>
                 <th className="py-2.5 px-4">Last sign-in</th>
-                              </tr>
+              </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {accountRows.length === 0 ? (
@@ -204,11 +235,11 @@ export default async function TeamPage({
                     key={user.id}
                     className="hover:bg-muted/30 transition-colors"
                   >
-                    <td className="py-2.5 px-4 font-semibold text-foreground">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 px-4 font-semibold text-foreground">
+                      <div className="flex min-w-0 items-center gap-2">
                         <Link
                           href={`/dashboard/team/${user.id}`}
-                          className="rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                          className="truncate rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {user.name || user.email}
                         </Link>
@@ -222,18 +253,18 @@ export default async function TeamPage({
                         )}
                       </div>
                       {user.jobTitle && (
-                        <div className="text-sm font-normal text-muted-foreground">
+                        <div className="truncate text-sm font-normal text-muted-foreground">
                           {user.jobTitle}
                         </div>
                       )}
                     </td>
-                    <td className="py-2.5 px-4 text-muted-foreground truncate max-w-[260px]">
+                    <td className="py-3 px-4 text-muted-foreground truncate" title={user.email}>
                       {user.email}
                     </td>
-                    <td className="py-2.5 px-4 text-foreground whitespace-nowrap">
+                    <td className="py-3 px-4 text-foreground truncate">
                       {ROLE_LABELS[user.role] || user.role}
                     </td>
-                    <td className="py-2.5 px-4 whitespace-nowrap">
+                    <td className="py-3 px-4 whitespace-nowrap">
                       <UserActiveToggle
                         userId={user.id}
                         status={user.status}
@@ -244,7 +275,7 @@ export default async function TeamPage({
                         mode="invite-only"
                       />
                     </td>
-                    <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap tabular-nums">
+                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap tabular-nums">
                       {lastByUser.get(user.id) ? format(lastByUser.get(user.id)!, "MMM d, h:mm a") : "No record"}
                     </td>
                   </tr>
@@ -253,11 +284,35 @@ export default async function TeamPage({
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm text-muted-foreground">
-          <span>
-            Showing {accountRows.length}{" "}
-            {accountRows.length === 1 ? "account" : "accounts"} (max 100)
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+          <span className="tabular-nums">
+            {total === 0 ? "No accounts" : `Showing ${firstShown}–${lastShown} of ${total} ${total === 1 ? "account" : "accounts"}`}
           </span>
+          <nav aria-label="Pages" className="flex items-center gap-1.5">
+            {page <= 1 ? (
+              <span aria-disabled="true" className="inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground/50"><ChevronsLeft className="size-4" aria-hidden="true" /><span className="sr-only">First page</span></span>
+            ) : (
+              <Link href={pageHref(1)} aria-label="First page" className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-card text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"><ChevronsLeft className="size-4" aria-hidden="true" /></Link>
+            )}
+            {page <= 1 ? (
+              <span aria-disabled="true" className="inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground/50"><ChevronLeft className="size-4" aria-hidden="true" /><span className="sr-only">Previous page</span></span>
+            ) : (
+              <Link href={pageHref(page - 1)} aria-label="Previous page" className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-card text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"><ChevronLeft className="size-4" aria-hidden="true" /></Link>
+            )}
+            <span className="min-w-20 px-2 text-center tabular-nums text-foreground" aria-current="page">
+              {page} of {pageCount}
+            </span>
+            {page >= pageCount ? (
+              <span aria-disabled="true" className="inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground/50"><ChevronRight className="size-4" aria-hidden="true" /><span className="sr-only">Next page</span></span>
+            ) : (
+              <Link href={pageHref(page + 1)} aria-label="Next page" className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-card text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"><ChevronRight className="size-4" aria-hidden="true" /></Link>
+            )}
+            {page >= pageCount ? (
+              <span aria-disabled="true" className="inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground/50"><ChevronsRight className="size-4" aria-hidden="true" /><span className="sr-only">Last page</span></span>
+            ) : (
+              <Link href={pageHref(pageCount)} aria-label="Last page" className="inline-flex size-9 items-center justify-center rounded-lg border border-border bg-card text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"><ChevronsRight className="size-4" aria-hidden="true" /></Link>
+            )}
+          </nav>
         </div>
       </div>
     </div>
