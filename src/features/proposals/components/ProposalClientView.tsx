@@ -262,8 +262,43 @@ export function ProposalClientView({
         minimumFractionDigits: 0,
     });
 
+    // Signed: the confirmation and the thread come first, so the client does not scroll past the whole document.
+    const approvedEl = isApproved && (
+                <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3.5 rounded-xl border border-border bg-card p-7 no-print">
+                    {proposal.acceptedAt && (
+                        <span className="self-start rounded-full bg-[var(--brand-soft)] px-3 py-0.5 text-sm font-semibold text-[var(--brand-deep)]">
+                            Signed {formatDateTime(proposal.acceptedAt)}
+                        </span>
+                    )}
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">Thank you. Your project has started.</h2>
+                    <p className="text-base text-muted-foreground">
+                        A copy of the signed proposal was emailed to you. You can follow every milestone from your portal.
+                    </p>
+                    <Button asChild className="h-12 w-full rounded-lg text-base font-semibold">
+                        <Link href={projectId ? `/portal/projects/${projectId}` : "/portal/projects"}>View project progress</Link>
+                    </Button>
+                    <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="h-10 w-full rounded-lg">
+                        {isDownloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Printer className="mr-1 h-4 w-4" />}
+                        Download signed proposal (PDF)
+                    </Button>
+                </div>
+            );
+    const threadEl = !isPreview && (
+                <section aria-labelledby="negotiation-heading" className="no-print mx-auto max-w-[850px] overflow-hidden rounded-xl border border-border bg-card">
+                    <ProposalThread
+                        proposalId={proposal.id}
+                        messages={messages || []}
+                        userRole="client"
+                    />
+                </section>
+            );
+
     return (
         <div className="space-y-8 pb-24 w-full min-w-0 print:p-0 print:m-0 print:space-y-0 print:pb-0">
+            {/* Signed: mockup 20, the confirmation the client lands on after signing */}
+            {approvedEl}
+            {isApproved && threadEl}
+
             {/* Staff Preview Banner */}
             {isPreview && (
                 <div className="bg-sky-500/10 border border-sky-500/20 rounded-lg p-3 text-center text-xs text-sky-400 font-mono no-print flex items-center justify-center gap-2">
@@ -337,40 +372,10 @@ export function ProposalClientView({
                 agencyFaviconUrl={settings?.faviconUrl || null}
             />
 
-            {/* Discussion & Negotiation Thread */}
-            {!isPreview && (
-                <section aria-labelledby="negotiation-heading" className="no-print mx-auto max-w-[850px] overflow-hidden rounded-xl border border-border bg-card">
-                    <ProposalThread
-                        proposalId={proposal.id}
-                        messages={messages || []}
-                        userRole="client"
-                    />
-                </section>
-            )}
+            {/* Discussion & Negotiation Thread: below the document, or right under the confirmation once signed */}
+            {!isApproved && threadEl}
 
             {/* Status Callout (Approved / Rejected) */}
-            {/* Signed: mockup 20, the confirmation the client lands on after signing */}
-            {isApproved && (
-                <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3.5 rounded-xl border border-border bg-card p-7 no-print">
-                    {proposal.acceptedAt && (
-                        <span className="self-start rounded-full bg-[var(--brand-soft)] px-3 py-0.5 text-sm font-semibold text-[var(--brand-deep)]">
-                            Signed {formatDateTime(proposal.acceptedAt)}
-                        </span>
-                    )}
-                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">Thank you. Your project has started.</h2>
-                    <p className="text-base text-muted-foreground">
-                        A copy of the signed proposal was emailed to you. You can follow every milestone from your portal.
-                    </p>
-                    <Button asChild className="h-12 w-full rounded-lg text-base font-semibold">
-                        <Link href={projectId ? `/portal/projects/${projectId}` : "/portal/projects"}>View project progress</Link>
-                    </Button>
-                    <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="h-10 w-full rounded-lg">
-                        {isDownloadingPdf ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Printer className="mr-1 h-4 w-4" />}
-                        Download signed proposal (PDF)
-                    </Button>
-                </div>
-            )}
-
             {isRejected && (
                 <div className="max-w-[850px] mx-auto p-6 rounded-xl bg-destructive/10 border border-destructive/30 text-center space-y-2 no-print">
                     <div className="mx-auto h-10 w-10 bg-destructive/20 rounded-full flex items-center justify-center text-destructive">
