@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { CmsPageHeader } from "@/features/cms/components/content/cms-ui";
 import { notFound } from "next/navigation";
 import { asc } from "drizzle-orm";
 import { db } from "@/db";
@@ -18,14 +18,8 @@ export default async function NewPortfolioPage() {
         .orderBy(asc(services.order), asc(services.title));
 
     return (
-        <div className="max-w-3xl mx-auto space-y-6">
-            <div>
-                <Link href="/dashboard/portfolio" className="text-sm text-muted-foreground hover:underline">
-                    ← Back to portfolio
-                </Link>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground mt-2">Add a portfolio project</h1>
-                <p className="text-muted-foreground">Only finished projects. Nothing here links to the real project records.</p>
-            </div>
+        <div className="mx-auto w-full max-w-[1200px] space-y-6 pb-12">
+            <CmsPageHeader title="Add a portfolio project" description="Only finished projects. Saved as a draft until you publish." back={{ href: "/dashboard/portfolio", label: "Back to portfolio" }} />
             <PortfolioEditorForm services={serviceOptions} />
         </div>
     );

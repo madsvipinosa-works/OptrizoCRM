@@ -62,16 +62,16 @@ export function VersionHistory({ slug, currentVersion, hasDraft, versions, title
     }
 
     return (
-        <section className="space-y-3 rounded-xl border border-border p-6">
+        <section className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
             <div>
-                <h2 className="text-lg font-semibold">Version history</h2>
+                <h2 className="text-base font-semibold text-foreground">Version history</h2>
                 <p className="text-sm text-muted-foreground">
                     Every publish is saved. You can restore an older version: it goes live right away as a new version.
                 </p>
             </div>
 
             {error && (
-                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
                     {error}
                 </p>
             )}
@@ -79,13 +79,13 @@ export function VersionHistory({ slug, currentVersion, hasDraft, versions, title
             {versions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No versions yet.</p>
             ) : (
-                <ul className="divide-y divide-border rounded-lg border border-border">
+                <ul className="space-y-2">
                     {versions.map((item) => {
                         const isLive = item.versionNo === currentVersion;
                         return (
-                            <li key={item.versionNo} className="space-y-3 px-4 py-3 text-sm">
+                            <li key={item.versionNo} className="space-y-3 rounded-lg bg-muted/40 px-4 py-3 text-sm">
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                                    <span className="font-mono font-medium">v{item.versionNo}</span>
+                                    <span className="tabular-nums font-medium">v{item.versionNo}</span>
                                     <Badge variant={item.action === "publish" ? "secondary" : "outline"}>
                                         {item.action === "publish"
                                             ? "Published"
@@ -123,7 +123,7 @@ export function VersionHistory({ slug, currentVersion, hasDraft, versions, title
                                 </div>
 
                                 {confirming === item.versionNo && (
-                                    <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+                                    <div className="space-y-3 composer-enter rounded-lg bg-card p-3">
                                         <p>
                                             Restore v{item.versionNo}? It goes live right away and is saved as a new
                                             version. The current live version stays in the history.
@@ -157,7 +157,7 @@ export function VersionHistory({ slug, currentVersion, hasDraft, versions, title
                                 )}
 
                                 {viewing === item.versionNo && (
-                                    <div className="rounded-md border border-dashed border-border p-3">
+                                    <div className="composer-enter rounded-lg bg-card p-3">
                                         <PlainFieldsView slug={slug} fields={item.fields} titles={titles} />
                                     </div>
                                 )}

@@ -1,4 +1,7 @@
-import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CmsPageHeader } from "@/features/cms/components/content/cms-ui";
+import { PageTabs } from "@/features/cms/components/content/PageTabs";
 import { notFound } from "next/navigation";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -89,30 +92,21 @@ export default async function PageEditorPage({ params }: Props) {
     }));
 
     return (
-        <div className="max-w-3xl mx-auto space-y-6 pb-12">
-            <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pages</h1>
-                <p className="text-muted-foreground">
-                    Edits are saved as drafts. Visitors see them only after you click Publish.
-                </p>
+        <div className="mx-auto w-full max-w-[1200px] space-y-6 pb-12">
+            <div className="space-y-5">
+                <CmsPageHeader
+                    title="Pages"
+                    description="Fixed pages. You edit the text and details, not the layout."
+                    actions={
+                        <Button asChild variant="outline" className="h-9 gap-1.5 bg-card active:scale-[0.97]">
+                            <a href={slug === "home" ? "/" : `/${slug}`} target="_blank" rel="noopener noreferrer">
+                                View live page <ArrowUpRight className="size-4" aria-hidden="true" />
+                            </a>
+                        </Button>
+                    }
+                />
+                <PageTabs tabs={PAGE_SLUGS.map((tab) => ({ slug: tab, label: TAB_LABELS[tab] }))} active={slug} />
             </div>
-
-            <nav className="flex gap-2" aria-label="Pages">
-                {PAGE_SLUGS.map((tab) => (
-                    <Link
-                        key={tab}
-                        href={`/dashboard/pages/${tab}`}
-                        aria-current={tab === slug ? "page" : undefined}
-                        className={
-                            tab === slug
-                                ? "rounded-md border border-primary bg-primary/10 px-4 py-1.5 text-sm font-medium"
-                                : "rounded-md border border-border px-4 py-1.5 text-sm text-muted-foreground hover:bg-accent"
-                        }
-                    >
-                        {TAB_LABELS[tab]}
-                    </Link>
-                ))}
-            </nav>
 
             <PageEditor
                 key={`${slug}-${page.version}-${page.draftUpdatedAt?.toISOString() ?? "none"}`}

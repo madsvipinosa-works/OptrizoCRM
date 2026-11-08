@@ -64,25 +64,43 @@ export function ContentStatusButtons({ kind, id, status }: Props) {
     return (
         <div className="flex flex-col items-end gap-1">
             {status === "draft" && (
-                <Button size="sm" disabled={pending} onClick={() => run("publish")}>
+                <Button size="sm" variant="ghost" disabled={pending} onClick={() => run("publish")} className="h-8 font-semibold text-brand-deep hover:text-brand-deep active:scale-[0.97]">
                     Publish
                 </Button>
             )}
             {status === "published" && (
-                <Button size="sm" variant="outline" disabled={pending} onClick={() => run("hide")}>
+                <Button size="sm" variant="ghost" disabled={pending} onClick={() => run("hide")} className="h-8 text-muted-foreground hover:text-foreground active:scale-[0.97]">
                     Hide
                 </Button>
             )}
             {status === "hidden" && (
-                <Button size="sm" variant="outline" disabled={pending} onClick={() => run("unhide")}>
+                <Button size="sm" variant="ghost" disabled={pending} onClick={() => run("unhide")} className="h-8 text-muted-foreground hover:text-foreground active:scale-[0.97]">
                     Unhide
                 </Button>
             )}
             {error && (
-                <p role="alert" className="max-w-xs text-right text-xs text-destructive">
+                <p role="alert" className="max-w-xs text-right text-sm text-destructive">
                     {error}
                 </p>
             )}
         </div>
+    );
+}
+
+// Status colour carries meaning: green = live, amber = draft, grey = hidden. Text stays on --foreground.
+const STATUS_CHIP: Record<string, string> = {
+    published: "bg-brand-soft text-brand-deep",
+    draft: "bg-stage-negotiation/15 text-foreground",
+    hidden: "bg-muted text-muted-foreground",
+};
+const STATUS_DOT: Record<string, string> = { published: "bg-brand-deep", draft: "bg-stage-negotiation", hidden: "bg-muted-foreground" };
+
+/** Read-only chip for a service or portfolio status (C2, C5). */
+export function ContentStatusChip({ status, label }: { status: string; label?: string }) {
+    return (
+        <span className={`inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_CHIP[status] ?? STATUS_CHIP.hidden}`}>
+            <span className={`size-1.5 rounded-full ${STATUS_DOT[status] ?? STATUS_DOT.hidden}`} aria-hidden="true" />
+            {label ?? status}
+        </span>
     );
 }

@@ -22,7 +22,7 @@ export function Editor({ content, onChange }: EditorProps) {
             Link.configure({
                 openOnClick: false,
                 HTMLAttributes: {
-                    class: 'text-primary underline underline-offset-4 hover:text-primary/80',
+                    class: 'text-brand-deep underline underline-offset-4 hover:text-primary/80',
                 },
             }),
         ],

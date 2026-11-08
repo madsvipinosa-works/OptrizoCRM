@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -11,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createService, publishService, updateService } from "@/features/cms/content/services.actions";
 import { LIMITS } from "@/features/cms/content/schemas";
+import { Check } from "lucide-react";
 import { ContentImageField } from "./ContentImageField";
-import { contentErrorMessage } from "./ContentStatusButtons";
+import { FormSection, SaveBar, formFields, sheet } from "./cms-ui";
+import { ContentStatusChip, contentErrorMessage } from "./ContentStatusButtons";
 
 export type ServiceFormValues = {
     id: string;
@@ -30,13 +31,14 @@ export type ServiceFormValues = {
 function Counter({ value, max }: { value: string; max: number }) {
     const over = value.length > max;
     return (
-        <span className={over ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+        <span className={`text-sm tabular-nums ${over ? "text-destructive" : "text-muted-foreground"}`}>
             {value.length} / {max}
         </span>
     );
 }
 
-export function ServiceEditorForm({ service }: { service?: ServiceFormValues }) {
+/** Mockup C3: the form, and a live preview of the Services page card and the inquiry form's list. */
+export function ServiceEditorForm({ service, inquiryList = [] }: { service?: ServiceFormValues; inquiryList?: string[] }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [title, setTitle] = useState(service?.title ?? "");
@@ -87,119 +89,151 @@ export function ServiceEditorForm({ service }: { service?: ServiceFormValues }) 
     }
 
     const isDraftOrNew = !service || service.status === "draft";
+    const items = inclusions.split("\n").map((line) => line.trim()).filter(Boolean);
+    const err = (name: string) =>
+        fieldError(name) ? <p role="alert" className="text-sm text-destructive">{fieldError(name)}</p> : null;
 
     return (
         <form
-            className="space-y-6 rounded-xl border border-border p-6"
+            className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
             onSubmit={(event) => {
                 event.preventDefault();
                 save(false);
             }}
         >
-            {service && (
-                <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">{service.status}</Badge>
-                    {service.isPreset && <Badge variant="secondary">Preset</Badge>}
+            <div className="min-w-0">
+                <div className={`${sheet} ${formFields}`}>
+                    <FormSection title="Basics" description="The name and line visitors see on the service card and in the inquiry form.">
+                        <div className="grid gap-x-4 gap-y-5 sm:grid-cols-[minmax(0,1fr)_9rem]">
+                            <div className="space-y-2">
+                                <div className="flex items-baseline justify-between">
+                                    <Label htmlFor="service-title">Service name</Label>
+                                    <Counter value={title} max={LIMITS.service.title} />
+                                </div>
+                                <Input id="service-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                                {err("title")}
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-baseline justify-between">
+                                    <Label htmlFor="service-order">Order</Label>
+                                    <span className="text-sm text-muted-foreground">Lower is first</span>
+                                </div>
+                                <Input id="service-order" type="number" min={0} max={9999} className="tabular-nums" value={order} onChange={(e) => setOrder(e.target.value)} />
+                                {err("order")}
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex items-baseline justify-between">
+                                <Label htmlFor="service-description">Short description</Label>
+                                <Counter value={description} max={LIMITS.service.description} />
+                            </div>
+                            <Input id="service-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                            {err("description")}
+                        </div>
+                    </FormSection>
+
+                    <FormSection title="What's included" description={`One item per line, up to ${LIMITS.service.inclusionItems}. Shown as a bullet list.`}>
+                        <div className="space-y-2">
+                            <Label htmlFor="service-inclusions" className="sr-only">{"What's included"}</Label>
+                            <Textarea id="service-inclusions" rows={5} value={inclusions} onChange={(e) => setInclusions(e.target.value)} placeholder={"Domain registration or transfer\nHosting setup and SSL"} />
+                            {err("inclusions")}
+                        </div>
+                    </FormSection>
+
+                    <FormSection title="Image" description="Shown at the top of the service card.">
+                        <ContentImageField label="Image" labelHidden value={images} onChange={setImages} max={1} error={fieldError("image")} />
+                    </FormSection>
+
+                    <FormSection title="Where it shows" description="No price field: prices are agreed per project in the proposal.">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2.5">
+                                <Checkbox id="service-show-services" checked={showOnServicesPage} onCheckedChange={setShowOnServicesPage} />
+                                <Label htmlFor="service-show-services" className="font-normal">Show on the Services page</Label>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                                <Checkbox id="service-show-inquiry" checked={showInInquiry} onCheckedChange={setShowInInquiry} />
+                                <Label htmlFor="service-show-inquiry" className="font-normal">Show in the inquiry form</Label>
+                            </div>
+                        </div>
+                    </FormSection>
                 </div>
-            )}
 
-            <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                    <Label htmlFor="service-title">Service name</Label>
-                    <Counter value={title} max={LIMITS.service.title} />
-                </div>
-                <Input id="service-title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                {fieldError("title") && <p role="alert" className="text-xs text-destructive">{fieldError("title")}</p>}
-            </div>
+                {error && <p role="alert" className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
 
-            <div className="space-y-2">
-                <Label htmlFor="service-order">Order on the website</Label>
-                <Input
-                    id="service-order"
-                    type="number"
-                    min={0}
-                    max={9999}
-                    className="w-32"
-                    value={order}
-                    onChange={(e) => setOrder(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Lower numbers come first. Leave empty to keep the current place.</p>
-                {fieldError("order") && <p role="alert" className="text-xs text-destructive">{fieldError("order")}</p>}
-            </div>
-
-            <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                    <Label htmlFor="service-description">Short description</Label>
-                    <Counter value={description} max={LIMITS.service.description} />
-                </div>
-                <Input id="service-description" value={description} onChange={(e) => setDescription(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Shown on the service card and in the inquiry form.</p>
-                {fieldError("description") && (
-                    <p role="alert" className="text-xs text-destructive">{fieldError("description")}</p>
-                )}
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="service-inclusions">{"What's included"}</Label>
-                <Textarea
-                    id="service-inclusions"
-                    rows={5}
-                    value={inclusions}
-                    onChange={(e) => setInclusions(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                    One item per line, up to {LIMITS.service.inclusionItems} items. Plain text only.
-                </p>
-                {fieldError("inclusions") && (
-                    <p role="alert" className="text-xs text-destructive">{fieldError("inclusions")}</p>
-                )}
-            </div>
-
-            <ContentImageField label="Image" value={images} onChange={setImages} max={1} error={fieldError("image")} />
-
-            <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                    <Checkbox
-                        id="service-show-services"
-                        checked={showOnServicesPage}
-                        onCheckedChange={setShowOnServicesPage}
-                    />
-                    <Label htmlFor="service-show-services">Show on the Services page</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Checkbox id="service-show-inquiry" checked={showInInquiry} onCheckedChange={setShowInInquiry} />
-                    <Label htmlFor="service-show-inquiry">Show in the inquiry form</Label>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    No price field: prices are agreed per project in the proposal.
-                </p>
-            </div>
-
-            {error && (
-                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                    {error}
-                </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3">
-                {isDraftOrNew ? (
-                    <>
-                        <Button type="button" disabled={pending} onClick={() => save(true)}>
-                            Publish
-                        </Button>
-                        <Button type="submit" variant="outline" disabled={pending}>
-                            Save draft
-                        </Button>
-                    </>
-                ) : (
-                    <Button type="submit" disabled={pending}>
-                        Save changes
+                <SaveBar
+                    status={
+                        service ? (
+                            <span className="flex items-center gap-2">
+                                <ContentStatusChip status={service.status} />
+                                {service.isPreset && <span>Preset service</span>}
+                            </span>
+                        ) : (
+                            "New service · saved as a draft until you publish"
+                        )
+                    }
+                >
+                    <Button asChild variant="ghost" className="h-9 active:scale-[0.97]">
+                        <Link href="/dashboard/services">Cancel</Link>
                     </Button>
-                )}
-                <Button asChild variant="ghost">
-                    <Link href="/dashboard/services">Cancel</Link>
-                </Button>
+                    {isDraftOrNew ? (
+                        <>
+                            <Button type="submit" variant="outline" disabled={pending} className="h-9 bg-card active:scale-[0.97]">Save draft</Button>
+                            <Button type="button" disabled={pending} onClick={() => save(true)} className="h-9 font-semibold active:scale-[0.97]">Publish</Button>
+                        </>
+                    ) : (
+                        <Button type="submit" disabled={pending} className="h-9 font-semibold active:scale-[0.97]">Save changes</Button>
+                    )}
+                </SaveBar>
             </div>
+
+            {/* Taste §8.2 "show what the setting produces": the card and the inquiry list, live. */}
+            <aside aria-label="Live preview" className="space-y-5 lg:sticky lg:top-6">
+                <section className="space-y-2">
+                    <h2 className="text-sm text-muted-foreground">Preview · Services page</h2>
+                    <div className={`${sheet} overflow-hidden`}>
+                        <div className="relative aspect-[16/9] bg-muted">
+                            {images[0] && (
+                                // eslint-disable-next-line @next/next/no-img-element -- uploaded content image, not optimised here
+                                <img src={images[0]} alt="" className="absolute inset-0 size-full object-cover" />
+                            )}
+                        </div>
+                        <div className="p-4">
+                            <p className="text-lg font-semibold tracking-tight text-foreground">{title.trim() || "Service name"}</p>
+                            <p className="mt-0.5 text-sm text-muted-foreground">{description.trim() || "Short description"}</p>
+                            {items.length > 0 && (
+                                <ul className="mt-3 space-y-1 text-sm text-foreground">
+                                    {items.map((item, idx) => (
+                                        <li key={`${item}-${idx}`} className="flex gap-2">
+                                            <Check className="mt-0.5 size-4 shrink-0 text-brand-deep" aria-hidden="true" />
+                                            {item}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            <span aria-hidden="true" className="mt-4 inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">
+                                Request this service
+                            </span>
+                        </div>
+                    </div>
+                    {!showOnServicesPage && <p className="text-sm text-muted-foreground">Hidden from the Services page.</p>}
+                </section>
+
+                <section className="space-y-2">
+                    <h2 className="text-sm text-muted-foreground">Preview · Inquiry form list</h2>
+                    <ul className={`${sheet} p-2 text-sm text-foreground`}>
+                        {inquiryList.map((name) => (
+                            <li key={name} className="rounded-md px-2.5 py-1.5">{name}</li>
+                        ))}
+                        {showInInquiry && (
+                            <li className="rounded-md bg-brand-soft px-2.5 py-1.5 font-medium text-brand-deep">
+                                {title.trim() || "This service"}
+                                {!service || service.status === "draft" ? " (new)" : ""}
+                            </li>
+                        )}
+                        <li className="rounded-md px-2.5 py-1.5 text-muted-foreground">Other</li>
+                    </ul>
+                </section>
+            </aside>
         </form>
     );
 }
