@@ -743,6 +743,7 @@ describe("createTask and startTask sprint integration (STOP 2 commit 2)", () => 
       milestoneId: "m-dev",
       status: "to_do",
       sprintId: "sprint-active",
+      dueDate: new Date("2026-11-20"),
     });
   });
 
@@ -769,6 +770,7 @@ describe("createTask and startTask sprint integration (STOP 2 commit 2)", () => 
     const res = await createTask("proj-1", "m-design", "Wireframes", undefined, undefined, 1, undefined, {
       sprintId: "sprint-active",
       toBacklog: true,
+      dueDate: "2026-12-01",
     });
     expect(res.success).toBe(true);
     expect(insertedValues[0]).toMatchObject({
@@ -776,6 +778,7 @@ describe("createTask and startTask sprint integration (STOP 2 commit 2)", () => 
       milestoneId: "m-design",
       status: "to_do",
       sprintId: null,
+      dueDate: new Date("2026-12-01"),
     });
   });
 

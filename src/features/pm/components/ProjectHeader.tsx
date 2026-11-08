@@ -78,10 +78,10 @@ export function ProjectHeader({
                                 </Link>
                             ))}
                             {extraTools}
+                            {/* The board puts Team here (KanbanBoard renders into this slot), so the tools wrap as one group. */}
+                            <div id="project-header-actions" className="flex items-center gap-2 empty:hidden" />
                         </div>
                     )}
-                    {/* The board puts Team here (KanbanBoard renders into this slot). */}
-                    <div id="project-header-actions" className="flex items-center gap-2 empty:hidden" />
                 </div>
             </header>
     );

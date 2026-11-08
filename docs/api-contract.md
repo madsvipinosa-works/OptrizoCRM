@@ -620,13 +620,14 @@ Side effects: derives `projectId` from the task row; runs `applyEndedSprints(pro
 
 ### createTask (sprint options)  (step 23a)
 Who can call: manager (assigned to project)
-Input:  `(projectId: string, milestoneId: string, title: string, description?: string, assigneeIds?: string[], weight?: number, estimatedHours?: number, opts?: { sprintId?: string | null; toBacklog?: boolean })`
+Input:  `(projectId: string, milestoneId: string, title: string, description?: string, assigneeIds?: string[], weight?: number, estimatedHours?: number, opts?: { sprintId?: string | null; toBacklog?: boolean; dueDate?: string | null })` (`dueDate` is `YYYY-MM-DD`)
 Output: `{ success: boolean, message: string }`
 Errors:
 - `Unauthorized`: caller is not a manager or lacks write access on `projectId`.
 - Milestone belongs to another project, is not found, or is `Completed`.
 - `opts.sprintId` belongs to another project or is already ended (`endDate < todayInManila()`).
-Side effects: runs `applyEndedSprints(projectId)` first; in the Development milestone, defaults to `status = 'backlog'` and `sprintId = null` when `opts?.toBacklog` is true or `opts?.sprintId` is omitted/null; when a valid non-ended `opts.sprintId` is provided in Development, inserts with `status = 'to_do'`, `sprintId = opts.sprintId`, and sets `dueDate` to the sprint's `endDate` if none was supplied; in all other milestones, ignores `sprintId`/`toBacklog` and inserts with `status = 'to_do'` and `sprintId = null`; writes audit log row with `projectId`.
+- `Due date must be a date (YYYY-MM-DD)`: `opts.dueDate` is not in that format.
+Side effects: runs `applyEndedSprints(projectId)` first; in the Development milestone, defaults to `status = 'backlog'` and `sprintId = null` when `opts?.toBacklog` is true or `opts?.sprintId` is omitted/null; when a valid non-ended `opts.sprintId` is provided in Development, inserts with `status = 'to_do'`, `sprintId = opts.sprintId`, and sets `dueDate` to the sprint's `endDate` if `opts.dueDate` was not supplied; any milestone stores `opts.dueDate` when given (it was silently dropped before 2026-11-08); in all other milestones, ignores `sprintId`/`toBacklog` and inserts with `status = 'to_do'` and `sprintId = null`; writes audit log row with `projectId`.
 
 ### deleteTask  (step 23)
 Who can call: manager (assigned to the task's project)

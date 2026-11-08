@@ -15,10 +15,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
-import { todayYmd, formatDate } from "@/lib/datetime";
+import { todayYmd } from "@/lib/datetime";
+import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { planSprint } from "@/features/sprints/actions";
+import { updateTaskDetails } from "@/features/pm/actions";
+import { FormSelect } from "@/components/ui/form-select";
+import type { TeamMemberItem } from "./AssigneeCombobox";
 import { isBacklogTask, isTaskCarriedOver } from "@/features/sprints/task-filters";
 import type { PmTask } from "./PmKanbanBoard";
 import { cn } from "@/lib/utils";
@@ -34,6 +38,10 @@ interface PlanSprintDialogProps {
   developmentStartDate?: Date | string | null;
   developmentEndDate?: Date | string | null;
   onSprintPlanned?: (sprintId: string) => void;
+  /** Mockup 23b: pick the developer for each task while planning. */
+  teamMembers?: TeamMemberItem[];
+  /** Existing sprints, for the "Dates start after Sprint N" hint. */
+  sprints?: { name: string; endDate: string }[];
 }
 
 function mapPlanSprintError(code: string): string {
@@ -69,6 +77,8 @@ export function PlanSprintDialog({
   developmentStartDate,
   developmentEndDate,
   onSprintPlanned,
+  teamMembers = [],
+  sprints = [],
 }: PlanSprintDialogProps) {
   const router = useRouter();
   const [name, setName] = useState(`Sprint ${existingSprintCount + 1}`);
@@ -78,11 +88,21 @@ export function PlanSprintDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Developer per task (mockup 23b); starts as the task's current first assignee.
+  const [assignee, setAssignee] = useState<Record<string, string>>({});
 
   const hasDevelopmentDates = Boolean(developmentStartDate && developmentEndDate);
-  const devRange = hasDevelopmentDates
-    ? `${formatDate(developmentStartDate!)} – ${formatDate(developmentEndDate!)}`
+  const short = (d: Date | string) => format(new Date(d), "MMM d");
+  const devRange = hasDevelopmentDates ? `${short(developmentStartDate!)} – ${short(developmentEndDate!)}` : null;
+  const lastSprint = [...sprints].sort((a, b) => a.endDate.localeCompare(b.endDate)).at(-1);
+  const dateHint = devRange
+    ? `${lastSprint ? `Dates start after ${lastSprint.name} and must` : "Dates must"} end by ${short(developmentEndDate!)}, when Development ends.`
     : null;
+  const nameOf = (id?: string) => (teamMembers.find((m) => m.id === id)?.name || "").split(" ")[0];
+  const notified = [...new Set(selectedIds.map((id) => nameOf(assignee[id])).filter(Boolean))];
+  const notifyLine = notified.length
+    ? `On save: ${notified.length > 1 ? `${notified.slice(0, -1).join(", ")} and ${notified.at(-1)} are` : `${notified[0]} is`} notified, and the sprint is saved in Activity.`
+    : "On save: the sprint is saved in Activity.";
 
   // Carried-over tasks (or non-backlog unfinished tasks from ended sprints) are pre-selected
   const defaultPreselectedIds = useMemo(() => {
@@ -100,8 +120,9 @@ export function PlanSprintDialog({
       setGoal("");
       setErrorMessage(null);
       setSelectedIds(defaultPreselectedIds);
+      setAssignee(Object.fromEntries(backlogTasks.map((t) => [t.id, t.assignees?.[0]?.user.id ?? ""])));
     }
-  }, [open, existingSprintCount, defaultPreselectedIds]);
+  }, [open, existingSprintCount, defaultPreselectedIds, backlogTasks]);
 
   const toggleTask = (taskId: string) => {
     setSelectedIds((prev) =>
@@ -120,6 +141,18 @@ export function PlanSprintDialog({
 
     setIsSaving(true);
     try {
+      // Reassign first, so the sprint's notifications go to the developers chosen here.
+      for (const id of selectedIds) {
+        const task = backlogTasks.find((t) => t.id === id);
+        const chosen = assignee[id];
+        if (task && chosen && chosen !== task.assignees?.[0]?.user.id) {
+          const r = await updateTaskDetails(id, { assigneeIds: [chosen] });
+          if (!r.success) {
+            setErrorMessage(r.message || `Could not assign "${task.title}".`);
+            return;
+          }
+        }
+      }
       const res = await planSprint({
         projectId,
         name: name.trim(),
@@ -159,7 +192,7 @@ export function PlanSprintDialog({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]">
         <SheetHeader className="shrink-0 border-b border-border p-5 sm:p-6 pb-4">
-          <SheetTitle className="text-lg font-semibold tracking-tight text-foreground">Plan sprint</SheetTitle>
+          <SheetTitle className="text-xl font-semibold tracking-tight text-foreground">Plan sprint</SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
             {projectTitle} · Development{devRange ? ` (${devRange})` : ""}
           </SheetDescription>
@@ -198,7 +231,7 @@ export function PlanSprintDialog({
                   placeholder="Sprint 1"
                   maxLength={80}
                   required
-                  className="h-9 text-sm"
+                  className="h-10 text-sm"
                 />
               </div>
 
@@ -216,11 +249,7 @@ export function PlanSprintDialog({
                 <DatePicker id="sprint-end" value={endDate} onChange={setEndDate} min={startDate || todayYmd()} required />
               </div>
             </div>
-            {devRange && (
-              <p className="-mt-2 text-sm text-muted-foreground">
-                Dates must fall within Development ({devRange}) and not overlap another sprint.
-              </p>
-            )}
+            {dateHint && <p className="-mt-2 text-sm text-muted-foreground">{dateHint}</p>}
 
             <div className="space-y-1.5">
               <Label htmlFor="sprint-goal" className="text-sm text-muted-foreground">
@@ -232,7 +261,7 @@ export function PlanSprintDialog({
                 onChange={(e) => setGoal(e.target.value)}
                 placeholder="e.g. Driver app delivery list and status updates"
                 maxLength={500}
-                className="h-9 text-sm"
+                className="h-10 text-sm"
               />
             </div>
 
@@ -253,31 +282,24 @@ export function PlanSprintDialog({
                   {backlogTasks.map((task) => {
                     const checked = selectedIds.includes(task.id);
                     const isCarried = isTaskCarriedOver(task) || !isBacklogTask(task);
-                    const assigneeLabel =
-                      task.assignees && task.assignees.length > 0
-                        ? task.assignees
-                            .map((a) => a.user.name || a.user.email || "Dev")
-                            .join(", ")
-                        : "Unassigned";
-
                     return (
-                      <label
+                      <div
                         key={task.id}
                         className={cn(
-                          "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors duration-150",
+                          "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition-colors duration-150",
                           checked
                             ? "border-brand-deep/40 bg-brand-soft text-foreground"
                             : "border-border bg-card text-foreground hover:bg-muted/40"
                         )}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
                           <input
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleTask(task.id)}
-                            className="w-4 h-4 rounded border-border accent-primary shrink-0"
+                            className="size-4 shrink-0 rounded border-border accent-[var(--brand-deep)]"
                           />
-                          <span className="font-medium truncate">{task.title}</span>
+                          <span className="min-w-0 text-base">{task.title}</span>
                           {isCarried && (
                             <Badge
                               variant="secondary"
@@ -286,11 +308,21 @@ export function PlanSprintDialog({
                               Carried over
                             </Badge>
                           )}
-                        </div>
-                        <span className="text-sm text-muted-foreground shrink-0">
-                          {assigneeLabel}
-                        </span>
-                      </label>
+                        </label>
+                        <FormSelect
+                          aria-label={`Developer for ${task.title}`}
+                          value={assignee[task.id] ?? ""}
+                          onChange={(e) => setAssignee((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                          className="w-36 shrink-0 bg-card text-sm"
+                        >
+                          <option value="">Not assigned</option>
+                          {teamMembers.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {(m.name || m.email || "Developer").split(" ")[0]} (Dev)
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </div>
                     );
                   })}
                 </div>
@@ -299,19 +331,18 @@ export function PlanSprintDialog({
           </div>
 
           <SheetFooter className="shrink-0 flex-row items-center justify-between gap-3 border-t border-border bg-card p-4 sm:px-6">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              On save: the assigned developers are notified, and the sprint is saved in Activity.
-            </span>
+            <span className="hidden text-sm text-muted-foreground sm:inline">{notifyLine}</span>
             <div className="flex items-center gap-2 ml-auto">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSaving}
+                className="h-10 bg-card px-5 active:scale-[0.97]"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSaving || !name.trim() || !startDate || !endDate} className="font-semibold active:scale-[0.97]">
+              <Button type="submit" disabled={isSaving || !name.trim() || !startDate || !endDate} className="h-10 px-5 font-semibold active:scale-[0.97]">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
                 Save sprint
               </Button>

@@ -17,7 +17,7 @@ interface SprintBarProps {
   onOpenPlanSprint?: () => void;
 }
 
-function formatSprintDateRange(startStr: string, endStr: string): string {
+export function formatSprintDateRange(startStr: string, endStr: string): string {
   try {
     const start = new Date(`${startStr}T00:00:00`);
     const end = new Date(`${endStr}T00:00:00`);
@@ -77,19 +77,19 @@ export function SprintBar({
   return (
     <div className="relative flex flex-wrap items-center justify-between gap-3 bg-card border border-border rounded-xl px-3 py-2 shadow-xs">
       {/* Left: Sprint Picker & Goal */}
-      <div className="flex flex-wrap items-center gap-3 min-w-0 flex-1">
+      <div className="flex min-w-[min(100%,16rem)] flex-1 flex-wrap items-center gap-x-3 gap-y-1">
         {selectedSprint ? (
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative min-w-0 max-w-full" ref={dropdownRef}>
             <button
               type="button"
               aria-haspopup="listbox"
               aria-expanded={dropdownOpen}
               aria-label="Choose sprint"
               onClick={() => setDropdownOpen((v) => !v)}
-              className="h-9 px-3 rounded-lg border border-brand-deep/40 bg-brand-soft text-foreground text-sm inline-flex items-center gap-2 whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-9 max-w-full px-3 rounded-lg border border-brand-deep/40 bg-brand-soft text-foreground text-sm inline-flex items-center gap-2 whitespace-nowrap overflow-hidden outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <strong className="font-semibold">{selectedSprint.name}</strong>
-              <span className="text-muted-foreground text-sm">
+              <strong className="shrink-0 font-semibold">{selectedSprint.name}</strong>
+              <span className="min-w-0 truncate text-muted-foreground text-sm">
                 {formatSprintDateRange(selectedSprint.startDate, selectedSprint.endDate)} ·{" "}
                 <span className={getStatusLabel(selectedSprint.status).colorClass}>
                   {getStatusLabel(selectedSprint.status).label}
@@ -166,7 +166,7 @@ export function SprintBar({
 
       {/* Right: Manager-only Backlog & Plan sprint buttons */}
       {isManager && (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={onToggleBacklog}

@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { AssigneeCombobox, TeamMemberItem } from "./AssigneeCombobox";
 import { PmKanbanBoard, PmTask } from "./PmKanbanBoard";
 import { MilestoneStrip } from "./MilestoneStrip";
-import { SprintBar } from "./SprintBar";
+import { SprintBar, formatSprintDateRange } from "./SprintBar";
 import { BacklogPanel } from "./BacklogPanel";
 import { PlanSprintDialog } from "./PlanSprintDialog";
 import {
@@ -95,6 +95,8 @@ export function KanbanBoard({
     backlogTasks?: PmTask[];
 }) {
     const router = useRouter();
+    // Mockup 27: the card just approved shows "Approved just now".
+    const [recentlyApprovedId, setRecentlyApprovedId] = useState<string | null>(null);
     // Team sits in the page header (mockup 22); the slot exists only after mount.
     const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
     useEffect(() => setHeaderSlot(document.getElementById("project-header-actions")), []);
@@ -175,8 +177,6 @@ export function KanbanBoard({
     const [newTaskTitle, setNewTaskTitle] = useState("");
     const [newTaskDesc, setNewTaskDesc] = useState("");
     const [newAssigneeIds, setNewAssigneeIds] = useState<string[]>([]);
-    const [newTaskWeight, setNewTaskWeight] = useState<number>(1);
-    const [newTaskHours, setNewTaskHours] = useState<string>("");
     const [newTaskDueDate, setNewTaskDueDate] = useState<string>("");
     const [newTaskSprintChoice, setNewTaskSprintChoice] = useState<string>("backlog");
     const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -290,7 +290,10 @@ export function KanbanBoard({
         try {
             const res = await approveTask(taskId);
             if (res.success) {
-                toast.success("Task approved as Done");
+                const t = optimisticTasks.find((x) => x.id === taskId);
+                const dev = t?.assignees?.[0]?.user.name?.split(" ")[0];
+                toast.success(`Approved. "${t?.title ?? "Task"}" is now Done${dev ? ` and ${dev} was notified` : ""}.`);
+                setRecentlyApprovedId(taskId);
                 setOptimisticTasks((prev) =>
                     prev.map((t) => (t.id === taskId ? { ...t, status: "done" } : t))
                 );
@@ -304,37 +307,40 @@ export function KanbanBoard({
         }
     };
 
-    const handleRequestChangesConfirm = async () => {
-        if (!requestChangesTask) return;
-        const trimmed = requestChangesComment.trim();
+    const submitChangeRequest = async (task: PmTask, comment: string): Promise<boolean> => {
+        const trimmed = comment.trim();
         if (!trimmed) {
             toast.error("Comment is required to request changes");
-            return;
+            return false;
         }
-
-        setIsSubmittingChanges(true);
         try {
-            const res = await requestTaskChanges(requestChangesTask.id, trimmed);
-            if (res.success) {
-                toast.success("Changes requested");
-                setOptimisticTasks((prev) =>
-                    prev.map((t) =>
-                        t.id === requestChangesTask.id
-                            ? { ...t, status: "changes_requested", reviewNote: trimmed }
-                            : t
-                    )
-                );
-                setRequestChangesTask(null);
-                setRequestChangesComment("");
-                router.refresh();
-            } else {
+            const res = await requestTaskChanges(task.id, trimmed);
+            if (!res.success) {
                 toast.error(res.message || "Failed to request changes");
+                return false;
             }
+            const dev = task.assignees?.[0]?.user.name?.split(" ")[0];
+            toast.success(`Changes requested. ${dev ?? "The developer"} was notified.`);
+            setOptimisticTasks((prev) =>
+                prev.map((t) => (t.id === task.id ? { ...t, status: "changes_requested", reviewNote: trimmed } : t))
+            );
+            router.refresh();
+            return true;
         } catch (error) {
             console.error("Request changes error:", error);
             toast.error("An error occurred while requesting changes");
-        } finally {
-            setIsSubmittingChanges(false);
+            return false;
+        }
+    };
+
+    const handleRequestChangesConfirm = async () => {
+        if (!requestChangesTask) return;
+        setIsSubmittingChanges(true);
+        const ok = await submitChangeRequest(requestChangesTask, requestChangesComment);
+        setIsSubmittingChanges(false);
+        if (ok) {
+            setRequestChangesTask(null);
+            setRequestChangesComment("");
         }
     };
 
@@ -370,12 +376,12 @@ export function KanbanBoard({
 
         setIsCreatingTask(true);
         try {
-            const hours = newTaskHours ? parseInt(newTaskHours) : undefined;
+            // Development tasks take their due date from the sprint (server side); other milestones send the picked date.
             const opts = isDevelopment
                 ? newTaskSprintChoice === "backlog"
                     ? { toBacklog: true }
                     : { sprintId: newTaskSprintChoice }
-                : undefined;
+                : { dueDate: newTaskDueDate || null };
 
             const res = await createTask(
                 project.id,
@@ -383,8 +389,8 @@ export function KanbanBoard({
                 newTaskTitle.trim(),
                 newTaskDesc.trim() || undefined,
                 newAssigneeIds,
-                newTaskWeight,
-                hours,
+                1,
+                undefined,
                 opts
             );
 
@@ -398,8 +404,6 @@ export function KanbanBoard({
                 setNewTaskTitle("");
                 setNewTaskDesc("");
                 setNewAssigneeIds([]);
-                setNewTaskWeight(1);
-                setNewTaskHours("");
                 setNewTaskDueDate("");
                 setNewTaskSprintChoice("backlog");
                 router.refresh();
@@ -591,7 +595,7 @@ export function KanbanBoard({
             )}
 
             {/* Main Content Area: Board or No-Sprints Empty State / Backlog Panel */}
-            <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto">
+            <div className="flex flex-col gap-3">
                 {isDevelopment && sprints.length === 0 ? (
                     <div className="flex flex-col gap-4 flex-1 min-h-0">
                         <div className="rounded-xl border border-dashed border-border bg-card/70 p-6 text-center space-y-2 shrink-0">
@@ -664,6 +668,7 @@ export function KanbanBoard({
                         onDeleteTask={(task) => setDeletingTask(task)}
                         onClickTask={(task) => setViewingTaskDetails(task)}
                         isViewOnly={isDeveloper && showAllTasks}
+                        recentlyApprovedId={recentlyApprovedId}
                         onAddTask={isManager && activeMilestone && activeMilestone.status !== "Completed" ? () => setIsAddingTask(true) : undefined}
                     />
                 )}
@@ -681,6 +686,8 @@ export function KanbanBoard({
                     initialSelectedTaskIds={planSprintPreselectedIds}
                     developmentStartDate={activeMilestone?.startDate}
                     developmentEndDate={activeMilestone?.endDate}
+                    teamMembers={teamMembers}
+                    sprints={sprints}
                     onSprintPlanned={(newSprintId) => {
                         setSelectedSprintId(newSprintId);
                         setIsBacklogOpen(false);
@@ -708,10 +715,7 @@ export function KanbanBoard({
                     setProofingTask(task);
                 }}
                 onApproveTask={handleApproveTask}
-                onRequestChanges={(task) => {
-                    setRequestChangesTask(task);
-                    setRequestChangesComment("");
-                }}
+                onRequestChangesWithComment={submitChangeRequest}
                 onUpdateTaskDetails={handleUpdateTaskDetails}
                 onDeleteTask={(task) => setDeletingTask(task)}
                 onSelectTask={(task) => setViewingTaskDetails(task)}
@@ -792,21 +796,19 @@ export function KanbanBoard({
                 </DialogContent>
             </Dialog>
 
-            {/* Manager: Create Task Dialog */}
+            {/* Manager: Add task (mockups 22b, 23a). One compact form: who it is for, then the fields in the mockup's order. */}
             <Dialog open={isAddingTask} onOpenChange={setIsAddingTask}>
-                <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col bg-card border-border text-foreground rounded-xl overflow-hidden focus:outline-none">
-                    <DialogHeader className="shrink-0 p-5 sm:p-6 pb-3 border-b border-border bg-card/95 z-10">
-                        <DialogTitle className="text-lg font-semibold text-foreground tracking-tight">Add task</DialogTitle>
-                        <p className="text-sm text-muted-foreground">
+                <DialogContent className="w-[95vw] sm:max-w-[540px] max-h-[90vh] p-0 flex flex-col gap-0 bg-card text-foreground rounded-xl overflow-hidden">
+                    <DialogHeader className="shrink-0 px-6 pt-6 pb-2 text-left">
+                        <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">Add task</DialogTitle>
+                        <DialogDescription className="text-sm text-muted-foreground">
                             Business name: {clientInfo?.businessName || "Not given"} · Project name: {project.title}
-                        </p>
+                        </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleCreateTask} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                        <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
+                    <form onSubmit={handleCreateTask} className="flex min-h-0 flex-1 flex-col">
+                        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-3">
                             <div className="space-y-1.5">
-                                <Label htmlFor="new-task-name" className="text-sm text-muted-foreground">
-                                    Task name <span className="text-destructive">*</span>
-                                </Label>
+                                <Label htmlFor="new-task-name" className="text-sm text-muted-foreground">Task name</Label>
                                 <Input
                                     id="new-task-name"
                                     className="bg-card text-sm text-foreground placeholder:text-muted-foreground"
@@ -814,51 +816,62 @@ export function KanbanBoard({
                                     onChange={(e) => setNewTaskTitle(e.target.value)}
                                     placeholder="e.g. Draft the dispatcher dashboard wireframes"
                                     required
+                                    autoFocus
                                 />
                             </div>
+
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {/* The task goes into the milestone open on the board; it cannot be changed here (mockup 22b). */}
-                            <div className="space-y-1.5 min-w-0">
-                                <Label htmlFor="new-task-milestone" className="text-sm text-muted-foreground">Milestone (fixed)</Label>
-                                <Input id="new-task-milestone" value={activeMilestone?.title || "No milestone"} readOnly disabled className="bg-muted text-sm text-foreground" />
-                            </div>
-                            <div className="space-y-1.5 min-w-0">
-                                <Label className="text-sm text-muted-foreground">Assign to</Label>
-                                <AssigneeCombobox
-                                    teamMembers={teamMembers}
-                                    selectedIds={newAssigneeIds}
-                                    onSelectionChange={setNewAssigneeIds}
-                                    placeholder="Pick a developer on the team"
-                                />
+                                {/* The task goes into the milestone open on the board; it cannot be changed here. */}
+                                <div className="min-w-0 space-y-1.5">
+                                    <Label htmlFor="new-task-milestone" className="text-sm text-muted-foreground">Milestone (fixed)</Label>
+                                    <Input id="new-task-milestone" value={activeMilestone?.title || "No milestone"} readOnly disabled className="bg-muted text-sm text-foreground disabled:opacity-100" />
+                                </div>
+                                <div className="min-w-0 space-y-1.5">
+                                    <Label className="text-sm text-muted-foreground">Assign to</Label>
+                                    <AssigneeCombobox
+                                        teamMembers={teamMembers}
+                                        selectedIds={newAssigneeIds}
+                                        onSelectionChange={setNewAssigneeIds}
+                                        placeholder="Pick a developer"
+                                    />
+                                </div>
                                 {teamMembers.length === 0 && (
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground sm:col-span-2">
                                         No developers on the project team yet. Add them with Team first.
                                     </p>
                                 )}
                             </div>
-                            </div>
-                            {isDevelopment && (
+
+                            {isDevelopment ? (
                                 <div className="space-y-1.5">
-                                    <Label className="text-sm text-muted-foreground">Sprint</Label>
+                                    <Label htmlFor="new-task-sprint" className="text-sm text-muted-foreground">Sprint</Label>
                                     <FormSelect
+                                        id="new-task-sprint"
                                         value={newTaskSprintChoice}
                                         onChange={(e) => setNewTaskSprintChoice(e.target.value)}
                                     >
                                         <option value="backlog">Backlog (no sprint yet)</option>
                                         {nonEndedSprints.map((s) => (
                                             <option key={s.id} value={s.id}>
-                                                {s.name} ({s.startDate} – {s.endDate})
+                                                {s.name} · {formatSprintDateRange(s.startDate, s.endDate)}{s.status === "active" ? " · Current" : ""}
                                             </option>
                                         ))}
                                     </FormSelect>
                                     <p className="text-sm text-muted-foreground">
-                                        Development only. Leave it in the backlog and pick it when you plan a sprint, or put it in a sprint now.
+                                        Shown only for Development tasks. Leave it in the backlog and pick it when you plan a sprint, or put it in a sprint now. The due date is then the sprint&apos;s end date.
                                     </p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div className="min-w-0 space-y-1.5">
+                                        <Label className="text-sm text-muted-foreground">Due date</Label>
+                                        <DatePicker value={newTaskDueDate} onChange={setNewTaskDueDate} min={todayYmd()} className="bg-card text-sm" />
+                                    </div>
                                 </div>
                             )}
 
-                            <div className="space-y-2">
-                                <Label htmlFor="new-task-desc" className="text-sm text-muted-foreground">Description (optional)</Label>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="new-task-desc" className="text-sm text-muted-foreground">Description</Label>
                                 <Textarea
                                     id="new-task-desc"
                                     className="resize-none bg-card text-sm text-foreground placeholder:text-muted-foreground"
@@ -868,70 +881,28 @@ export function KanbanBoard({
                                     placeholder="e.g. List the screens the dispatcher needs, with a short note for each."
                                 />
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                    <Label className="text-sm text-muted-foreground">Effort weight</Label>
-                                    <div className="flex gap-1.5">
-                                        {[1, 2, 3, 5, 8].map((pts) => (
-                                            <button
-                                                key={pts}
-                                                type="button"
-                                                onClick={() => setNewTaskWeight(pts)}
-                                                aria-pressed={newTaskWeight === pts}
-                                                className={`flex-1 rounded-md border py-1.5 text-sm font-semibold tabular-nums transition-[color,background-color,border-color] duration-150 ease-out ${
-                                                    newTaskWeight === pts
-                                                        ? "border-brand-deep/40 bg-brand-soft text-brand-deep"
-                                                        : "border-border bg-card text-muted-foreground hover:text-foreground"
-                                                }`}
-                                            >
-                                                {pts}p
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-sm text-muted-foreground">Estimated hours</Label>
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        max="500"
-                                        placeholder="e.g. 8"
-                                        value={newTaskHours}
-                                        onChange={(e) => setNewTaskHours(e.target.value)}
-                                        className="bg-card text-sm text-foreground placeholder:text-muted-foreground"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-sm text-muted-foreground">Due date</Label>
-                                <DatePicker value={newTaskDueDate} onChange={setNewTaskDueDate} min={todayYmd()} className="bg-card text-sm" />
-                            </div>
-
                         </div>
 
-                        <DialogFooter className="p-4 border-t border-border bg-card/95">
+                        {/* Mockup: the main action is wide and first, Cancel beside it. */}
+                        <div className="flex shrink-0 gap-3 px-6 pt-3 pb-6">
+                            <Button
+                                type="submit"
+                                disabled={isCreatingTask || !newTaskTitle.trim()}
+                                className="h-10 flex-1 font-semibold active:scale-[0.97]"
+                            >
+                                {isCreatingTask ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" aria-hidden="true" /> : null}
+                                {isDevelopment && newTaskSprintChoice === "backlog" ? "Add to backlog" : "Add task"}
+                            </Button>
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsAddingTask(false)}
                                 disabled={isCreatingTask}
+                                className="h-10 bg-card px-5 active:scale-[0.97]"
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                type="submit"
-                                disabled={isCreatingTask || !newTaskTitle.trim()}
-                                className="font-semibold active:scale-[0.97]"
-                            >
-                                {isCreatingTask ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
-                                {isDevelopment && newTaskSprintChoice === "backlog"
-                                    ? "Add to backlog"
-                                    : "Add task"}
-                            </Button>
-                        </DialogFooter>
+                        </div>
                     </form>
                 </DialogContent>
             </Dialog>
