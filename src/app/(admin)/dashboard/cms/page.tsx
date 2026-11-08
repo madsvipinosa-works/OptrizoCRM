@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { CmsPageHeader, sheet } from "@/features/cms/components/content/cms-ui";
 import { notFound } from "next/navigation";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs, caseStudies, services, users } from "@/db/schema";
 import { requireRole } from "@/lib/authz";
-import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -145,13 +144,6 @@ export default async function ContentHomePage() {
             <CmsPageHeader
                 title="Website content"
                 description="What visitors see on the Optrizo website."
-                actions={
-                    <Button asChild variant="outline" className="h-9 gap-1.5 bg-card active:scale-[0.97]">
-                        <a href="/" target="_blank" rel="noopener noreferrer">
-                            View website <ArrowUpRight className="size-4" aria-hidden="true" />
-                        </a>
-                    </Button>
-                }
             />
 
             <section aria-label="What is on the website" className={`${sheet} grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0`}>

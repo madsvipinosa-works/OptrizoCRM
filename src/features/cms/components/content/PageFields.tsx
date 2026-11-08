@@ -106,7 +106,7 @@ function Field({
         <div className="space-y-2">
             <div className="flex items-baseline justify-between">
                 <Label htmlFor={id}>{label}</Label>
-                {max !== undefined && value !== undefined && (
+                {max !== undefined && value !== undefined && value.length >= max * 0.8 && (
                     <span className={value.length > max ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
                         {value.length} / {max}
                     </span>
@@ -152,23 +152,26 @@ function FeaturedPicker({
                 </span>
             </legend>
             {options.length === 0 && <p className="text-sm text-muted-foreground">Nothing published yet.</p>}
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {options.map((option) => {
                 const checked = selected.includes(option.id);
                 return (
-                    <div key={option.id} className="flex items-center gap-2">
+                    <div key={option.id} className="flex items-start gap-2.5">
                         <Checkbox
                             id={`${legend}-${option.id}`}
+                            className="mt-1"
                             checked={checked}
                             disabled={!checked && full}
                             onCheckedChange={(on) =>
                                 onChange(on ? [...selected, option.id] : selected.filter((id) => id !== option.id))
                             }
                         />
-                        <Label htmlFor={`${legend}-${option.id}`}>{option.title}</Label>
-                        {!option.published && (
-                            <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">No longer published</span>
-                        )}
+                        <div className="min-w-0">
+                            <Label htmlFor={`${legend}-${option.id}`} className="font-normal leading-snug">{option.title}</Label>
+                            {!option.published && (
+                                <p className="mt-0.5 text-sm text-destructive">Hidden from the website. Untick it to publish this page.</p>
+                            )}
+                        </div>
                     </div>
                 );
             })}
@@ -198,7 +201,7 @@ export function HomeSection({
 }) {
     return (
         <>
-            <FormSection title="Hero" description="The first thing visitors see on the home page.">
+            <FormSection title="Hero">
             <Field id="home-heading" label="Main heading" value={values.heading} max={LIMITS.home.heading} error={errorFor(errors, "heading")}>
                 <Input id="home-heading" value={values.heading} onChange={(e) => onChange({ ...values, heading: e.target.value })} />
             </Field>
@@ -255,7 +258,7 @@ export function AboutSection({
 
     return (
         <>
-            <FormSection title="Story" description="Who Optrizo is, in a few lines.">
+            <FormSection title="Story">
             <Field id="about-heading" label="Page heading" value={values.heading} max={LIMITS.about.heading} error={errorFor(errors, "heading")}>
                 <Input id="about-heading" value={values.heading} onChange={(e) => onChange({ ...values, heading: e.target.value })} />
             </Field>
@@ -280,7 +283,7 @@ export function AboutSection({
             </Field>
 
             </FormSection>
-            <FormSection title="Team" description="Only people who agreed to be shown. Photo, name and job title only.">
+            <FormSection title="Team" description="Only people who agreed to be shown.">
                 <TeamMembers team={values.team} onChange={setTeam} errors={errors} />
             </FormSection>
         </>
@@ -461,7 +464,7 @@ export function ContactSection({
 }) {
     return (
         <>
-            <FormSection title="Page" description="The heading and intro at the top of the Contact page.">
+            <FormSection title="Page">
             <Field id="contact-heading" label="Page heading" value={values.heading} max={LIMITS.contact.heading} error={errorFor(errors, "heading")}>
                 <Input id="contact-heading" value={values.heading} onChange={(e) => onChange({ ...values, heading: e.target.value })} />
             </Field>

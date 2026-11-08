@@ -47,7 +47,6 @@ export default async function ServicesListPage() {
                         <tr className="border-b border-border">
                             <th scope="col" className={`${th} w-10`}>#</th>
                             <th scope="col" className={th}>Service</th>
-                            <th scope="col" className={th}>Type</th>
                             <th scope="col" className={th}>Status</th>
                             <th scope="col" className={`${th} text-right`}>Updated</th>
                             <th scope="col" className={`${th} w-40`}><span className="sr-only">Actions</span></th>
@@ -64,9 +63,9 @@ export default async function ServicesListPage() {
                                     >
                                         {row.title}
                                     </Link>
+                                    {row.isPreset && <span className="ml-2 text-sm text-muted-foreground">Preset</span>}
                                     <p className="mt-0.5 truncate text-muted-foreground" title={row.description}>{row.description}</p>
                                 </td>
-                                <td className={`${td} text-muted-foreground`}>{row.isPreset ? "Preset" : "Added"}</td>
                                 <td className={td}>
                                     <ContentStatusChip status={row.status} />
                                 </td>
@@ -90,7 +89,6 @@ export default async function ServicesListPage() {
                                 <span className="font-medium text-foreground">Other</span>
                                 <p className="mt-0.5 text-muted-foreground">Visitor types the service they need.</p>
                             </td>
-                            <td className={`${td} text-muted-foreground`}>System</td>
                             <td className={td}>
                                 <ContentStatusChip status="published" label="Always on" />
                             </td>

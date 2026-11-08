@@ -49,13 +49,13 @@ export function CmsPageHeader({
     );
 }
 
-/** Settings layout (taste §8.2): what the section is on the left, its fields on the right. */
+/** One titled block of a form: the title (and a rule, if any) above full-width fields. */
 export function FormSection({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
     return (
-        <section className="grid gap-x-10 gap-y-4 border-t border-border px-5 py-6 first:border-t-0 sm:px-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <section className="space-y-4 border-t border-border px-5 py-6 first:border-t-0 sm:px-6">
             <div>
                 <h2 className="text-base font-semibold text-foreground">{title}</h2>
-                {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+                {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
             </div>
             <div className="min-w-0 space-y-5">{children}</div>
         </section>

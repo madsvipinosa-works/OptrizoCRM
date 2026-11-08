@@ -32,10 +32,11 @@ export type PortfolioFormValues = {
 
 export type ServiceOption = { id: string; title: string; status: "draft" | "published" | "hidden" };
 
+// Shown only near the limit, so a fresh form is not covered in "0 / 40".
 function Counter({ value, max }: { value: string; max: number }) {
-    const over = value.length > max;
+    if (value.length < max * 0.8) return null;
     return (
-        <span className={`text-sm tabular-nums ${over ? "text-destructive" : "text-muted-foreground"}`}>
+        <span className={`text-sm tabular-nums ${value.length > max ? "text-destructive" : "text-muted-foreground"}`}>
             {value.length} / {max}
         </span>
     );
@@ -129,7 +130,7 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
             }}
         >
             <div className={`${sheet} ${formFields}`}>
-                <FormSection title="Project" description="A finished project. Nothing here links to the real project records.">
+                <FormSection title="Project">
                     <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
                             <Label htmlFor="portfolio-title">Project title</Label>
@@ -160,7 +161,7 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                     </div>
                 </FormSection>
 
-                <FormSection title="Client" description="Use a general name, like “A logistics company”, unless the client agreed to be named.">
+                <FormSection title="Client" description="Use a general name, like “A logistics company”, unless the client agreed.">
                     <div className="space-y-2">
                         <Label htmlFor="portfolio-display-name">Client shown as</Label>
                         <Input id="portfolio-display-name" value={clientDisplayName} placeholder={DEFAULT_CLIENT_DISPLAY_NAME} onChange={(e) => setClientDisplayName(e.target.value)} />
@@ -180,7 +181,7 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                     )}
                 </FormSection>
 
-                <FormSection title="Images" description={`Up to ${LIMITS.portfolio.images}. The first one is the cover.`}>
+                <FormSection title="Images" description={`Up to ${LIMITS.portfolio.images}. The first is the cover.`}>
                     <ContentImageField
                         label="Images"
                         labelHidden
@@ -191,7 +192,7 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                     />
                 </FormSection>
 
-                <FormSection title="Details" description="Optional. Shown on the project's page.">
+                <FormSection title="Details (optional)">
                     <div className="space-y-2">
                         <Label htmlFor="portfolio-live-url">Live link</Label>
                         <Input id="portfolio-live-url" type="url" placeholder="https://" value={liveUrl} onChange={(e) => setLiveUrl(e.target.value)} />
@@ -207,7 +208,6 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                         <div className="space-y-2">
                             <div className="flex items-baseline justify-between">
                                 <Label htmlFor="portfolio-order">Order</Label>
-                                <span className="text-sm text-muted-foreground">Lower is first</span>
                             </div>
                             <Input id="portfolio-order" type="number" min={0} max={9999} className="tabular-nums" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
                             {err("sortOrder")}
