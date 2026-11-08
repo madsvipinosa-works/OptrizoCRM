@@ -168,7 +168,7 @@
   --muted-foreground: #9aa8a1;
   --overlay: #141d18;
   --overlay-foreground: #f2f5f3;
-  --scrollbar: oklch(70.50% 0.0020 148.67);
+  --scrollbar: oklch(40% 0.012 160); /* quiet on the dark page (#0b0f14), between border and muted text */
   --segment: oklch(39.64% 0.0020 148.67);
   --segment-foreground: oklch(99.11% 0.0020 148.67);
   --separator: #2a3530;
@@ -209,6 +209,20 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar) transparent;
+}
+
+/* Always keep room for the page scrollbar, so content does not jump sideways between short and long pages. */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Radix dropdowns and dialogs lock scrolling by hiding the body overflow and adding a right margin.
+   With the gutter already reserved, that made the scrollbar vanish and squeezed the page. Keep both as they are;
+   Radix still blocks scrolling behind the open menu on its own. */
+html body[data-scroll-locked] {
+  overflow: visible !important;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
 }
 
 body {

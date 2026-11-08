@@ -51,7 +51,7 @@ export function NavbarAuthDesktop({ settings }: AuthProps) {
             <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
                 <Button
                     variant="ghost"
-                    className="font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all"
+                    className="h-9 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
                 >
                     Login
                 </Button>
@@ -80,8 +80,8 @@ export function NavbarAuthMobile({ settings }: AuthProps) {
     if (status === "loading") {
         return (
             <div className="flex flex-col gap-3 animate-pulse">
-                <div className="w-full h-12 rounded-xl bg-muted/50" />
-                <div className="w-full h-12 rounded-xl bg-muted/50" />
+                <div className="w-full h-12 rounded-lg bg-muted/50" />
+                <div className="w-full h-12 rounded-lg bg-muted/50" />
             </div>
         );
     }
@@ -92,17 +92,17 @@ export function NavbarAuthMobile({ settings }: AuthProps) {
 
         return (
             <>
-                <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
+                <Button asChild variant="secondary" className="w-full rounded-lg h-12 font-semibold tracking-tight">
                     <Link href="/portal">My Dashboard</Link>
                 </Button>
-                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
+                <Button asChild variant="outline" className="w-full rounded-lg h-12 font-semibold tracking-tight border-border bg-card text-foreground">
                     <Link href="/portal">Availed Services</Link>
                 </Button>
-                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
+                <Button asChild variant="outline" className="w-full rounded-lg h-12 font-semibold tracking-tight border-border bg-card text-foreground">
                     <Link href="/portal/settings">Account Settings</Link>
                 </Button>
                 {isAdmin && (
-                    <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight">
+                    <Button asChild variant="outline" className="w-full rounded-lg h-12 font-semibold tracking-tight">
                         <Link href="/dashboard">Admin Panel</Link>
                     </Button>
                 )}
@@ -110,7 +110,7 @@ export function NavbarAuthMobile({ settings }: AuthProps) {
                     type="button"
                     onClick={() => setLogoutOpen(true)}
                     variant="outline"
-                    className="w-full rounded-xl h-12 font-medium border-border"
+                    className="w-full rounded-lg h-12 font-medium border-border"
                 >
                     Log out
                 </Button>
@@ -122,11 +122,11 @@ export function NavbarAuthMobile({ settings }: AuthProps) {
     return (
         <>
             <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
-                <Button variant="outline" className="w-full rounded-xl h-12 font-medium border-border/50">
+                <Button variant="outline" className="w-full rounded-lg h-12 font-semibold border-border bg-card">
                     Login
                 </Button>
             </LoginModal>
-            <Button asChild className="w-full rounded-xl h-12 font-semibold tracking-tight shadow-md">
+            <Button asChild className="w-full rounded-lg h-12 font-semibold tracking-tight">
                 <Link href="/contact">Get Started</Link>
             </Button>
         </>
@@ -138,11 +138,11 @@ export function NavbarAuthFallback({ settings, mobile }: { settings: AuthProps["
         return (
             <div className="flex flex-col gap-3">
                 <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
-                    <Button variant="outline" className="w-full rounded-xl h-12 font-medium border-border/50">
+                    <Button variant="outline" className="w-full rounded-lg h-12 font-semibold border-border bg-card">
                         Login
                     </Button>
                 </LoginModal>
-                <Button asChild className="w-full rounded-xl h-12 font-semibold tracking-tight shadow-md">
+                <Button asChild className="w-full rounded-lg h-12 font-semibold tracking-tight">
                     <Link href="/contact">Get Started</Link>
                 </Button>
             </div>
@@ -154,7 +154,7 @@ export function NavbarAuthFallback({ settings, mobile }: { settings: AuthProps["
             <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
                 <Button
                     variant="ghost"
-                    className="font-medium rounded-xl border border-transparent hover:border-[#34E513]/60 hover:text-foreground dark:hover:text-white hover:bg-[#34E513]/10 hover:shadow-[0_0_12px_rgba(52,229,19,0.4)] transition-all"
+                    className="h-9 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
                 >
                     Login
                 </Button>
