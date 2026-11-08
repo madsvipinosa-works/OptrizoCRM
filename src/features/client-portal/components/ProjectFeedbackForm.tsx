@@ -32,9 +32,9 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
 
     if (existingFeedback) {
         return (
-            <div className="glass-card rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 space-y-3">
+            <div className="bg-card rounded-2xl border border-brand-deep/30 bg-brand-soft p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-foreground">Your Feedback</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Your Feedback</h3>
                     <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                             <Star
@@ -42,7 +42,7 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
                                 className={cn(
                                     "w-4 h-4",
                                     star <= existingFeedback.rating
-                                        ? "text-amber-400 fill-amber-400"
+                                        ? "text-stage-negotiation fill-stage-negotiation"
                                         : "text-muted-foreground/30"
                                 )}
                             />
@@ -62,7 +62,7 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
                         Could be better: &quot;{existingFeedback.improvement}&quot;
                     </p>
                 )}
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                     Submitted on {new Date(existingFeedback.createdAt).toLocaleDateString()}
                 </div>
             </div>
@@ -104,9 +104,9 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
     };
 
     return (
-        <form onSubmit={handleSubmit} className="glass-card rounded-2xl border border-border p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-5 space-y-4">
             <div>
-                <h3 className="text-base font-bold text-foreground">Project Experience & Feedback</h3>
+                <h3 className="text-base font-semibold text-foreground">Project Experience & Feedback</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                     How was your experience working with the team on this project?
                 </p>
@@ -131,14 +131,14 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
                                     className={cn(
                                         "w-6 h-6 transition-all",
                                         isFilled
-                                            ? "text-amber-400 fill-amber-400 scale-110"
+                                            ? "text-stage-negotiation fill-stage-negotiation scale-110"
                                             : "text-muted-foreground/30 hover:text-muted-foreground/60"
                                     )}
                                 />
                             </button>
                         );
                     })}
-                    <span className="text-xs font-mono font-semibold ml-2 text-muted-foreground">
+                    <span className="text-xs tabular-nums font-semibold ml-2 text-muted-foreground">
                         {hoverRating ?? rating} / 5
                     </span>
                 </div>
@@ -149,7 +149,7 @@ export function ProjectFeedbackForm({ projectId, existingFeedback }: ProjectFeed
                     <Label htmlFor="comment" className="text-xs font-semibold">
                         Comments or Testimonial (Optional)
                     </Label>
-                    <span className="text-[11px] text-muted-foreground font-mono">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                         {comment.length}/2000
                     </span>
                 </div>

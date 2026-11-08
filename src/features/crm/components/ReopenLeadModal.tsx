@@ -66,7 +66,7 @@ export function ReopenLeadModal({
             <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <RotateCcw className="h-5 w-5 text-primary" />
+                        <RotateCcw className="h-5 w-5 text-brand-deep" />
                         Reopen Lost Deal
                     </DialogTitle>
                     <DialogDescription>
@@ -104,7 +104,7 @@ export function ReopenLeadModal({
                         <Button
                             type="submit"
                             disabled={isSubmitting || !reason.trim()}
-                            className="bg-primary text-black hover:bg-primary/90 text-xs font-semibold gap-1.5"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5"
                         >
                             {isSubmitting ? (
                                 <>

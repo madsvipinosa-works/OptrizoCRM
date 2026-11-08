@@ -1,13 +1,10 @@
 import { db } from "@/db";
-import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { agencyProjects, projectTeamMembers, tasks, taskAssignees } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
 import { eq, and, ne, isNull, sql } from "drizzle-orm";
 import { redirect, notFound } from "next/navigation";
 import { Lock } from "lucide-react";
 import { KanbanBoard } from "@/features/pm/components/KanbanBoard";
-import { ProjectSettingsModal } from "@/features/pm/components/ProjectSettingsModal";
-import { ProjectResourcesSidebar } from "@/features/pm/components/ProjectResourcesSidebar";
 import { ProjectArchiveButton } from "@/features/pm/components/ProjectArchiveButton";
 import { authorizeProject } from "@/lib/authz";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
@@ -188,21 +185,7 @@ export default async function KanbanBoardPage(props: {
     };
 
     return (
-        <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col space-y-4 min-h-[calc(100vh-7rem)] md:h-[calc(100vh-8rem)]">
-            <ProjectHeader
-                projectId={project.id}
-                title={project.title}
-                businessName={clientBusiness}
-                clientName={clientName}
-                current="board"
-                showTools={isManager}
-                extraTools={
-                    <>
-                        <ProjectResourcesSidebar project={project} />
-                        <ProjectSettingsModal project={project} />
-                    </>
-                }
-            />
+        <div className="flex w-full min-w-0 flex-col space-y-4">
 
             {project.status === "Completed" && !project.isArchived && isManager && (
                 <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-deep/20 bg-brand-soft px-4 py-3">
@@ -232,7 +215,7 @@ export default async function KanbanBoardPage(props: {
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="flex flex-col">
                     <KanbanBoard
                         project={boardProject as unknown as React.ComponentProps<typeof KanbanBoard>["project"]}
                         teamMembers={teamMemberOptions as unknown as React.ComponentProps<typeof KanbanBoard>["teamMembers"]}

@@ -45,7 +45,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
     }, [state.success, router]);
 
     return (
-        <Card className="glass-card border-primary/20">
+        <Card className="bg-card border-primary/20">
             <CardHeader>
                 <CardTitle>Project Intake Form</CardTitle>
                 <CardDescription>Provide details about your business and goals to help us create a tailored proposal.</CardDescription>
@@ -53,7 +53,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
             <CardContent>
                 <form key={state.success ? "success-reset" : "active-intake-form"} action={formAction} className="space-y-6">
                     {state?.message && (
-                        <div className={`p-3 rounded-md text-sm ${state.success ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                        <div className={`p-3 rounded-md text-sm ${state.success ? 'bg-primary/10 text-brand-deep border border-primary/20' : 'bg-destructive/10 text-destructive border border-destructive/30'}`}>
                             {state.message}
                         </div>
                     )}
@@ -68,7 +68,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                         />
                         {state?.errors?.businessName && (
-                            <p className="text-sm text-red-500">{state.errors.businessName[0]}</p>
+                            <p className="text-sm text-destructive">{state.errors.businessName[0]}</p>
                         )}
                     </div>
 
@@ -83,7 +83,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                 className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                             />
                             {state?.errors?.industry && (
-                                <p className="text-sm text-red-500">{state.errors.industry[0]}</p>
+                                <p className="text-sm text-destructive">{state.errors.industry[0]}</p>
                             )}
                         </div>
                         <div className="space-y-2">
@@ -96,7 +96,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                 className="bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                             />
                             {state?.errors?.targetAudience && (
-                                <p className="text-sm text-red-500">{state.errors.targetAudience[0]}</p>
+                                <p className="text-sm text-destructive">{state.errors.targetAudience[0]}</p>
                             )}
                         </div>
                     </div>
@@ -132,7 +132,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                                 ))}
                             </FormSelect>
                             {state?.errors?.budget && (
-                                <p className="text-sm text-red-500">{state.errors.budget[0]}</p>
+                                <p className="text-sm text-destructive">{state.errors.budget[0]}</p>
                             )}
                         </div>
                     </div>
@@ -151,7 +151,7 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             <option value="Flexible" className="bg-card text-foreground">Flexible</option>
                         </FormSelect>
                         {state?.errors?.timelineExpectation && (
-                            <p className="text-sm text-red-500">{state.errors.timelineExpectation[0]}</p>
+                            <p className="text-sm text-destructive">{state.errors.timelineExpectation[0]}</p>
                         )}
                     </div>
 
@@ -165,11 +165,11 @@ export function IntakeForm({ availableServices, preSelectedServiceId }: IntakeFo
                             className="min-h-[150px] bg-background/50 border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20" 
                         />
                         {state?.errors?.goals && (
-                            <p className="text-sm text-red-500">{state.errors.goals[0]}</p>
+                            <p className="text-sm text-destructive">{state.errors.goals[0]}</p>
                         )}
                     </div>
 
-                    <Button type="submit" size="lg" disabled={isPending} className="w-full bg-primary text-black font-bold hover:bg-primary/90">
+                    <Button type="submit" size="lg" disabled={isPending} className="w-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90">
                         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Request"}
                     </Button>
                 </form>

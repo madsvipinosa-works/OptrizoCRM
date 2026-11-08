@@ -3,30 +3,13 @@
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { 
-    FolderOpen, 
-    Plus, 
-    Trash2, 
-    ExternalLink, 
-    Globe, 
-    FileText, 
-    FileCode2, 
-    Palette, 
-    Table, 
-    Link2, 
-    Sparkles, 
-    UserCheck, 
-    Briefcase, 
-    UploadCloud
-} from "lucide-react";
+import { FolderOpen, Plus, Trash2, FileText, FileCode2, Palette, Table, Link2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { updateProjectSettings, addProjectDocument, deleteProjectDocument } from "@/features/pm/actions";
 import { type ProjectDocumentItem } from "@/db/schema";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { FileUpload } from "@/components/ui/file-upload";
 
 interface ProjectResourcesSidebarProps {
@@ -140,76 +123,31 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
         const sizeStr = formatFileSize(doc.sizeBytes);
 
         return (
-            <div 
-                key={doc.id} 
-                className={cn(
-                    "p-3.5 rounded-xl border transition-all space-y-2 shadow-xs group",
-                    isClientDoc 
-                        ? "border-stage-new/30 bg-stage-new/5 hover:border-stage-new/30" 
-                        : "border-border bg-card hover:border-brand-deep/30"
-                )}
-            >
-                <div className="flex items-center gap-3">
-                    <div className={cn("p-2 rounded-lg border shrink-0", typeInfo.color)}>
-                        <IconComponent className="h-4 w-4" />
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-foreground truncate" title={doc.title}>
-                                {doc.title}
-                            </span>
-                            {isClientDoc ? (
-                                <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-new/30 text-stage-new bg-stage-new/10 shrink-0">
-                                    CLIENT
-                                </Badge>
-                            ) : (
-                                <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-negotiation/30 text-stage-negotiation bg-stage-negotiation/10 shrink-0">
-                                    AGENCY
-                                </Badge>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                            {sizeStr && <span>{sizeStr}</span>}
-                            {doc.createdAt && (
-                                <>
-                                    <span>•</span>
-                                    <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
-                                </>
-                            )}
-                            {doc.uploadedByName && (
-                                <>
-                                    <span>•</span>
-                                    <span className={isClientDoc ? "text-stage-new font-medium" : "text-stage-negotiation font-medium"}>
-                                        by {doc.uploadedByName}
-                                    </span>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        asChild
-                        className="h-8 w-8 border-border bg-background hover:bg-muted text-foreground shrink-0"
-                    >
-                        <a href={doc.url.startsWith("http") ? doc.url : `https://${doc.url}`} target="_blank" rel="noreferrer" title="Open Document">
-                            <ExternalLink className="h-3.5 w-3.5 text-brand-deep" />
-                        </a>
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveDocument(doc.id)}
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-lg"
-                        title="Delete Document"
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+            <li key={doc.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                <IconComponent className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground" title={doc.title}>{doc.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                        {[isClientDoc ? `From ${doc.uploadedByName || "the client"}` : `Added by ${doc.uploadedByName || "the PM"}`, doc.createdAt ? new Date(doc.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" }) : null, sizeStr || null].filter(Boolean).join(" · ")}
+                    </p>
                 </div>
-            </div>
+                <a
+                    href={doc.url.startsWith("http") ? doc.url : `https://${doc.url}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-md text-sm font-semibold text-brand-deep outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                    Open
+                </a>
+                <button
+                    type="button"
+                    onClick={() => handleRemoveDocument(doc.id)}
+                    aria-label={`Remove ${doc.title}`}
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground outline-none transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                </button>
+            </li>
         );
     };
 
@@ -225,216 +163,156 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                 >
                     <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
                     {(documents.length > 0 || (stagingUrls && stagingUrls.length > 0)) && (
-                        <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-brand-deep px-1 text-[11px] leading-4 tabular-nums text-white">
+                        <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-brand-deep px-1 text-xs leading-4 tabular-nums text-white">
                             {documents.length + (stagingUrls?.filter(Boolean).length || 0)}
                         </span>
                     )}
                 </Button>
             </SheetTrigger>
-            <SheetContent 
-                side="right" 
-                className="w-full sm:max-w-xl p-0 bg-card text-foreground border-l border-border flex flex-col h-full overflow-hidden"
-            >
-                {/* Header Container */}
-                <div className="p-6 border-b border-border bg-card/90 space-y-4">
-                    <SheetHeader className="text-left space-y-1.5">
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-brand-soft border border-brand-deep/30 text-brand-deep">
-                                <FolderOpen className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <SheetTitle className="text-lg font-semibold text-foreground tracking-tight">
-                                    Project Resources
-                                </SheetTitle>
-                                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-brand-soft text-brand-deep border border-brand-deep/30">
-                                    Internal resources
-                                </span>
-                            </div>
-                        </div>
-                        <SheetDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
-                            Centralized hub separating Agency Deliverables, Client Uploads, and Staging Environments.
+            <SheetContent side="right" className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-xl">
+                <SheetHeader className="shrink-0 space-y-3 px-6 pt-6 pb-4 text-left">
+                    <div>
+                        <SheetTitle className="text-xl font-semibold tracking-tight text-foreground">Files</SheetTitle>
+                        <SheetDescription className="mt-1 text-sm text-muted-foreground">
+                            Files from Optrizo, files from the client, and staging links for this project.
                         </SheetDescription>
-                    </SheetHeader>
-
-                    {/* Filter Segment Tabs */}
-                    <div className="grid grid-cols-4 gap-1 p-1 bg-muted/60 rounded-xl border border-border text-xs">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("all")}
-                            className={cn(
-                                "py-1.5 px-2 rounded-lg font-medium text-xs transition-all text-center",
-                                activeTab === "all" 
-                                    ? "bg-background text-foreground shadow-xs font-semibold" 
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            All ({stagingUrls.filter(Boolean).length + documents.length})
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("agency")}
-                            className={cn(
-                                "py-1.5 px-2 rounded-lg font-medium text-xs transition-all text-center flex items-center justify-center gap-1",
-                                activeTab === "agency" 
-                                    ? "bg-background text-foreground shadow-xs font-semibold" 
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            <span>Agency</span>
-                            <span className="text-xs px-1.5 py-0.2 rounded-full bg-stage-negotiation/10 text-stage-negotiation border border-stage-negotiation/30">
-                                {agencyDocuments.length}
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("client")}
-                            className={cn(
-                                "py-1.5 px-2 rounded-lg font-medium text-xs transition-all text-center flex items-center justify-center gap-1",
-                                activeTab === "client" 
-                                    ? "bg-background text-foreground shadow-xs font-semibold" 
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            <span>Client</span>
-                            <span className="text-xs px-1.5 py-0.2 rounded-full bg-stage-new/10 text-stage-new border border-stage-new/30">
-                                {clientDocuments.length}
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("staging")}
-                            className={cn(
-                                "py-1.5 px-2 rounded-lg font-medium text-xs transition-all text-center",
-                                activeTab === "staging" 
-                                    ? "bg-background text-foreground shadow-xs font-semibold" 
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            Staging ({stagingUrls.filter(Boolean).length})
-                        </button>
                     </div>
-                </div>
+                    <div role="group" aria-label="Show" className="grid grid-cols-4 gap-1 rounded-lg bg-muted p-1 ring-1 ring-inset ring-border/60">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("all")}
+                                aria-pressed={activeTab === "all"}
+                                className={cn(
+                                    "flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                                    activeTab === "all" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                All <span className="tabular-nums text-muted-foreground">{stagingUrls.filter(Boolean).length + documents.length}</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("agency")}
+                                aria-pressed={activeTab === "agency"}
+                                className={cn(
+                                    "flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                                    activeTab === "agency" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                Optrizo <span className="tabular-nums text-muted-foreground">{agencyDocuments.length}</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("client")}
+                                aria-pressed={activeTab === "client"}
+                                className={cn(
+                                    "flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                                    activeTab === "client" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                Client <span className="tabular-nums text-muted-foreground">{clientDocuments.length}</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("staging")}
+                                aria-pressed={activeTab === "staging"}
+                                className={cn(
+                                    "flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                                    activeTab === "staging" ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                Staging <span className="tabular-nums text-muted-foreground">{stagingUrls.filter(Boolean).length}</span>
+                            </button>
+                    </div>
+                </SheetHeader>
 
-                {/* Main Scrollable Body */}
-                <form id="project-resources-form" onSubmit={handleSaveStagingUrls} className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin">
-                    
-                    {/* SECTION 1: Agency Resources & Deliverables */}
+                <form id="project-resources-form" onSubmit={handleSaveStagingUrls} className="flex-1 space-y-8 overflow-y-auto px-6 py-4">
                     {(activeTab === "all" || activeTab === "agency") && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded-md bg-stage-negotiation/10 text-stage-negotiation border border-stage-negotiation/30">
-                                        <Briefcase className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-sm font-semibold text-foreground">Agency Deliverables & Resources</Label>
-                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-negotiation/30 text-stage-negotiation bg-stage-negotiation/10">
-                                                {agencyDocuments.length} files
-                                            </Badge>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">SOWs, design system links, Figma prototypes, and agency deliverables.</p>
+                        <section aria-labelledby="files-ours" className="space-y-3">
+                            <div>
+                                <h3 id="files-ours" className="text-base font-semibold text-foreground">From Optrizo</h3>
+                                <p className="text-sm text-muted-foreground">Scope, designs and deliverables you share with the team and client.</p>
+                            </div>
+                            {agencyDocuments.length === 0 ? (
+                                <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">No files yet. Add a link or upload one below.</p>
+                            ) : (
+                                <ul className="space-y-2">{agencyDocuments.map((doc) => renderDocumentCard(doc, false))}</ul>
+                            )}
+
+                            <div className="space-y-3 rounded-lg border border-border p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h4 className="text-sm font-semibold text-foreground">Add a file</h4>
+                                    <div role="group" aria-label="How to add" className="inline-flex rounded-md bg-muted p-0.5 text-sm">
+                                        {(["link", "upload"] as const).map((m) => (
+                                            <button
+                                                key={m}
+                                                type="button"
+                                                onClick={() => setAddMode(m)}
+                                                aria-pressed={addMode === m}
+                                                className={cn(
+                                                    "rounded px-2.5 py-1 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                    addMode === m ? "bg-card text-foreground ring-1 ring-border/70" : "text-muted-foreground hover:text-foreground"
+                                                )}
+                                            >
+                                                {m === "link" ? "Link" : "Upload"}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="space-y-3">
-                                {agencyDocuments.length === 0 ? (
-                                    <div className="p-5 text-center border border-dashed border-border rounded-xl bg-muted/10 space-y-1.5">
-                                        <FileText className="h-6 w-6 text-muted-foreground mx-auto" />
-                                        <p className="text-xs text-foreground font-medium">No agency deliverables attached yet.</p>
-                                        <p className="text-xs text-muted-foreground max-w-xs mx-auto">Add links to your SOW, Figma files, or design deliverables below.</p>
+                                {addMode === "link" ? (
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <Input
+                                                aria-label="File name"
+                                                className="h-10 flex-1 bg-card text-sm"
+                                                value={newDocTitle}
+                                                onChange={(e) => setNewDocTitle(e.target.value)}
+                                                placeholder="Name, e.g. Scope of work"
+                                            />
+                                            <Select value={newDocType} onValueChange={(val: any) => setNewDocType(val)}>
+                                                <SelectTrigger aria-label="File type" className="h-10 w-[130px] bg-card text-sm">
+                                                    <SelectValue placeholder="Type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {DOCUMENT_TYPES.map((t) => (
+                                                        <SelectItem key={t.value} value={t.value} className="text-sm">
+                                                            <span className="flex items-center gap-2">
+                                                                <t.icon className="size-4 text-muted-foreground" aria-hidden="true" />
+                                                                {t.label}
+                                                            </span>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <Input
+                                            aria-label="Link"
+                                            className="h-10 bg-card text-sm"
+                                            value={newDocUrl}
+                                            onChange={(e) => setNewDocUrl(e.target.value)}
+                                            placeholder="https:// (Google Drive, Figma, ...)"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleAddDocumentLink}
+                                            disabled={isSaving || !newDocTitle.trim() || !newDocUrl.trim()}
+                                            className="h-10 w-full bg-card text-sm font-semibold active:scale-[0.97]"
+                                        >
+                                            <Plus className="mr-1.5 size-4" aria-hidden="true" /> Add link
+                                        </Button>
                                     </div>
                                 ) : (
-                                    agencyDocuments.map(doc => renderDocumentCard(doc, false))
-                                )}
-
-                                {/* Add New Agency Resource Form */}
-                                <div className="p-4 rounded-xl border border-dashed border-border bg-muted/20 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                            <Plus className="h-3.5 w-3.5 text-brand-deep" /> Add Agency Resource
-                                        </h4>
-                                        <div className="flex items-center gap-1 p-0.5 bg-background rounded-lg border border-border text-xs">
-                                            <button
-                                                type="button"
-                                                onClick={() => setAddMode("link")}
-                                                className={cn(
-                                                    "px-2 py-0.5 rounded font-medium transition-all",
-                                                    addMode === "link" ? "bg-muted text-foreground font-semibold" : "text-muted-foreground"
-                                                )}
-                                            >
-                                                Link / URL
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setAddMode("upload")}
-                                                className={cn(
-                                                    "px-2 py-0.5 rounded font-medium transition-all",
-                                                    addMode === "upload" ? "bg-muted text-foreground font-semibold" : "text-muted-foreground"
-                                                )}
-                                            >
-                                                Upload File
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {addMode === "link" ? (
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    className="bg-background border-border focus:border-primary text-xs text-foreground font-medium rounded-lg h-9 flex-1"
-                                                    value={newDocTitle}
-                                                    onChange={e => setNewDocTitle(e.target.value)}
-                                                    placeholder="Resource Name (e.g. SOW or Figma)"
-                                                />
-                                                <Select
-                                                    value={newDocType}
-                                                    onValueChange={(val: any) => setNewDocType(val)}
-                                                >
-                                                    <SelectTrigger className="w-[130px] h-9 text-xs">
-                                                        <SelectValue placeholder="Type" />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="bg-card border-border text-foreground">
-                                                        {DOCUMENT_TYPES.map((t) => (
-                                                            <SelectItem key={t.value} value={t.value} className="text-xs">
-                                                                <div className="flex items-center gap-2">
-                                                                    <t.icon className={cn("h-3.5 w-3.5", t.color.split(" ")[0])} />
-                                                                    <span>{t.label}</span>
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <Input
-                                                className="bg-background border-border focus:border-primary text-xs text-foreground placeholder:text-muted-foreground rounded-lg h-9"
-                                                value={newDocUrl}
-                                                onChange={e => setNewDocUrl(e.target.value)}
-                                                placeholder="URL (e.g. https://figma.com/... or Google Drive)"
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleAddDocumentLink}
-                                                disabled={isSaving || !newDocTitle.trim() || !newDocUrl.trim()}
-                                                className="w-full text-xs py-2 h-9 bg-brand-soft border border-brand-deep/30 hover:bg-brand-soft text-brand-deep transition-all rounded-lg mt-1"
-                                            >
-                                                <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Resource Link
-                                            </Button>
-                                        </div>
-                                    ) : (
                                         <div className="pt-1">
                                             <FileUpload
-                                                label="Upload Agency Deliverable / Asset"
+                                                label="Upload a file"
                                                 accept=".pdf,.doc,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.zip"
                                                 showSuccessToast={false}
                                                 projectId={project.id}
                                                 onChange={async (url) => {
                                                     if (!url) return;
                                                     setIsSaving(true);
-                                                    const fileName = url.split("/").pop() || "Agency Deliverable";
+                                                    const fileName = url.split("/").pop() || "File";
                                                     const ext = fileName.split(".").pop()?.toLowerCase();
                                                     let docType: "pdf" | "doc" | "figma" | "sheet" | "link" | "zip" | "image" = "pdf";
                                                     if (ext === "doc" || ext === "docx") docType = "doc";
@@ -449,13 +327,13 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                                         type: docType,
                                                         sizeBytes: 0,
                                                         uploadedById: "pm",
-                                                        uploadedByName: "Agency PM",
+                                                        uploadedByName: "the PM",
                                                         uploadedByRole: "agency",
                                                         createdAt: new Date().toISOString()
                                                     };
                                                     const res = await addProjectDocument(project.id, newDoc);
                                                     if (res.success) {
-                                                        toast.success("Agency deliverable uploaded");
+                                                        toast.success("File uploaded");
                                                         setDocuments(prev => [...prev, newDoc]);
                                                     } else {
                                                         toast.error(res.message);
@@ -464,145 +342,85 @@ export function ProjectResourcesSidebar({ project }: ProjectResourcesSidebarProp
                                                 }}
                                             />
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === "all" && <div className="border-t border-border" />}
-
-                    {/* SECTION 2: Client Uploads & Supporting Files */}
-                    {(activeTab === "all" || activeTab === "client") && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded-md bg-stage-new/10 text-stage-new border border-stage-new/30">
-                                        <UserCheck className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-sm font-semibold text-foreground">Client Uploads & Submissions</Label>
-                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-stage-new/30 text-stage-new bg-stage-new/10">
-                                                {clientDocuments.length} files
-                                            </Badge>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">Files, design briefs, and assets uploaded by the client from their portal.</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                {clientDocuments.length === 0 ? (
-                                    <div className="p-6 text-center border border-dashed border-stage-new/30 rounded-xl bg-stage-new/5 space-y-2">
-                                        <UploadCloud className="h-7 w-7 text-stage-new mx-auto" />
-                                        <p className="text-xs text-foreground font-medium">No client uploads yet.</p>
-                                        <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                                            When the client uploads briefs, brand assets, or revision attachments through the client portal, they will automatically appear here.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    clientDocuments.map(doc => renderDocumentCard(doc, true))
                                 )}
                             </div>
-                        </div>
+                        </section>
                     )}
 
-                    {activeTab === "all" && <div className="border-t border-border" />}
+                    {(activeTab === "all" || activeTab === "client") && (
+                        <section aria-labelledby="files-client" className="space-y-3">
+                            <div>
+                                <h3 id="files-client" className="text-base font-semibold text-foreground">From the client</h3>
+                                <p className="text-sm text-muted-foreground">Briefs and assets the client uploads in their portal appear here.</p>
+                            </div>
+                            {clientDocuments.length === 0 ? (
+                                <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">The client hasn&apos;t uploaded anything yet.</p>
+                            ) : (
+                                <ul className="space-y-2">{clientDocuments.map((doc) => renderDocumentCard(doc, true))}</ul>
+                            )}
+                        </section>
+                    )}
 
-                    {/* SECTION 3: Staging & Preview Environments */}
                     {(activeTab === "all" || activeTab === "staging") && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded-md bg-brand-soft text-brand-deep border border-brand-deep/30">
-                                        <Globe className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-sm font-semibold text-foreground">Staging & Preview Environments</Label>
-                                            <Badge variant="outline" className="text-xs px-1.5 py-0 rounded tabular-nums border-brand-deep/30 text-brand-deep bg-brand-soft">
-                                                {stagingUrls.filter(u => u.trim()).length} active
-                                            </Badge>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">Live deployment links & preview environments for client reviews.</p>
-                                    </div>
-                                </div>
+                        <section aria-labelledby="files-staging" className="space-y-3">
+                            <div>
+                                <h3 id="files-staging" className="text-base font-semibold text-foreground">Staging links</h3>
+                                <p className="text-sm text-muted-foreground">Preview sites the client can open to review the work.</p>
                             </div>
-
-                            <div className="space-y-3">
-                                {stagingUrls.map((url, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                        <div className="relative flex-1">
-                                            <Input
-                                                className="bg-background border-border focus:border-primary text-xs pl-8 text-foreground placeholder:text-muted-foreground rounded-lg h-9"
-                                                value={url}
-                                                onChange={e => {
-                                                    const newUrls = [...stagingUrls];
-                                                    newUrls[i] = e.target.value;
-                                                    setStagingUrls(newUrls);
-                                                }}
-                                                placeholder="https://staging.example.com"
-                                            />
-                                            <Globe className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
-                                        </div>
-                                        {url.trim() && (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                asChild
-                                                className="h-9 w-9 border-border bg-background hover:bg-muted text-foreground shrink-0"
-                                            >
-                                                <a href={url.startsWith("http") ? url : `https://${url}`} target="_blank" rel="noreferrer" title="Open Link">
-                                                    <ExternalLink className="h-3.5 w-3.5 text-brand-deep" />
-                                                </a>
-                                            </Button>
-                                        )}
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => setStagingUrls(stagingUrls.filter((_, idx) => idx !== i))}
-                                            className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-lg"
+                            {stagingUrls.map((url, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                    <Input
+                                        aria-label={`Staging link ${i + 1}`}
+                                        className="h-10 flex-1 bg-card text-sm"
+                                        value={url}
+                                        onChange={(e) => {
+                                            const next = [...stagingUrls];
+                                            next[i] = e.target.value;
+                                            setStagingUrls(next);
+                                        }}
+                                        placeholder="https://staging.example.com"
+                                    />
+                                    {url.trim() && (
+                                        <a
+                                            href={url.startsWith("http") ? url : `https://${url}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="shrink-0 rounded-md px-1.5 text-sm font-semibold text-brand-deep outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                                         >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ))}
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setStagingUrls([...stagingUrls, ""])}
-                                    className="w-full text-xs py-2 h-9 bg-muted/40 border-dashed border-border hover:border-brand-deep/30 text-foreground transition-all rounded-lg"
-                                >
-                                    <Plus className="h-3.5 w-3.5 mr-1.5 text-brand-deep" /> Add Environment URL
-                                </Button>
-                            </div>
-                        </div>
+                                            Open
+                                        </a>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setStagingUrls(stagingUrls.filter((_, idx) => idx !== i))}
+                                        aria-label={`Remove staging link ${i + 1}`}
+                                        className="shrink-0 rounded-md p-1.5 text-muted-foreground outline-none transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <Trash2 className="size-4" aria-hidden="true" />
+                                    </button>
+                                </div>
+                            ))}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setStagingUrls([...stagingUrls, ""])}
+                                className="h-10 w-full bg-card text-sm font-medium active:scale-[0.97]"
+                            >
+                                <Plus className="mr-1.5 size-4" aria-hidden="true" /> Add a staging link
+                            </Button>
+                        </section>
                     )}
-
                 </form>
 
-                {/* Footer Action Bar */}
-                <div className="p-6 border-t border-border bg-card/90 mt-auto">
-                    <Button 
-                        type="submit" 
-                        form="project-resources-form"
-                        disabled={isSaving} 
-                        className="w-full bg-primary hover:bg-primary/90 text-black font-semibold h-10 shadow-md transition-all rounded-xl cursor-pointer"
-                    >
-                        {isSaving ? (
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="h-4 w-4 animate-spin" />
-                                <span>Saving Environment URLs...</span>
-                            </div>
-                        ) : (
-                            "Save Environment URLs"
-                        )}
-                    </Button>
-                </div>
+                {/* Only staging links are saved here; files save as soon as they are added. */}
+                {(activeTab === "all" || activeTab === "staging") && (
+                    <div className="shrink-0 px-6 pt-2 pb-6">
+                        <Button type="submit" form="project-resources-form" disabled={isSaving} className="h-11 w-full text-base font-semibold active:scale-[0.97]">
+                            {isSaving ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : null}
+                            Save staging links
+                        </Button>
+                    </div>
+                )}
             </SheetContent>
         </Sheet>
     );

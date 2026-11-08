@@ -166,8 +166,8 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
 
     return (
         <div className="space-y-4">
-            <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
-                <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full min-w-[760px] text-left text-sm">
                     <thead className="bg-muted/40 text-sm text-muted-foreground border-b border-border">
                         <tr>
                             <th className="px-4 py-3 font-semibold">Payment / Milestone</th>
@@ -221,17 +221,17 @@ export function PmPaymentsTable({ payments }: PmPaymentsTableProps) {
                                         </td>
                                         <td className="px-4 py-3.5">
                                             {p.status === "paid" && (
-                                                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1 w-fit">
+                                                <Badge className="bg-brand-soft text-brand-deep border-brand-deep/30 flex items-center gap-1 w-fit">
                                                     <CheckCircle2 className="w-3 h-3" /> Paid
                                                 </Badge>
                                             )}
                                             {p.status === "proof_uploaded" && (
-                                                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 flex items-center gap-1 w-fit">
-                                                    <FileText className="w-3 h-3" /> Proof Uploaded
+                                                <Badge className="bg-stage-new/10 text-stage-new border-stage-new/30 flex items-center gap-1 w-fit">
+                                                    <FileText className="w-3 h-3" /> Proof uploaded
                                                 </Badge>
                                             )}
                                             {p.status === "due" && (
-                                                <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1 w-fit">
+                                                <Badge className="bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30 flex items-center gap-1 w-fit">
                                                     <Clock className="w-3 h-3" /> Due
                                                 </Badge>
                                             )}

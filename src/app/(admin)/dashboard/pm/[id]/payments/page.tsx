@@ -1,5 +1,4 @@
 import { db } from "@/db";
-import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { agencyProjects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
@@ -78,13 +77,6 @@ export default async function PmPaymentsPage({
 
     return (
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
-            <ProjectHeader
-                projectId={project.id}
-                title={project.title}
-                businessName={project.lead?.businessName}
-                clientName={project.lead?.contactName}
-                current="payments"
-            />
 
             {/* Mockup 29b: what came in against the total, and what is left. */}
             <section aria-label="Payment summary" className="rounded-xl border border-border bg-card px-5 py-4">

@@ -85,7 +85,7 @@ export default async function ClientPortalPage() {
                                                 variant="outline"
                                                 className={
                                                     project.status === "Completed"
-                                                        ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs"
+                                                        ? "border-brand-deep/30 text-brand-deep bg-brand-soft text-xs"
                                                         : "text-foreground text-xs"
                                                 }
                                             >
@@ -122,7 +122,7 @@ export default async function ClientPortalPage() {
                                         <span className="text-xs text-muted-foreground">
                                             Updated {new Date(project.updatedAt).toLocaleDateString()}
                                         </span>
-                                        <Button size="sm" variant="ghost" asChild className="h-8 text-xs text-primary font-semibold">
+                                        <Button size="sm" variant="ghost" asChild className="h-8 text-xs text-brand-deep font-semibold">
                                             <Link href={`/portal/projects/${project.id}`}>
                                                 Open Project <ArrowRight className="w-3.5 h-3.5 ml-1" />
                                             </Link>
@@ -151,7 +151,7 @@ export default async function ClientPortalPage() {
                                     </span>
                                 </div>
                                 {n.link && (
-                                    <Button variant="ghost" size="sm" asChild className="h-7 text-xs text-primary shrink-0">
+                                    <Button variant="ghost" size="sm" asChild className="h-7 text-xs text-brand-deep shrink-0">
                                         <Link href={n.link}>View</Link>
                                     </Button>
                                 )}

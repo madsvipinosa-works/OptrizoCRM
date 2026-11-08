@@ -63,6 +63,16 @@ export function Header({
         setOpen(false);
     }, [pathname]);
 
+    // The mobile menu only exists below md. If the screen widens while it is open, close it,
+    // or the desktop bar keeps its square "menu open" shape and the page stays scroll-locked.
+    React.useEffect(() => {
+        const md = window.matchMedia('(min-width: 768px)');
+        const close = () => md.matches && setOpen(false);
+        close();
+        md.addEventListener('change', close);
+        return () => md.removeEventListener('change', close);
+    }, []);
+
     React.useEffect(() => {
         if (open) {
             document.body.style.overflow = 'hidden';
@@ -234,22 +244,20 @@ export function Header({
                 </nav>
             </div>
 
-            {/* Mobile Menu */}
+            {/* Mobile menu. Always mounted so it can animate out too; inert and hidden when closed.
+                Emil: 200ms ease-out, small travel, links follow in a short stagger, no motion when reduced. */}
             <div
+                aria-hidden={!open}
+                inert={!open}
                 className={cn(
-                    'bg-background/95 fixed inset-x-0 top-[4.5rem] bottom-0 z-50 flex flex-col overflow-hidden border-t md:hidden backdrop-blur-xl',
-                    open ? 'block' : 'hidden',
+                    'fixed inset-x-0 top-[4.5rem] bottom-0 z-50 flex flex-col border-t border-border bg-background md:hidden',
+                    'transition-[opacity,transform,visibility] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+                    open ? 'visible translate-y-0 opacity-100' : 'pointer-events-none invisible -translate-y-2 opacity-0',
                 )}
             >
-                <div
-                    data-slot={open ? 'open' : 'closed'}
-                    className={cn(
-                        'data-[slot=open]:animate-in data-[slot=open]:slide-in-from-bottom-4 data-[slot=closed]:animate-out data-[slot=closed]:slide-out-to-bottom-4 ease-out',
-                        'flex h-full w-full flex-col justify-between gap-y-4 p-6',
-                    )}
-                >
-                    <div className="grid gap-y-2">
-                        {navLinks.map((link) => {
+                <div className="flex h-full w-full flex-col justify-between gap-y-6 overflow-y-auto px-6 pt-6 pb-8">
+                    <nav aria-label="Main" className="grid gap-y-1">
+                        {navLinks.map((link, i) => {
                             const active = isActive(link.href);
                             return (
                                 <Link
@@ -257,19 +265,25 @@ export function Header({
                                     href={link.href}
                                     aria-current={active ? 'page' : undefined}
                                     onClick={() => setOpen(false)}
+                                    style={{ transitionDelay: open ? `${40 + i * 35}ms` : '0ms' }}
                                     className={cn(
-                                        'flex h-12 items-center justify-between rounded-xl px-4 text-lg tracking-tight outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring',
-                                        active ? 'bg-brand-soft font-semibold text-foreground' : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground'
+                                        'flex h-14 items-center rounded-lg px-4 text-2xl font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                        'transition-[color,background-color,opacity,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+                                        open ? 'translate-y-0 opacity-100' : 'translate-y-1.5 opacity-0',
+                                        active ? 'bg-brand-soft text-brand-deep' : 'text-foreground/70 hover:bg-muted hover:text-foreground'
                                     )}
                                 >
                                     {link.label}
-                                    {active && <span aria-hidden="true" className="size-2 rounded-full bg-brand-deep" />}
                                 </Link>
                             );
                         })}
-                    </div>
-                    <div 
-                        className="flex flex-col gap-3"
+                    </nav>
+                    <div
+                        style={{ transitionDelay: open ? `${40 + navLinks.length * 35}ms` : '0ms' }}
+                        className={cn(
+                            'flex flex-col gap-3 transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+                            open ? 'translate-y-0 opacity-100' : 'translate-y-1.5 opacity-0'
+                        )}
                         onClick={(e) => {
                             const target = e.target as HTMLElement;
                             if (target.closest("a, button:not([data-nested])")) {
@@ -281,20 +295,20 @@ export function Header({
                             mobileAuthSlot
                         ) : session ? (
                             <>
-                                <Button asChild variant="secondary" className="w-full rounded-xl h-12 font-semibold tracking-tight">
+                                <Button asChild variant="secondary" className="w-full rounded-lg h-12 font-semibold tracking-tight">
                                     <Link href="/portal" onClick={() => setOpen(false)}>My Dashboard</Link>
                                 </Button>
-                                <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight border-border bg-card text-foreground">
+                                <Button asChild variant="outline" className="w-full rounded-lg h-12 font-semibold tracking-tight border-border bg-card text-foreground">
                                     <Link href="/portal" onClick={() => setOpen(false)}>Availed Services</Link>
                                 </Button>
                                 {isAdmin && (
-                                    <Button asChild variant="outline" className="w-full rounded-xl h-12 font-semibold tracking-tight">
+                                    <Button asChild variant="outline" className="w-full rounded-lg h-12 font-semibold tracking-tight">
                                         <Link href="/dashboard" onClick={() => setOpen(false)}>Admin Panel</Link>
                                     </Button>
                                 )}
                                 <Button
                                     variant="outline"
-                                    className="w-full rounded-xl h-12 font-medium border-border"
+                                    className="w-full rounded-lg h-12 font-medium border-border"
                                     onClick={() => setLogoutOpen(true)}
                                 >
                                     Log out
@@ -311,18 +325,15 @@ export function Header({
                         ) : (
                             <>
                                 <LoginModal logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl}>
-                                    <Button variant="outline" className="w-full rounded-xl h-12 font-medium border-border/50">
+                                    <Button variant="outline" className="w-full rounded-lg h-12 font-semibold border-border bg-card">
                                         Login
                                     </Button>
                                 </LoginModal>
-                                <Button asChild className="w-full rounded-xl h-12 font-semibold tracking-tight shadow-md">
+                                <Button asChild className="w-full rounded-lg h-12 font-semibold tracking-tight">
                                     <Link href="/contact" onClick={() => setOpen(false)}>Get Started</Link>
                                 </Button>
                             </>
                         )}
-                        <div className="pt-2 mt-1 border-t border-border">
-                            <ThemeToggle variant="pill" />
-                        </div>
                     </div>
                 </div>
             </div>

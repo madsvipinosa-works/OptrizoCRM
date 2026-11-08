@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { notFound, redirect } from "next/navigation";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { agencyProjects, leads } from "@/db/schema";
+import { agencyProjects } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import {
   formatActivityActionLabel,
@@ -115,21 +114,6 @@ export default async function PmProjectActivityPage({
     notFound();
   }
 
-  let businessName: string | null = null;
-  let clientName: string | null = null;
-  if (projectRow.leadId) {
-    const [leadRow] = await db
-      .select({
-        businessName: leads.businessName,
-        contactName: leads.contactName,
-      })
-      .from(leads)
-      .where(eq(leads.id, projectRow.leadId));
-    if (leadRow) {
-      businessName = leadRow.businessName;
-      clientName = leadRow.contactName;
-    }
-  }
 
   const sp = await searchParams;
   const beforeCursor = typeof sp?.before === "string" ? sp.before : undefined;
@@ -163,13 +147,6 @@ export default async function PmProjectActivityPage({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-5 pb-12">
-      <ProjectHeader
-        projectId={projectRow.id}
-        title={projectRow.title}
-        businessName={businessName}
-        clientName={clientName}
-        current="activity"
-      />
 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">Activity</h2>

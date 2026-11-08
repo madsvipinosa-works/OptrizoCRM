@@ -1,5 +1,4 @@
 import { db } from "@/db";
-import { ProjectHeader } from "@/features/pm/components/ProjectHeader";
 import { agencyProjects, document, milestones, payments } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
@@ -104,13 +103,6 @@ export default async function PmProjectCompletePage({
 
     return (
         <div className="mx-auto w-full max-w-[1400px] space-y-5 pb-12">
-            <ProjectHeader
-                projectId={project.id}
-                title={project.title}
-                businessName={project.lead?.businessName}
-                clientName={project.lead?.contactName}
-                current="completion"
-            />
 
             <CompletionPanel data={gateData} />
 

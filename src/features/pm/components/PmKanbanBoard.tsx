@@ -1,6 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
+import { toast } from "sonner";
+import {
+    DndContext,
+    DragOverlay,
+    PointerSensor,
+    TouchSensor,
+    useDraggable,
+    useDroppable,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+    type DragStartEvent,
+} from "@dnd-kit/core";
 import { format } from "date-fns";
 import { Clock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,6 +84,8 @@ interface PmKanbanBoardProps {
     onViewProofs?: (task: PmTask) => void;
     onClickTask?: (task: PmTask) => void;
     isViewOnly?: boolean;
+    /** Mockup 27: this card shows "Approved just now". */
+    recentlyApprovedId?: string | null;
     /** PM only. New tasks always start in To do, so that is where Add task lives (Trello's "Add a card"). */
     onAddTask?: () => void;
 }
@@ -141,12 +156,43 @@ export function PmKanbanBoard({
     onClickTask,
     isViewOnly = false,
     onAddTask,
+    recentlyApprovedId,
 }: PmKanbanBoardProps) {
     const [selectedMobileColumn, setSelectedMobileColumn] = useState<"to_do" | "in_progress" | "in_review" | "done">("to_do");
     const boardScrollRef = React.useRef<HTMLDivElement>(null);
 
     // Exclude backlog tasks from board columns
     const boardTasks = tasks.filter((t) => !isBacklogTask(t));
+
+    // Drag like Trello, but every drop is a real workflow action (CLAUDE.md: no manual status changes).
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), // a click still opens the task
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } }) // a swipe still scrolls
+    );
+    const [dragging, setDragging] = useState<PmTask | null>(null);
+    const isDevRole = currentUserRole === "developer";
+    const isPm = currentUserRole === "manager";
+
+    const onDragStart = (e: DragStartEvent) => setDragging(boardTasks.find((t) => t.id === e.active.id) ?? null);
+    const onDragEnd = (e: DragEndEvent) => {
+        setDragging(null);
+        const task = boardTasks.find((t) => t.id === e.active.id);
+        const to = e.over?.id as string | undefined;
+        if (!task || !to) return;
+        const from = normalizeStatus(task.status);
+        const col = from === "changes_requested" ? "in_progress" : from;
+        if (col === to) return;
+        const mine = !!currentUserId && task.assignees?.some((a) => a.user.id === currentUserId);
+        if (isDevRole && mine && from === "to_do" && to === "in_progress") return onStartTask?.(task.id);
+        if (isDevRole && mine && (from === "in_progress" || from === "changes_requested") && to === "in_review") return onSubmitTask?.(task);
+        if (isPm && from === "in_review" && to === "done") return onApproveTask?.(task.id);
+        if (isPm && from === "in_review" && to === "in_progress") return onRequestChanges?.(task);
+        toast.info(
+            isPm
+                ? "You can drag a task in review to Done (approve) or back to In progress (request changes). Developers move the rest."
+                : "You can drag your task from To do to In progress (start) and from In progress to In review (submit)."
+        );
+    };
 
     // A column's distance from the first column = its scroll position inside the strip.
     const columnOffset = (el: HTMLElement) =>
@@ -181,7 +227,7 @@ export function PmKanbanBoard({
     };
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden">
+        <div className="flex w-full flex-col">
             {/* Quick Switch Tab Bar on Mobile */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 lg:hidden scrollbar-none px-1 shrink-0">
                 {COLUMNS.map((col) => {
@@ -225,8 +271,9 @@ export function PmKanbanBoard({
             <div
                 ref={boardScrollRef}
                 onScroll={handleBoardScroll}
-                className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-hidden pb-2 scrollbar-none snap-x snap-mandatory lg:snap-none"
+                className="w-full overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory lg:snap-none lg:overflow-visible"
             >
+                <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
                 <div className="flex lg:grid lg:grid-cols-4 gap-3 items-stretch w-full min-w-0 h-full">
                     {COLUMNS.map((col) => {
                         const columnTasks = boardTasks.filter((t) => {
@@ -253,10 +300,19 @@ export function PmKanbanBoard({
                                 onClickTask={onClickTask}
                                 isViewOnly={isViewOnly}
                                 onAddTask={col.id === "to_do" ? onAddTask : undefined}
+                                recentlyApprovedId={recentlyApprovedId}
                             />
                         );
                     })}
                 </div>
+                <DragOverlay dropAnimation={null}>
+                    {dragging ? (
+                        <div className="w-[260px] rotate-1 rounded-lg border border-brand-deep/40 bg-card p-3 text-base font-semibold text-foreground shadow-lg">
+                            {dragging.title}
+                        </div>
+                    ) : null}
+                </DragOverlay>
+                </DndContext>
             </div>
         </div>
     );
@@ -276,8 +332,10 @@ function PmKanbanColumn({
     onClickTask,
     isViewOnly,
     onAddTask,
+    recentlyApprovedId,
 }: {
     onAddTask?: () => void;
+    recentlyApprovedId?: string | null;
     column: {
         id: "to_do" | "in_progress" | "in_review" | "done";
         title: string;
@@ -298,11 +356,14 @@ function PmKanbanColumn({
     onClickTask?: (task: PmTask) => void;
     isViewOnly?: boolean;
 }) {
+    const { setNodeRef, isOver } = useDroppable({ id: column.id });
     return (
         <div
+            ref={setNodeRef}
             id={`pm-column-${column.id}`}
             className={cn(
-                "bg-muted/70 rounded-xl p-3 flex flex-col h-full min-h-[460px]",
+                "bg-muted/70 rounded-xl p-3 flex flex-col h-full min-h-[460px] transition-[box-shadow,background-color] duration-150",
+                isOver && "bg-brand-soft/60 ring-2 ring-brand-deep/40",
                 "w-[84vw] max-w-[320px] min-w-[270px] shrink-0 snap-start lg:w-auto lg:max-w-none lg:min-w-0 lg:shrink"
             )}
         >
@@ -316,7 +377,7 @@ function PmKanbanColumn({
             </div>
 
             {/* Cards List */}
-            <div className="flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-21rem)] sm:max-h-[calc(100vh-17rem)] pr-1 scrollbar-thin">
+            <div className="flex flex-col gap-2">
                 {tasks.length === 0 ? (
                     <p className="px-0.5 pt-1 text-sm text-muted-foreground">{column.empty}</p>
                 ) : (
@@ -334,6 +395,7 @@ function PmKanbanColumn({
                             onDeleteTask={onDeleteTask}
                             onClickTask={onClickTask}
                             isViewOnly={isViewOnly}
+                            justApproved={task.id === recentlyApprovedId}
                         />
                     ))
                 )}
@@ -362,7 +424,9 @@ function TaskCard({
     onDeleteTask,
     onClickTask,
     isViewOnly,
+    justApproved,
 }: {
+    justApproved?: boolean;
     task: PmTask;
     allTasks: PmTask[];
     currentUserId?: string;
@@ -389,9 +453,17 @@ function TaskCard({
     const isAssignedToUser = currentUserId ? task.assignees?.some((a) => a.user.id === currentUserId) : false;
     const isDeveloper = currentUserRole === "developer";
     const isManager = currentUserRole === "manager";
+    // Only cards with a move this person can make are draggable (developer: own open tasks; PM: tasks in review).
+    const canDrag =
+        !isViewOnly &&
+        ((isDeveloper && isAssignedToUser && (normStatus === "to_do" || normStatus === "in_progress" || normStatus === "changes_requested")) ||
+            (isManager && normStatus === "in_review"));
+    const { setNodeRef, listeners, isDragging } = useDraggable({ id: task.id, disabled: !canDrag });
 
     return (
         <div
+            ref={setNodeRef}
+            {...listeners}
             role="button"
             tabIndex={0}
             aria-label={`Open task ${task.title}`}
@@ -403,7 +475,8 @@ function TaskCard({
                 }
             }}
             className={cn(
-                "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-lg border bg-card p-3 gap-2.5 text-foreground cursor-pointer outline-none transition-colors duration-150 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring",
+                "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-lg border bg-card p-3 gap-2.5 text-foreground cursor-pointer touch-manipulation outline-none transition-colors duration-150 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring",
+                isDragging && "opacity-40",
                 isChangesRequested ? "border-destructive/40" : "border-border/70"
             )}
         >
@@ -513,6 +586,10 @@ function TaskCard({
                     <span className="text-muted-foreground">Unassigned</span>
                 )}
             </div>
+
+            {justApproved && normStatus === "done" && (
+                <span className="w-fit rounded-full bg-brand-soft px-2.5 py-0.5 text-sm font-semibold text-brand-deep">Approved just now</span>
+            )}
 
             {/* One action per card (mockup 22). Request changes is in the task drawer, where the comment goes. */}
             {!isViewOnly && (

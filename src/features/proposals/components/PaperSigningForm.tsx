@@ -37,12 +37,12 @@ export function PaperSigningForm({
     // Only applicable if not already signed
     if (proposalStatus === "signed") {
         return (
-            <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <Card className="border-brand-deep/30 bg-brand-soft">
                 <CardContent className="p-4 flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                    <CheckCircle2 className="h-5 w-5 text-brand-deep shrink-0" />
                     <div>
                         <p className="text-xs font-semibold text-foreground">Signed Proposal Agreement</p>
-                        <p className="text-[11px] text-muted-foreground">This proposal has been officially executed and the project delivery pipeline initialized.</p>
+                        <p className="text-xs text-muted-foreground">This proposal has been officially executed and the project delivery pipeline initialized.</p>
                     </div>
                 </CardContent>
             </Card>
@@ -97,8 +97,8 @@ export function PaperSigningForm({
     return (
         <Card className="border-border bg-card">
             <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <FileUp className="h-4 w-4 text-primary" />
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <FileUp className="h-4 w-4 text-brand-deep" />
                     Record Paper Signature
                 </CardTitle>
                 <CardDescription className="text-xs">

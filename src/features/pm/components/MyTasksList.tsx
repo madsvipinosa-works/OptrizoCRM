@@ -189,27 +189,27 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                 <div className="flex flex-wrap items-end gap-3 flex-1 min-w-0">
                     {/* Search */}
                     <div className="space-y-1.5 flex-1 min-w-[200px] max-w-sm">
-                        <label className="text-xs font-semibold text-muted-foreground ">
+                        <label className="text-sm text-muted-foreground">
                             Search
                         </label>
                         <div className="relative">
-                            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+                            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                             <Input
                                 placeholder="Search tasks..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 h-9 text-xs sm:text-sm bg-card border-border"
+                                className="h-10 bg-card pl-9 text-sm"
                             />
                         </div>
                     </div>
 
                     {/* Project Filter */}
-                    <div className="space-y-1.5 w-[180px] shrink-0">
-                        <label className="text-xs font-semibold text-muted-foreground ">
+                    <div className="w-56 min-w-0 shrink-0 space-y-1.5">
+                        <label className="text-sm text-muted-foreground">
                             Project
                         </label>
                         <Select value={projectFilter} onValueChange={setProjectFilter}>
-                            <SelectTrigger className="h-9 text-xs sm:text-sm bg-card border-border" variant="plain">
+                            <SelectTrigger className="h-10 w-full min-w-0 bg-card text-sm [&_[data-slot=select-value]]:truncate [&>span]:truncate" variant="plain">
                                 <SelectValue placeholder="All projects" />
                             </SelectTrigger>
                             <SelectContent>
@@ -224,12 +224,12 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                     </div>
 
                     {/* Status Filter */}
-                    <div className="space-y-1.5 w-[150px] shrink-0">
-                        <label className="text-xs font-semibold text-muted-foreground ">
+                    <div className="w-40 min-w-0 shrink-0 space-y-1.5">
+                        <label className="text-sm text-muted-foreground">
                             Status
                         </label>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="h-9 text-xs sm:text-sm bg-card border-border" variant="plain">
+                            <SelectTrigger className="h-10 w-full min-w-0 bg-card text-sm [&_[data-slot=select-value]]:truncate [&>span]:truncate" variant="plain">
                                 <SelectValue placeholder="All statuses" />
                             </SelectTrigger>
                             <SelectContent>
@@ -243,7 +243,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                     </div>
 
                     {/* Hide Done Checkbox */}
-                    <label className="flex items-center gap-2 h-9 text-xs sm:text-sm cursor-pointer select-none text-muted-foreground hover:text-foreground">
+                    <label className="flex items-center gap-2 h-10 text-sm cursor-pointer select-none text-muted-foreground hover:text-foreground">
                         <input
                             type="checkbox"
                             checked={hideDone}
@@ -254,7 +254,7 @@ export function MyTasksList({ tasks }: { tasks: MyTaskItem[] }) {
                     </label>
                 </div>
 
-                <div className="text-xs text-muted-foreground h-9 flex items-center shrink-0">
+                <div className="flex h-10 shrink-0 items-center text-sm tabular-nums text-muted-foreground">
                     Showing {filteredTasks.length} of {visibleTasks.length} tasks
                 </div>
             </div>
