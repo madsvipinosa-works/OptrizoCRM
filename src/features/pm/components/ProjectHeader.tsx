@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type View = "board" | "timeline" | "activity" | "payments" | "completion";
@@ -39,6 +40,14 @@ export function ProjectHeader({
     ];
 
     return (
+        <>
+            {/* User asked for a way back to the projects list (not in the mockup). */}
+            <Link
+                href={current === "board" ? "/dashboard/pm" : base}
+                className="inline-flex w-fit items-center gap-1 rounded-md text-sm text-muted-foreground outline-none underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <ArrowLeft className="size-3.5" aria-hidden="true" /> {current === "board" ? "Back to projects" : "Back to the board"}
+            </Link>
             <header className="flex shrink-0 flex-col gap-3">
                 <div>
                     <p className="text-sm text-muted-foreground">
@@ -84,5 +93,6 @@ export function ProjectHeader({
                     )}
                 </div>
             </header>
+        </>
     );
 }

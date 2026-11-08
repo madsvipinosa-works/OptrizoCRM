@@ -1,6 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
+import { toast } from "sonner";
+import {
+    DndContext,
+    DragOverlay,
+    PointerSensor,
+    TouchSensor,
+    useDraggable,
+    useDroppable,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+    type DragStartEvent,
+} from "@dnd-kit/core";
 import { format } from "date-fns";
 import { Clock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -151,6 +164,36 @@ export function PmKanbanBoard({
     // Exclude backlog tasks from board columns
     const boardTasks = tasks.filter((t) => !isBacklogTask(t));
 
+    // Drag like Trello, but every drop is a real workflow action (CLAUDE.md: no manual status changes).
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), // a click still opens the task
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } }) // a swipe still scrolls
+    );
+    const [dragging, setDragging] = useState<PmTask | null>(null);
+    const isDevRole = currentUserRole === "developer";
+    const isPm = currentUserRole === "manager";
+
+    const onDragStart = (e: DragStartEvent) => setDragging(boardTasks.find((t) => t.id === e.active.id) ?? null);
+    const onDragEnd = (e: DragEndEvent) => {
+        setDragging(null);
+        const task = boardTasks.find((t) => t.id === e.active.id);
+        const to = e.over?.id as string | undefined;
+        if (!task || !to) return;
+        const from = normalizeStatus(task.status);
+        const col = from === "changes_requested" ? "in_progress" : from;
+        if (col === to) return;
+        const mine = !!currentUserId && task.assignees?.some((a) => a.user.id === currentUserId);
+        if (isDevRole && mine && from === "to_do" && to === "in_progress") return onStartTask?.(task.id);
+        if (isDevRole && mine && (from === "in_progress" || from === "changes_requested") && to === "in_review") return onSubmitTask?.(task);
+        if (isPm && from === "in_review" && to === "done") return onApproveTask?.(task.id);
+        if (isPm && from === "in_review" && to === "in_progress") return onRequestChanges?.(task);
+        toast.info(
+            isPm
+                ? "You can drag a task in review to Done (approve) or back to In progress (request changes). Developers move the rest."
+                : "You can drag your task from To do to In progress (start) and from In progress to In review (submit)."
+        );
+    };
+
     // A column's distance from the first column = its scroll position inside the strip.
     const columnOffset = (el: HTMLElement) =>
         el.offsetLeft - (document.getElementById(`pm-column-${COLUMNS[0].id}`)?.offsetLeft ?? 0);
@@ -230,6 +273,7 @@ export function PmKanbanBoard({
                 onScroll={handleBoardScroll}
                 className="w-full overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory lg:snap-none lg:overflow-visible"
             >
+                <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
                 <div className="flex lg:grid lg:grid-cols-4 gap-3 items-stretch w-full min-w-0 h-full">
                     {COLUMNS.map((col) => {
                         const columnTasks = boardTasks.filter((t) => {
@@ -261,6 +305,14 @@ export function PmKanbanBoard({
                         );
                     })}
                 </div>
+                <DragOverlay dropAnimation={null}>
+                    {dragging ? (
+                        <div className="w-[260px] rotate-1 rounded-lg border border-brand-deep/40 bg-card p-3 text-base font-semibold text-foreground shadow-lg">
+                            {dragging.title}
+                        </div>
+                    ) : null}
+                </DragOverlay>
+                </DndContext>
             </div>
         </div>
     );
@@ -304,11 +356,14 @@ function PmKanbanColumn({
     onClickTask?: (task: PmTask) => void;
     isViewOnly?: boolean;
 }) {
+    const { setNodeRef, isOver } = useDroppable({ id: column.id });
     return (
         <div
+            ref={setNodeRef}
             id={`pm-column-${column.id}`}
             className={cn(
-                "bg-muted/70 rounded-xl p-3 flex flex-col h-full min-h-[460px]",
+                "bg-muted/70 rounded-xl p-3 flex flex-col h-full min-h-[460px] transition-[box-shadow,background-color] duration-150",
+                isOver && "bg-brand-soft/60 ring-2 ring-brand-deep/40",
                 "w-[84vw] max-w-[320px] min-w-[270px] shrink-0 snap-start lg:w-auto lg:max-w-none lg:min-w-0 lg:shrink"
             )}
         >
@@ -398,9 +453,17 @@ function TaskCard({
     const isAssignedToUser = currentUserId ? task.assignees?.some((a) => a.user.id === currentUserId) : false;
     const isDeveloper = currentUserRole === "developer";
     const isManager = currentUserRole === "manager";
+    // Only cards with a move this person can make are draggable (developer: own open tasks; PM: tasks in review).
+    const canDrag =
+        !isViewOnly &&
+        ((isDeveloper && isAssignedToUser && (normStatus === "to_do" || normStatus === "in_progress" || normStatus === "changes_requested")) ||
+            (isManager && normStatus === "in_review"));
+    const { setNodeRef, listeners, isDragging } = useDraggable({ id: task.id, disabled: !canDrag });
 
     return (
         <div
+            ref={setNodeRef}
+            {...listeners}
             role="button"
             tabIndex={0}
             aria-label={`Open task ${task.title}`}
@@ -412,7 +475,8 @@ function TaskCard({
                 }
             }}
             className={cn(
-                "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-lg border bg-card p-3 gap-2.5 text-foreground cursor-pointer outline-none transition-colors duration-150 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring",
+                "group relative flex flex-col w-full min-w-0 overflow-hidden rounded-lg border bg-card p-3 gap-2.5 text-foreground cursor-pointer touch-manipulation outline-none transition-colors duration-150 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring",
+                isDragging && "opacity-40",
                 isChangesRequested ? "border-destructive/40" : "border-border/70"
             )}
         >
