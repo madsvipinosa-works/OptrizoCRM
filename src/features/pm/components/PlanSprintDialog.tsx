@@ -29,6 +29,8 @@ interface PlanSprintDialogProps {
   projectId: string;
   projectTitle: string;
   existingSprintCount: number;
+  /** Sprints already planned; their days cannot be picked again. */
+  existingSprints?: { startDate: string; endDate: string }[];
   backlogTasks: PmTask[];
   initialSelectedTaskIds?: string[];
   developmentStartDate?: Date | string | null;
@@ -64,6 +66,7 @@ export function PlanSprintDialog({
   projectId,
   projectTitle,
   existingSprintCount,
+  existingSprints = [],
   backlogTasks,
   initialSelectedTaskIds,
   developmentStartDate,
@@ -83,6 +86,20 @@ export function PlanSprintDialog({
   const devRange = hasDevelopmentDates
     ? `${formatDate(developmentStartDate!)} – ${formatDate(developmentEndDate!)}`
     : null;
+
+  // Pickable window: today (or the Development start, if later) up to the Development end.
+  const devStartYmd = developmentStartDate ? todayYmd(new Date(developmentStartDate)) : undefined;
+  const devEndYmd = developmentEndDate ? todayYmd(new Date(developmentEndDate)) : undefined;
+  const minDate = devStartYmd && devStartYmd > todayYmd() ? devStartYmd : todayYmd();
+  const taken = existingSprints.map((s) => ({ from: s.startDate.slice(0, 10), to: s.endDate.slice(0, 10) }));
+  // A range that starts before and ends after an existing sprint would swallow it, so cap the end at the next sprint.
+  const nextSprintStart = startDate
+    ? taken.map((r) => r.from).filter((f) => f > startDate).sort()[0]
+    : undefined;
+  const endMax = nextSprintStart
+    ? new Date(new Date(`${nextSprintStart}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10)
+    : undefined;
+  const maxEnd = [devEndYmd, endMax].filter(Boolean).sort()[0];
 
   // Carried-over tasks (or non-backlog unfinished tasks from ended sprints) are pre-selected
   const defaultPreselectedIds = useMemo(() => {
@@ -206,14 +223,14 @@ export function PlanSprintDialog({
                 <Label htmlFor="sprint-start" className="text-sm text-muted-foreground">
                   Start date
                 </Label>
-                <DatePicker id="sprint-start" value={startDate} onChange={setStartDate} min={todayYmd()} required />
+                <DatePicker id="sprint-start" value={startDate} onChange={(v) => { setStartDate(v); if (endDate && endDate < v) setEndDate(""); }} min={minDate} max={devEndYmd} disabledRanges={taken} required />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="sprint-end" className="text-sm text-muted-foreground">
                   End date
                 </Label>
-                <DatePicker id="sprint-end" value={endDate} onChange={setEndDate} min={startDate || todayYmd()} required />
+                <DatePicker id="sprint-end" value={endDate} onChange={setEndDate} min={startDate || minDate} max={maxEnd} disabledRanges={taken} required />
               </div>
             </div>
             {devRange && (

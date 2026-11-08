@@ -677,6 +677,7 @@ export function KanbanBoard({
                     projectId={project.id}
                     projectTitle={project.title || "Project"}
                     existingSprintCount={sprints.length}
+                    existingSprints={sprints}
                     backlogTasks={managerBacklogList}
                     initialSelectedTaskIds={planSprintPreselectedIds}
                     developmentStartDate={activeMilestone?.startDate}
