@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     BarChart3,
+    Star,
     CalendarDays,
     CheckCircle2,
     ContactRound,
@@ -65,6 +66,7 @@ const navGroups: NavGroup[] = [
         title: "Growth & CRM",
         items: [
             { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, allowedRoles: ["superadmin"] },
+            { href: "/dashboard/feedback", label: "Client feedback", icon: Star, allowedRoles: ["superadmin"] },
             { href: "/dashboard/reports", label: "Reports", icon: FileBarChart, allowedRoles: ["superadmin"] },
             { href: "/dashboard/inquiries", label: "Inquiries", icon: Mail, allowedRoles: ["sales"] },
             { href: "/dashboard/contacts", label: "Contacts", icon: ContactRound, allowedRoles: ["sales"] },

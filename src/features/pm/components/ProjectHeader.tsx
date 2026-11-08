@@ -37,6 +37,7 @@ export function ProjectHeader({
     const tools: [string, string][] = [
         ["Payments", `${base}/payments`],
         ["Completion", `${base}/complete`],
+        ["Feedback", `${base}/feedback`],
     ];
 
     return (

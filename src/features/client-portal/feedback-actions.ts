@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { auth, hasRole } from "@/auth";
 import { logAction } from "@/features/audit/log";
 import { notifyLeadPms } from "@/features/notifications/send";
+import { FEEDBACK_AREAS, lowestArea, type AreaRatings } from "@/features/client-portal/feedback-areas";
+import { authorizeProject } from "@/lib/authz";
 
 /**
  * Client submits post-completion feedback (1-5 star rating and optional comment).
@@ -18,8 +20,10 @@ export async function submitProjectFeedback(
     data: {
         rating: number;
         comment?: string;
-        recommendScore?: number;
         improvement?: string;
+        areas?: AreaRatings;
+        wouldRecommend?: "yes" | "maybe" | "no";
+        testimonialAllowed?: boolean;
     }
 ): Promise<{ success: boolean; error?: string; message?: string }> {
     const session = await auth();
@@ -39,15 +43,21 @@ export async function submitProjectFeedback(
         return { success: false, error: "Comment cannot exceed 2000 characters." };
     }
 
-    const score = data.recommendScore;
-    if (score !== undefined && (!Number.isInteger(score) || score < 0 || score > 10)) {
-        return { success: false, error: "Recommendation must be a whole number from 0 to 10." };
+    for (const a of FEEDBACK_AREAS) {
+        const v = data.areas?.[a.key];
+        if (v != null && (!Number.isInteger(v) || v < 1 || v > 5)) {
+            return { success: false, error: `${a.label} must be a whole number from 1 to 5.` };
+        }
+    }
+    if (data.wouldRecommend !== undefined && !["yes", "maybe", "no"].includes(data.wouldRecommend)) {
+        return { success: false, error: "Recommendation must be Yes, Maybe or No." };
     }
     if (data.improvement && data.improvement.length > 2000) {
         return { success: false, error: "Answer cannot exceed 2000 characters." };
     }
     const improvement = data.improvement?.trim() || null;
 
+    const low = lowestArea(data.areas ?? {});
     const rating = data.rating;
     const comment = data.comment ? data.comment.trim() : null;
 
@@ -112,8 +122,14 @@ export async function submitProjectFeedback(
                 clientId: session.user.id,
                 rating,
                 comment,
-                recommendScore: score ?? null,
                 improvement,
+                ratingCommunication: data.areas?.ratingCommunication ?? null,
+                ratingQuality: data.areas?.ratingQuality ?? null,
+                ratingOnTime: data.areas?.ratingOnTime ?? null,
+                ratingValue: data.areas?.ratingValue ?? null,
+                ratingPmSupport: data.areas?.ratingPmSupport ?? null,
+                wouldRecommend: data.wouldRecommend ?? null,
+                testimonialAllowed: data.testimonialAllowed === true,
             });
 
             return { success: true };
@@ -128,9 +144,11 @@ export async function submitProjectFeedback(
             if (leadId) {
                 await notifyLeadPms(
                     leadId,
-                    `Client submitted feedback for "${projectTitle}" (Rating: ${rating}/5).`,
+                    low
+                        ? `Client feedback received for "${projectTitle}". ${low.label} was rated ${low.score}, so a follow-up is suggested.`
+                        : `Client feedback received for "${projectTitle}" (Rating: ${rating}/5).`,
                     "feedback",
-                    `/dashboard/pm/${projectId}/complete`
+                    `/dashboard/pm/${projectId}/feedback`
                 );
             }
 
@@ -167,3 +185,35 @@ export async function submitProjectFeedback(
     }
 }
 
+
+type Result = { success: boolean; error?: string; message?: string };
+
+async function pmFeedbackAccess(projectId: string) {
+    const session = await auth();
+    if (!session?.user?.id || !hasRole(session, ["manager"])) return { error: "Unauthorized: Managers only." as const };
+    const access = await authorizeProject(projectId, "write");
+    if (!access.ok) return { error: "Unauthorized." as const };
+    const row = await db.query.projectFeedback.findFirst({ where: eq(projectFeedback.projectId, projectId) });
+    if (!row) return { error: "There is no feedback for this project yet." as const };
+    return { session, row };
+}
+
+/**
+ * PM follow-up on a client's feedback. The client's answers are never changed; only the PM's own note and review mark.
+ * "note" saves the note, "call" saves it and logs a follow-up call, "reviewed" saves it and marks the feedback reviewed.
+ */
+export async function saveFeedbackFollowUp(projectId: string, note: string, action: "note" | "call" | "reviewed"): Promise<Result> {
+    const text = (note || "").trim();
+    if (text.length > 2000) return { success: false, error: "Note cannot exceed 2000 characters." };
+    if (!["note", "call", "reviewed"].includes(action)) return { success: false, error: "Unknown action." };
+    const r = await pmFeedbackAccess(projectId);
+    if ("error" in r) return { success: false, error: r.error };
+
+    await db.update(projectFeedback)
+        .set({ followupNote: text || null, ...(action === "reviewed" ? { reviewedAt: new Date() } : {}) })
+        .where(eq(projectFeedback.id, r.row.id));
+    const what = action === "call" ? "Logged a follow-up call on" : action === "reviewed" ? "Marked reviewed" : "Updated the follow-up note on";
+    await logAction("UPDATE", "Feedback", `${what} client feedback for project ${projectId}`, r.session.user.id, projectId);
+    revalidatePath(`/dashboard/pm/${projectId}/feedback`);
+    return { success: true, message: action === "call" ? "Follow-up call logged." : action === "reviewed" ? "Marked as reviewed." : "Note saved." };
+}

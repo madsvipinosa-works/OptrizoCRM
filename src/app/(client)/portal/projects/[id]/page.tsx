@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AcceptanceCard } from "@/features/client-portal/components/AcceptanceCard";
 import { acceptanceState } from "@/features/pm/acceptance-state";
-import { ProjectFeedbackForm } from "@/features/client-portal/components/ProjectFeedbackForm";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +127,21 @@ export default async function ClientProjectDetailPage({
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Feedback sits right under the completion banner so it is not missed */}
+            {isCompleted && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
+                    <div>
+                        <h3 className="text-base font-semibold text-foreground">How did we do?</h3>
+                        <p className="text-sm text-muted-foreground">
+                            {project.userFeedback ? "Thank you. Your feedback was sent." : "A short survey, about 2 minutes."}
+                        </p>
+                    </div>
+                    <Button asChild variant={project.userFeedback ? "outline" : "default"}>
+                        <Link href={`/portal/projects/${project.id}/feedback`}>{project.userFeedback ? "Feedback sent" : "Give feedback"}</Link>
+                    </Button>
                 </div>
             )}
 
@@ -276,14 +290,6 @@ export default async function ClientProjectDetailPage({
                         </div>
                     )}
                 </div>
-            )}
-
-            {/* Project Feedback Section (Post-Completion) */}
-            {isCompleted && (
-                <ProjectFeedbackForm
-                    projectId={project.id}
-                    existingFeedback={project.userFeedback}
-                />
             )}
         </div>
     );

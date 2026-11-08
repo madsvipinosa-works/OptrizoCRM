@@ -197,13 +197,16 @@ describe("submitProjectFeedback", () => {
     expect(res.error).toMatch(/comment cannot exceed 2000 characters/i);
   });
 
-  it("rejects a recommend score outside 0-10 and an over-long improvement answer", async () => {
+  it("rejects bad area ratings, a bad recommend answer and an over-long improvement answer", async () => {
     signInAs(auth, "client", "client-1");
-    for (const recommendScore of [-1, 11, 7.5]) {
-      const res = await submitProjectFeedback("proj-1", { rating: 5, recommendScore });
+    for (const v of [0, 6, 2.5]) {
+      const res = await submitProjectFeedback("proj-1", { rating: 5, areas: { ratingOnTime: v } });
       expect(res.success).toBe(false);
-      expect(res.error).toMatch(/0 to 10/);
+      expect(res.error).toMatch(/1 to 5/);
     }
+    const badRec = await submitProjectFeedback("proj-1", { rating: 5, wouldRecommend: "sure" as unknown as "yes" });
+    expect(badRec.success).toBe(false);
+    expect(badRec.error).toMatch(/yes, maybe or no/i);
     const long = await submitProjectFeedback("proj-1", { rating: 5, improvement: "a".repeat(2001) });
     expect(long.success).toBe(false);
     expect(long.error).toMatch(/cannot exceed 2000/i);

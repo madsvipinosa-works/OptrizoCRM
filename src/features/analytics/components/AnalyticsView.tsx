@@ -169,7 +169,6 @@ export async function BusinessAnalytics({ months }: { months: BusinessPeriod }) 
                         />
                         <MetricRow label="Client feedback responses" value={d.delivery.feedback.responses} />
                         <MetricRow label="Average client rating" value={d.delivery.feedback.avgRating === null ? "No data" : `${d.delivery.feedback.avgRating} / 5`} />
-                        <MetricRow label="Average recommend score" value={d.delivery.feedback.avgRecommend === null ? "No data" : `${d.delivery.feedback.avgRecommend} / 10 (${d.delivery.feedback.recommendResponses} answers)`} />
                     </dl>
                 </Panel>
             </div>
