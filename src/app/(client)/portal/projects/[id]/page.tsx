@@ -260,7 +260,7 @@ export default async function ClientProjectDetailPage({
             {isCompleted && (
                 <div className="rounded-xl bg-card border border-border p-5 space-y-3">
                     <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-foreground">Handover Documents & Deliverables</h3>
+                        <h3 className="text-base font-semibold text-foreground">Handover files</h3>
                     </div>
                     {project.handoverDocuments.length === 0 ? (
                         <p className="text-xs text-muted-foreground">No handover documents attached.</p>

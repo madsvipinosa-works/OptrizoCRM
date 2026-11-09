@@ -26,11 +26,11 @@ export default async function ClientDocumentsPage() {
             <div>
                 <div className="flex items-center gap-2">
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                        Documents & Deliverables
+                        Documents
                     </h1>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Access your signed contracts, proposal scopes, and post-completion handover files.
+                    Your signed contracts, proposals and handover files.
                 </p>
             </div>
 
@@ -38,10 +38,10 @@ export default async function ClientDocumentsPage() {
             <div className="rounded-xl bg-card border border-border p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Contracts & Proposals</h2>
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Contracts and proposals</h2>
                     </div>
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {proposals.length} document(s)
+                        {proposals.length} {proposals.length === 1 ? "document" : "documents"}
                     </span>
                 </div>
 
@@ -97,10 +97,10 @@ export default async function ClientDocumentsPage() {
             <div className="rounded-xl bg-card border border-border p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Handover Files & Deliverables</h2>
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Handover files</h2>
                     </div>
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {handoverDocuments.length} deliverable(s)
+                        {handoverDocuments.length} {handoverDocuments.length === 1 ? "file" : "files"}
                     </span>
                 </div>
 
