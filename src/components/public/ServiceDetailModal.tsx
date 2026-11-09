@@ -58,9 +58,8 @@ export function ServiceDetailModal({
 
     const defaults = getServiceMetadataDefaults(service.title, service.category ?? undefined);
     
-    const inclusions = (service.inclusions && service.inclusions.length > 0)
-        ? service.inclusions
-        : defaults.inclusions;
+    // Only what the content editor entered, so this always matches the service card (no made-up defaults).
+    const inclusions = service.inclusions ?? [];
 
     const deliverables = (service.deliverables && service.deliverables.length > 0)
         ? service.deliverables
@@ -81,12 +80,12 @@ export function ServiceDetailModal({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
-                className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto p-0 bg-card border-border text-card-foreground shadow-2xl rounded-2xl override-scrollbar"
+                className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto p-0 bg-card border-border text-card-foreground rounded-2xl override-scrollbar"
                 aria-describedby="service-detail-description"
             >
                 {/* Visual Header / Cover Media */}
                 {service.image ? (
-                    <div className="relative w-full h-52 sm:h-64 overflow-hidden bg-neutral-950">
+                    <div className="relative w-full h-52 sm:h-64 overflow-hidden bg-card">
                         <Image
                             src={service.image}
                             alt={service.title}
@@ -94,26 +93,22 @@ export function ServiceDetailModal({
                             className="object-cover"
                             priority
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
+                        <div className="absolute inset-0 from-card via-card/50 to-transparent" />
                         <div className="absolute bottom-4 left-6 right-6 flex items-center justify-between">
-                            <Badge className="bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider backdrop-blur-md">
-                                {service.category || "Optrizo Practice Area"}
-                            </Badge>
-                            <span className="font-mono text-xs text-white/90 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                Available for Q2/Q3 Projects
-                            </span>
+                            {service.category && (
+                                <Badge className="bg-primary/90 text-primary-foreground text-xs">{service.category}</Badge>
+                            )}
                         </div>
                     </div>
                 ) : (
                     <div className="pt-6 px-6">
                         <div className="flex items-center gap-2 mb-2">
-                            <Badge className="bg-primary/10 text-primary border border-primary/20 text-xs font-mono uppercase tracking-wider">
+                            <Badge className="bg-primary/10 text-brand-deep border border-primary/20 text-xs tabular-nums ">
                                 {service.category || "Optrizo Practice Area"}
                             </Badge>
-                            <span className="font-mono text-xs text-muted-foreground flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                Active Practice
+                            <span className="tabular-nums text-xs text-muted-foreground flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                Service
                             </span>
                         </div>
                     </div>
@@ -122,7 +117,7 @@ export function ServiceDetailModal({
                 {/* Content Body */}
                 <div className="p-6 sm:p-8 space-y-6">
                     <DialogHeader className="text-left space-y-2">
-                        <DialogTitle className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground uppercase">
+                        <DialogTitle className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground ">
                             {service.title}
                         </DialogTitle>
                         <DialogDescription id="service-detail-description" className="text-base text-muted-foreground leading-relaxed">
@@ -133,28 +128,28 @@ export function ServiceDetailModal({
                     {/* Metadata Pills: Timeline & Target Audience */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-brand-deep shrink-0">
                                 <Clock className="w-4 h-4" />
                             </div>
                             <div>
-                                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider block">
-                                    Turnaround Estimate
+                                <span className="text-xs tabular-nums text-muted-foreground block">
+                                    Typical timeline
                                 </span>
-                                <span className="text-xs font-bold text-foreground">
+                                <span className="text-xs font-semibold text-foreground">
                                     {timeline}
                                 </span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-3 sm:border-l border-border sm:pl-4">
-                            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-brand-deep shrink-0">
                                 <Users className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider block">
-                                    Target Profile
+                                <span className="text-xs tabular-nums text-muted-foreground block">
+                                    Best for
                                 </span>
-                                <span className="text-xs font-bold text-foreground truncate block">
+                                <span className="text-xs font-semibold text-foreground truncate block">
                                     {audience}
                                 </span>
                             </div>
@@ -165,9 +160,9 @@ export function ServiceDetailModal({
                     {scopeOverview && (
                         <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-primary" />
-                                <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                                    Scope & Engineering Philosophy
+                                <Sparkles className="w-4 h-4 text-brand-deep" />
+                                <h4 className="text-xs tabular-nums font-semibold text-muted-foreground">
+                                    How we approach it
                                 </h4>
                             </div>
                             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed p-4 rounded-xl bg-muted/20 border border-border">
@@ -176,18 +171,16 @@ export function ServiceDetailModal({
                         </div>
                     )}
 
-                    {/* Inclusions Breakdown */}
+                    {/* Inclusions Breakdown: hidden when the editor listed none. */}
+                    {inclusions.length > 0 && (
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4 text-primary" />
-                                <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
-                                    What&apos;s Included ({inclusions.length} Items)
-                                </h4>
+                                <CheckCircle2 className="w-4 h-4 text-brand-deep" />
+                                <h3 className="text-sm font-semibold text-foreground">
+                                    What&apos;s included
+                                </h3>
                             </div>
-                            <span className="text-[11px] font-mono text-muted-foreground">
-                                Full-Spectrum Coverage
-                            </span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -196,7 +189,7 @@ export function ServiceDetailModal({
                                     key={idx}
                                     className="flex items-start gap-2.5 p-3 rounded-xl bg-card border border-border hover:border-primary/40 transition-colors shadow-xs"
                                 >
-                                    <div className="mt-0.5 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <div className="mt-0.5 w-4 h-4 rounded-full bg-primary/10 text-brand-deep flex items-center justify-center shrink-0">
                                         <CheckCircle2 className="w-3.5 h-3.5" />
                                     </div>
                                     <span className="text-xs text-foreground font-medium leading-snug">
@@ -206,14 +199,15 @@ export function ServiceDetailModal({
                             ))}
                         </div>
                     </div>
+                    )}
 
                     {/* Deliverables Breakdown */}
                     {deliverables.length > 0 && (
                         <div className="space-y-3">
                             <div className="flex items-center gap-2">
-                                <PackageCheck className="w-4 h-4 text-primary" />
-                                <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
-                                    Key Tangible Deliverables
+                                <PackageCheck className="w-4 h-4 text-brand-deep" />
+                                <h4 className="text-xs tabular-nums font-semibold text-foreground">
+                                    What you receive
                                 </h4>
                             </div>
 
@@ -221,9 +215,9 @@ export function ServiceDetailModal({
                                 {deliverables.map((item, idx) => (
                                     <div
                                         key={idx}
-                                        className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border text-xs text-foreground font-mono"
+                                        className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border text-xs text-foreground tabular-nums"
                                     >
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-brand-deep shrink-0" />
                                         <span className="truncate">{item}</span>
                                     </div>
                                 ))}
@@ -234,11 +228,11 @@ export function ServiceDetailModal({
                     {/* Quality Guarantees Bar */}
                     <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs">
                         <div className="flex items-center gap-2 text-foreground font-medium">
-                            <ShieldCheck className="w-4 h-4 text-primary" />
-                            <span>100% IP Ownership & NDA Protected</span>
+                            <ShieldCheck className="w-4 h-4 text-brand-deep" />
+                            <span>You own the code</span>
                         </div>
-                        <span className="text-muted-foreground text-[11px] font-mono">
-                            Zero vendor lock-in // Clean Handover
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                            No lock-in. You get the full handover.
                         </span>
                     </div>
 
@@ -247,7 +241,7 @@ export function ServiceDetailModal({
                         <Button
                             onClick={handleAvail}
                             size="lg"
-                            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-md gap-2"
+                            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-md gap-2"
                         >
                             <span>Avail This Service</span>
                             <ArrowRight className="w-4 h-4" />

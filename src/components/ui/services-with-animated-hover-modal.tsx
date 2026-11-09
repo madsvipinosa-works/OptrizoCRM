@@ -107,7 +107,7 @@ const MODAL_HEIGHT = 320;
 
 export function ServicesWithAnimatedHoverModal({
     services = [],
-    badgeText = "OPTRIZO // CAPABILITIES",
+    badgeText = "What we do",
     heading = "End-to-End Digital Solutions",
     subheading = "We engineer bespoke web platforms, enterprise software, and scalable digital infrastructure through modern architecture.",
     className,
@@ -219,7 +219,7 @@ export function ServicesWithAnimatedHoverModal({
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 md:mb-16">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-emerald-800 dark:text-primary text-xs font-mono tracking-widest uppercase mb-4 font-semibold">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-brand-deep dark:text-primary text-xs font-mono tracking-widest uppercase mb-4 font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                             {badgeText}
                         </div>
@@ -312,7 +312,7 @@ export function ServicesWithAnimatedHoverModal({
                                             <span
                                                 className={cn(
                                                     "font-mono text-xs transition-colors duration-300",
-                                                    isHovered ? "text-[#00D639] font-bold" : "text-muted-foreground/60"
+                                                    isHovered ? "text-brand-deep font-bold" : "text-muted-foreground"
                                                 )}
                                             >
                                                 {(index + 1).toString().padStart(2, "0")}
@@ -322,7 +322,7 @@ export function ServicesWithAnimatedHoverModal({
                                             className={cn(
                                                 "m-0 font-bold text-3xl lg:text-5xl tracking-tight uppercase transition-all duration-500",
                                                 isHovered
-                                                    ? "text-[#00D639] translate-x-4 drop-shadow-[0_0_24px_rgba(0,214,57,0.25)]"
+                                                    ? "text-brand-deep translate-x-4 drop-shadow-[0_0_24px_rgba(0,214,57,0.25)]"
                                                     : "text-foreground"
                                             )}
                                         >
@@ -335,7 +335,7 @@ export function ServicesWithAnimatedHoverModal({
                                             className={cn(
                                                 "font-mono text-xs uppercase tracking-widest transition-all duration-300 px-3 py-1 rounded-full border",
                                                 isHovered
-                                                    ? "text-primary border-primary/40 bg-primary/10 font-semibold translate-x-1"
+                                                    ? "text-brand-deep border-primary/40 bg-primary/10 font-semibold translate-x-1"
                                                     : "text-muted-foreground border-transparent bg-transparent"
                                             )}
                                         >
@@ -345,7 +345,7 @@ export function ServicesWithAnimatedHoverModal({
                                             className={cn(
                                                 "w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-300",
                                                 isHovered
-                                                    ? "border-[#00D639] bg-[#00D639] text-black shadow-[0_0_20px_rgba(0,214,57,0.4)] scale-110"
+                                                    ? "border-[#00D639] bg-primary text-black shadow-[0_0_20px_rgba(0,214,57,0.4)] scale-110"
                                                     : "border-border/60 text-muted-foreground"
                                             )}
                                         >
@@ -396,17 +396,17 @@ export function ServicesWithAnimatedHoverModal({
                                     className="w-full flex items-center justify-between text-left gap-4 group"
                                 >
                                     <div>
-                                        <span className="font-mono text-[10px] text-primary block mb-1">
+                                        <span className="font-mono text-[10px] text-brand-deep block mb-1">
                                             {(index + 1).toString().padStart(2, "0")}{" // "}{service.category || "Services"}
                                         </span>
-                                        <h3 className="text-xl font-bold uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">
+                                        <h3 className="text-xl font-bold uppercase tracking-tight text-foreground group-hover:text-brand-deep transition-colors">
                                             {service.title}
                                         </h3>
                                     </div>
                                     <ArrowUpRight
                                         className={cn(
                                             "w-5 h-5 text-muted-foreground transition-transform duration-300",
-                                            isExpanded && "rotate-90 text-primary"
+                                            isExpanded && "rotate-90 text-brand-deep"
                                         )}
                                     />
                                 </button>
@@ -438,7 +438,7 @@ export function ServicesWithAnimatedHoverModal({
                                                 <button
                                                     type="button"
                                                     onClick={() => setSelectedService(service)}
-                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors"
+                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-brand-deep border border-primary/20 text-xs font-mono font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors"
                                                 >
                                                     <span>View Inclusions & Details</span>
                                                     <ArrowUpRight className="w-3.5 h-3.5" />
@@ -524,7 +524,7 @@ export function ServicesWithAnimatedHoverModal({
                 variants={scaleAnimation}
                 initial="initial"
                 animate={modal.active && !selectedService ? "enter" : "closed"}
-                className="hidden md:flex fixed top-0 left-0 pointer-events-none z-50 items-center justify-center rounded-full bg-[#00D639] shadow-[0_0_35px_rgba(0,214,57,0.6)]"
+                className="hidden md:flex fixed top-0 left-0 pointer-events-none z-50 items-center justify-center rounded-full bg-primary shadow-[0_0_35px_rgba(0,214,57,0.6)]"
                 style={{
                     width: 80,
                     height: 80,

@@ -155,16 +155,22 @@ export function PinnedPanelsLayout({
               tl.to({}, { duration: initialMetrics.dwellDistance });
             }
 
+            // One continuous exit while the next panel slides over: it used to fade to 0.35, then snap to 0
+            // in the last 10%, which made the hero logo vanish. Scale and fade now share the whole distance;
+            // the fade eases in, so the panel stays readable early and dissolves smoothly as it is covered.
+            const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            const exitStart = tl.duration();
             tl.fromTo(
               panel,
-              { scale: 1, opacity: 1 },
-              {
-                scale: 0.88,
-                opacity: 0.35,
-                duration: transitionDistance * 0.9,
-                ease: "power1.inOut",
-              }
-            ).to(panel, { opacity: 0, duration: transitionDistance * 0.1 });
+              { scale: 1 },
+              { scale: reduceMotion ? 1 : 0.88, duration: transitionDistance, ease: "power1.inOut" },
+              exitStart
+            ).fromTo(
+              panel,
+              { opacity: 1 },
+              { opacity: 0, duration: transitionDistance, ease: "power2.in" },
+              exitStart
+            );
           });
 
           ScrollTrigger.refresh();

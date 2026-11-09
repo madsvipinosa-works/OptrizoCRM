@@ -205,12 +205,11 @@ const OptrizoLogo3D: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) => {
     const p = currentScroll.current;
 
     if (scrollGroupRef.current) {
-      scrollGroupRef.current.position.y = baseY - p * 28;
+      scrollGroupRef.current.position.y = baseY - p * 18;
       scrollGroupRef.current.position.z = -p * 14;
 
-      const fadeStart = 0.12;
-      const fadeEnd = 0.65;
-      const fadeRatio = THREE.MathUtils.clamp((p - fadeStart) / (fadeEnd - fadeStart), 0, 1);
+      // Fade across the whole hero scroll with an S-curve, so it hands off into the panel exit (no early cut).
+      const fadeRatio = THREE.MathUtils.smoothstep(p, 0.15, 1.0);
       const currentOpacity = 1.0 - fadeRatio;
 
       materialsRef.current.forEach((mat) => {
@@ -367,12 +366,12 @@ const OptrizoLogoModel: React.FC<OptrizoLogo3DProps> = ({ isDark, scrollRef }) =
     }
 
     if (scrollGroupRef.current) {
-      scrollGroupRef.current.position.y = baseY - p * 32;
-      scrollGroupRef.current.position.z = -p * 20;
+      scrollGroupRef.current.position.y = baseY - p * 18;
+      scrollGroupRef.current.position.z = -p * 14;
 
-      const fadeStart = 0.10;
-      const fadeEnd = 0.65;
-      const fadeRatio = THREE.MathUtils.clamp((p - fadeStart) / (fadeEnd - fadeStart), 0, 1);
+      // Fade across the whole hero scroll with an S-curve, so it hands off into the panel exit (no early cut).
+      // Slower drift (18 instead of 32) keeps it on screen while it fades instead of shooting out of view.
+      const fadeRatio = THREE.MathUtils.smoothstep(p, 0.15, 1.0);
       const currentOpacity = 1.0 - fadeRatio;
 
       materialsRef.current.forEach((mat) => {
