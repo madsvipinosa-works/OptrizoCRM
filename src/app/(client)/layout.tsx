@@ -22,7 +22,7 @@ export default async function ClientLayout({
             {session?.user && (
                 <ClientNavbar name={profile?.name || session.user.name || session.user.email || "Client"} company={profile?.companyName} email={session.user.email} logoUrl={settings?.logoUrl} logoDarkUrl={settings?.logoDarkUrl} />
             )}
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-12 pt-6 md:px-6 md:pt-8 print:m-0 print:p-0">{children}</main>
+            <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-28 pt-6 md:px-6 md:pb-12 md:pt-8 print:m-0 print:p-0">{children}</main>
         </div>
     );
 }

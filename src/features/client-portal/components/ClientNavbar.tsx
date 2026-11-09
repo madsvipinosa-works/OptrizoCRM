@@ -4,7 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, ChevronDown, LogOut, Settings } from "lucide-react";
+import { ArrowUpRight, CalendarDays, ChevronDown, FileText, Files, FolderKanban, House, LogOut, Settings } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,11 +21,11 @@ import { LogoutConfirmDialog } from "@/components/auth/LogoutConfirmDialog";
 const subscribeNoop = () => () => {};
 
 const LINKS = [
-    { href: "/portal", label: "Home", exact: true },
-    { href: "/portal/proposals", label: "Proposals" },
-    { href: "/portal/projects", label: "Projects" },
-    { href: "/portal/appointments", label: "Appointments" },
-    { href: "/portal/documents", label: "Documents" },
+    { href: "/portal", label: "Home", icon: House, exact: true },
+    { href: "/portal/proposals", label: "Proposals", icon: FileText },
+    { href: "/portal/projects", label: "Projects", icon: FolderKanban },
+    { href: "/portal/appointments", label: "Appointments", short: "Meetings", icon: CalendarDays },
+    { href: "/portal/documents", label: "Documents", icon: Files },
 ];
 
 /**
@@ -137,22 +137,23 @@ export function ClientNavbar({
                 </div>
             </div>
 
-            {/* Phones: the sections scroll sideways under the bar. */}
-            <nav aria-label="Client portal" className="flex gap-1 overflow-x-auto border-t border-border px-2 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+            {/* Phones: a bottom tab bar, every section visible and in thumb reach (the sideways strip hid Documents). */}
+            <nav aria-label="Client portal" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
                 {LINKS.map((l) => {
                     const active = isActive(l.href, l.exact);
+                    const Icon = l.icon;
                     return (
                         <Link
                             key={l.href}
                             href={l.href}
                             aria-current={active ? "page" : undefined}
                             className={cn(
-                                "relative flex h-11 shrink-0 items-center px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                                "flex h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring active:bg-muted",
                                 active ? "font-semibold text-brand-deep" : "font-medium text-muted-foreground"
                             )}
                         >
-                            {l.label}
-                            {active && <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-brand-deep" />}
+                            <Icon className="size-5" strokeWidth={active ? 2 : 1.75} aria-hidden="true" />
+                            <span className="max-w-full truncate">{"short" in l ? l.short : l.label}</span>
                         </Link>
                     );
                 })}
