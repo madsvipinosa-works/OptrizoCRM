@@ -47,7 +47,7 @@ export default async function ClientProposalsPage() {
             <div>
                 <div className="flex items-center gap-2">
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                        Project Proposals
+                        Proposals
                     </h1>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">

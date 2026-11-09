@@ -26,7 +26,7 @@ export default async function ClientProjectsPage() {
             <div>
                 <div className="flex items-center gap-2">
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                        Your Projects
+                        Projects
                     </h1>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">

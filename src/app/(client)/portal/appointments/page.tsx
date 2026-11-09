@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { formatWithZone, nowHm, todayYmd, tzLabel, zonedToDate } from "@/lib/datetime";
+import { meetingFormatLabel } from "@/lib/email-templates";
 import { useDeviceTimezone } from "@/hooks/use-device-timezone";
 import {
     Check,
@@ -22,6 +23,21 @@ import {
     respondToMeeting,
     type MeetingItem,
 } from "@/features/meetings/actions";
+
+/** Sentence-case meeting names ("budget_pricing" read "Budget pricing" with CSS capitalize). */
+function meetingTitle(type: string) {
+    if (type === "discovery") return "Discovery meeting";
+    if (type === "budget_pricing") return "Budget and pricing meeting";
+    if (type === "project_review") return "Project review meeting";
+    if (type === "uat") return "UAT meeting";
+    const t = type.replace(/_/g, " ");
+    return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** What the meeting is about: the project once there is one, otherwise the service the client asked for. */
+function meetingSubject(m: { project?: { title: string } | null; lead?: { service?: { title: string } | null; businessName: string | null } | null }) {
+    return m.project?.title ?? m.lead?.service?.title ?? m.lead?.businessName ?? null;
+}
 
 export default function ClientAppointmentsPage() {
     const tz = useDeviceTimezone();
@@ -161,14 +177,14 @@ export default function ClientAppointmentsPage() {
 
     if (isLoading) {
         return (
-            <div className="space-y-6 max-w-5xl mx-auto w-full p-4 md:p-8 text-center text-xs text-muted-foreground">
+            <div className="max-w-5xl py-12 text-center text-sm text-muted-foreground">
                 Loading appointments...
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto w-full p-4 md:p-8">
+        <div className="space-y-6 max-w-5xl">
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">Appointments</h1>
@@ -187,27 +203,11 @@ export default function ClientAppointmentsPage() {
 
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-border pt-3">
                         <div className="space-y-1 text-sm">
-                            <div className="font-semibold text-foreground">
-                                {pendingInvite.type === "discovery"
-                                    ? "Discovery meeting"
-                                    : pendingInvite.type === "budget_pricing"
-                                    ? "Budget & Pricing meeting"
-                                    : `${pendingInvite.type.replace("_", " ")} meeting`}
-                            </div>
-                            <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
-                                <span>
-                                    {formatWithZone(pendingInvite.startsAt, tz)}
-                                </span>
-                                <span>•</span>
-                                <span className="capitalize">
-                                    {pendingInvite.format === "video" ? "Video call" : pendingInvite.format}
-                                </span>
-                                <span>•</span>
-                                <span>
-                                    {pendingInvite.type === "budget_pricing"
-                                        ? "with your Project Manager"
-                                        : "with your Sales Consultant"}
-                                </span>
+                            <div className="font-semibold text-foreground">{meetingTitle(pendingInvite.type)}</div>
+                            {meetingSubject(pendingInvite) && <div className="text-foreground">{meetingSubject(pendingInvite)}</div>}
+                            <div className="text-muted-foreground">
+                                {formatWithZone(pendingInvite.startsAt, tz)} · {meetingFormatLabel(pendingInvite.format)} ·{" "}
+                                {pendingInvite.type === "discovery" ? "with your sales consultant" : "with your project manager"}
                             </div>
                         </div>
 
@@ -265,23 +265,21 @@ export default function ClientAppointmentsPage() {
                 <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
                     <h2 className="text-base font-semibold text-foreground">Upcoming</h2>
                     {upcomingList.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-6 text-center">No upcoming meetings.</p>
+                        <p className="text-sm text-muted-foreground py-6 text-center">No upcoming meetings.</p>
                     ) : (
                         <div className="divide-y divide-border">
                             {upcomingList.map((m) => (
-                                <div key={m.id} className="py-3 flex items-center justify-between gap-3 text-sm">
-                                    <div className="space-y-0.5">
-                                        <div className="font-semibold text-xs text-foreground capitalize">
-                                            {m.type === "discovery" ? "Discovery meeting" : m.type.replace("_", " ")}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {formatWithZone(m.startsAt, tz)}{" "}
-                                            · {m.format === "video" ? "Video call" : m.format}
+                                <div key={m.id} className="py-3 flex items-start justify-between gap-3 text-sm">
+                                    <div className="min-w-0 space-y-0.5">
+                                        <div className="font-medium text-foreground">{meetingTitle(m.type)}</div>
+                                        {meetingSubject(m) && <div className="text-foreground">{meetingSubject(m)}</div>}
+                                        <div className="text-muted-foreground">
+                                            {formatWithZone(m.startsAt, tz)} · {meetingFormatLabel(m.format)}
                                         </div>
                                     </div>
                                     <Badge
                                         variant="outline"
-                                        className={`text-xs font-semibold ${
+                                        className={`shrink-0 text-xs font-semibold ${
  m.status === "confirmed"
                                                 ? "bg-brand-soft text-brand-deep border-brand-deep/30"
                                                 : "bg-stage-discovery/10 text-stage-discovery border-stage-discovery/30"
@@ -299,23 +297,21 @@ export default function ClientAppointmentsPage() {
                 <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
                     <h2 className="text-base font-semibold text-foreground">Past</h2>
                     {pastList.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-6 text-center">No past meetings.</p>
+                        <p className="text-sm text-muted-foreground py-6 text-center">No past meetings.</p>
                     ) : (
                         <div className="divide-y divide-border">
                             {pastList.map((m) => (
-                                <div key={m.id} className="py-3 flex items-center justify-between gap-3 text-sm">
-                                    <div className="space-y-0.5">
-                                        <div className="font-semibold text-xs text-foreground capitalize">
-                                            {m.type === "discovery" ? "Discovery meeting" : m.type.replace("_", " ")}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {formatWithZone(m.startsAt, tz)}{" "}
-                                            · {m.format === "video" ? "Video call" : m.format}
+                                <div key={m.id} className="py-3 flex items-start justify-between gap-3 text-sm">
+                                    <div className="min-w-0 space-y-0.5">
+                                        <div className="font-medium text-foreground">{meetingTitle(m.type)}</div>
+                                        {meetingSubject(m) && <div className="text-foreground">{meetingSubject(m)}</div>}
+                                        <div className="text-muted-foreground">
+                                            {formatWithZone(m.startsAt, tz)} · {meetingFormatLabel(m.format)}
                                         </div>
                                     </div>
                                     <Badge
                                         variant="outline"
-                                        className={`text-xs font-semibold ${
+                                        className={`shrink-0 text-xs font-semibold ${
  m.status === "done"
                                                 ? "bg-muted text-muted-foreground border-border"
                                                 : "bg-destructive/10 text-destructive border-destructive/30"

@@ -43,7 +43,9 @@ export interface MeetingItem {
         contactEmail: string | null;
         contactPhone: string | null;
         status: string;
+        service?: { title: string } | null;
     } | null;
+    project?: { title: string } | null;
     creator?: {
         id: string;
         name: string | null;
@@ -817,7 +819,10 @@ export async function getClientAppointments(): Promise<MeetingItem[]> {
                     contactPhone: true,
                     status: true,
                 },
+                // The client needs to see what each meeting is about (service asked for, or the project).
+                with: { service: { columns: { title: true } } },
             },
+            project: { columns: { title: true } },
         },
     });
 
