@@ -42,6 +42,13 @@ export function ScheduleDiscoveryMeetingModal({
     const [agenda, setAgenda] = useState("Learn their goals, the features they need and their timeline.");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Re-enable the button each time the dialog opens (it stays disabled after a successful send).
+    const [wasOpen, setWasOpen] = useState(isOpen);
+    if (isOpen !== wasOpen) {
+        setWasOpen(isOpen);
+        if (isOpen) setIsSubmitting(false);
+    }
+
     useEffect(() => {
         if (initialLeadId) {
             setSelectedLeadId(initialLeadId);
@@ -111,15 +118,14 @@ export function ScheduleDiscoveryMeetingModal({
                 toast.success("Discovery meeting scheduled! Invite sent to client.");
                 onSuccess?.();
                 onClose();
-            } else {
-                toast.error(res.message || "Failed to schedule meeting");
+                return; // stay disabled until the dialog is gone, so one click sends one invite
             }
+            toast.error(res.message || "Failed to schedule meeting");
         } catch (err) {
             console.error(err);
             toast.error("Error scheduling discovery meeting");
-        } finally {
-            setIsSubmitting(false);
         }
+        setIsSubmitting(false);
     };
 
     return (

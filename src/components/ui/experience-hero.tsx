@@ -82,7 +82,7 @@ export const TypewriterHeadline: React.FC<TypewriterProps> = ({
         {displayedText}
       </span>
       <span
-        className="inline-block w-[3px] sm:w-[4px] md:w-[6px] h-[0.78em] ml-1.5 bg-[#00D639] animate-pulse align-[-0.04em] shadow-[0_0_12px_#00D639] rounded-[1px]"
+        className="inline-block w-[3px] sm:w-[4px] md:w-[6px] h-[0.78em] ml-1.5 bg-primary animate-pulse align-[-0.04em] shadow-[0_0_12px_#00D639] rounded-[1px]"
         aria-hidden="true"
         suppressHydrationWarning
       />
@@ -165,7 +165,7 @@ function HeroCyberFallback({ isDark }: { isDark: boolean }) {
       {/* Ambient Core Radial Glow */}
       <div
         className={`absolute w-[500px] h-[500px] md:w-[700px] md:h-[700px] rounded-full blur-[140px] transition-colors duration-700 ${
-          isDark ? "bg-[#00D639]/15" : "bg-[#00D639]/10"
+          isDark ? "bg-primary/15" : "bg-primary/10"
         }`}
       />
       {/* Cybernetic Geometric Monogram Silhouette */}
@@ -563,8 +563,8 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
     <section
       ref={containerRef}
       className={`relative min-h-screen w-full transition-colors duration-500 flex flex-col overflow-hidden will-change-auto bg-background ${isDark
-          ? "text-white selection:bg-[#00D639] selection:text-black"
-          : "text-neutral-900 selection:bg-[#00D639] selection:text-black"
+          ? "text-white selection:bg-primary selection:text-black"
+          : "text-neutral-900 selection:bg-primary selection:text-black"
         }`}
     >
       {/* Optimized 3D WebGL Canvas Layer with Capability Guard & Error Boundary */}
@@ -603,7 +603,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                   viewBox="0 0 24 26"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
-                  className="text-[#00D639]"
+                  className="text-brand-deep"
                 >
                   <path
                     d="M12 1L22 6.77V19.23L12 25L2 19.23V6.77L12 1Z"
@@ -621,8 +621,8 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
               </div>
 
               {/* Pulsing Electric Green Beacon */}
-              <div className="relative w-2 h-2 rounded-full bg-[#00D639]">
-                <div className="absolute inset-0 rounded-full animate-ping opacity-60 bg-[#00D639]" />
+              <div className="relative w-2 h-2 rounded-full bg-primary">
+                <div className="absolute inset-0 rounded-full animate-ping opacity-60 bg-primary" />
               </div>
 
               <span
@@ -645,7 +645,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
             >
               {isDark ? (
                 <>
-                  <Moon className="w-3.5 h-3.5 text-[#00D639]" />
+                  <Moon className="w-3.5 h-3.5 text-brand-deep" />
                   <span>NOIR // 01</span>
                 </>
               ) : (
@@ -658,14 +658,15 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
           </div>
 
           {/* Headline with Live Typewriter Effect */}
-          <div ref={headlineRef} className="max-w-4xl lg:-translate-y-6 pr-4 md:pr-12 mt-10 md:mt-0 will-change-transform">
+          <div ref={headlineRef} className="max-w-4xl pr-4 md:pr-12 mt-10 md:mt-6 will-change-transform">
             <h1
               className={`text-[clamp(2.4rem,6.8vw,8.5rem)] font-black leading-[0.88] tracking-tighter uppercase ${isDark ? "text-white" : "text-neutral-950"
                 }`}
             >
               {titleLine1} <br />
               {/* Typewriter Effect with Electric Green Cursor & Zero Layout Shift */}
-              <div className="min-h-[1.15em] block">
+              {/* Two lines reserved: long phrases wrap, and nothing below jumps while typing. */}
+              <div className="h-[1.76em] block">
                 <TypewriterHeadline words={typewriterWords} />
               </div>
             </h1>
@@ -677,7 +678,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                   }`}
               >
                 {taglineBold}
-                <span className="text-[#00D639] font-black">{" //"}</span>
+                <span className="text-brand-deep font-black">{" //"}</span>
               </p>
               <p
                 className={`font-mono text-[11px] uppercase tracking-[0.28em] leading-relaxed ${isDark ? "text-white/70" : "text-neutral-900 font-medium"
@@ -693,12 +694,12 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
             <Link
               ref={ctaRef}
               href={ctaHref}
-              className="w-fit flex items-center gap-6 group lg:-translate-y-12 mt-8 md:mt-0"
+              className="w-fit flex items-center gap-6 group mt-8"
             >
               <div
                 className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 overflow-hidden ${isDark
-                    ? "border-white/20 group-hover:border-[#00D639] group-hover:bg-[#00D639] shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.4)] bg-background/40 backdrop-blur-sm"
-                    : "border-neutral-900/20 group-hover:border-[#00D639] group-hover:bg-[#00D639] shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.3)] bg-background/60 backdrop-blur-sm"
+                    ? "border-white/20 group-hover:border-[#00D639] group-hover:bg-primary shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.4)] bg-background/40 backdrop-blur-sm"
+                    : "border-neutral-900/20 group-hover:border-[#00D639] group-hover:bg-primary shadow-sm group-hover:shadow-[0_0_25px_rgba(0,214,57,0.3)] bg-background/60 backdrop-blur-sm"
                   }`}
               >
                 <svg
@@ -751,13 +752,13 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                 <div className="flex justify-between items-end mt-2">
                   <p className="text-2xl sm:text-3xl font-bold tracking-tighter flex items-center gap-2">
                     {item.val}
-                    <span className="inline-block w-2 h-2 rounded-full bg-[#00D639] animate-pulse" />
+                    <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
                   </p>
                   <div
                     className={`h-[2px] w-20 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-neutral-900/10"
                       }`}
                   >
-                    <div className="h-full w-[65%] animate-loading bg-[#00D639]" />
+                    <div className="h-full w-[65%] animate-loading bg-primary" />
                   </div>
                 </div>
               ) : item.type === "data" ? (
@@ -767,7 +768,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                       }`}
                   >
                     <span>{item.subtext1 || "Client NPS"}</span>
-                    <span className="text-[#00D639] font-bold">2024-26</span>
+                    <span className="text-brand-deep font-bold">2024-26</span>
                   </div>
                   <div
                     className={`h-[1px] w-full ${isDark ? "bg-white/10" : "bg-neutral-900/10"
@@ -778,7 +779,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                       }`}
                   >
                     <span>{item.subtext2 || "System Uptime"}</span>
-                    <span className="text-[#00D639] font-bold">99.9%</span>
+                    <span className="text-brand-deep font-bold">99.9%</span>
                   </div>
                 </div>
               ) : (
@@ -789,7 +790,7 @@ export const ExperienceHero: React.FC<ExperienceHeroProps> = ({
                   {item.text || (
                     <>
                       Transforming complex business logic into{" "}
-                      <span className="italic font-semibold text-[#00D639]">
+                      <span className="italic font-semibold text-brand-deep">
                         high-velocity digital assets
                       </span>
                       .
