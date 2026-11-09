@@ -110,9 +110,10 @@ export function LeadsKanbanBoard({ leads, isAdmin, onSelectLead, onEditLead, onA
         <div
             ref={ref}
             style={height ? { height } : undefined}
-            className="board-scroll -mx-1 overflow-x-auto overflow-y-hidden px-1 pb-4"
+            className="board-scroll -mx-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-px-1 px-1 pb-4 sm:snap-none"
         >
-            <div className="grid h-full min-w-[1060px] grid-cols-5 gap-3">
+            {/* Phones: each column ~3/4 of the screen so cards stay readable; swipe snaps to a column. */}
+            <div className="grid h-full min-w-[1350px] grid-cols-5 gap-3 sm:min-w-[1060px]">
                 {COLUMNS.map((column) => (
                     <BoardColumn
                         key={column.status}
@@ -149,7 +150,7 @@ function BoardColumn({
     return (
         <section
             aria-labelledby={headingId}
-            className="flex h-full min-h-0 min-w-0 flex-col rounded-xl bg-muted/50 p-2 ring-1 ring-inset ring-border/50 dark:bg-muted/30"
+            className="flex h-full min-h-0 min-w-0 snap-start flex-col rounded-xl bg-muted/50 p-2 ring-1 ring-inset ring-border/50 dark:bg-muted/30"
         >
             <header className="px-2 pb-3 pt-1.5">
                 <div className="flex items-center gap-2">

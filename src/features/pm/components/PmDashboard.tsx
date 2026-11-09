@@ -104,7 +104,7 @@ export async function PmDashboard({ userId }: { userId: string }) {
                 <Stat label="Tasks to review" value={toReview.length} tone="text-stage-negotiation" />
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <section aria-labelledby="pm-action" className="rounded-xl border border-border bg-card p-5">
                     <h2 id="pm-action" className="text-lg font-semibold tracking-tight text-foreground">Needs your action</h2>
                     {actions.length ? (

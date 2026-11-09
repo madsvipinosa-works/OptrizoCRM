@@ -24,7 +24,7 @@ function Row({ label, value }: { label: string; value: string | number }) {
 export function FeedbackSent({ feedback }: { feedback: SentFeedback }) {
     const low = lowestArea(feedback);
     return (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <section className="rounded-xl border border-border bg-card p-5" aria-labelledby="answers">
                 <h2 id="answers" className="mb-2 text-lg font-semibold text-foreground">Your answers</h2>
                 <dl>

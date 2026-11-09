@@ -67,6 +67,7 @@ export function PinnedPanelsLayout({
         let timer: NodeJS.Timeout | null = null;
         let refreshListener: (() => void) | null = null;
         let panels: HTMLElement[] = [];
+        let timelines: gsap.core.Timeline[] = [];
 
         const initPanels = () => {
           if (!containerRef.current) return;
@@ -140,6 +141,8 @@ export function PinnedPanelsLayout({
               },
             });
 
+            timelines.push(tl);
+
             if (initialMetrics.difference > 0) {
               tl.to(inner, {
                 y: () => {
@@ -155,43 +158,64 @@ export function PinnedPanelsLayout({
               tl.to({}, { duration: initialMetrics.dwellDistance });
             }
 
-            // One continuous exit while the next panel slides over: it used to fade to 0.35, then snap to 0
-            // in the last 10%, which made the hero logo vanish. Scale and fade now share the whole distance;
-            // the fade eases in, so the panel stays readable early and dissolves smoothly as it is covered.
+            // One continuous exit while the next panel slides over (it used to fade to 0.35, then snap to 0).
+            // Keep it ONE tween: two overlapping fromTo tweens on the panel broke the order after a window resize.
             const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-            const exitStart = tl.duration();
             tl.fromTo(
               panel,
-              { scale: 1 },
-              { scale: reduceMotion ? 1 : 0.88, duration: transitionDistance, ease: "power1.inOut" },
-              exitStart
-            ).fromTo(
-              panel,
-              { opacity: 1 },
-              { opacity: 0, duration: transitionDistance, ease: "power2.in" },
-              exitStart
+              { scale: 1, opacity: 1 },
+              { scale: reduceMotion ? 1 : 0.88, opacity: 0, duration: transitionDistance, ease: "power1.inOut" }
             );
           });
 
           ScrollTrigger.refresh();
         };
 
-        // Defer until after initial paint so TBT remains near zero
-        timer = setTimeout(initPanels, 100);
-
-        return () => {
-          if (timer) clearTimeout(timer);
+        const teardown = () => {
           if (refreshListener) {
             ScrollTrigger.removeEventListener("refreshInit", refreshListener);
+            refreshListener = null;
           }
+          timelines.forEach((tl) => {
+            tl.scrollTrigger?.kill(true);
+            tl.kill();
+          });
+          timelines = [];
           panels.forEach((panel) => {
             panel.style.marginBottom = "";
             const inner = panel.querySelector(".pinned-panel-inner") as HTMLElement | null;
             if (inner) {
-              gsap.set(inner, { clearProps: "all" });
+              gsap.set(inner, { clearProps: "transform" });
             }
-            gsap.set(panel, { clearProps: "all" });
+            gsap.set(panel, { clearProps: "transform,opacity" });
           });
+        };
+
+        // Timeline lengths are measured at the current window size, so rebuild them once a resize settles;
+        // refreshing alone left the panels fading out of order after the window was resized.
+        const rebuild = () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            teardown();
+            initPanels();
+          }, 250);
+        };
+        let lastSize = `${window.innerWidth}x${window.innerHeight}`;
+        const onResize = () => {
+          const size = `${window.innerWidth}x${window.innerHeight}`;
+          if (size === lastSize) return;
+          lastSize = size;
+          rebuild();
+        };
+
+        // Defer until after initial paint so TBT remains near zero
+        timer = setTimeout(initPanels, 100);
+        window.addEventListener("resize", onResize);
+
+        return () => {
+          if (timer) clearTimeout(timer);
+          window.removeEventListener("resize", onResize);
+          teardown();
         };
       });
 

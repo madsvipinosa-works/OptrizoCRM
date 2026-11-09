@@ -103,7 +103,7 @@ export async function BusinessAnalytics({ months }: { months: BusinessPeriod }) 
                 />
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <Panel title="New leads per month" aside="* month to date">
                     <ColumnChart label="New leads per month" items={d.buckets.map((b) => ({ label: b.label, value: b.leads, display: String(b.leads), partial: b.partial }))} />
                 </Panel>
@@ -190,7 +190,7 @@ export async function SystemAnalytics({ days }: { days: SystemPeriod }) {
                 <Stat label="Accounts locked now" value={d.security.accountsLockedNow} note="Unlock on their own" />
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <Panel title="Weekly active users" aside="people who signed in">
                     <ColumnChart label="Weekly active users" items={d.weekly.map((w) => ({ label: w.label, value: w.value, display: String(w.value) }))} />
                 </Panel>
