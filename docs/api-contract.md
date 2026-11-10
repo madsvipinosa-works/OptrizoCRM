@@ -696,7 +696,7 @@ Input:  `{ id?: string, title: string, slug?: string, description: string, scope
 Output: `{ ok: true, id: string, status: 'draft' | 'published' | 'hidden' } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
 Errors:
 - `FORBIDDEN`: caller is not `content_editor`.
-- `VALIDATION_ERROR`: `title` empty or >80 chars; `description` empty or >60 chars; `scopeOverview` >600 chars; `deliverables` has 0 or >10 non-empty items or an item >120 chars; `timelineEstimate` >60 chars; `targetAudience` >200 chars; `slug` does not match `^[a-z0-9]+(?:-[a-z0-9]+)*$` or >80 chars; `image` is non-empty and fails upload URL validation.
+- `VALIDATION_ERROR`: `title` empty or >80 chars; `description` empty or >160 chars; `scopeOverview` >600 chars; `deliverables` has 0 or >10 non-empty items or an item >120 chars; `timelineEstimate` >60 chars; `targetAudience` >200 chars; `slug` does not match `^[a-z0-9]+(?:-[a-z0-9]+)*$` or >80 chars; `image` is non-empty and fails upload URL validation.
 - `NOT_FOUND`: `id` was supplied and no `service` row exists with that `id`.
 - `SLUG_TAKEN`: another service already uses the normalized `slug`.
 Side effects: if `id` is omitted, inserts a new `service` row with `status = 'draft'`, `isPreset = false`, auto-generated unique slug if blank, and `updatedAt = now()`; if `id` is provided, updates the existing row in place (preserving its current `status` when already `published` or `hidden`, or keeping `draft`) and sets `updatedAt = now()`; writes `audit_log` row (`create_service_draft` or `update_service`) with `entityType: 'service'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/services`, `/services`, `/`, and `/contact`.

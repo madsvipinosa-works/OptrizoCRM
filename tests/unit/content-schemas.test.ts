@@ -30,10 +30,10 @@ describe("Content schemas validation and boundary tests", () => {
             }
         });
 
-        it("accepts description of 60 characters and rejects 61 characters", () => {
+        it("accepts description of 160 characters and rejects 161 characters", () => {
             const schema = serviceInputSchema();
-            expect(schema.safeParse({ ...base, description: "b".repeat(60) }).success).toBe(true);
-            const res = schema.safeParse({ ...base, description: "b".repeat(61) });
+            expect(schema.safeParse({ ...base, description: "b".repeat(160) }).success).toBe(true);
+            const res = schema.safeParse({ ...base, description: "b".repeat(161) });
             expect(res.success).toBe(false);
             if (!res.success) {
                 expect(res.error.issues[0].message).toContain("60");
