@@ -127,7 +127,7 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
                                 <Label htmlFor="service-description">Short description</Label>
                                 <Counter value={description} max={LIMITS.service.description} />
                             </div>
-                            <Input id="service-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                            <Textarea id="service-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
                             {err("description")}
                         </div>
                     </FormSection>

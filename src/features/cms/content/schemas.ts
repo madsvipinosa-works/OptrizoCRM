@@ -13,7 +13,7 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 export const LIMITS = {
-    service: { title: 40, description: 60, inclusionItems: 12, inclusionLength: 80 },
+    service: { title: 40, description: 160, inclusionItems: 12, inclusionLength: 80 },
     portfolio: {
         title: 80,
         summary: 200,
