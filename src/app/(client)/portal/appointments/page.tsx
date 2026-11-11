@@ -1,5 +1,6 @@
 "use client";
 
+import { MeetingLocation } from "@/features/meetings/components/MeetingLocation";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -200,8 +201,14 @@ export default function ClientAppointmentsPage() {
                                 </span>
                                 <span>•</span>
                                 <span className="capitalize">
-                                    {pendingInvite.format === "video" ? "Video call" : pendingInvite.format}
+                                    {pendingInvite.format === "video" ? "Video call" : pendingInvite.format.replace("_", " ")}
                                 </span>
+                                {pendingInvite.location && (
+                                    <>
+                                        <span>•</span>
+                                        <MeetingLocation format={pendingInvite.format} location={pendingInvite.location} />
+                                    </>
+                                )}
                                 <span>•</span>
                                 <span>
                                     {pendingInvite.type === "budget_pricing"
@@ -276,8 +283,13 @@ export default function ClientAppointmentsPage() {
                                         </div>
                                         <div className="text-xs text-muted-foreground">
                                             {formatWithZone(m.startsAt, tz)}{" "}
-                                            · {m.format === "video" ? "Video call" : m.format}
+                                            · {m.format === "video" ? "Video call" : m.format.replace("_", " ")}
                                         </div>
+                                        {m.location && (
+                                            <div className="text-xs text-muted-foreground">
+                                                <MeetingLocation format={m.format} location={m.location} />
+                                            </div>
+                                        )}
                                     </div>
                                     <Badge
                                         variant="outline"
@@ -310,8 +322,13 @@ export default function ClientAppointmentsPage() {
                                         </div>
                                         <div className="text-xs text-muted-foreground">
                                             {formatWithZone(m.startsAt, tz)}{" "}
-                                            · {m.format === "video" ? "Video call" : m.format}
+                                            · {m.format === "video" ? "Video call" : m.format.replace("_", " ")}
                                         </div>
+                                        {m.location && (
+                                            <div className="text-xs text-muted-foreground">
+                                                <MeetingLocation format={m.format} location={m.location} />
+                                            </div>
+                                        )}
                                     </div>
                                     <Badge
                                         variant="outline"

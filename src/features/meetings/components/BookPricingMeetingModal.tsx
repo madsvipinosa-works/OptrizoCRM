@@ -13,6 +13,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { isPastManila, manilaToDate, nowHm, todayYmd } from "@/lib/datetime";
 import { Users, FileText, Loader2, Video, Phone, MapPin } from "lucide-react";
+import { MeetingLocationField } from "@/features/meetings/components/MeetingLocationField";
 import { useRouter } from "next/navigation";
 
 interface BookPricingMeetingModalProps {
@@ -36,6 +37,7 @@ export function BookPricingMeetingModal({
 }: BookPricingMeetingModalProps) {
     const router = useRouter();
     const [format, setFormat] = useState<"video" | "phone" | "in_person" | "on_site">("video");
+    const [location, setLocation] = useState("");
     const [date, setDate] = useState(() => todayYmd(new Date(Date.now() + 24 * 60 * 60 * 1000)));
     const [time, setTime] = useState("10:00");
     const [agenda, setAgenda] = useState("Review proposed scope, deliverables, timeline, and discuss budget and pricing options.");
@@ -63,6 +65,7 @@ export function BookPricingMeetingModal({
             const res = await scheduleBudgetPricingMeeting({
                 proposalId,
                 format,
+                location,
                 startsAt,
                 agenda,
             });
@@ -119,6 +122,8 @@ export function BookPricingMeetingModal({
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        <MeetingLocationField format={format} value={location} onChange={setLocation} />
 
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">

@@ -1,5 +1,6 @@
 "use client";
 
+import { MeetingLocationField } from "@/features/meetings/components/MeetingLocationField";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function ScheduleDiscoveryMeetingModal({
     const [selectedLeadId, setSelectedLeadId] = useState(initialLeadId || "");
     const [availableLeads, setAvailableLeads] = useState<Array<{ id: string; businessName: string | null; contactName: string | null }>>([]);
     const [format, setFormat] = useState<"video" | "phone" | "in_person" | "on_site">("video");
+    const [location, setLocation] = useState("");
     const [date, setDate] = useState(() => todayYmd(new Date(Date.now() + 24 * 60 * 60 * 1000)));
     const [time, setTime] = useState("10:00");
     // Optional PM attendee. "none" means no PM. Defaults to the lead's assigned PM when it has one.
@@ -102,6 +104,7 @@ export function ScheduleDiscoveryMeetingModal({
             const res = await scheduleDiscoveryMeeting({
                 leadId: targetLeadId,
                 format,
+                location,
                 startsAt,
                 pmId: pmId === "none" ? null : pmId,
                 agenda,
@@ -196,6 +199,8 @@ export function ScheduleDiscoveryMeetingModal({
                             </Select>
                         </div>
                     </div>
+
+                    <MeetingLocationField format={format} value={location} onChange={setLocation} />
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">

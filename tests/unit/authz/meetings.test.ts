@@ -272,7 +272,7 @@ describe("scheduleBudgetPricingMeeting: a Project Manager is required", () => {
 });
 
 describe("scheduleDiscoveryMeeting: the client gets an in-app notification", () => {
-    const input = { leadId: "lead-1", format: "video" as const, startsAt: FUTURE };
+    const input = { leadId: "lead-1", format: "video" as const, location: "https://meet.google.com/abc-defg-hij", startsAt: FUTURE };
 
     beforeEach(() => {
         signInAs(auth, "sales", "sales-1");
@@ -333,6 +333,8 @@ describe("scheduleDiscoveryMeeting: the client gets an in-app notification", () 
 
         mockDb.query.leads.findFirst.mockResolvedValue(leadRow());
         expect((await scheduleDiscoveryMeeting({ ...input, startsAt: new Date("2000-01-01") })).success).toBe(false);
+        expect((await scheduleDiscoveryMeeting({ ...input, location: "" })).success).toBe(false);
+        expect((await scheduleDiscoveryMeeting({ ...input, location: "not a link" })).success).toBe(false);
 
         expect(notifyLeadClient).not.toHaveBeenCalled();
         expectNoWrites(mockDb);
@@ -340,7 +342,7 @@ describe("scheduleDiscoveryMeeting: the client gets an in-app notification", () 
 });
 
 describe("scheduleDiscoveryMeeting: optional Project Manager attendee", () => {
-    const input = { leadId: "lead-1", format: "video" as const, startsAt: FUTURE };
+    const input = { leadId: "lead-1", format: "video" as const, location: "https://meet.google.com/abc-defg-hij", startsAt: FUTURE };
 
     beforeEach(() => {
         signInAs(auth, "sales", "sales-1");

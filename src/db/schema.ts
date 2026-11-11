@@ -489,6 +489,8 @@ export const meetings = pgTable("meeting", {
         .references(() => agencyProjects.id, { onDelete: "set null" }),
     type: meetingTypeEnum("type").default("discovery").notNull(),
     format: meetingFormatEnum("format").default("video").notNull(),
+    /** Video/meeting link (video) or venue/address (in_person, on_site). Optional for phone. */
+    location: text("location"),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     attendees: jsonb("attendees").$type<string[]>().default([]).notNull(),
     agenda: text("agenda"),

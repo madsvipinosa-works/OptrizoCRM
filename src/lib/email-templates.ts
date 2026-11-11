@@ -75,6 +75,11 @@ export function meetingFormatLabel(format: MeetingFormat): string {
     }
 }
 
+/** Detail row title for the meeting location in emails. */
+export function meetingLocationTitle(format: MeetingFormat): string {
+    return format === "video" ? "Meeting link" : "Venue / address";
+}
+
 export function meetingTypeLabel(type: MeetingType): string {
     switch (type) {
         case "discovery":
@@ -180,6 +185,8 @@ type MeetingEmailBase = {
     serviceName?: string | null;
     meetingType: MeetingType;
     format: MeetingFormat;
+    /** Video/meeting link or venue/address, when set. */
+    location?: string | null;
     startsAt: Date;
     /** Person who runs the meeting, when known. */
     organizerName?: string | null;
@@ -224,6 +231,7 @@ export function buildMeetingInviteEmail(input: MeetingEmailBase & { agenda?: str
         ["Date and time", formatWithZone(input.startsAt, input.timezone)],
         ["Format", meetingFormatLabel(input.format)],
     ];
+    if (input.location) details.push([meetingLocationTitle(input.format), input.location]);
     if (input.agenda) details.push(["Agenda", input.agenda]);
 
     return renderEmail({
@@ -255,6 +263,7 @@ export function buildMeetingRescheduledEmail(input: MeetingEmailBase): ClientEma
         details: [
             ["New date and time", formatWithZone(input.startsAt, input.timezone)],
             ["Format", meetingFormatLabel(input.format)],
+            ...(input.location ? [[meetingLocationTitle(input.format), input.location] as [string, string]] : []),
         ],
         button: input.hasAccount
             ? { label: "Confirm or suggest a time", url: `${baseUrl}/portal/appointments` }

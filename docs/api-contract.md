@@ -75,7 +75,8 @@ Side effects: payment → `paid`; client is notified and sees "Paid · confirmed
 
 ### scheduleMeeting  (steps 4 and 13)
 Who can call: sales (type `discovery`), manager (types `budget_pricing`, `project_review`, `uat`)
-Input:  `{ leadId: string, proposalId?: string, type: 'discovery' | 'budget_pricing' | 'project_review' | 'uat', format: 'video' | 'phone' | 'in_person' | 'on_site', startsAt: string, attendees: string[], agenda?: string }`
+Input:  `{ leadId: string, proposalId?: string, type: 'discovery' | 'budget_pricing' | 'project_review' | 'uat', format: 'video' | 'phone' | 'in_person' | 'on_site', location?: string, startsAt: string, attendees: string[], agenda?: string }`
+`location`: video/meeting link (http(s) URL) for `video`, venue/address for `in_person` / `on_site`, required for those; ignored for `phone`. Max 500 characters.
 Output: `{ ok: true, meetingId: string }`
 Errors: `FORBIDDEN`: the caller's role does not own that meeting type.
 Side effects: meeting status `awaiting_client`; a `discovery` meeting moves the lead to `discovery` if it is not there yet; invite by email and in the client portal; the invite email includes a link to create a portal account linked to the lead (account status `invited` until the email is verified); reminder email one day before; audit log row.
@@ -241,12 +242,13 @@ Side effects: password changed; audit log row.
 
 ### scheduleBudgetPricingMeeting  (step 12)
 Who can call: manager
-Input:  `{ proposalId: string, format: 'video' | 'phone' | 'in_person' | 'on_site', startsAt: string, agenda?: string }`
+Input:  `{ proposalId: string, format: 'video' | 'phone' | 'in_person' | 'on_site', location?: string, startsAt: string, agenda?: string }` (`location` rules as in scheduleMeeting)
 Output: `{ ok: true, meetingId: string }`
 Errors:
 - `UNAUTHORIZED` / `FORBIDDEN`: caller is not Manager.
 - `PROPOSAL_NOT_FOUND`: proposal does not exist.
 - `INVALID_STATUS`: proposal status is not `pricing_meeting_requested`.
+- Location missing, or not an http(s) link for `video`: `{ success: false, message }`.
 Side effects: creates meeting with type `budget_pricing` and status `awaiting_client`; client invited; audit log row.
 
 ### requestProposalChanges  (step 18b)

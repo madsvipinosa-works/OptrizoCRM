@@ -22,7 +22,9 @@ import {
     buildMeetingRescheduledEmail,
     buildProposalSentEmail,
     formatManilaDateTime,
+    escapeHtml,
     meetingFormatLabel,
+    meetingLocationTitle,
     type ClientEmail,
     type MeetingFormat,
 } from "@/lib/email-templates";
@@ -340,6 +342,7 @@ export async function sendMeetingReminderEmail(data: {
     email: string;
     meetingType: string;
     format: MeetingFormat;
+    location?: string | null;
     startsAt: Date;
 }) {
     try {
@@ -365,6 +368,7 @@ export async function sendMeetingReminderEmail(data: {
                     <div style="background: #f7f9fa; border: 1px solid #d3dce1; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                         <p style="margin: 0 0 8px; font-size: 14px;"><strong>Date & Time:</strong> ${formattedDate}</p>
                         <p style="margin: 0; font-size: 14px;"><strong>Format:</strong> ${meetingFormatLabel(data.format)}</p>
+                        ${data.location ? `<p style="margin: 8px 0 0; font-size: 14px;"><strong>${meetingLocationTitle(data.format)}:</strong> ${escapeHtml(data.location)}</p>` : ""}
                     </div>
                     <p style="font-size: 14px; margin-bottom: 20px;">
                         <a href="${appointmentsUrl}" style="color: #0e6b7e; font-weight: 600; text-decoration: underline;">

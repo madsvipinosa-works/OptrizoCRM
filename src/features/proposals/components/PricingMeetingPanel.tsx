@@ -1,5 +1,6 @@
 "use client";
 
+import { MeetingLocation } from "@/features/meetings/components/MeetingLocation";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ interface PricingMeetingInfo {
     status: "awaiting_client" | "confirmed" | "reschedule_requested" | "done" | "cancelled";
     startsAt: Date | string;
     format: string;
+    location?: string | null;
     agenda?: string | null;
     notes?: string | null;
 }
@@ -156,6 +158,11 @@ export function PricingMeetingPanel({
                         <p className="text-sm font-medium text-foreground">
                             Budget & Pricing Meeting · {formattedDate} ({pricingMeeting.format === "video" ? "Video call" : pricingMeeting.format})
                         </p>
+                        {pricingMeeting.location && (
+                            <p className="text-sm text-muted-foreground">
+                                <MeetingLocation format={pricingMeeting.format} location={pricingMeeting.location} />
+                            </p>
+                        )}
                         {pricingMeeting.agenda && (
                             <p className="text-xs text-muted-foreground">{pricingMeeting.agenda}</p>
                         )}

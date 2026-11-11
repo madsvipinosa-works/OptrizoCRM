@@ -75,3 +75,4 @@ Still open:
 - `reportClientError` is public by design and has no rate limit.
 - The email helpers in `src/lib/notifications.ts` are not marked `server-only`.
 - `tests/test-quality-gate.ts` is out of `test:capstone` until Step C deletes the quality gate.
+- Meeting location (0024) is set only when scheduling. Rescheduling keeps the old link or venue; there is no way to change it yet. Meetings created before 0024 have no location.

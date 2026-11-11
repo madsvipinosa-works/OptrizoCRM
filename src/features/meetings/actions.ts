@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { meetings, leads, leadActivityLogs, proposals, users } from "@/db/schema";
 import { eq, desc, and, gte, lte, or, inArray, isNull } from "drizzle-orm";
-import { markDoneBlock } from "@/features/meetings/rules";
+import { checkMeetingLocation, markDoneBlock } from "@/features/meetings/rules";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
@@ -25,6 +25,7 @@ export interface MeetingItem {
     projectId: string | null;
     type: "discovery" | "budget_pricing" | "project_review" | "uat";
     format: "video" | "phone" | "in_person" | "on_site";
+    location: string | null;
     startsAt: Date;
     attendees: string[];
     agenda: string | null;
@@ -82,6 +83,8 @@ function describeMeeting(type: MeetingItem["type"], lead?: { businessName: strin
 export async function scheduleDiscoveryMeeting(data: {
     leadId: string;
     format: "video" | "phone" | "in_person" | "on_site";
+    /** Video/meeting link or venue/address; ignored for phone. */
+    location?: string | null;
     startsAt: string | Date;
     /**
      * Optional Project Manager attendee. `undefined` means "use the lead's assigned PM, if any";
@@ -93,6 +96,11 @@ export async function scheduleDiscoveryMeeting(data: {
     const authz = await requireRole(["sales"]);
     if (!authz.ok) {
         return { success: false, message: "Only sales can schedule discovery meetings" };
+    }
+
+    const loc = checkMeetingLocation(data.format, data.location);
+    if (!loc.ok) {
+        return { success: false, message: loc.message };
     }
 
     const { session } = authz;
@@ -133,6 +141,7 @@ export async function scheduleDiscoveryMeeting(data: {
             leadId: data.leadId,
             type: "discovery",
             format: data.format,
+            location: loc.location,
             startsAt: meetingDate,
             attendees,
             agenda: data.agenda || "Learn their goals, the features they need and their timeline.",
@@ -182,6 +191,7 @@ export async function scheduleDiscoveryMeeting(data: {
                 email: lead.contactEmail,
                 meetingType: "discovery",
                 format: data.format,
+                location: loc.location,
                 startsAt: meetingDate,
                 agenda: data.agenda || null,
                 organizerName: session.user.name || null,
@@ -203,12 +213,19 @@ export async function scheduleDiscoveryMeeting(data: {
 export async function scheduleBudgetPricingMeeting(data: {
     proposalId: string;
     format: "video" | "phone" | "in_person" | "on_site";
+    /** Video/meeting link or venue/address; ignored for phone. */
+    location?: string | null;
     startsAt: string | Date;
     agenda?: string;
 }) {
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
         return { success: false, message: "Only managers can schedule budget & pricing meetings" };
+    }
+
+    const loc = checkMeetingLocation(data.format, data.location);
+    if (!loc.ok) {
+        return { success: false, message: loc.message };
     }
 
     const { session } = authz;
@@ -249,6 +266,7 @@ export async function scheduleBudgetPricingMeeting(data: {
             proposalId: proposal.id,
             type: "budget_pricing",
             format: data.format,
+            location: loc.location,
             startsAt: meetingDate,
             attendees: defaultAttendees,
             agenda: defaultAgenda,
@@ -283,6 +301,7 @@ export async function scheduleBudgetPricingMeeting(data: {
                     email: proposal.lead.contactEmail,
                     meetingType: "budget_pricing",
                     format: data.format,
+                    location: loc.location,
                     startsAt: meetingDate,
                     agenda: defaultAgenda,
                     organizerName: session.user.name || null,
@@ -523,6 +542,7 @@ export async function rescheduleMeeting(data: {
                     email: meeting.lead.contactEmail,
                     meetingType: meeting.type,
                     format: meeting.format,
+                    location: meeting.location,
                     startsAt: newDate,
                     organizerName: authz.session.user.name || null,
                     organizerRole,
@@ -603,6 +623,7 @@ export async function cancelMeeting(data: {
                     email: meeting.lead.contactEmail,
                     meetingType: meeting.type,
                     format: meeting.format,
+                    location: meeting.location,
                     startsAt: meeting.startsAt,
                     organizerName: authz.session.user.name || null,
                     organizerRole,
@@ -848,6 +869,7 @@ export async function checkAndSendMeetingReminders() {
                     email: meeting.lead.contactEmail,
                     meetingType: meeting.type === "discovery" ? "Discovery Meeting" : "Appointment",
                     format: meeting.format,
+                    location: meeting.location,
                     startsAt: meeting.startsAt,
                 });
             }

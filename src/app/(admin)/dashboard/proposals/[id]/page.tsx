@@ -353,6 +353,7 @@ export default async function StaffProposalViewPage({
                                 status: pricingMeeting.status as "awaiting_client" | "confirmed" | "reschedule_requested" | "done" | "cancelled",
                                 startsAt: pricingMeeting.startsAt,
                                 format: pricingMeeting.format,
+                                location: pricingMeeting.location,
                                 agenda: pricingMeeting.agenda,
                                 notes: pricingMeeting.notes,
                             } : null}

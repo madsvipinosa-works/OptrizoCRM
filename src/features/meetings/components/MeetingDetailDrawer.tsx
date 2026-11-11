@@ -1,5 +1,6 @@
 "use client";
 
+import { MeetingLocation } from "@/features/meetings/components/MeetingLocation";
 /**
  * Meeting detail drawer (mockup 4b, 04-sales/026; PM steps 13–15).
  * Layout: business · client line, meeting title, status with a plain
@@ -284,6 +285,15 @@ function MeetingDetail({
                         <dt className="text-sm text-muted-foreground">Format</dt>
                         <dd className="mt-0.5 text-base text-foreground">{FORMAT_LABEL[meeting.format]}</dd>
                     </div>
+                    {meeting.location && (
+                        <div className="col-span-2">
+                            <dt className="text-sm text-muted-foreground">{meeting.format === "video" ? "Video / meeting link" : "Venue / address"}</dt>
+                            <dd className="mt-0.5 text-base text-foreground">
+                                <MeetingLocation format={meeting.format} location={meeting.location} />
+                                {meeting.format === "video" && <p className="mt-0.5 break-all text-sm text-muted-foreground">{meeting.location}</p>}
+                            </dd>
+                        </div>
+                    )}
                     <div>
                         <dt className="text-sm text-muted-foreground">Attendees</dt>
                         <dd className="mt-0.5 text-base text-foreground">
