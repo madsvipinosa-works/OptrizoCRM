@@ -239,7 +239,7 @@ export function PlanSprintDialog({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="sprint-name" className="text-sm text-muted-foreground">
-                  Sprint name
+                  Sprint name <span className="text-destructive" aria-hidden="true">*</span>
                 </Label>
                 <Input
                   id="sprint-name"
@@ -254,14 +254,14 @@ export function PlanSprintDialog({
 
               <div className="space-y-1.5">
                 <Label htmlFor="sprint-start" className="text-sm text-muted-foreground">
-                  Start date
+                  Start date <span className="text-destructive" aria-hidden="true">*</span>
                 </Label>
                 <DatePicker id="sprint-start" value={startDate} onChange={(v) => { setStartDate(v); if (endDate && endDate < v) setEndDate(""); }} min={minDate} max={devEndYmd} disabledRanges={taken} required />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="sprint-end" className="text-sm text-muted-foreground">
-                  End date
+                  End date <span className="text-destructive" aria-hidden="true">*</span>
                 </Label>
                 <DatePicker id="sprint-end" value={endDate} onChange={setEndDate} min={startDate || minDate} max={maxEnd} disabledRanges={taken} required />
               </div>

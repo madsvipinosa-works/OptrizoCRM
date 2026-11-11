@@ -101,7 +101,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                 <form onSubmit={onSubmit} className="space-y-4 pt-1">
                     <div className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                            <Label htmlFor="businessName" className={labelClass}>Business name</Label>
+                            <Label htmlFor="businessName" className={labelClass}>Business name <span className="text-destructive" aria-hidden="true">*</span></Label>
                             <Input id="businessName" name="businessName" required maxLength={120} autoComplete="organization" className="h-9 text-sm" />
                         </div>
                         <div className="space-y-1.5">
@@ -109,7 +109,7 @@ export function CreateLeadModal({ children, assignableUsers = [] }: CreateLeadMo
                             <Input id="contactName" name="contactName" maxLength={120} autoComplete="name" className="h-9 text-sm" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="contactEmail" className={labelClass}>Email</Label>
+                            <Label htmlFor="contactEmail" className={labelClass}>Email <span className="text-destructive" aria-hidden="true">*</span></Label>
                             <Input id="contactEmail" name="contactEmail" type="email" required autoComplete="email" className="h-9 text-sm" />
                         </div>
                         <div className="space-y-1.5">

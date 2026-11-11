@@ -280,11 +280,11 @@ export function MilestonesDialog({
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
-                                            <Label htmlFor={`ms-start-${m.key}`} className="text-sm text-muted-foreground">Start date</Label>
+                                            <Label htmlFor={`ms-start-${m.key}`} className="text-sm text-muted-foreground">Start date <span className="text-destructive" aria-hidden="true">*</span></Label>
                                             <DatePicker id={`ms-start-${m.key}`} value={m.startDate} onChange={(v) => update(m.key, { startDate: v })} min={startMin} className="h-9 bg-card text-sm" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label htmlFor={`ms-end-${m.key}`} className="text-sm text-muted-foreground">End date</Label>
+                                            <Label htmlFor={`ms-end-${m.key}`} className="text-sm text-muted-foreground">End date <span className="text-destructive" aria-hidden="true">*</span></Label>
                                             <DatePicker id={`ms-end-${m.key}`} value={m.endDate} onChange={(v) => update(m.key, { endDate: v })} min={endMin} className="h-9 bg-card text-sm" />
                                         </div>
                                     </div>

@@ -182,7 +182,7 @@ export function TaskDetailsDrawer({
                     {editing ? (
                         <>
                             <div className="space-y-1.5">
-                                <Label htmlFor="edit-task-name" className="text-sm text-muted-foreground">Task name</Label>
+                                <Label htmlFor="edit-task-name" className="text-sm text-muted-foreground">Task name <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 <Input
                                     id="edit-task-name"
                                     value={draft.title}

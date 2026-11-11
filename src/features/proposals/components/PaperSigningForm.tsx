@@ -109,7 +109,7 @@ export function PaperSigningForm({
                 <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Signed Document (PDF or Image)</Label>
+                            <Label className="text-xs">Signed Document (PDF or Image) <span className="text-destructive" aria-hidden="true">*</span></Label>
                             <Input
                                 type="file"
                                 accept=".pdf,image/*"
@@ -122,7 +122,7 @@ export function PaperSigningForm({
                         <div className="space-y-1.5">
                             <Label className="text-xs flex items-center gap-1">
                                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                                Date of Physical Signature
+                                Date of Physical Signature <span className="text-destructive" aria-hidden="true">*</span>
                             </Label>
                             <DatePicker value={signedDate} onChange={setSignedDate} max={todayYmd()} disabled={isUploading} required className="h-9 text-xs" />
                         </div>

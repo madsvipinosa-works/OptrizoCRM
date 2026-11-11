@@ -108,7 +108,7 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
                         <div className="grid gap-x-4 gap-y-5 sm:grid-cols-[minmax(0,1fr)_9rem]">
                             <div className="space-y-2">
                                 <div className="flex items-baseline justify-between">
-                                    <Label htmlFor="service-title">Service name</Label>
+                                    <Label htmlFor="service-title">Service name <span className="text-destructive" aria-hidden="true">*</span></Label>
                                     <Counter value={title} max={LIMITS.service.title} />
                                 </div>
                                 <Input id="service-title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -124,7 +124,7 @@ export function ServiceEditorForm({ service, inquiryList = [] }: { service?: Ser
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-baseline justify-between">
-                                <Label htmlFor="service-description">Short description</Label>
+                                <Label htmlFor="service-description">Short description <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 <Counter value={description} max={LIMITS.service.description} />
                             </div>
                             <Textarea id="service-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />

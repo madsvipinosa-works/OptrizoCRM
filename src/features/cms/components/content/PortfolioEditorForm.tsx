@@ -133,14 +133,14 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                 <FormSection title="Project">
                     <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
-                            <Label htmlFor="portfolio-title">Project title</Label>
+                            <Label htmlFor="portfolio-title">Project title <span className="text-destructive" aria-hidden="true">*</span></Label>
                             <Counter value={title} max={LIMITS.portfolio.title} />
                         </div>
                         <Input id="portfolio-title" value={title} onChange={(e) => setTitle(e.target.value)} />
                         {err("title")}
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="portfolio-service">Service</Label>
+                        <Label htmlFor="portfolio-service">Service <span className="text-destructive" aria-hidden="true">*</span></Label>
                         <FormSelect id="portfolio-service" value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
                             <option value="">Pick a service</option>
                             {services.map((service) => (
@@ -153,7 +153,7 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                     </div>
                     <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
-                            <Label htmlFor="portfolio-summary">Summary</Label>
+                            <Label htmlFor="portfolio-summary">Summary <span className="text-destructive" aria-hidden="true">*</span></Label>
                             <Counter value={summary} max={LIMITS.portfolio.summary} />
                         </div>
                         <Textarea id="portfolio-summary" rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} />
@@ -200,7 +200,7 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
                     </div>
                     <div className="grid gap-x-4 gap-y-5 sm:grid-cols-[minmax(0,1fr)_9rem]">
                         <div className="space-y-2">
-                            <Label htmlFor="portfolio-technologies">Technologies</Label>
+                            <Label htmlFor="portfolio-technologies">Technologies <span className="text-destructive" aria-hidden="true">*</span></Label>
                             <Input id="portfolio-technologies" value={technologies} placeholder="Next.js, PostgreSQL" onChange={(e) => setTechnologies(e.target.value)} />
                             <p className="text-sm text-muted-foreground">Separate with commas.</p>
                             {err("technologies")}

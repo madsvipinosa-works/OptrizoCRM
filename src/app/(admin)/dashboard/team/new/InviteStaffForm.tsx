@@ -91,7 +91,7 @@ export function InviteStaffForm() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                    <Label htmlFor="name">Full name</Label>
+                    <Label htmlFor="name">Full name <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input
                         id="name"
                         value={name}
@@ -105,7 +105,7 @@ export function InviteStaffForm() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="email">Work email</Label>
+                    <Label htmlFor="email">Work email <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input
                         id="email"
                         type="email"
@@ -120,7 +120,7 @@ export function InviteStaffForm() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
+                    <Label htmlFor="role">Role <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <FormSelect
                         id="role"
                         value={role}

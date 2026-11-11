@@ -22,6 +22,13 @@ type AuditLog = {
     } | null;
 };
 
+// shortcut: hides raw record IDs at display time; upgrade when audit rows store record names instead.
+const RECORD_ID = /\s*\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+function readableDetails(details: string | null) {
+    if (!details) return "";
+    return details.replace(RECORD_ID, "").replace(/\s+(by|to|for|from)\s*$/i, "").replace(/\s{2,}/g, " ").trim();
+}
+
 export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[], pagination: { page: number, total: number, limit: number, totalPages: number } } }) {
     const [logs, setLogs] = useState<AuditLog[]>(initialData.logs);
     const [pagination, setPagination] = useState(initialData.pagination);
@@ -159,8 +166,8 @@ export function AuditLogsTable({ initialData }: { initialData: { logs: AuditLog[
                                     <span className={log.action === "DELETE" ? "font-semibold text-destructive" : "font-semibold text-foreground"}>{VERB[log.action] ?? "Activity"}</span>
                                     <span className="text-muted-foreground"> · {log.entity}</span>
                                 </TableCell>
-                                <TableCell className="hidden max-w-[360px] truncate py-3 pr-5 text-sm text-muted-foreground md:table-cell" title={log.details || ""}>
-                                    {log.details || "–"}
+                                <TableCell className="hidden max-w-[520px] whitespace-normal break-words py-3 pr-5 text-sm text-muted-foreground md:table-cell">
+                                    {readableDetails(log.details) || "–"}
                                 </TableCell>
                             </TableRow>
                         ))}

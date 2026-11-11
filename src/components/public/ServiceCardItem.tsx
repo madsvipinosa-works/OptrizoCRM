@@ -155,9 +155,16 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
   };
 
   // Sign-in is required before the inquiry form opens (the server action enforces it too).
-  const openInquiry = () => {
+  const openInquiry = async () => {
     setIsDetailOpen(false);
-    if (!sessionUser) {
+    // The session loads in the background; a click before it arrived used to send a signed-in client to the login page.
+    let user = sessionUser;
+    if (!user) {
+      const { getSession } = await import("next-auth/react");
+      user = (await getSession().catch(() => null))?.user ?? null;
+      if (user) setSessionUser(user);
+    }
+    if (!user) {
       router.push("/login?callbackUrl=/services&reason=inquiry_auth");
       return;
     }
@@ -293,7 +300,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
                       )}
                     </div>
                     <DialogDescription className="text-muted-foreground text-sm">
-                      Tell us about your project requirements. No login or credit card required.
+                      Tell us about your project requirements. Fields marked * are required.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -313,7 +320,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="serviceId" className="text-xs font-semibold text-foreground">
-                          Service
+                          Service <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <FormSelect
                           id="serviceId"
@@ -334,7 +341,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
 
                       <div className="space-y-1.5">
                         <Label htmlFor="urgency" className="text-xs font-semibold text-foreground">
-                          Urgency
+                          Urgency <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <FormSelect
                           id="urgency"
@@ -357,7 +364,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
                     {selectedServiceId === "other" && (
                       <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
                         <Label htmlFor="otherServiceText" className="text-xs font-semibold text-foreground">
-                          Type the service you need
+                          Type the service you need <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="otherServiceText"
@@ -377,7 +384,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="businessName" className="text-xs font-semibold text-foreground">
-                          Business name
+                          Business name <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="businessName"
@@ -394,7 +401,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
 
                       <div className="space-y-1.5">
                         <Label htmlFor="clientName" className="text-xs font-semibold text-foreground">
-                          Client name
+                          Client name <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="clientName"
@@ -414,7 +421,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="email" className="text-xs font-semibold text-foreground">
-                          Email address
+                          Email address <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="email"
@@ -446,7 +453,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="industry" className="text-xs font-semibold text-foreground">
-                          Industry
+                          Industry <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <FormSelect
                           id="industry"
@@ -466,7 +473,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
 
                       <div className="space-y-1.5">
                         <Label htmlFor="roleInCompany" className="text-xs font-semibold text-foreground">
-                          Role in the company
+                          Role in the company <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="roleInCompany"
@@ -485,7 +492,7 @@ export function ServiceCardItem({ service }: ServiceCardItemProps) {
                     {/* Contact Preference (Mockup 008-1 Row 4) */}
                     <div className="space-y-1.5">
                       <Label htmlFor="contactPreference" className="text-xs font-semibold text-foreground">
-                        How should we reach you?
+                        How should we reach you? <span className="text-destructive" aria-hidden="true">*</span>
                       </Label>
                       <FormSelect
                         id="contactPreference"

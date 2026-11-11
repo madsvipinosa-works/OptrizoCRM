@@ -93,7 +93,7 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
             )}
 
             <div className="space-y-2">
-                <Label htmlFor="password">Set password</Label>
+                <Label htmlFor="password">Set password <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <div className="relative">
                     <Input
                         id="password"
@@ -122,7 +122,7 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm password</Label>
+                <Label htmlFor="confirmPassword">Confirm password <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <div className="relative">
                     <Input
                         id="confirmPassword"
