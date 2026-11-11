@@ -122,10 +122,10 @@ export function ProposalThread({ proposalId, messages, userRole, onMessageSent }
     const canWrite = isManager || isClient;
 
     return (
-        <div className="flex min-h-0 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-baseline justify-between gap-3 border-b border-border px-5 py-4">
                 <h2 id="negotiation-heading" className="text-lg font-semibold tracking-tight text-foreground">
-                    Negotiation
+                    {isClient ? "Messages" : "Negotiation"}
                 </h2>
                 <span className="text-sm tabular-nums text-muted-foreground">
                     {messages.length} {messages.length === 1 ? "message" : "messages"}
@@ -133,11 +133,13 @@ export function ProposalThread({ proposalId, messages, userRole, onMessageSent }
             </div>
 
             {messages.length === 0 ? (
-                <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-                    No messages yet. Questions and change requests from the client appear here, with any talks logged from outside.
+                <p className="flex flex-1 items-center justify-center px-5 py-8 text-center text-sm text-muted-foreground">
+                    {isClient
+                        ? "No messages yet. Ask your Project Manager anything about this proposal; replies appear here."
+                        : "No messages yet. Questions and change requests from the client appear here, with any talks logged from outside."}
                 </p>
             ) : (
-                <ol ref={listRef} className="max-h-[min(60vh,560px)] space-y-4 overflow-y-auto px-5 py-4">
+                <ol ref={listRef} className="max-h-[min(60vh,560px)] flex-1 space-y-4 overflow-y-auto px-5 py-4">
                     {messages.map((msg) => {
                         const outside = msg.kind === "outside_discussion";
                         const request = msg.kind === "change_request";

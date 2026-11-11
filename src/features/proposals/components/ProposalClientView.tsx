@@ -271,7 +271,7 @@ export function ProposalClientView({
 
     // Signed: the confirmation and the thread come first, so the client does not scroll past the whole document.
     const approvedEl = isApproved && (
-                <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3.5 rounded-xl border border-border bg-card p-7 no-print">
+                <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3.5 rounded-xl border border-border bg-card p-7 no-print lg:max-w-none">
                     {proposal.acceptedAt && (
                         <span className="self-start rounded-full bg-[var(--brand-soft)] px-3 py-0.5 text-sm font-semibold text-[var(--brand-deep)]">
                             Signed {formatDateTime(proposal.acceptedAt)}
@@ -291,7 +291,7 @@ export function ProposalClientView({
                 </div>
             );
     const threadEl = !isPreview && (
-                <section aria-labelledby="negotiation-heading" className="no-print mx-auto max-w-[850px] overflow-hidden rounded-xl border border-border bg-card">
+                <section aria-labelledby="negotiation-heading" className="no-print mx-auto flex w-full max-w-[850px] flex-col overflow-hidden rounded-xl border border-border bg-card">
                     <ProposalThread
                         proposalId={proposal.id}
                         messages={messages || []}
@@ -303,8 +303,13 @@ export function ProposalClientView({
     return (
         <div className="space-y-8 pb-24 w-full min-w-0 print:p-0 print:m-0 print:space-y-0 print:pb-0">
             {/* Signed: mockup 20, the confirmation the client lands on after signing */}
-            {approvedEl}
-            {isApproved && threadEl}
+            {/* Signed: the summary and the messages side by side on wide screens (stacked on phones), same width as the page. */}
+            {isApproved && (threadEl ? (
+                <div className="no-print mx-auto grid w-full max-w-[1100px] gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+                    {approvedEl}
+                    {threadEl}
+                </div>
+            ) : approvedEl)}
 
             {versions.length > 1 && (
                 <nav aria-label="Proposal versions" className="no-print mx-auto flex max-w-[850px] flex-wrap items-center gap-1.5 text-sm">
