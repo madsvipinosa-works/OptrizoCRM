@@ -153,21 +153,21 @@ export function ThemeToggle({ variant = "icon", compact = false, className }: Th
                 type="button"
                 onClick={toggleTheme}
                 className={cn(
-                    "flex items-center justify-between w-full px-3.5 py-2 rounded-xl border border-border bg-muted/30 text-[10px] font-mono tracking-widest uppercase transition-all duration-300 hover:bg-muted/60 text-foreground cursor-pointer shadow-xs",
+                    "flex items-center justify-between w-full px-3.5 py-2 rounded-xl border border-border bg-muted/30 text-[10px] font-sans tracking-widest transition-all duration-300 hover:bg-muted/60 text-foreground cursor-pointer shadow-xs",
                     className
                 )}
                 title="Toggle Noir // Alabaster Mode"
                 aria-label="Toggle Noir // Alabaster Mode"
             >
-                <span className="flex items-center gap-2 font-bold">
+                <span className="flex items-center gap-2 font-semibold">
                     {isDark ? (
-                        <Moon className="w-3.5 h-3.5 text-[#00D639]" />
+                        <Moon className="w-3.5 h-3.5 text-brand-deep" />
                     ) : (
                         <Sun className="w-3.5 h-3.5 text-[#00B830]" />
                     )}
-                    <span>{isDark ? "NOIR // 01" : "ALABASTER // 02"}</span>
+                    <span>{isDark ? "Dark" : "Light"}</span>
                 </span>
-                <span className="text-[9px] font-mono text-muted-foreground uppercase">Theme</span>
+                <span className="text-[9px] font-sans text-muted-foreground">Theme</span>
             </button>
         );
     }
@@ -184,7 +184,7 @@ export function ThemeToggle({ variant = "icon", compact = false, className }: Th
             aria-label={isDark ? "Switch to Alabaster Mode" : "Switch to Noir Mode"}
         >
             {isDark ? (
-                <Moon className="w-4 h-4 text-[#00D639] transition-transform duration-300" />
+                <Moon className="w-4 h-4 text-brand-deep transition-transform duration-300" />
             ) : (
                 <Sun className="w-4 h-4 text-[#00B830] transition-transform duration-300" />
             )}

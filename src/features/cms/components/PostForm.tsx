@@ -48,7 +48,7 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
             {initialData && <input type="hidden" name="id" value={initialData.id} />}
             <input type="hidden" name="coverImage" value={coverImage} />
 
-            <Card className="glass-card border-border">
+            <Card className="bg-card border-border">
                 <CardContent className="pt-6 space-y-6">
                     <div className="space-y-4">
                         <Label>Cover Image</Label>
@@ -102,7 +102,7 @@ export function PostForm({ initialData, isAdmin }: PostFormProps) {
 
             <div className="flex justify-end gap-4">
                 <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
-                <Button type="submit" disabled={isPending} className="bg-primary text-black font-semibold hover:bg-primary/90">
+                <Button type="submit" disabled={isPending} className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90">
                     {isPending ? "Saving..." : (initialData ? "Update Post" : "Publish Post")}
                 </Button>
             </div>

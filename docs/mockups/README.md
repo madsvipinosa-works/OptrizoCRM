@@ -331,7 +331,7 @@ Why it is needed
 It shows that the content manager is limited to fixed fields, which keeps the website consistent and keeps the scope small and testable. The live preview means a non-technical editor can check the result before visitors see it.
 
 How it works
-1. Fill in the fixed fields: name (max 40 characters), short description (max 60), what's included (one line per item), image (JPG or PNG up to 2 MB) and order on the page.
+1. Fill in the fixed fields: name (max 40 characters), short description (max 160; raised from the mockup's 60 on 2026-11-10), what's included (one line per item), image (JPG or PNG up to 2 MB) and order on the page.
 2. Choose where it appears: the Services page, the inquiry form, or both.
 3. There is no price field, on purpose. Prices are agreed per project by the PM in the proposal (steps 10–17).
 4. The preview on the right updates as you type: the service card, and the inquiry Service list with the new item marked.

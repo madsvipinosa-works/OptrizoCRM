@@ -108,6 +108,14 @@ Errors:
 - `MEETING_NOT_DONE`: the discovery meeting is not marked done.
 Side effects: form saved with `submittedAt`; `clientType` is copied to the lead (the form is the source of truth); the lead shows "requirements complete" (step 7); audit log row.
 
+### createLead  (step 2, "New opportunity" on the pipeline)
+Who can call: sales
+Input:  `{ businessName: string, contactEmail: string, contactName?: string, contactPhone?: string, serviceId?: string, industry?: string, roleInCompany?: string, urgency?: string, contactPreference?: string, details?: string, source?: string, assignedRepId?: string | 'unassigned', tasksPlaybook?: [] }`
+Output: `{ success: true, message: string }`
+Errors: `Unauthorized`: caller is not Sales. Assignee must be a Sales user.
+Side effects: same fields as the inquiry form (step 1), no budget or score from the UI; finds or creates the client account by email; stage `New Lead`; `'unassigned'` leaves it for any Sales user to claim; the UI sends `tasksPlaybook: []` (the spec has no sales task playbook); audit log row.
+Open for backend: the action still accepts `budget`, `estimatedValue`, `timelineExpectation`, `goals` and `'auto'` assignment (least-busy rep), and fills the default playbook when `tasksPlaybook` is left out. None of these are in the spec.
+
 ### reopenLead  (step 18j)
 Who can call: sales
 Input:  `{ leadId: string, reason: string }`
@@ -195,20 +203,20 @@ Who can call: manager
 Input:  `{ projectId: string }`
 Output: `{ success: boolean, error?: string, message?: string }`
 Errors: not manager; project completed or archived; already accepted; already awaiting; milestones not done; final payment not paid; no handover files.
-Side effects: sets `acceptanceRequestedAt`; client notified; audit log row.
+Side effects: sets `acceptanceRequestedAt`; client notified in the portal and emailed (`sendHandoverReviewEmail`, best effort); audit log row.
 
 ### acceptCompletion  (step 31)
 Who can call: client of the project only
 Input:  `{ projectId: string }`
 Output: `{ success: boolean, error?: string, message?: string }`
 Errors: not the project's client; acceptance not awaiting.
-Side effects: sets `acceptedAt`, `acceptedBy`; PM notified (every PM if none assigned); audit log row.
+Side effects: sets `acceptedAt`, `acceptedBy`; PM notified (the lead's PM; every PM if none assigned or the project has no lead); audit log row.
 
 ### requestCompletionFixes  (step 31)
 Who can call: client of the project only
 Input:  `{ projectId: string, comment: string }` (comment required, max 2000)
 Output: `{ success: boolean, error?: string, message?: string }`
-Side effects: sets `fixesRequestedAt`, `fixesComment`; PM notified; audit log row. The PM can add files and call `requestClientAcceptance` again.
+Side effects: sets `fixesRequestedAt`, `fixesComment`; PM notified (the lead's PM; every PM if none assigned or the project has no lead); audit log row. The PM can add files and call `requestClientAcceptance` again.
 
 ### completeProject  (step 30)
 Who can call: manager
@@ -690,7 +698,7 @@ Input:  `{ id?: string, title: string, slug?: string, description: string, scope
 Output: `{ ok: true, id: string, status: 'draft' | 'published' | 'hidden' } | { ok: false, error: string, fieldErrors?: Record<string, string> }`
 Errors:
 - `FORBIDDEN`: caller is not `content_editor`.
-- `VALIDATION_ERROR`: `title` empty or >80 chars; `description` empty or >60 chars; `scopeOverview` >600 chars; `deliverables` has 0 or >10 non-empty items or an item >120 chars; `timelineEstimate` >60 chars; `targetAudience` >200 chars; `slug` does not match `^[a-z0-9]+(?:-[a-z0-9]+)*$` or >80 chars; `image` is non-empty and fails upload URL validation.
+- `VALIDATION_ERROR`: `title` empty or >80 chars; `description` empty or >160 chars; `scopeOverview` >600 chars; `deliverables` has 0 or >10 non-empty items or an item >120 chars; `timelineEstimate` >60 chars; `targetAudience` >200 chars; `slug` does not match `^[a-z0-9]+(?:-[a-z0-9]+)*$` or >80 chars; `image` is non-empty and fails upload URL validation.
 - `NOT_FOUND`: `id` was supplied and no `service` row exists with that `id`.
 - `SLUG_TAKEN`: another service already uses the normalized `slug`.
 Side effects: if `id` is omitted, inserts a new `service` row with `status = 'draft'`, `isPreset = false`, auto-generated unique slug if blank, and `updatedAt = now()`; if `id` is provided, updates the existing row in place (preserving its current `status` when already `published` or `hidden`, or keeping `draft`) and sets `updatedAt = now()`; writes `audit_log` row (`create_service_draft` or `update_service`) with `entityType: 'service'`, `entityId: id`; revalidates `/dashboard/content`, `/dashboard/content/services`, `/services`, `/`, and `/contact`.

@@ -278,7 +278,7 @@ export function KanbanBoard({
                 setProofingTask(null);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to submit work");
+                toast.error(res.error === "INVALID_LINK" ? "One of the links cannot be opened. Paste the full link." : res.error || "Failed to submit work");
             }
         } catch (error) {
             console.error("Submit work error:", error);
@@ -809,7 +809,7 @@ export function KanbanBoard({
                     <form onSubmit={handleCreateTask} className="flex min-h-0 flex-1 flex-col">
                         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-3">
                             <div className="space-y-1.5">
-                                <Label htmlFor="new-task-name" className="text-sm text-muted-foreground">Task name</Label>
+                                <Label htmlFor="new-task-name" className="text-sm text-muted-foreground">Task name <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 <Input
                                     id="new-task-name"
                                     className="bg-card text-sm text-foreground placeholder:text-muted-foreground"

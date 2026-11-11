@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use } from "react";
+import { useState, use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,12 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
     const router = useRouter();
-    const { update: updateSession } = useSession();
+    const { update: updateSession, status } = useSession();
+
+    // Already signed in (for example sent here by an old link): go on instead of showing the form again.
+    useEffect(() => {
+        if (status === "authenticated" && !isLoading && !isGoogleLoading) router.replace(callbackUrl);
+    }, [status, isLoading, isGoogleLoading, callbackUrl, router]);
 
     function resetForm() {
         setError(null);
@@ -231,7 +236,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 {!isLogin && (
                                     <div className="space-y-1.5">
                                         <Label htmlFor="name" className="text-xs font-medium text-foreground">
-                                            Full Name
+                                            Full Name <span className="text-destructive" aria-hidden="true">*</span>
                                         </Label>
                                         <Input
                                             id="name"
@@ -248,7 +253,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
 
                                 <div className="space-y-1.5">
                                     <Label htmlFor="email" className="text-xs font-medium text-foreground">
-                                        Email Address
+                                        Email Address <span className="text-destructive" aria-hidden="true">*</span>
                                     </Label>
                                     <Input
                                         id="email"
@@ -267,7 +272,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
                                         <Label htmlFor="password" className="text-xs font-medium text-foreground">
-                                            Password
+                                            Password <span className="text-destructive" aria-hidden="true">*</span>
                                         </Label>
                                         {isLogin && (
                                             <Link
@@ -294,7 +299,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
                                             aria-label="Toggle password visibility"
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center text-muted-foreground hover:text-foreground"
                                         >
                                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                         </button>
@@ -322,7 +327,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                 {!isLogin && (
                                     <div className="space-y-1.5">
                                         <Label htmlFor="confirmPassword" className="text-xs font-medium text-foreground">
-                                            Confirm Password
+                                            Confirm Password <span className="text-destructive" aria-hidden="true">*</span>
                                         </Label>
                                         <div className="relative">
                                             <Input
@@ -340,7 +345,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                                                 type="button"
                                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                                 aria-label="Toggle confirm password visibility"
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                                className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center text-muted-foreground hover:text-foreground"
                                             >
                                                 {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                             </button>

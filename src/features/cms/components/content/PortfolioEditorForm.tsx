@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -12,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { createPortfolio, publishPortfolio, updatePortfolio } from "@/features/cms/content/portfolio.actions";
 import { DEFAULT_CLIENT_DISPLAY_NAME, LIMITS } from "@/features/cms/content/schemas";
 import { ContentImageField } from "./ContentImageField";
-import { contentErrorMessage } from "./ContentStatusButtons";
+import { FormSection, SaveBar, formFields, sheet } from "./cms-ui";
+import { ContentStatusChip, contentErrorMessage } from "./ContentStatusButtons";
 import { FormSelect } from "@/components/ui/form-select";
 
 export type PortfolioFormValues = {
@@ -32,10 +32,11 @@ export type PortfolioFormValues = {
 
 export type ServiceOption = { id: string; title: string; status: "draft" | "published" | "hidden" };
 
+// Shown only near the limit, so a fresh form is not covered in "0 / 40".
 function Counter({ value, max }: { value: string; max: number }) {
-    const over = value.length > max;
+    if (value.length < max * 0.8) return null;
     return (
-        <span className={over ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+        <span className={`text-sm tabular-nums ${value.length > max ? "text-destructive" : "text-muted-foreground"}`}>
             {value.length} / {max}
         </span>
     );
@@ -116,169 +117,120 @@ export function PortfolioEditorForm({ project, services }: { project?: Portfolio
     }
 
     const isDraftOrNew = !project || project.status === "draft";
+    const err = (name: string) =>
+        fieldError(name) ? <p role="alert" className="text-sm text-destructive">{fieldError(name)}</p> : null;
 
+    // Mockup C6 content in the taste "framed sheet" look: titled sections, one sheet, a floating save bar.
     return (
         <form
-            className="space-y-6 rounded-xl border border-border p-6"
+            className="max-w-4xl"
             onSubmit={(event) => {
                 event.preventDefault();
                 save(false);
             }}
         >
-            {project && <Badge variant="outline" className="capitalize">{project.status}</Badge>}
+            <div className={`${sheet} ${formFields}`}>
+                <FormSection title="Project">
+                    <div className="space-y-2">
+                        <div className="flex items-baseline justify-between">
+                            <Label htmlFor="portfolio-title">Project title <span className="text-destructive" aria-hidden="true">*</span></Label>
+                            <Counter value={title} max={LIMITS.portfolio.title} />
+                        </div>
+                        <Input id="portfolio-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                        {err("title")}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="portfolio-service">Service <span className="text-destructive" aria-hidden="true">*</span></Label>
+                        <FormSelect id="portfolio-service" value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
+                            <option value="">Pick a service</option>
+                            {services.map((service) => (
+                                <option key={service.id} value={service.id}>
+                                    {service.status === "published" ? service.title : `${service.title} (${service.status})`}
+                                </option>
+                            ))}
+                        </FormSelect>
+                        {err("serviceId")}
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-baseline justify-between">
+                            <Label htmlFor="portfolio-summary">Summary <span className="text-destructive" aria-hidden="true">*</span></Label>
+                            <Counter value={summary} max={LIMITS.portfolio.summary} />
+                        </div>
+                        <Textarea id="portfolio-summary" rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} />
+                        {err("summary")}
+                    </div>
+                </FormSection>
 
-            <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                    <Label htmlFor="portfolio-title">Project title</Label>
-                    <Counter value={title} max={LIMITS.portfolio.title} />
-                </div>
-                <Input id="portfolio-title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                {fieldError("title") && <p role="alert" className="text-xs text-destructive">{fieldError("title")}</p>}
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="portfolio-service">Service</Label>
-                <FormSelect
-                    id="portfolio-service"
-                    value={serviceId}
-                    onChange={(e) => setServiceId(e.target.value)}
-                >
-                    <option value="">Pick a service</option>
-                    {services.map((service) => (
-                        <option key={service.id} value={service.id}>
-                            {service.status === "published" ? service.title : `${service.title} (${service.status})`}
-                        </option>
-                    ))}
-                </FormSelect>
-                <p className="text-xs text-muted-foreground">Picked from the Services list. Required to publish.</p>
-                {fieldError("serviceId") && (
-                    <p role="alert" className="text-xs text-destructive">{fieldError("serviceId")}</p>
-                )}
-            </div>
-
-            <fieldset className="space-y-3 rounded-lg border border-border p-4">
-                <legend className="px-1 text-sm font-medium">Client</legend>
-                <div className="space-y-2">
-                    <Label htmlFor="portfolio-display-name">Client shown as</Label>
-                    <Input
-                        id="portfolio-display-name"
-                        value={clientDisplayName}
-                        placeholder={DEFAULT_CLIENT_DISPLAY_NAME}
-                        onChange={(e) => setClientDisplayName(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                        {"Use a general name, e.g. “A logistics company”, if the client did not agree. Empty uses “"}
-                        {DEFAULT_CLIENT_DISPLAY_NAME}
-                        {"”."}
-                    </p>
-                    {fieldError("clientDisplayName") && (
-                        <p role="alert" className="text-xs text-destructive">{fieldError("clientDisplayName")}</p>
+                <FormSection title="Client" description="Use a general name, like “A logistics company”, unless the client agreed.">
+                    <div className="space-y-2">
+                        <Label htmlFor="portfolio-display-name">Client shown as</Label>
+                        <Input id="portfolio-display-name" value={clientDisplayName} placeholder={DEFAULT_CLIENT_DISPLAY_NAME} onChange={(e) => setClientDisplayName(e.target.value)} />
+                        {err("clientDisplayName")}
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                        <Checkbox id="portfolio-consent" checked={clientConsent} onCheckedChange={setClientConsent} />
+                        <Label htmlFor="portfolio-consent" className="font-normal">The client agreed to be named on our website</Label>
+                    </div>
+                    {clientConsent && (
+                        <div className="composer-enter space-y-2">
+                            <Label htmlFor="portfolio-client-name">Real client name</Label>
+                            <Input id="portfolio-client-name" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                            <p className="text-sm text-muted-foreground">Shown to visitors because the client agreed. Leave empty to use the name above.</p>
+                            {err("clientName")}
+                        </div>
                     )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <Checkbox id="portfolio-consent" checked={clientConsent} onCheckedChange={setClientConsent} />
-                    <Label htmlFor="portfolio-consent">The client agreed to be named on our website</Label>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="portfolio-client-name">Real client name (private)</Label>
-                    <Input
-                        id="portfolio-client-name"
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
+                </FormSection>
+
+                <FormSection title="Images" description={`Up to ${LIMITS.portfolio.images}. The first is the cover.`}>
+                    <ContentImageField
+                        label="Images"
+                        labelHidden
+                        value={images}
+                        onChange={setImages}
+                        max={LIMITS.portfolio.images}
+                        error={fieldError("galleryImages") ?? fieldError("coverImage")}
                     />
-                    <p className="text-xs text-muted-foreground">
-                        Visitors only see this when the box above is ticked. Otherwise they see the name shown above.
-                    </p>
-                    {fieldError("clientName") && (
-                        <p role="alert" className="text-xs text-destructive">{fieldError("clientName")}</p>
-                    )}
-                </div>
-            </fieldset>
+                </FormSection>
 
-            <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                    <Label htmlFor="portfolio-summary">Summary</Label>
-                    <Counter value={summary} max={LIMITS.portfolio.summary} />
-                </div>
-                <Textarea id="portfolio-summary" rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} />
-                {fieldError("summary") && <p role="alert" className="text-xs text-destructive">{fieldError("summary")}</p>}
+                <FormSection title="Details (optional)">
+                    <div className="space-y-2">
+                        <Label htmlFor="portfolio-live-url">Live link</Label>
+                        <Input id="portfolio-live-url" type="url" placeholder="https://" value={liveUrl} onChange={(e) => setLiveUrl(e.target.value)} />
+                        {err("liveUrl")}
+                    </div>
+                    <div className="grid gap-x-4 gap-y-5 sm:grid-cols-[minmax(0,1fr)_9rem]">
+                        <div className="space-y-2">
+                            <Label htmlFor="portfolio-technologies">Technologies <span className="text-destructive" aria-hidden="true">*</span></Label>
+                            <Input id="portfolio-technologies" value={technologies} placeholder="Next.js, PostgreSQL" onChange={(e) => setTechnologies(e.target.value)} />
+                            <p className="text-sm text-muted-foreground">Separate with commas.</p>
+                            {err("technologies")}
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex items-baseline justify-between">
+                                <Label htmlFor="portfolio-order">Order</Label>
+                            </div>
+                            <Input id="portfolio-order" type="number" min={0} max={9999} className="tabular-nums" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
+                            {err("sortOrder")}
+                        </div>
+                    </div>
+                </FormSection>
             </div>
 
-            <ContentImageField
-                label="Images"
-                value={images}
-                onChange={setImages}
-                max={LIMITS.portfolio.images}
-                error={fieldError("galleryImages") ?? fieldError("coverImage")}
-            />
+            {error && <p role="alert" className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
 
-            <div className="space-y-2">
-                <Label htmlFor="portfolio-live-url">Live link (optional)</Label>
-                <Input
-                    id="portfolio-live-url"
-                    type="url"
-                    placeholder="https://"
-                    value={liveUrl}
-                    onChange={(e) => setLiveUrl(e.target.value)}
-                />
-                {fieldError("liveUrl") && <p role="alert" className="text-xs text-destructive">{fieldError("liveUrl")}</p>}
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="portfolio-technologies">Technologies</Label>
-                <Input
-                    id="portfolio-technologies"
-                    value={technologies}
-                    placeholder="Next.js, PostgreSQL"
-                    onChange={(e) => setTechnologies(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Separate with commas.</p>
-                {fieldError("technologies") && (
-                    <p role="alert" className="text-xs text-destructive">{fieldError("technologies")}</p>
-                )}
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="portfolio-order">Order on the website</Label>
-                <Input
-                    id="portfolio-order"
-                    type="number"
-                    min={0}
-                    max={9999}
-                    className="w-32"
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value)}
-                />
-                {fieldError("sortOrder") && (
-                    <p role="alert" className="text-xs text-destructive">{fieldError("sortOrder")}</p>
-                )}
-            </div>
-
-            {error && (
-                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                    {error}
-                </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3">
-                {isDraftOrNew ? (
-                    <>
-                        <Button type="button" disabled={pending} onClick={() => save(true)}>
-                            Publish
-                        </Button>
-                        <Button type="submit" variant="outline" disabled={pending}>
-                            Save draft
-                        </Button>
-                    </>
-                ) : (
-                    <Button type="submit" disabled={pending}>
-                        Save changes
-                    </Button>
-                )}
-                <Button asChild variant="ghost">
+            <SaveBar status={project ? <ContentStatusChip status={project.status} /> : "New project · saved as a draft until you publish"}>
+                <Button asChild variant="ghost" className="h-9 active:scale-[0.97]">
                     <Link href="/dashboard/portfolio">Cancel</Link>
                 </Button>
-            </div>
+                {isDraftOrNew ? (
+                    <>
+                        <Button type="submit" variant="outline" disabled={pending} className="h-9 bg-card active:scale-[0.97]">Save draft</Button>
+                        <Button type="button" disabled={pending} onClick={() => save(true)} className="h-9 font-semibold active:scale-[0.97]">Publish</Button>
+                    </>
+                ) : (
+                    <Button type="submit" disabled={pending} className="h-9 font-semibold active:scale-[0.97]">Save changes</Button>
+                )}
+            </SaveBar>
         </form>
     );
 }

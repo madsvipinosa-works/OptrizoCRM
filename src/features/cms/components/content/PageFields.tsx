@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useState, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LIMITS, type PageSlugValue } from "@/features/cms/content/schemas";
 import { ContentImageField } from "./ContentImageField";
+import { FormSection } from "./cms-ui";
 
 export type TeamMemberValues = { name: string; jobTitle: string; photoUrl: string };
 export type HomeValues = {
@@ -104,15 +106,15 @@ function Field({
         <div className="space-y-2">
             <div className="flex items-baseline justify-between">
                 <Label htmlFor={id}>{label}</Label>
-                {max !== undefined && value !== undefined && (
-                    <span className={value.length > max ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+                {max !== undefined && value !== undefined && value.length >= max * 0.8 && (
+                    <span className={value.length > max ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
                         {value.length} / {max}
                     </span>
                 )}
             </div>
             {children}
             {error && (
-                <p role="alert" className="text-xs text-destructive">
+                <p role="alert" className="text-sm text-destructive">
                     {error}
                 </p>
             )}
@@ -141,34 +143,42 @@ function FeaturedPicker({
 }) {
     const full = selected.length >= LIMITS.home.featured;
     return (
-        <fieldset className="space-y-2 rounded-lg border border-border p-4">
-            <legend className="px-1 text-sm font-medium">
+        // Mockup C7: options wrap inline, the hint sits underneath.
+        <fieldset className="space-y-2">
+            <legend className="mb-2 flex w-full items-baseline justify-between text-sm font-medium text-foreground">
                 {legend}
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                <span className="text-sm font-normal tabular-nums text-muted-foreground">
                     {selected.length} / {LIMITS.home.featured}
                 </span>
             </legend>
-            <p className="text-xs text-muted-foreground">{help}</p>
             {options.length === 0 && <p className="text-sm text-muted-foreground">Nothing published yet.</p>}
+            <div className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {options.map((option) => {
                 const checked = selected.includes(option.id);
                 return (
-                    <div key={option.id} className="flex items-center gap-2">
+                    <div key={option.id} className="flex items-start gap-2.5">
                         <Checkbox
                             id={`${legend}-${option.id}`}
+                            className="mt-1"
                             checked={checked}
                             disabled={!checked && full}
                             onCheckedChange={(on) =>
                                 onChange(on ? [...selected, option.id] : selected.filter((id) => id !== option.id))
                             }
                         />
-                        <Label htmlFor={`${legend}-${option.id}`}>{option.title}</Label>
-                        {!option.published && <Badge variant="destructive">no longer published</Badge>}
+                        <div className="min-w-0">
+                            <Label htmlFor={`${legend}-${option.id}`} className="font-normal leading-snug">{option.title}</Label>
+                            {!option.published && (
+                                <p className="mt-0.5 text-sm text-destructive">Hidden from the website. Untick it to publish this page.</p>
+                            )}
+                        </div>
                     </div>
                 );
             })}
+            </div>
+            {help && <p className="text-sm text-muted-foreground">{help}</p>}
             {error && (
-                <p role="alert" className="text-xs text-destructive">
+                <p role="alert" className="text-sm text-destructive">
                     {error}
                 </p>
             )}
@@ -190,7 +200,8 @@ export function HomeSection({
     portfolio: FeatureOption[];
 }) {
     return (
-        <div className="space-y-6">
+        <>
+            <FormSection title="Hero">
             <Field id="home-heading" label="Main heading" value={values.heading} max={LIMITS.home.heading} error={errorFor(errors, "heading")}>
                 <Input id="home-heading" value={values.heading} onChange={(e) => onChange({ ...values, heading: e.target.value })} />
             </Field>
@@ -204,18 +215,14 @@ export function HomeSection({
                 onChange={(urls) => onChange({ ...values, mainImageUrl: urls[0] ?? "" })}
                 error={errorFor(errors, "mainImageUrl")}
             />
-            <div className="space-y-1">
-                <p className="text-sm font-medium">Button</p>
-                <div className="flex items-center gap-3">
-                    <Button type="button" variant="outline" disabled>
-                        Request a service
-                    </Button>
-                    <span className="text-xs text-muted-foreground">Fixed. It always opens the inquiry form.</span>
-                </div>
-            </div>
+            <p className="text-sm text-muted-foreground">
+                The main button always says &ldquo;Request a service&rdquo; and opens the inquiry form. It cannot be changed, so every visitor has a way in.
+            </p>
+            </FormSection>
+            <FormSection title="Featured" description="Up to 3 of each. Only published items are listed.">
             <FeaturedPicker
                 legend="Featured services"
-                help="Pick up to 3 from your published services."
+                help=""
                 options={services}
                 selected={values.featuredServiceIds}
                 onChange={(ids) => onChange({ ...values, featuredServiceIds: ids })}
@@ -223,13 +230,14 @@ export function HomeSection({
             />
             <FeaturedPicker
                 legend="Featured portfolio"
-                help="Pick up to 3 from your published portfolio projects."
+                help=""
                 options={portfolio}
                 selected={values.featuredPortfolioIds}
                 onChange={(ids) => onChange({ ...values, featuredPortfolioIds: ids })}
                 error={errorFor(errors, "featuredPortfolioIds")}
             />
-        </div>
+            </FormSection>
+        </>
     );
 }
 
@@ -247,117 +255,197 @@ export function AboutSection({
     errors: Errors;
 }) {
     const setTeam = (team: TeamMemberValues[]) => onChange({ ...values, team });
-    const updateMember = (index: number, patch: Partial<TeamMemberValues>) =>
-        setTeam(values.team.map((member, i) => (i === index ? { ...member, ...patch } : member)));
-    const move = (index: number, by: -1 | 1) => {
-        const target = index + by;
-        if (target < 0 || target >= values.team.length) return;
-        const next = [...values.team];
-        [next[index], next[target]] = [next[target], next[index]];
-        setTeam(next);
-    };
 
     return (
-        <div className="space-y-6">
+        <>
+            <FormSection title="Story">
             <Field id="about-heading" label="Page heading" value={values.heading} max={LIMITS.about.heading} error={errorFor(errors, "heading")}>
                 <Input id="about-heading" value={values.heading} onChange={(e) => onChange({ ...values, heading: e.target.value })} />
             </Field>
             <Field id="about-story" label="Our story" value={values.story} max={LIMITS.about.story} error={errorFor(errors, "story")}>
                 <Textarea id="about-story" rows={6} value={values.story} onChange={(e) => onChange({ ...values, story: e.target.value })} />
             </Field>
-            <Field id="about-mission" label="Mission" value={values.mission} max={LIMITS.about.mission} error={errorFor(errors, "mission")}>
-                <Textarea id="about-mission" rows={3} value={values.mission} onChange={(e) => onChange({ ...values, mission: e.target.value })} />
-            </Field>
-            <Field id="about-vision" label="Vision" value={values.vision} max={LIMITS.about.vision} error={errorFor(errors, "vision")}>
-                <Textarea id="about-vision" rows={3} value={values.vision} onChange={(e) => onChange({ ...values, vision: e.target.value })} />
-            </Field>
-            <Field id="about-how" label="How we work (one line)" value={values.howWeWork} max={LIMITS.about.howWeWork} error={errorFor(errors, "howWeWork")}>
-                <Input id="about-how" value={values.howWeWork} onChange={(e) => onChange({ ...values, howWeWork: e.target.value })} />
+            </FormSection>
+            <FormSection title="Mission and vision">
+            {/* Mockup C8: Mission and Vision side by side. */}
+            <div className="grid gap-5 sm:grid-cols-2">
+                <Field id="about-mission" label="Mission" value={values.mission} max={LIMITS.about.mission} error={errorFor(errors, "mission")}>
+                    <Textarea id="about-mission" rows={5} value={values.mission} onChange={(e) => onChange({ ...values, mission: e.target.value })} />
+                </Field>
+                <Field id="about-vision" label="Vision" value={values.vision} max={LIMITS.about.vision} error={errorFor(errors, "vision")}>
+                    <Textarea id="about-vision" rows={5} value={values.vision} onChange={(e) => onChange({ ...values, vision: e.target.value })} />
+                </Field>
+            </div>
+            </FormSection>
+            <FormSection title="How we work" description="Shown as steps on the page. Keep it short.">
+            <Field id="about-how" label="Steps" value={values.howWeWork} max={LIMITS.about.howWeWork} error={errorFor(errors, "howWeWork")}>
+                <Input id="about-how" value={values.howWeWork} placeholder="Discovery → Proposal → Design → Development → Testing → Handover" onChange={(e) => onChange({ ...values, howWeWork: e.target.value })} />
             </Field>
 
-            <fieldset className="space-y-4 rounded-lg border border-border p-4">
-                <legend className="px-1 text-sm font-medium">
-                    Team members shown
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                        {values.team.length} / {LIMITS.about.team}
-                    </span>
-                </legend>
-                <p className="text-xs text-muted-foreground">
-                    Team members here are content, not accounts. Only people who agreed to be shown. Photo, name and job
-                    title only.
-                </p>
-                {errorFor(errors, "team") && !Object.keys(errors).some((k) => k.startsWith("team.")) && (
-                    <p role="alert" className="text-xs text-destructive">
-                        {errorFor(errors, "team")}
-                    </p>
+            </FormSection>
+            <FormSection title="Team" description="Only people who agreed to be shown.">
+                <TeamMembers team={values.team} onChange={setTeam} errors={errors} />
+            </FormSection>
+        </>
+    );
+}
+
+function initials(name: string) {
+    return name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+}
+
+function MemberPhoto({ member, size = "size-11" }: { member: TeamMemberValues; size?: string }) {
+    return member.photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- uploaded content image
+        <img src={member.photoUrl} alt="" className={`${size} shrink-0 rounded-full object-cover`} />
+    ) : (
+        <span aria-hidden="true" className={`${size} grid shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-semibold text-brand-deep`}>
+            {initials(member.name)}
+        </span>
+    );
+}
+
+/**
+ * Mockup C8: compact cards (photo, name, job title, Edit / Remove) and an Add member tile.
+ * Editing happens in a small dialog, so the page stays short. Arrows change the order shown on the website.
+ */
+function TeamMembers({ team, onChange, errors }: { team: TeamMemberValues[]; onChange: (team: TeamMemberValues[]) => void; errors: Errors }) {
+    // index of the member being edited; team.length means "new member"
+    const [editing, setEditing] = useState<number | null>(null);
+    const [draft, setDraft] = useState<TeamMemberValues>({ name: "", jobTitle: "", photoUrl: "" });
+    const [triedSave, setTriedSave] = useState(false);
+    const full = team.length >= LIMITS.about.team;
+    const listError = errorFor(errors, "team") && !Object.keys(errors).some((k) => k.startsWith("team.")) ? errorFor(errors, "team") : undefined;
+
+    const open = (index: number) => {
+        setDraft(index < team.length ? { ...team[index] } : { name: "", jobTitle: "", photoUrl: "" });
+        setTriedSave(false);
+        setEditing(index);
+    };
+    const move = (index: number, by: -1 | 1) => {
+        const target = index + by;
+        if (target < 0 || target >= team.length) return;
+        const next = [...team];
+        [next[index], next[target]] = [next[target], next[index]];
+        onChange(next);
+    };
+    const nameError = !draft.name.trim() ? "Add a name." : draft.name.length > LIMITS.about.name ? `Keep it under ${LIMITS.about.name} characters.` : undefined;
+    const titleError = !draft.jobTitle.trim() ? "Add a job title." : draft.jobTitle.length > LIMITS.about.jobTitle ? `Keep it under ${LIMITS.about.jobTitle} characters.` : undefined;
+    const saveDraft = () => {
+        setTriedSave(true);
+        if (nameError || titleError || editing === null) return;
+        const clean = { name: draft.name.trim(), jobTitle: draft.jobTitle.trim(), photoUrl: draft.photoUrl };
+        onChange(editing < team.length ? team.map((m, i) => (i === editing ? clean : m)) : [...team, clean]);
+        setEditing(null);
+    };
+
+    return (
+        <section aria-labelledby="team-heading" className="space-y-2">
+            <h3 id="team-heading" className="text-sm text-muted-foreground">
+                <span className="tabular-nums">{team.length}</span> of {LIMITS.about.team} shown
+            </h3>
+
+            <ul className="grid gap-3 sm:grid-cols-2">
+                {team.map((member, index) => {
+                    const hasError = Object.keys(errors).some((k) => k.startsWith(`team.${index}.`));
+                    return (
+                        <li
+                            key={`${member.name}-${index}`}
+                            className={`composer-enter flex flex-col gap-3 rounded-xl border bg-card p-3 ${hasError ? "border-destructive" : "border-border"}`}
+                        >
+                            <div className="flex min-w-0 items-center gap-3">
+                                <MemberPhoto member={member} />
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-foreground">{member.name || "No name yet"}</p>
+                                    <p className="truncate text-sm text-muted-foreground">{member.jobTitle || "No job title yet"}</p>
+                                </div>
+                            </div>
+                            {hasError && <p role="alert" className="text-sm text-destructive">Fix this member before publishing.</p>}
+                            <div className="flex items-center gap-2">
+                                <Button type="button" size="sm" variant="outline" className="h-8 bg-card active:scale-[0.97]" onClick={() => open(index)}>
+                                    Edit<span className="sr-only"> {member.name}</span>
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 bg-card text-destructive hover:bg-destructive/10 hover:text-destructive active:scale-[0.97]"
+                                    onClick={() => onChange(team.filter((_, i) => i !== index))}
+                                >
+                                    Remove<span className="sr-only"> {member.name}</span>
+                                </Button>
+                                <div className="ml-auto flex">
+                                    <Button type="button" size="icon" variant="ghost" className="size-8 text-muted-foreground" disabled={index === 0} onClick={() => move(index, -1)} aria-label={`Show ${member.name || "this member"} earlier`}>
+                                        <ArrowLeft className="size-4" aria-hidden="true" />
+                                    </Button>
+                                    <Button type="button" size="icon" variant="ghost" className="size-8 text-muted-foreground" disabled={index === team.length - 1} onClick={() => move(index, 1)} aria-label={`Show ${member.name || "this member"} later`}>
+                                        <ArrowRight className="size-4" aria-hidden="true" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </li>
+                    );
+                })}
+                {!full && (
+                    <li>
+                        <button
+                            type="button"
+                            onClick={() => open(team.length)}
+                            className="flex h-full min-h-[7.5rem] w-full items-center justify-center gap-1.5 rounded-xl bg-muted/50 text-sm font-medium text-muted-foreground outline-none transition-colors duration-150 ease-out hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
+                        >
+                            <Plus className="size-4" aria-hidden="true" /> Add member
+                        </button>
+                    </li>
                 )}
-                {values.team.map((member, index) => (
-                    <div key={index} className="space-y-3 rounded-md border border-border p-3">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <Field
-                                id={`team-name-${index}`}
-                                label="Name"
-                                value={member.name}
-                                max={LIMITS.about.name}
-                                error={errors[`team.${index}.name`]}
-                            >
-                                <Input
-                                    id={`team-name-${index}`}
-                                    value={member.name}
-                                    onChange={(e) => updateMember(index, { name: e.target.value })}
+            </ul>
+            {listError && <p role="alert" className="text-sm text-destructive">{listError}</p>}
+            {full && <p className="text-sm text-muted-foreground">The page shows up to {LIMITS.about.team}. Remove one to add another.</p>}
+
+            <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-semibold tracking-tight">
+                            {editing !== null && editing < team.length ? "Edit team member" : "Add team member"}
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-muted-foreground">Shown on the About page after you publish.</DialogDescription>
+                    </DialogHeader>
+                    <form
+                        className="space-y-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            saveDraft();
+                        }}
+                    >
+                        <div className="flex items-center gap-3">
+                            <MemberPhoto member={draft} size="size-14" />
+                            <div className="min-w-0 flex-1">
+                                <ContentImageField
+                                    label="Photo (optional)"
+                                    max={1}
+                                    value={draft.photoUrl ? [draft.photoUrl] : []}
+                                    onChange={(urls) => setDraft((d) => ({ ...d, photoUrl: urls[0] ?? "" }))}
+                                    hidePreview
                                 />
-                            </Field>
-                            <Field
-                                id={`team-title-${index}`}
-                                label="Job title"
-                                value={member.jobTitle}
-                                max={LIMITS.about.jobTitle}
-                                error={errors[`team.${index}.jobTitle`]}
-                            >
-                                <Input
-                                    id={`team-title-${index}`}
-                                    value={member.jobTitle}
-                                    onChange={(e) => updateMember(index, { jobTitle: e.target.value })}
-                                />
-                            </Field>
+                            </div>
                         </div>
-                        <ContentImageField
-                            label="Photo (optional)"
-                            max={1}
-                            value={member.photoUrl ? [member.photoUrl] : []}
-                            onChange={(urls) => updateMember(index, { photoUrl: urls[0] ?? "" })}
-                            error={errors[`team.${index}.photoUrl`]}
-                        />
-                        <div className="flex flex-wrap gap-2">
-                            <Button type="button" size="sm" variant="outline" disabled={index === 0} onClick={() => move(index, -1)}>
-                                Move up
+                        <Field id="member-name" label="Name" value={draft.name} max={LIMITS.about.name} error={triedSave ? nameError : undefined}>
+                            <Input id="member-name" autoFocus value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
+                        </Field>
+                        <Field id="member-title" label="Job title" value={draft.jobTitle} max={LIMITS.about.jobTitle} error={triedSave ? titleError : undefined}>
+                            <Input id="member-title" value={draft.jobTitle} placeholder="e.g. Project Manager" onChange={(e) => setDraft((d) => ({ ...d, jobTitle: e.target.value }))} />
+                        </Field>
+                        <DialogFooter className="gap-2 pt-1">
+                            <Button type="button" variant="outline" className="h-9 active:scale-[0.97]" onClick={() => setEditing(null)}>
+                                Cancel
                             </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={index === values.team.length - 1}
-                                onClick={() => move(index, 1)}
-                            >
-                                Move down
+                            <Button type="submit" className="h-9 font-semibold active:scale-[0.97]">
+                                {editing !== null && editing < team.length ? "Save member" : "Add member"}
                             </Button>
-                            <Button type="button" size="sm" variant="ghost" onClick={() => setTeam(values.team.filter((_, i) => i !== index))}>
-                                Remove
-                            </Button>
-                        </div>
-                    </div>
-                ))}
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={values.team.length >= LIMITS.about.team}
-                    onClick={() => setTeam([...values.team, { name: "", jobTitle: "", photoUrl: "" }])}
-                >
-                    + Add member
-                </Button>
-            </fieldset>
-        </div>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </section>
     );
 }
 
@@ -375,14 +463,17 @@ export function ContactSection({
     errors: Errors;
 }) {
     return (
-        <div className="space-y-6">
+        <>
+            <FormSection title="Page">
             <Field id="contact-heading" label="Page heading" value={values.heading} max={LIMITS.contact.heading} error={errorFor(errors, "heading")}>
                 <Input id="contact-heading" value={values.heading} onChange={(e) => onChange({ ...values, heading: e.target.value })} />
             </Field>
             <Field id="contact-intro" label="Intro text" value={values.intro} max={LIMITS.contact.intro} error={errorFor(errors, "intro")}>
                 <Textarea id="contact-intro" rows={3} value={values.intro} onChange={(e) => onChange({ ...values, intro: e.target.value })} />
             </Field>
-            <div className="grid gap-6 sm:grid-cols-2">
+            </FormSection>
+            <FormSection title="Contact details" description="The email and phone also appear on the inquiry confirmation.">
+            <div className="grid gap-5 sm:grid-cols-2">
                 <Field id="contact-email" label="Email" error={errorFor(errors, "email")}>
                     <Input id="contact-email" type="email" value={values.email} onChange={(e) => onChange({ ...values, email: e.target.value })} />
                 </Field>
@@ -390,14 +481,14 @@ export function ContactSection({
                     <Input id="contact-phone" type="tel" value={values.phone} onChange={(e) => onChange({ ...values, phone: e.target.value })} />
                 </Field>
             </div>
-            <p className="-mt-3 text-xs text-muted-foreground">The email and phone also appear on the inquiry confirmation.</p>
             <Field id="contact-address" label="Office address" value={values.address} max={LIMITS.contact.address} error={errorFor(errors, "address")}>
                 <Input id="contact-address" value={values.address} onChange={(e) => onChange({ ...values, address: e.target.value })} />
             </Field>
             <Field id="contact-hours" label="Office hours" value={values.officeHours} max={LIMITS.contact.officeHours} error={errorFor(errors, "officeHours")}>
                 <Input id="contact-hours" value={values.officeHours} onChange={(e) => onChange({ ...values, officeHours: e.target.value })} />
             </Field>
-        </div>
+            </FormSection>
+        </>
     );
 }
 
@@ -408,7 +499,7 @@ export function ContactSection({
 function Row({ label, children }: { label: string; children: ReactNode }) {
     return (
         <div className="space-y-0.5">
-            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{label}</p>
+            <p className="text-sm text-muted-foreground">{label}</p>
             <div className="whitespace-pre-line text-sm">{children || <span className="text-muted-foreground">(empty)</span>}</div>
         </div>
     );
@@ -434,7 +525,7 @@ export function PlainFieldsView({
                 <Row label="Short intro">{v.intro}</Row>
                 <Row label="Main image">{v.mainImageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={v.mainImageUrl} alt="" className="h-24 rounded-md border border-border object-cover" />
+                    <img src={v.mainImageUrl} alt="" className="h-24 rounded-lg object-cover" />
                 )}</Row>
                 <Row label="Button">Request a service</Row>
                 <Row label="Featured services">{titleList(v.featuredServiceIds)}</Row>

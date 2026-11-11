@@ -75,8 +75,8 @@ export default async function ProposalPage({
         notFound();
     }
 
-    // Clients see proposals only in active sent/discussion/signed/declined statuses. 404 on draft and replaced.
-    if (proposal.status === "draft" || proposal.status === "replaced") {
+    // Clients never see a draft. A replaced version stays viewable, read-only, so they can compare (decision 2026-11-11).
+    if (proposal.status === "draft") {
         notFound();
     }
 
@@ -171,6 +171,13 @@ export default async function ProposalPage({
         })
         : null;
     const isCurrent = !higherVersion;
+    const versions = proposal.leadId
+        ? await db.query.proposals.findMany({
+              where: and(eq(proposals.leadId, proposal.leadId), ne(proposals.status, "draft")),
+              columns: { id: true, version: true, status: true },
+              orderBy: (p, { asc }) => [asc(p.version)],
+          })
+        : [];
     const isExpired = isProposalExpired(proposal.validUntil);
 
     // Load proposal messages (only kinds change_request, message, reply; NOT outside_discussion)
@@ -203,6 +210,7 @@ export default async function ProposalPage({
                     isPreview={!isOwner}
                     projectId={project?.id ?? null}
                     isCurrent={isCurrent}
+                    versions={versions}
                     isExpired={isExpired}
                     whatChanged={whatChanged}
                     messages={messages}

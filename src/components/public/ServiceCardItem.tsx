@@ -17,8 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CountryPhoneInput } from "@/components/ui/country-phone-input";
-import { ArrowRight, CheckCircle2, Loader2, Sparkles, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowRight, Check, CheckCircle2, Loader2 } from "lucide-react";
 import { submitIntakeForm, getPublishedServices, type IntakeState } from "@/features/crm/actions/submit-intake";
 import { ServiceDetailModal, type ServiceDetailItem } from "@/components/public/ServiceDetailModal";
 import { FormSelect } from "@/components/ui/form-select";
@@ -39,8 +38,6 @@ interface ServiceCardItemProps {
     timelineEstimate?: string | null;
     targetAudience?: string | null;
   };
-  images?: string[];
-  tags: string[];
   isLoggedIn?: boolean;
 }
 
@@ -57,7 +54,7 @@ const DEFAULT_SERVICE_IMAGES: Record<string, string> = {
   "Cloud & DevOps": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1000&auto=format&fit=crop",
 };
 
-const URGENCY_OPTIONS = [
+export const URGENCY_OPTIONS = [
   "Within 1 month",
   "1-2 months",
   "3-6 months",
@@ -65,7 +62,7 @@ const URGENCY_OPTIONS = [
   "Flexible",
 ];
 
-const INDUSTRY_OPTIONS = [
+export const INDUSTRY_OPTIONS = [
   "Retail",
   "E-commerce",
   "Technology & SaaS",
@@ -78,7 +75,7 @@ const INDUSTRY_OPTIONS = [
   "Other",
 ];
 
-const CONTACT_PREFERENCES = [
+export const CONTACT_PREFERENCES = [
   "Phone call",
   "Email",
   "Video meeting",
@@ -104,7 +101,7 @@ function parseStringArray(val: unknown): string[] {
   return [];
 }
 
-export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
+export function ServiceCardItem({ service }: ServiceCardItemProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -158,9 +155,16 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
   };
 
   // Sign-in is required before the inquiry form opens (the server action enforces it too).
-  const openInquiry = () => {
+  const openInquiry = async () => {
     setIsDetailOpen(false);
-    if (!sessionUser) {
+    // The session loads in the background; a click before it arrived used to send a signed-in client to the login page.
+    let user = sessionUser;
+    if (!user) {
+      const { getSession } = await import("next-auth/react");
+      user = (await getSession().catch(() => null))?.user ?? null;
+      if (user) setSessionUser(user);
+    }
+    if (!user) {
       router.push("/login?callbackUrl=/services&reason=inquiry_auth");
       return;
     }
@@ -169,106 +173,73 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
   };
   const handleAvailFromDetail = openInquiry;
 
-  const ActionButton = () => (
-    <Button 
-      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full group transition-all duration-300 shadow-md hover:shadow-lg"
-    >
-      Avail This Service
-      <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
-    </Button>
-  );
+  const inclusions = parseStringArray(service.inclusions);
+  const image = service.image || DEFAULT_SERVICE_IMAGES[service.title];
 
   return (
     <>
-      <div className="flex flex-col h-full bg-card backdrop-blur-xl border border-border rounded-2xl p-6 transition-all duration-300 hover:border-primary/50 hover:bg-muted/30 group shadow-sm">
-        {/* Visual Top Highlight */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-        <div className="flex flex-wrap gap-2 mb-4">
-          {tags.map((tag, idx) => (
-            <span 
-              key={idx} 
-              className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-xs font-bold tracking-wider uppercase rounded-full flex items-center gap-1.5"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              {tag}
-            </span>
-          ))}
-          {service.timelineEstimate && (
-            <span className="px-3 py-1 bg-muted/60 text-muted-foreground border border-border text-xs font-mono rounded-full flex items-center gap-1">
-              <Clock className="w-3 h-3 text-primary" />
-              {service.timelineEstimate}
-            </span>
+      {/* The same card the content editor previews (mockup C3): image, name, short description, what's included, Request this service. */}
+      <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors duration-200 ease-out hover:border-foreground/20">
+        <button
+          type="button"
+          onClick={() => setIsDetailOpen(true)}
+          aria-label={`View details of ${service.title}`}
+          className="relative aspect-[16/9] w-full overflow-hidden bg-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          {image && (
+            <Image
+              src={image}
+              alt=""
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+            />
           )}
-        </div>
-        
-        <h3
-          onClick={() => setIsDetailOpen(true)}
-          className="text-2xl font-bold text-card-foreground mb-3 tracking-tight cursor-pointer hover:text-primary transition-colors"
-        >
-          {service.title}
-        </h3>
-        
-        <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
-          {service.description}
-        </p>
+        </button>
 
-        {/* Graphic Visualization */}
-        <div
-          onClick={() => setIsDetailOpen(true)}
-          className="relative w-full h-40 rounded-xl mb-6 border border-border/80 overflow-hidden group-hover:border-primary/40 transition-all duration-500 bg-muted/40 shadow-xs cursor-pointer group/img"
-        >
-          <Image
-            src={
-              service.image ||
-              DEFAULT_SERVICE_IMAGES[service.title] ||
-              "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop"
-            }
-            alt={service.title}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover group-hover/img:scale-105 transition-transform duration-700 ease-out"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/20 to-transparent" />
-          <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between pointer-events-none">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-white/95 font-bold bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              {service.category || "Optrizo Solution"}
-            </span>
-            <span className="text-[10px] font-mono text-white/90 bg-primary/20 text-primary backdrop-blur-xs px-2 py-0.5 rounded border border-primary/30">
-              CLICK TO VIEW INCLUSIONS
-            </span>
+        <div className="flex flex-1 flex-col p-5">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{service.title}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{service.description}</p>
+
+          {inclusions.length > 0 && (
+            <ul className="mt-4 space-y-1.5 text-sm text-foreground">
+              {inclusions.slice(0, 5).map((item, idx) => (
+                <li key={`${item}-${idx}`} className="flex gap-2">
+                  <Check className="mt-0.5 size-4 shrink-0 text-brand-deep" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+              {inclusions.length > 5 && <li className="pl-6 text-muted-foreground">and {inclusions.length - 5} more in the details</li>}
+            </ul>
+          )}
+
+          <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2 pt-5">
+            <Button type="button" onClick={openInquiry} className="group/btn h-10 gap-1.5 font-semibold active:scale-[0.97]">
+              Request this service
+              <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover/btn:translate-x-0.5" aria-hidden="true" />
+            </Button>
+            <button
+              type="button"
+              onClick={() => setIsDetailOpen(true)}
+              className="rounded-md text-sm font-medium text-muted-foreground outline-none underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              View details
+            </button>
           </div>
-        </div>
 
-        <div className="mt-auto pt-4 border-t border-border flex flex-col gap-2.5">
-          {/* Quick Details & Inclusions trigger */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsDetailOpen(true)}
-            className="w-full border-border hover:bg-muted text-foreground text-xs font-semibold rounded-full gap-2 transition-all bg-card/40"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            View Inclusions & Details
-          </Button>
-
-          {/* Inquiry Form Modal (sign-in required - Mockups 008-1 to 011-1c) */}
+          {/* Inquiry form (sign-in required; mockups 1 to 1c). Opened by Request this service. */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <div className="w-full cursor-pointer" onClick={openInquiry}>
-              <ActionButton />
-            </div>
-            <DialogContent className="sm:max-w-[660px] bg-card border-border text-card-foreground rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto override-scrollbar p-6 md:p-8">
+            <DialogContent className="sm:max-w-[660px] bg-card border-border text-card-foreground rounded-2xl max-h-[90vh] overflow-y-auto override-scrollbar p-6 md:p-8">
               {state.success ? (
                 /* Mockup 011-1c: Thank-you card / Inquiry received confirmation */
                 <div className="py-6 flex flex-col space-y-6">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold self-start">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-soft text-brand-deep border border-brand-deep/30 text-xs font-semibold self-start">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Inquiry received
                   </div>
 
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">
                       Thank you, {state.inquiryData?.businessName || state.inquiryData?.clientName || "there"}.
                     </h2>
                     <p className="text-muted-foreground text-sm mt-1">
@@ -285,7 +256,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                   </div>
 
                   <div className="bg-muted/40 border border-border rounded-xl p-5 space-y-3">
-                    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    <h3 className="text-sm font-semibold text-foreground ">
                       What happens next
                     </h3>
                     <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside leading-relaxed">
@@ -319,7 +290,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                 <>
                   <DialogHeader className="space-y-2 pb-2 border-b border-border">
                     <div className="flex items-center justify-between">
-                      <DialogTitle className="text-2xl font-bold text-card-foreground">
+                      <DialogTitle className="text-2xl font-semibold text-card-foreground">
                         Request a service
                       </DialogTitle>
                       {sessionUser?.email && (
@@ -329,7 +300,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                       )}
                     </div>
                     <DialogDescription className="text-muted-foreground text-sm">
-                      Tell us about your project requirements. No login or credit card required.
+                      Tell us about your project requirements. Fields marked * are required.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -349,7 +320,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="serviceId" className="text-xs font-semibold text-foreground">
-                          Service
+                          Service <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <FormSelect
                           id="serviceId"
@@ -370,7 +341,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
 
                       <div className="space-y-1.5">
                         <Label htmlFor="urgency" className="text-xs font-semibold text-foreground">
-                          Urgency
+                          Urgency <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <FormSelect
                           id="urgency"
@@ -393,7 +364,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                     {selectedServiceId === "other" && (
                       <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
                         <Label htmlFor="otherServiceText" className="text-xs font-semibold text-foreground">
-                          Type the service you need
+                          Type the service you need <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="otherServiceText"
@@ -413,7 +384,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="businessName" className="text-xs font-semibold text-foreground">
-                          Business name
+                          Business name <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="businessName"
@@ -430,7 +401,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
 
                       <div className="space-y-1.5">
                         <Label htmlFor="clientName" className="text-xs font-semibold text-foreground">
-                          Client name
+                          Client name <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="clientName"
@@ -450,7 +421,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="email" className="text-xs font-semibold text-foreground">
-                          Email address
+                          Email address <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="email"
@@ -482,7 +453,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label htmlFor="industry" className="text-xs font-semibold text-foreground">
-                          Industry
+                          Industry <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <FormSelect
                           id="industry"
@@ -502,7 +473,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
 
                       <div className="space-y-1.5">
                         <Label htmlFor="roleInCompany" className="text-xs font-semibold text-foreground">
-                          Role in the company
+                          Role in the company <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
                         <Input
                           id="roleInCompany"
@@ -521,7 +492,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
                     {/* Contact Preference (Mockup 008-1 Row 4) */}
                     <div className="space-y-1.5">
                       <Label htmlFor="contactPreference" className="text-xs font-semibold text-foreground">
-                        How should we reach you?
+                        How should we reach you? <span className="text-destructive" aria-hidden="true">*</span>
                       </Label>
                       <FormSelect
                         id="contactPreference"
@@ -587,7 +558,7 @@ export function ServiceCardItem({ service, tags }: ServiceCardItemProps) {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+      </article>
 
       {/* Service Inclusions & Detail Modal */}
       <ServiceDetailModal

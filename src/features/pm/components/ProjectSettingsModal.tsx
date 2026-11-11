@@ -249,7 +249,7 @@ export function ProjectSettingsModal({ project }: ProjectSettingsModalProps) {
                         {activeTab === "general" && (
                             <>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="proj-title" className="text-sm text-muted-foreground">Project name</Label>
+                                    <Label htmlFor="proj-title" className="text-sm text-muted-foreground">Project name <span className="text-destructive" aria-hidden="true">*</span></Label>
                                     <Input id="proj-title" value={title} onChange={(e) => setTitle(e.target.value)} required className="h-10 bg-card text-sm" />
                                 </div>
                                 <div className="space-y-1.5">

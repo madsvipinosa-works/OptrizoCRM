@@ -204,11 +204,11 @@ const Team = ({
         <div className="mx-auto max-w-7xl px-4 lg:px-8 xl:px-16">
           <div className="flex flex-col items-center justify-center gap-16">
             <div className="max-w-xl mx-auto flex flex-col items-center justify-center text-center gap-4">
-              <Badge variant={"outline"} className="px-3.5 py-1.5 h-auto text-xs uppercase tracking-widest border-primary/30 bg-primary/10 text-primary font-semibold">
+              <Badge variant={"outline"} className="px-3.5 py-1.5 h-auto text-xs border-primary/30 bg-primary/10 text-brand-deep font-semibold">
                 {badge}
               </Badge>
               <div className="flex flex-col items-center justify-center gap-3">
-                <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-foreground">
+                <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
                   {title}
                 </h2>
                 <p className="text-base font-normal text-muted-foreground leading-relaxed">
@@ -228,7 +228,7 @@ const Team = ({
                 return (
                   <div
                     key={value.id || index}
-                    className="group flex flex-col items-start gap-4 p-3 rounded-2xl border border-border/60 bg-card/60 dark:bg-card/40 hover:border-primary/50 transition-all duration-300 backdrop-blur-md shadow-xs hover:shadow-[0_0_25px_rgba(0,214,57,0.12)]"
+                    className="group flex flex-col items-start gap-4 p-3 rounded-2xl border border-border/60 bg-card/60 dark:bg-card/40 hover:border-primary/50 transition-all duration-300 shadow-xs"
                   >
                     <div className="relative w-full h-80 rounded-xl overflow-hidden bg-muted/40 border border-border/40">
                       <img
@@ -238,7 +238,7 @@ const Team = ({
                         width={270}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-background/60 dark:bg-gray-950/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-end p-4 backdrop-blur-[2px]">
+                      <div className="absolute inset-0 bg-background/60 dark:bg-card/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-end p-4">
                         <div className="flex gap-2">
                           {socials.map((social, idx) => (
                             <a
@@ -246,7 +246,7 @@ const Team = ({
                               href={social.link}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex w-fit bg-card border border-border p-2.5 rounded-full text-foreground hover:text-primary hover:border-primary/50 transition-all duration-300 shadow-sm"
+                              className="flex w-fit bg-card border border-border p-2.5 rounded-full text-foreground hover:text-brand-deep hover:border-primary/50 transition-all duration-300 shadow-sm"
                             >
                               {renderSocialIcon(social)}
                             </a>
@@ -255,10 +255,10 @@ const Team = ({
                       </div>
                     </div>
                     <div className="flex flex-col gap-1 px-1 pb-1">
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
+                      <h3 className="text-lg font-semibold text-foreground group-hover:text-brand-deep transition-colors">
                         {value.name}
                       </h3>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      <p className="text-xs font-medium text-muted-foreground ">
                         {value.role}
                       </p>
                     </div>

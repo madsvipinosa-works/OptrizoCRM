@@ -251,7 +251,7 @@ export function LoginModal({
                       htmlFor="modal-name"
                       className="text-sm font-medium text-foreground block"
                     >
-                      Full Name
+                      Full Name <span className="text-destructive" aria-hidden="true">*</span>
                     </label>
                     <input
                       id="modal-name"
@@ -272,7 +272,7 @@ export function LoginModal({
                     htmlFor="modal-email"
                     className="text-sm font-medium text-foreground block"
                   >
-                    Email Address
+                    Email Address <span className="text-destructive" aria-hidden="true">*</span>
                   </label>
                   <input
                     id="modal-email"
@@ -294,7 +294,7 @@ export function LoginModal({
                         htmlFor="modal-password"
                         className="text-sm font-medium text-foreground"
                       >
-                        Password
+                        Password <span className="text-destructive" aria-hidden="true">*</span>
                       </label>
                       {isLogin && (
                         <button
@@ -343,7 +343,7 @@ export function LoginModal({
                       htmlFor="modal-confirmPassword"
                       className="text-sm font-medium text-foreground block"
                     >
-                      Confirm Password
+                      Confirm Password <span className="text-destructive" aria-hidden="true">*</span>
                     </label>
                     <div className="relative">
                       <input

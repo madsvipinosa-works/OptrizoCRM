@@ -106,7 +106,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                 <Card className="border-border bg-card">
                     <CardHeader>
                         <CardTitle className="text-foreground flex items-center gap-2">
-                            <ShieldCheck className="w-5 h-5 text-primary" />
+                            <ShieldCheck className="w-5 h-5 text-brand-deep" />
                             Branding & System Communications
                         </CardTitle>
                         <CardDescription>
@@ -149,7 +149,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                         <div className="space-y-3 pt-4 border-t border-border">
                             <div>
                                 <Label className="text-base text-foreground font-medium flex items-center gap-2">
-                                    <Mail className="w-4 h-4 text-primary" />
+                                    <Mail className="w-4 h-4 text-brand-deep" />
                                     Internal Alert Recipients
                                 </Label>
                                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -204,11 +204,11 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                             <CardTitle className="text-foreground flex items-center gap-2">
-                                <HelpCircle className="w-5 h-5 text-primary" />
+                                <HelpCircle className="w-5 h-5 text-brand-deep" />
                                 Contact Page Frequently Asked Questions (FAQs)
                             </CardTitle>
                             <CardDescription>
-                                These questions and answers are presented in the dedicated FAQ accordion below the contact form on <code className="text-primary font-mono text-xs">/contact</code>.
+                                These questions and answers are presented in the dedicated FAQ accordion below the contact form on <code className="text-brand-deep tabular-nums text-xs">/contact</code>.
                             </CardDescription>
                         </div>
                         <Badge variant="outline" className="border-border w-fit text-xs">
@@ -268,7 +268,7 @@ export function SettingsForm({ initialData }: { initialData: SiteSettings | unde
 
                         {faqs.length < 10 && (
                             <Button type="button" onClick={handleAddFaq} variant="outline" className="w-full border-dashed border-border hover:border-primary/50 text-foreground">
-                                <Plus className="h-4 w-4 mr-2 text-primary" /> Add Frequently Asked Question
+                                <Plus className="h-4 w-4 mr-2 text-brand-deep" /> Add Frequently Asked Question
                             </Button>
                         )}
                     </CardContent>

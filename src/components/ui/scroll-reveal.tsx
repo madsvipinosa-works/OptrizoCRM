@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useInView, Variants } from "framer-motion";
+import { motion, useInView, useReducedMotion, Variants } from "framer-motion";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
 
@@ -14,62 +14,33 @@ interface ScrollRevealProps {
     once?: boolean;
 }
 
+/** Fades (and slides) its content in once it scrolls into view. Classes apply to the content's own box. */
 export function ScrollReveal({
     children,
     className,
     variant = "slide-up",
     delay = 0,
     duration = 0.5,
-    staggerChildren = 0.1,
     once = true,
 }: ScrollRevealProps) {
     const ref = useRef(null);
     const isInView = useInView(ref, { once, margin: "-10% 0px" });
+    const reduce = useReducedMotion();
 
-    const variants = {
-        hidden: {},
-        visible: {
-            transition: {
-                staggerChildren: staggerChildren,
-                delayChildren: delay,
-            },
-        },
-    };
-
-    const childVariants: Variants = {
+    // One box, not a wrapper around a wrapper, so spacing classes like `space-y-4` reach the children.
+    const variants: Variants = {
         hidden: {
             opacity: 0,
-            y: variant === "slide-up" ? 40 : 0,
-            x: variant === "slide-right" ? -40 : 0,
-            scale: variant === "zoom" ? 0.95 : 1,
+            y: !reduce && variant === "slide-up" ? 40 : 0,
+            x: !reduce && variant === "slide-right" ? -40 : 0,
+            scale: !reduce && variant === "zoom" ? 0.95 : 1,
         },
-        visible: {
-            opacity: 1,
-            y: 0,
-            x: 0,
-            scale: 1,
-            transition: {
-                duration: duration,
-                ease: [0.25, 0.1, 0.25, 1.0],
-            },
-        },
+        visible: { opacity: 1, y: 0, x: 0, scale: 1, transition: { duration, delay, ease: [0.25, 0.1, 0.25, 1.0] } },
     };
 
     return (
-        <motion.div
-            ref={ref}
-            variants={variants}
-            initial="hidden"
-            animate={isInView ? "visible" : "hidden"}
-            className={cn(className)}
-        >
-            {/* If children are mapped, they need to be motion components to respect stagger. 
-                Common pattern is to wrap this around a list and have items use Item variants,
-                but for simplicity here we assume the direct child needs animation or we wrap children.
-            */}
-            <motion.div variants={childVariants} className="w-full h-full">
-                {children}
-            </motion.div>
+        <motion.div ref={ref} variants={variants} initial="hidden" animate={isInView ? "visible" : "hidden"} className={cn(className)}>
+            {children}
         </motion.div>
     );
 }

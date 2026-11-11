@@ -74,6 +74,15 @@ export default async function StaffProposalViewPage({
         redirect("/dashboard/proposals");
     }
 
+    // Every version sent for this lead stays viewable as it was (tester feedback 2026-11-11).
+    const versions = proposal.leadId
+        ? (await db.query.proposals.findMany({
+              where: eq(proposals.leadId, proposal.leadId),
+              columns: { id: true, version: true, status: true },
+              orderBy: (p, { asc }) => [asc(p.version)],
+          })).filter((v) => isManager || v.status !== "draft")
+        : [];
+
     async function handleClosePricingBooking() {
         "use server";
         redirect(`/dashboard/proposals/${id}?tab=overview`);
@@ -269,6 +278,27 @@ export default async function StaffProposalViewPage({
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${status.tone}`}>{status.label}</span>
                         <span className="tabular-nums">Proposal no. {proposal.proposalCode || proposal.id.slice(0, 8)}</span>
                     </p>
+                    {versions.length > 1 && (
+                        <nav aria-label="Proposal versions" className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
+                            <span className="mr-1 text-muted-foreground">Versions</span>
+                            {versions.map((v) =>
+                                v.id === proposal.id ? (
+                                    <span key={v.id} aria-current="page" className="rounded-md bg-brand-soft px-2.5 py-1 font-semibold tabular-nums text-brand-deep">
+                                        v{v.version}
+                                    </span>
+                                ) : (
+                                    <Link
+                                        key={v.id}
+                                        href={`/dashboard/proposals/${v.id}`}
+                                        className="rounded-md px-2.5 py-1 font-medium tabular-nums text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        v{v.version}
+                                        <span className="sr-only"> ({v.status.replace(/_/g, " ")})</span>
+                                    </Link>
+                                )
+                            )}
+                        </nav>
+                    )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                     <Button asChild variant="outline" className="bg-card active:scale-[0.97]">

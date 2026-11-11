@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { CmsPageHeader, sheet } from "@/features/cms/components/content/cms-ui";
 import { notFound } from "next/navigation";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs, caseStudies, services, users } from "@/db/schema";
 import { requireRole } from "@/lib/authz";
-import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +19,14 @@ const manilaDateTime = new Intl.DateTimeFormat("en-US", {
     minute: "2-digit",
 });
 
+// Recent changes read as sentences: "Claire Diaz published Service: Web Development".
 const ACTION_LABELS: Record<string, string> = {
-    CREATE: "Created draft",
-    UPDATE: "Saved changes",
-    PUBLISH: "Published",
-    HIDE: "Hid",
-    UNHIDE: "Unhid",
-    RESTORE: "Restored",
+    CREATE: "created a draft of",
+    UPDATE: "saved changes to",
+    PUBLISH: "published",
+    HIDE: "hid",
+    UNHIDE: "showed again",
+    RESTORE: "restored",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -116,93 +118,87 @@ export default async function ContentHomePage() {
         return titleOf.get(`${entity}:${entityId}`) ?? "record removed";
     }
 
+    const stats = [
+        {
+            label: "Services",
+            count: serviceCounts.published,
+            meta: `published · ${serviceCounts.draft} draft${serviceCounts.draft === 1 ? "" : "s"}`,
+            note: "On the Services page and the inquiry form",
+            href: "/dashboard/services",
+            action: "Manage services",
+        },
+        {
+            label: "Portfolio",
+            count: portfolioCounts.published,
+            meta: `published · ${portfolioCounts.hidden} hidden`,
+            note: "Finished projects on the website",
+            href: "/dashboard/portfolio",
+            action: "Manage portfolio",
+        },
+        { label: "Pages", count: 3, meta: "fixed pages", note: "Home, About, Contact", href: "/dashboard/pages", action: "Edit pages" },
+    ];
+
+    // Mockup C1 content, taste "framed sheet" look: one divided strip of counts, then recent changes as sentences.
     return (
-        <div className="max-w-5xl mx-auto space-y-8 pb-12">
-            <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">Website content</h1>
-                <p className="text-muted-foreground">What visitors see on the Optrizo website.</p>
-            </div>
+        <div className="mx-auto w-full max-w-[1200px] space-y-6 pb-12">
+            <CmsPageHeader
+                title="Website content"
+                description="What visitors see on the Optrizo website."
+            />
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2 rounded-xl border border-border p-5">
-                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Services</p>
-                    <p className="text-sm">
-                        {serviceCounts.published} published · {serviceCounts.draft} draft · {serviceCounts.hidden} hidden
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                        Shown on the Services page and the inquiry form.
-                    </p>
-                    <Button asChild size="sm" variant="outline">
-                        <Link href="/dashboard/services">Manage services</Link>
-                    </Button>
-                </div>
-                <div className="space-y-2 rounded-xl border border-border p-5">
-                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Portfolio</p>
-                    <p className="text-sm">
-                        {portfolioCounts.published} published · {portfolioCounts.draft} draft · {portfolioCounts.hidden} hidden
-                    </p>
-                    <p className="text-xs text-muted-foreground">Finished projects shown on the website.</p>
-                    <Button asChild size="sm" variant="outline">
-                        <Link href="/dashboard/portfolio">Manage portfolio</Link>
-                    </Button>
-                </div>
-                <div className="space-y-2 rounded-xl border border-border p-5">
-                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Pages</p>
-                    <p className="text-sm">3 · Home, About, Contact</p>
-                    <ul className="space-y-1 text-sm">
-                        {(["home", "about", "contact"] as const).map((slug) => (
-                            <li key={slug}>
-                                <Link
-                                    href={`/dashboard/pages/${slug}`}
-                                    className="flex items-center justify-between rounded-md border border-border px-3 py-1.5 hover:bg-accent"
-                                >
-                                    <span className="capitalize">{slug}</span>
-                                    <span className="text-xs text-muted-foreground">Edit</span>
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
+            <section aria-label="What is on the website" className={`${sheet} grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0`}>
+                {stats.map((stat) => (
+                    <div key={stat.label} className="flex flex-col p-5 sm:p-6">
+                        <p className="text-sm text-muted-foreground">{stat.label}</p>
+                        <p className="mt-2 flex items-baseline gap-2">
+                            <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{stat.count}</span>
+                            <span className="text-sm text-muted-foreground">{stat.meta}</span>
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{stat.note}</p>
+                        <Link
+                            href={stat.href}
+                            className="group mt-4 inline-flex items-center gap-1 self-start rounded-md text-sm font-medium text-foreground outline-none underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            {stat.action}
+                            <ArrowRight className="size-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5" aria-hidden="true" />
+                        </Link>
+                    </div>
+                ))}
+            </section>
 
-            <div className="rounded-xl border border-border bg-muted/30 p-5 text-sm">
-                <p className="font-medium">How changes go live</p>
-                <p className="mt-1 text-muted-foreground">
-                    Edits are saved as drafts. Visitors see them only after you click Publish. This workspace edits
-                    public website content only. It cannot open leads, proposals or projects.
-                </p>
-            </div>
-
-            <div className="space-y-3">
-                <h2 className="text-xl font-semibold">Recent changes</h2>
+            <section aria-labelledby="recent-heading" className={sheet}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5 sm:px-6">
+                    <h2 id="recent-heading" className="text-base font-semibold text-foreground">Recent changes</h2>
+                    <p className="text-sm text-muted-foreground">Edits are drafts until you click Publish.</p>
+                </div>
                 {changes.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                        No changes yet.
-                    </p>
+                    <p className="px-5 pb-6 pt-3 text-sm text-muted-foreground sm:px-6">No changes yet. Saved drafts and published edits show here.</p>
                 ) : (
-                    <ul className="divide-y divide-border rounded-xl border border-border">
-                        {changes.map((change) => (
-                            <li key={change.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm">
-                                <span className="w-32 shrink-0 text-muted-foreground">
-                                    {manilaDateTime.format(change.createdAt)}
-                                </span>
-                                <span className="font-medium">
-                                    {change.userName ?? "Unknown user"}
-                                    {change.actorRole && (
-                                        <span className="ml-1 font-normal text-muted-foreground">
-                                            ({ROLE_LABELS[change.actorRole] ?? change.actorRole})
+                    <ul className="mt-2 px-5 pb-2 sm:px-6">
+                        {changes.map((change) => {
+                            const name = change.userName ?? "Unknown user";
+                            return (
+                                <li key={change.id} className="flex items-center gap-3 border-t border-border/70 py-3 first:border-t-0">
+                                    <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                                        {name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                                    </span>
+                                    <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+                                        <span className="font-medium text-foreground">{name}</span>
+                                        {change.actorRole && change.actorRole !== "content_editor" && <> ({ROLE_LABELS[change.actorRole] ?? change.actorRole})</>}{" "}
+                                        {(change.action && ACTION_LABELS[change.action]) ?? "changed"}{" "}
+                                        <span className="text-foreground">
+                                            {change.entity}: {recordLabel(change.entity, change.entityId)}
                                         </span>
-                                    )}
-                                </span>
-                                <span>{(change.action && ACTION_LABELS[change.action]) ?? "Changed"}</span>
-                                <span className="text-muted-foreground">
-                                    {change.entity}: {recordLabel(change.entity, change.entityId)}
-                                </span>
-                            </li>
-                        ))}
+                                    </p>
+                                    <time dateTime={change.createdAt.toISOString()} className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                                        {manilaDateTime.format(change.createdAt)}
+                                    </time>
+                                </li>
+                            );
+                        })}
                     </ul>
                 )}
-            </div>
+            </section>
         </div>
     );
 }

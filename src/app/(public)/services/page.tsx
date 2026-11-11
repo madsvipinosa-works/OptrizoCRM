@@ -1,140 +1,64 @@
 import { getPublishedServices } from "@/features/cms/content/public-queries";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Lock, Users, Zap } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ServiceCardItem } from "@/components/public/ServiceCardItem";
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
 
 export const revalidate = 3600; // Cache and revalidate every hour (ISR)
 
-const SERVICE_ASSETS: Record<string, { tags: string[] }> = {
-    "Web Development": {
-        tags: ["Next.js", "React", "TypeScript", "Micro-frontends"],
-    },
-    "UI/UX Design": {
-        tags: ["Design Systems", "Prototyping", "WCAG AAA"],
-    },
-    "Mobile App Development": {
-        tags: ["React Native", "iOS", "Android", "Swift"],
-    },
-    "AI Integration": {
-        tags: ["LLM", "RAG", "PyTorch", "Vector Search"],
-    },
-    "Cloud & DevOps": {
-        tags: ["Terraform", "Kubernetes", "AWS", "CI/CD"],
-    },
+export const metadata = {
+    title: "Services",
+    description: "What Optrizo builds for Philippine teams, and how to request it.",
 };
 
+/**
+ * Public Services page (mockups 1 and C4): a left-aligned intro like optrizo.com/services, then one
+ * card per published service, the same card the content editor previews. Each card opens the inquiry form.
+ */
 export default async function ServicesPage() {
-    const allServices = await getPublishedServices({ forInquiry: false });
+    const services = await getPublishedServices({ forInquiry: false });
 
     return (
-        <div className="relative min-h-screen bg-background text-foreground overflow-hidden font-sans">
-            {/* Ambient Background Glows */}
-            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] -translate-y-1/2 pointer-events-none" />
-            <div className="absolute top-1/4 right-0 w-[400px] h-[400px] bg-secondary/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="relative min-h-screen overflow-hidden bg-background pb-24 pt-32 text-foreground">
+            {/* Soft brand-green glow behind the intro, as on About and Work. */}
+            <div aria-hidden="true" className="pointer-events-none absolute -top-24 left-1/4 -z-10 h-[420px] w-[620px] rounded-full bg-primary/10 blur-[120px]" />
 
-            <div className="container relative z-10 mx-auto px-4 pt-32 pb-24">
-                {/* Hero Section */}
-                <div className="max-w-4xl mx-auto mb-20 text-center flex flex-col items-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card/80 border border-border backdrop-blur-md mb-8 shadow-sm">
-                        <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                        <span className="text-xs font-bold tracking-widest text-muted-foreground uppercase">Capabilities & Practice Areas</span>
-                    </div>
-                    
-                    <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 text-foreground">
-                        End-to-End <br className="hidden md:block" />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">
-                            Digital Solutions
-                        </span>
+            <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+                <ScrollReveal className="max-w-2xl">
+                    <p className="text-sm font-semibold text-brand-deep">Services</p>
+                    <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                        Software that fits the way your team works
                     </h1>
-                    
-                    <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed mb-12 max-w-3xl">
-                        From architectural ideation to high-scale deployment, we partner with visionary engineering leaders and enterprise teams to engineer category-defining digital products.
+                    <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                        Pick a service and send a short request. Every project starts with your workflow, and prices are agreed in the proposal.
                     </p>
-                </div>
+                </ScrollReveal>
 
-                {/* Services Grid */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-32 items-stretch">
-                    {allServices.map((service) => {
-                        const mappedAsset = SERVICE_ASSETS[service.title] || {
-                            tags: ["Architecture", "Engineering"],
-                        };
-
-                        return (
-                            <ServiceCardItem
-                                key={service.id}
-                                service={service}
-                                images={[]}
-                                tags={mappedAsset.tags}
-                            />
-                        );
-                    })}
-
-                    {allServices.length === 0 && (
-                        <div className="col-span-full py-24 text-center border border-dashed border-border rounded-2xl bg-muted/30">
-                            <p className="text-muted-foreground text-lg">Services are being updated. Check back soon!</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Bottom CTA Section */}
-                <div className="relative rounded-3xl border border-border bg-card/60 backdrop-blur-xl overflow-hidden p-8 md:p-16 shadow-xl">
-                    <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
-                    
-                    <div className="relative z-10 grid lg:grid-cols-2 gap-12 items-center">
-                        <div>
-                            <span className="text-primary font-bold tracking-widest text-sm uppercase mb-4 block">Bespoke Custom Solutions</span>
-                            <h2 className="text-3xl md:text-5xl font-bold text-card-foreground mb-6 tracking-tight">Have a complex engineering challenge?</h2>
-                            <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-                                Whether you require a dedicated embedded engineering squad, technical advisory audit, or rapid prototype turnaround, we architect custom engagements tailored to your roadmap.
-                            </p>
-                            
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-full px-8 shadow-md">
-                                    <Link href="/contact">
-                                        Schedule Technical Discovery <ArrowRight className="ml-2 h-5 w-5" />
-                                    </Link>
-                                </Button>
-                                <Button asChild size="lg" variant="outline" className="border-border hover:bg-muted text-foreground font-bold rounded-full px-8 bg-transparent">
-                                    <Link href="/contact">
-                                        Download Capabilities (PDF)
-                                    </Link>
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Social Proof / Guarantee Bar */}
-                        <div className="flex flex-col gap-6 lg:border-l border-border lg:pl-12">
-                            <div className="flex items-start gap-4">
-                                <div className="mt-1 p-2 rounded-lg bg-muted border border-border text-primary">
-                                    <Lock className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-card-foreground text-lg">NDA Protected by Default</h4>
-                                    <p className="text-muted-foreground text-sm mt-1">Enterprise-grade security and confidentiality from day one.</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-4">
-                                <div className="mt-1 p-2 rounded-lg bg-muted border border-border text-primary">
-                                    <Users className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-card-foreground text-lg">Direct Access to Staff Engineers</h4>
-                                    <p className="text-muted-foreground text-sm mt-1">No middle-men. Collaborate directly with senior architects.</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-4">
-                                <div className="mt-1 p-2 rounded-lg bg-muted border border-border text-primary">
-                                    <Zap className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-card-foreground text-lg">2-Week Rapid Delivery Sprints</h4>
-                                    <p className="text-muted-foreground text-sm mt-1">Iterative, high-velocity shipping cycles with transparent progress.</p>
-                                </div>
-                            </div>
-                        </div>
+                {services.length === 0 ? (
+                    <p className="mt-16 rounded-2xl border border-border bg-card px-6 py-12 text-center text-muted-foreground">
+                        Services are being updated. Check back soon.
+                    </p>
+                ) : (
+                    <div className="mt-16 grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {services.map((service) => (
+                            <ServiceCardItem key={service.id} service={service} />
+                        ))}
                     </div>
-                </div>
+                )}
+
+                <ScrollReveal className="mt-24 flex flex-col items-start justify-between gap-6 rounded-2xl border border-border bg-card p-8 sm:flex-row sm:items-center sm:p-10">
+                    <div>
+                        <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Not sure which service fits?</h2>
+                        <p className="mt-2 text-muted-foreground">Tell us what you need. We reply within one business day.</p>
+                    </div>
+                    <Link
+                        href="/contact"
+                        className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-5 text-sm font-semibold text-foreground transition-colors hover:border-foreground/20 active:scale-[0.97]"
+                    >
+                        Contact us
+                        <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" aria-hidden="true" />
+                    </Link>
+                </ScrollReveal>
             </div>
         </div>
     );

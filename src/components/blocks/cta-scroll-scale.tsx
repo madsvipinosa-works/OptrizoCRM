@@ -65,7 +65,7 @@ export function CTAScrollScale() {
                     style={shouldAnimate ? { y: textY } : undefined}
                 >
                     {/* Optrizo Pulsing Beacon Badge */}
-                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-emerald-800 dark:text-primary text-xs font-mono tracking-widest uppercase mb-5 sm:mb-6 shadow-xs font-semibold">
+                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-brand-deep dark:text-primary text-xs font-mono tracking-widest uppercase mb-5 sm:mb-6 shadow-xs font-semibold">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
@@ -81,7 +81,7 @@ export function CTAScrollScale() {
                             { text: "Ready to Build" },
                             {
                                 text: "Something Great?",
-                                className: "text-primary block mt-1 drop-shadow-[0_0_24px_rgba(0,214,57,0.35)]",
+                                className: "text-brand-deep block mt-1 drop-shadow-[0_0_24px_rgba(0,214,57,0.35)]",
                             },
                         ]}
                     />
@@ -113,7 +113,7 @@ export function CTAScrollScale() {
                     {/* 3-Metric Telemetry Row: Structured with circular badge icons */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-6 border-t border-border/60 w-full max-w-lg">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-xs">
+                            <div className="w-10 h-10 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center text-brand-deep shrink-0 shadow-xs">
                                 <Cpu className="w-4 h-4" />
                             </div>
                             <div>
@@ -122,7 +122,7 @@ export function CTAScrollScale() {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-xs">
+                            <div className="w-10 h-10 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center text-brand-deep shrink-0 shadow-xs">
                                 <ShieldCheck className="w-4 h-4" />
                             </div>
                             <div>
@@ -131,7 +131,7 @@ export function CTAScrollScale() {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-xs">
+                            <div className="w-10 h-10 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center text-brand-deep shrink-0 shadow-xs">
                                 <Zap className="w-4 h-4" />
                             </div>
                             <div>

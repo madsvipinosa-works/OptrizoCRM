@@ -15,7 +15,7 @@ export function ServiceCardAction({ serviceId, isLoggedIn }: ServiceCardActionPr
 
     if (isLoggedIn) {
         return (
-            <Button asChild className="w-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-black font-semibold transition-all">
+            <Button asChild className="w-full bg-primary/10 text-brand-deep border border-primary/20 hover:bg-primary hover:text-black font-semibold transition-colors">
                 <Link href={redirectTarget}>
                     Avail Service / Request Proposal <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -25,7 +25,7 @@ export function ServiceCardAction({ serviceId, isLoggedIn }: ServiceCardActionPr
 
     return (
         <LoginModal defaultRedirect={redirectTarget}>
-            <Button className="w-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-black font-semibold transition-all">
+            <Button className="w-full bg-primary/10 text-brand-deep border border-primary/20 hover:bg-primary hover:text-black font-semibold transition-colors">
                 Avail Service / Request Proposal <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
         </LoginModal>

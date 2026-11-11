@@ -37,10 +37,10 @@ export function UserActiveToggle({
         status || (isActive ? "active" : "deactivated");
 
     const badgeStyle = {
-        active: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-        locked: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-        deactivated: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-        invited: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
+        active: "bg-brand-soft text-brand-deep border-brand-deep/30",
+        locked: "bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30",
+        deactivated: "bg-destructive/10 text-destructive border-destructive/30",
+        invited: "bg-stage-negotiation/10 text-stage-negotiation border-stage-negotiation/30",
     }[effectiveStatus];
 
     const statusLabel = {
@@ -145,7 +145,7 @@ export function UserActiveToggle({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={() => handleAction("deactivate")}
-                            className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                            className="text-destructive focus:text-destructive"
                         >
                             Deactivate account
                         </DropdownMenuItem>
@@ -158,7 +158,7 @@ export function UserActiveToggle({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={() => handleAction("deactivate")}
-                            className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                            className="text-destructive focus:text-destructive"
                         >
                             Deactivate account
                         </DropdownMenuItem>
@@ -178,7 +178,7 @@ export function UserActiveToggle({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     onClick={() => handleAction("cancel")}
-                                    className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                                    className="text-destructive focus:text-destructive"
                                 >
                                     Cancel invite
                                 </DropdownMenuItem>
@@ -187,7 +187,7 @@ export function UserActiveToggle({
                         {mode === "full" && (
                             <DropdownMenuItem
                                 onClick={() => handleAction("deactivate")}
-                                className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                                className="text-destructive focus:text-destructive"
                             >
                                 Deactivate account
                             </DropdownMenuItem>

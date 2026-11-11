@@ -100,7 +100,7 @@ function ResetPasswordForm() {
 
                 <form onSubmit={onSubmit} className="space-y-6">
                     <div className="space-y-2">
-                        <Label htmlFor="password" className="text-gray-300">New Password</Label>
+                        <Label htmlFor="password" className="text-gray-300">New Password <span className="text-destructive" aria-hidden="true">*</span></Label>
                         <div className="relative">
                             <Input 
                                 id="password" 
@@ -116,7 +116,7 @@ function ResetPasswordForm() {
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
                                 aria-label="Toggle password visibility"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                                className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center text-gray-500 hover:text-white"
                             >
                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
@@ -136,7 +136,7 @@ function ResetPasswordForm() {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
+                        <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password <span className="text-destructive" aria-hidden="true">*</span></Label>
                         <div className="relative">
                             <Input 
                                 id="confirmPassword" 
@@ -152,7 +152,7 @@ function ResetPasswordForm() {
                                 type="button"
                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                 aria-label="Toggle confirm password visibility"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                                className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center text-gray-500 hover:text-white"
                             >
                                 {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>

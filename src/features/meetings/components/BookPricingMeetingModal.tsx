@@ -1,5 +1,6 @@
 "use client";
 
+import { MeetingLocationField } from "@/features/meetings/components/MeetingLocationField";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,6 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { isPastManila, manilaToDate, nowHm, todayYmd } from "@/lib/datetime";
 import { Users, FileText, Loader2, Video, Phone, MapPin } from "lucide-react";
-import { MeetingLocationField } from "@/features/meetings/components/MeetingLocationField";
-import { useRouter } from "next/navigation";
 
 interface BookPricingMeetingModalProps {
     isOpen: boolean;
@@ -35,7 +34,12 @@ export function BookPricingMeetingModal({
     businessName,
     onSuccess,
 }: BookPricingMeetingModalProps) {
-    const router = useRouter();
+    // The page closes this dialog with a server redirect; hide it at once so the button cannot be clicked again meanwhile.
+    const [closed, setClosed] = useState(false);
+    const close = () => {
+        setClosed(true);
+        onClose();
+    };
     const [format, setFormat] = useState<"video" | "phone" | "in_person" | "on_site">("video");
     const [location, setLocation] = useState("");
     const [date, setDate] = useState(() => todayYmd(new Date(Date.now() + 24 * 60 * 60 * 1000)));
@@ -73,20 +77,18 @@ export function BookPricingMeetingModal({
             if (res.success) {
                 toast.success("Budget & pricing meeting scheduled! Client has been notified.");
                 onSuccess?.(res.meetingId!);
-                onClose();
-                router.refresh();
-            } else {
-                toast.error(res.message || "Failed to schedule meeting");
+                close();
+                return; // stay disabled: re-enabling here allowed a second invite while the page reloaded
             }
+            toast.error(res.message || "Failed to schedule meeting");
         } catch {
             toast.error("Failed to schedule meeting");
-        } finally {
-            setIsSubmitting(false);
         }
+        setIsSubmitting(false);
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <Dialog open={isOpen && !closed} onOpenChange={(open) => !open && close()}>
             <DialogContent className="max-w-md w-full bg-card border-border text-foreground">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <DialogHeader>
@@ -163,7 +165,7 @@ export function BookPricingMeetingModal({
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
+                        <Button type="button" variant="ghost" size="sm" onClick={close} disabled={isSubmitting}>
                             Cancel
                         </Button>
                         <Button type="submit" size="sm" disabled={isSubmitting} className="font-semibold active:scale-[0.97]">

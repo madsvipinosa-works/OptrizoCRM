@@ -56,6 +56,11 @@ export async function createLead(data: {
     timelineExpectation?: string;
     goals?: string;
     industry?: string;
+    // Same fields as the inquiry form (spec step 1), so a lead added by Sales reads like one from the website.
+    urgency?: string;
+    roleInCompany?: string;
+    contactPreference?: string;
+    details?: string;
     source?: string;
     assignedRepId?: string | null;
     tasksPlaybook?: PlaybookTaskTemplate[];
@@ -105,6 +110,10 @@ export async function createLead(data: {
                 timelineExpectation: data.timelineExpectation,
                 goals: data.goals,
                 industry: data.industry,
+                urgency: data.urgency?.trim().slice(0, 40) || null,
+                roleInCompany: data.roleInCompany?.trim().slice(0, 80) || null,
+                contactPreference: data.contactPreference?.trim().slice(0, 40) || null,
+                details: data.details?.trim().slice(0, 5000) || null,
                 status: "New Lead",
                 source: data.source || "Manual Entry",
                 lastContactedAt: new Date(),
@@ -1390,7 +1399,12 @@ export async function claimLead(
 
     const actorName = session.user.name || session.user.email || "Sales";
 
-    await db.transaction(async (tx) => {
+    // Two Sales users clicking Claim together both passed the check above; lock the lead and check again.
+    const claimed = await db.transaction(async (tx) => {
+        await tx.select({ id: leads.id }).from(leads).where(eq(leads.id, leadId)).for("update");
+        const owners = await tx.select({ userId: leadAssignees.userId }).from(leadAssignees).where(eq(leadAssignees.leadId, leadId)).limit(1);
+        if (owners.length > 0) return false;
+
         await tx.insert(leadAssignees).values({
             leadId,
             userId: session.user.id,
@@ -1402,7 +1416,12 @@ export async function claimLead(
             activityType: "System",
             content: `Lead claimed by ${actorName}.`,
         });
+        return true;
     });
+
+    if (!claimed) {
+        return { ok: false, error: "ALREADY_ASSIGNED", message: "Lead already has a Sales owner." };
+    }
 
     await logAction(
         "UPDATE",

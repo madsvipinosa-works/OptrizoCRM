@@ -129,7 +129,7 @@ export async function SalesDashboard({ userId }: { userId: string }) {
                 <Stat label="Won this month" value={wonThisMonth.length} strong />
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <section aria-labelledby="attention-heading" className="rounded-xl border border-border bg-card p-5">
                     <h2 id="attention-heading" className="text-lg font-semibold tracking-tight text-foreground">
                         Needs your attention
