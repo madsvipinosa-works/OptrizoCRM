@@ -4,6 +4,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
+  // Chromium's compressed binaries are found at runtime, so file tracing misses them; ship them with the PDF route.
+  outputFileTracingIncludes: {
+    // A glob, not a literal path: [id] would be read as a character class.
+    '/api/proposals/**': ['./node_modules/@sparticuz/chromium/bin/**'],
+  },
   turbopack: {
     root: __dirname,
   },
