@@ -63,14 +63,14 @@ export async function GET(
         }
 
         // Access Control
-        // Staff allowed: sales (own or unassigned leads) and manager. Clients: own lead only, and never draft or replaced.
+        // Staff allowed: sales (own or unassigned leads) and manager. Clients: own lead only, never a draft (replaced versions stay downloadable to compare).
         const userRole = (session.user as any)?.role;
         const lead = proposal.lead;
 
         if (userRole === "client") {
             const isOwner = lead && session.user.id === lead.clientId;
 
-            if (!isOwner || proposal.status === "draft" || proposal.status === "replaced") {
+            if (!isOwner || proposal.status === "draft") {
                 return NextResponse.json({ error: "Forbidden: You do not own this proposal" }, { status: 403 });
             }
         } else if (hasRole(session, ["manager"])) {

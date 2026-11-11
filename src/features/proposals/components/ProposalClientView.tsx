@@ -106,6 +106,8 @@ interface Props {
     projectId?: string | null;
     canEditInStudio?: boolean;
     isCurrent?: boolean;
+    /** Every version the client was sent, oldest first (drafts never included). */
+    versions?: { id: string; version: number; status: string }[];
     isExpired?: boolean;
     whatChanged?: string[];
     messages?: ProposalMessageItem[];
@@ -121,7 +123,8 @@ export function ProposalClientView({
     proposal,
     parsedDeliverables,
     parsedPricing,
-    isPreview = false,
+    isPreview: staffPreview = false,
+    versions = [],
     projectId = null,
     canEditInStudio = false,
     isCurrent = true,
@@ -130,6 +133,10 @@ export function ProposalClientView({
     messages = [],
     settings,
 }: Props) {
+    // An older version is shown exactly as it was sent, but nothing on it can be acted on (compare only).
+    const isOldVersion = proposal.status === "replaced";
+    const isPreview = staffPreview || isOldVersion;
+    const currentVersion = versions.length > 0 ? versions[versions.length - 1] : null;
     const router = useRouter();
     const [isRejecting, setIsRejecting] = useState(false);
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -299,8 +306,42 @@ export function ProposalClientView({
             {approvedEl}
             {isApproved && threadEl}
 
+            {versions.length > 1 && (
+                <nav aria-label="Proposal versions" className="no-print mx-auto flex max-w-[850px] flex-wrap items-center gap-1.5 text-sm">
+                    <span className="mr-1 text-muted-foreground">Versions</span>
+                    {versions.map((v) =>
+                        v.id === proposal.id ? (
+                            <span key={v.id} aria-current="page" className="rounded-md bg-brand-soft px-2.5 py-1 font-semibold tabular-nums text-brand-deep">
+                                v{v.version}
+                            </span>
+                        ) : (
+                            <Link
+                                key={v.id}
+                                href={`/proposal/${v.id}`}
+                                className="rounded-md px-2.5 py-1 font-medium tabular-nums text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                v{v.version}
+                            </Link>
+                        )
+                    )}
+                </nav>
+            )}
+
+            {isOldVersion && (
+                <div className="no-print mx-auto flex max-w-[850px] flex-wrap items-center justify-between gap-3 rounded-lg bg-muted px-4 py-3 text-sm text-foreground">
+                    <span>
+                        This is an older version (v{proposal.version}), kept so you can compare. It can no longer be signed or changed.
+                    </span>
+                    {currentVersion && currentVersion.id !== proposal.id && (
+                        <Link href={`/proposal/${currentVersion.id}`} className="font-semibold text-brand-deep underline-offset-4 hover:underline">
+                            Open the current version (v{currentVersion.version})
+                        </Link>
+                    )}
+                </div>
+            )}
+
             {/* Staff Preview Banner */}
-            {isPreview && (
+            {staffPreview && (
                 <div className="bg-stage-new/10 border border-stage-new/30 rounded-lg p-3 text-center text-xs text-stage-new tabular-nums no-print flex items-center justify-center gap-2">
                     <Info className="h-4 w-4 shrink-0" />
                     <span>

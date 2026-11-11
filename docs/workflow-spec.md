@@ -290,6 +290,7 @@ These settle earlier conflicts between this spec and the mockups. This spec wins
 | Blog and testimonials | Out of scope. Hidden from menus and routes, code kept. |
 | Step 26 | Status is `changes_requested`, shown in the In progress column with a red tag. Mockup text "back to In progress" does not apply. |
 | Steps 4 and 4a | Stage moves to `discovery` on the first logged interaction or booked meeting, whichever comes first. |
+| Clients see older proposal versions (2026-11-11) | A client can open every version they were sent, including `replaced` ones, read-only, to compare. Only the current version can be signed, declined or changed. Drafts are never shown. |
 | Sales marks a lead lost (2026-11-11) | Besides a client declining a proposal, Sales may mark an open lead **lost** with a required reason (and optional notes). Stage → `closed_lost`; a `system` interaction records it; Sales can Reopen it as before. This is an action with a reason, not a status dropdown. |
 | Steps 4b and 5 | No stage change. Marking the discovery meeting done only unlocks the discovery form. |
 | Meeting types | The four in §3 only. |
