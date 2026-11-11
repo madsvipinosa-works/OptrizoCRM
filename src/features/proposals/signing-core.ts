@@ -39,6 +39,17 @@ export interface ProposalSignatureParams {
  * - Project provisioned with 5 milestones and payment schedule rows via provisionProjectFromProposal.
  * - Post-commit non-blocking notifications & email.
  */
+/** Drawn or uploaded signatures arrive as data URLs; only small PNG, JPEG or WebP images are kept. */
+const SIGNATURE_IMAGE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+export const SIGNATURE_IMAGE_MAX_CHARS = 400_000; // about 300 KB of image; the dialog resizes to 600x240 first
+
+export function signatureImageError(signatureData: string): string | null {
+    if (!signatureData.startsWith("data:")) return null; // a typed name
+    if (!SIGNATURE_IMAGE.test(signatureData)) return "Signature image must be a PNG, JPG or WebP.";
+    if (signatureData.length > SIGNATURE_IMAGE_MAX_CHARS) return "Signature image is too large. Use a smaller image.";
+    return null;
+}
+
 export async function executeProposalSignature(
     params: ProposalSignatureParams
 ): Promise<{ success: boolean; message?: string; projectId?: string }> {
@@ -67,6 +78,10 @@ export async function executeProposalSignature(
         }
         if (!signatureData?.trim()) {
             return { success: false, message: "Signature representation is required" };
+        }
+        const imageError = signatureImageError(signatureData.trim());
+        if (imageError) {
+            return { success: false, message: imageError };
         }
     } else if (signatureType === "paper") {
         if (!signedFileUrl?.trim()) {

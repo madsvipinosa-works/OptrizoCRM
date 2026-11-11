@@ -272,6 +272,18 @@ describe("Proposal Signing & Expiry Unit Tests", () => {
         });
     });
 
+    describe("Signature image check", () => {
+        it("accepts typed names and small PNG/JPEG/WebP data URLs, rejects other types and oversized images", async () => {
+            const { signatureImageError, SIGNATURE_IMAGE_MAX_CHARS } = await import("@/features/proposals/signing-core");
+            expect(signatureImageError("Juan Dela Cruz")).toBeNull();
+            expect(signatureImageError("data:image/png;base64,iVBORw0KGgo=")).toBeNull();
+            expect(signatureImageError("data:image/jpeg;base64,/9j/4AAQ")).toBeNull();
+            expect(signatureImageError("data:image/svg+xml;base64,PHN2Zz4=")).toMatch(/PNG, JPG or WebP/);
+            expect(signatureImageError("data:text/html;base64,PGI+")).toMatch(/PNG, JPG or WebP/);
+            expect(signatureImageError("data:image/png;base64," + "A".repeat(SIGNATURE_IMAGE_MAX_CHARS))).toMatch(/too large/);
+        });
+    });
+
     describe("Proposal Messages & Negotiation Hardening", () => {
         it("ensures getProposalMessages is not exposed as an uncalled server action (function is gone)", () => {
             expect((signingModule as Record<string, unknown>).getProposalMessages).toBeUndefined();

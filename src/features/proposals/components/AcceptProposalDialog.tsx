@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShieldCheck, Loader2, PenTool, Type, RotateCcw, CheckSquare } from "lucide-react";
+import { ShieldCheck, Loader2, PenTool, Type, RotateCcw, CheckSquare, Upload } from "lucide-react";
 import { signProposal } from "@/features/proposals/signing";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
@@ -45,7 +45,9 @@ export function AcceptProposalDialog({
     const [isLoading, setIsLoading] = useState(false);
     const [legalName, setLegalName] = useState(defaultName || "");
     const [title, setTitle] = useState("Chief Executive Officer");
-    const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
+    const [signatureMode, setSignatureMode] = useState<"type" | "draw" | "upload">("type");
+    const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
 
     // Required Client Details
@@ -126,6 +128,37 @@ export function AcceptProposalDialog({
         setHasDrawn(false);
     };
 
+    // Uploaded signature: shrink to at most 600x240 and keep it as a PNG data URL (same form as a drawn one).
+    const handleSignatureFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+            toast.error("Choose a PNG, JPG or WebP image.");
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Choose an image smaller than 5 MB.");
+            return;
+        }
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, 600 / img.width, 240 / img.height);
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+            setUploadedSignature(canvas.toDataURL("image/png"));
+            URL.revokeObjectURL(url);
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            toast.error("That image could not be read. Try another file.");
+        };
+        img.src = url;
+    };
+
     const handleExecuteAcceptance = async () => {
         if (!legalName.trim()) {
             toast.error("Please enter your full legal name.");
@@ -148,9 +181,16 @@ export function AcceptProposalDialog({
             return;
         }
 
+        if (signatureMode === "upload" && !uploadedSignature) {
+            toast.error("Choose your signature image, or type or draw it instead.");
+            return;
+        }
+
         let signatureString = legalName;
         if (signatureMode === "draw" && canvasRef.current && hasDrawn) {
             signatureString = canvasRef.current.toDataURL("image/png");
+        } else if (signatureMode === "upload" && uploadedSignature) {
+            signatureString = uploadedSignature;
         }
 
         setIsLoading(true);
@@ -292,15 +332,18 @@ export function AcceptProposalDialog({
                         <Label className="text-xs">Digital Signature Style</Label>
                         <Tabs
                             value={signatureMode}
-                            onValueChange={(val) => setSignatureMode(val as "type" | "draw")}
+                            onValueChange={(val) => setSignatureMode(val as "type" | "draw" | "upload")}
                             className="w-full"
                         >
-                            <TabsList className="grid grid-cols-2 bg-muted/60">
+                            <TabsList className="grid grid-cols-3 bg-muted/60">
                                 <TabsTrigger value="type" className="text-xs flex items-center gap-1.5">
                                     <Type className="h-3.5 w-3.5" /> Type Signature
                                 </TabsTrigger>
                                 <TabsTrigger value="draw" className="text-xs flex items-center gap-1.5">
                                     <PenTool className="h-3.5 w-3.5" /> Draw Signature
+                                </TabsTrigger>
+                                <TabsTrigger value="upload" className="text-xs flex items-center gap-1.5">
+                                    <Upload className="h-3.5 w-3.5" /> Upload Signature
                                 </TabsTrigger>
                             </TabsList>
 
@@ -342,6 +385,42 @@ export function AcceptProposalDialog({
                                 <p className="text-xs text-muted-foreground text-center">
                                     Draw your signature in the box above using your mouse or finger.
                                 </p>
+                            </TabsContent>
+
+                            {/* Upload Signature Tab: a photo or scan of the client's signature */}
+                            <TabsContent value="upload" className="mt-3 space-y-2">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    onChange={handleSignatureFile}
+                                    className="sr-only"
+                                    aria-label="Signature image"
+                                />
+                                <div className="flex min-h-[110px] items-center justify-center rounded-md border border-dashed border-border bg-muted/30 p-3">
+                                    {uploadedSignature ? (
+                                        // eslint-disable-next-line @next/next/no-img-element -- local preview of a data URL
+                                        <img src={uploadedSignature} alt="Your uploaded signature" className="max-h-[90px] max-w-full object-contain" />
+                                    ) : (
+                                        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="text-xs">
+                                            <Upload className="h-3.5 w-3.5 mr-1.5" /> Choose image
+                                        </Button>
+                                    )}
+                                </div>
+                                {uploadedSignature ? (
+                                    <div className="flex justify-center gap-2">
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} className="h-7 px-2 text-xs">
+                                            Replace
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => setUploadedSignature(null)} className="h-7 px-2 text-xs text-muted-foreground">
+                                            Remove
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground text-center">
+                                        PNG, JPG or WebP, up to 5 MB. A photo of your signature on white paper works best.
+                                    </p>
+                                )}
                             </TabsContent>
                         </Tabs>
                     </div>
