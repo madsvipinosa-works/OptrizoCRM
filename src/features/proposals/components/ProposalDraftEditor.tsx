@@ -374,7 +374,7 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
                         <h2 id="proposal-card" className="text-lg font-semibold tracking-tight">Proposal</h2>
                         <div className="space-y-1.5">
                             <div className="flex items-baseline justify-between">
-                                <Label htmlFor="project-name">Project name</Label>
+                                <Label htmlFor="project-name">Project name <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 <Counter value={fields.projectName} max={LIMITS.projectName} />
                             </div>
                             <Input

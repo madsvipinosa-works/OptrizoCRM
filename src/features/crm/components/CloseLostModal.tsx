@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertOctagon, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { LossReason } from "@/lib/schemas";
 
 interface CloseLostModalProps {
@@ -54,32 +54,27 @@ export function CloseLostModal({
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !isSubmitting) onClose(); }}>
             <DialogContent className="max-w-md bg-card border-border text-foreground rounded-xl shadow-2xl">
                 <DialogHeader className="space-y-2">
-                    <div className="flex items-center gap-2 text-rose-500 font-semibold text-sm">
-                        <AlertOctagon className="h-4 w-4" />
-                        Opportunity Loss Analysis
-                    </div>
-                    <DialogTitle className="text-xl font-bold text-foreground">
-                        Mark as Closed Lost
+                    <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Mark lead as lost
                     </DialogTitle>
-                    <DialogDescription className="text-muted-foreground text-xs leading-relaxed">
-                        To maintain agency win/loss metrics, please specify why <span className="text-foreground font-medium">"{leadTitle}"</span> was lost.
+                    <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+                        Say why <span className="text-foreground font-medium">{leadTitle}</span> will not go ahead. The lead moves to Closed Lost; you can reopen it later with a reason.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 my-2">
                     {/* Mandatory Reason Selector */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                            <span>Primary Loss Reason <span className="text-rose-500">*</span></span>
-                            <span className="text-[10px] text-muted-foreground font-normal font-mono">Mandatory</span>
+                        <label className="text-sm font-medium text-foreground">
+                            Reason <span className="text-destructive" aria-hidden="true">*</span>
                         </label>
                         <Select value={lossReason} onValueChange={(v) => setLossReason(v as LossReason)}>
-                            <SelectTrigger className="text-xs h-10">
-                                <SelectValue placeholder="Select primary loss reason..." />
+                            <SelectTrigger className="h-10 text-sm">
+                                <SelectValue placeholder="Pick a reason" />
                             </SelectTrigger>
                             <SelectContent className="bg-card border-border text-foreground">
                                 {LOSS_REASONS.map((r) => (
-                                    <SelectItem key={r.value} value={r.value} className="text-xs focus:bg-muted">
+                                    <SelectItem key={r.value} value={r.value} className="text-sm focus:bg-muted">
                                         <div className="font-medium text-foreground">{r.label}</div>
                                     </SelectItem>
                                 ))}
@@ -89,15 +84,15 @@ export function CloseLostModal({
 
                     {/* Contextual Notes */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">
-                            Context & Debrief Notes (Optional)
+                        <label className="text-sm font-medium text-foreground">
+                            Notes <span className="font-normal text-muted-foreground">(optional)</span>
                         </label>
                         <Textarea
-                            placeholder="Add additional insights (e.g. competitor name, specific pricing gap, timeline details)..."
+                            placeholder="For example: chose another vendor, budget too small, stopped replying."
                             value={lossNotes}
                             onChange={(e) => setLossNotes(e.target.value)}
                             rows={3}
-                            className="bg-muted/30 border-border text-foreground text-xs resize-none placeholder:text-muted-foreground focus-visible:ring-rose-500/50"
+                            className="resize-none text-sm"
                         />
                     </div>
                 </div>
@@ -108,7 +103,7 @@ export function CloseLostModal({
                         variant="ghost"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+                        className="text-sm"
                     >
                         Cancel
                     </Button>
@@ -116,14 +111,15 @@ export function CloseLostModal({
                         type="button"
                         onClick={handleConfirm}
                         disabled={!lossReason || isSubmitting}
-                        className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-medium gap-1.5"
+                        variant="destructive"
+                        className="gap-1.5 text-sm font-semibold"
                     >
                         {isSubmitting ? (
                             <>
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
                             </>
                         ) : (
-                            "Confirm Closed Lost"
+                            "Mark as lost"
                         )}
                     </Button>
                 </DialogFooter>

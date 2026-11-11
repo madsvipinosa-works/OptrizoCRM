@@ -36,9 +36,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { DiscoveryTracker, DiscoverySteps } from "@/features/crm/components/DiscoveryTracker";
 import { DiscoveryFormModal } from "@/features/crm/components/DiscoveryFormModal";
 import { ReopenLeadModal } from "@/features/crm/components/ReopenLeadModal";
+import { CloseLostModal } from "@/features/crm/components/CloseLostModal";
 import { ScheduleDiscoveryMeetingModal } from "@/features/meetings/components/ScheduleDiscoveryMeetingModal";
 import type { DiscoveryFormData } from "@/features/crm/actions/discovery-form";
-import { archiveLead, claimLead, getDiscoveryTrackerData, getProjectForLead, logLeadActivity } from "@/features/crm/actions";
+import { archiveLead, claimLead, getDiscoveryTrackerData, getProjectForLead, logLeadActivity, transitionLeadStage } from "@/features/crm/actions";
 import type { LeadItem } from "./LeadsDataTable";
 
 export type PreviousLead = {
@@ -142,6 +143,8 @@ export function LeadDetailView({ lead, previousLeads = [] }: LeadDetailViewProps
     const [isScheduleOpen, setIsScheduleOpen] = useState(false);
     const [isDiscoveryFormOpen, setIsDiscoveryFormOpen] = useState(false);
     const [isReopenOpen, setIsReopenOpen] = useState(false);
+    const [isLostOpen, setIsLostOpen] = useState(false);
+    const [isMarkingLost, setIsMarkingLost] = useState(false);
     const composerRef = useRef<HTMLTextAreaElement>(null);
 
     const loadTracker = () => {
@@ -390,6 +393,16 @@ export function LeadDetailView({ lead, previousLeads = [] }: LeadDetailViewProps
                             )}
                         </div>
                     )}
+                    {/* Sales may close a lead that will not go ahead (decision 2026-11-11); a reason is required and Reopen undoes it. */}
+                    {!isClosed && (
+                        <button
+                            type="button"
+                            onClick={() => setIsLostOpen(true)}
+                            className="mt-3 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-destructive hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                        >
+                            Mark as lost
+                        </button>
+                    )}
 
                     {lead.status === "Closed Lost" && (
                         <>
@@ -567,6 +580,27 @@ export function LeadDetailView({ lead, previousLeads = [] }: LeadDetailViewProps
                 initialData={tracker?.discoveryForm}
                 isLocked={tracker?.isProposalRequested}
                 onSuccess={loadTracker}
+            />
+
+            <CloseLostModal
+                isOpen={isLostOpen}
+                onClose={() => setIsLostOpen(false)}
+                leadTitle={title}
+                isSubmitting={isMarkingLost}
+                onConfirm={async (lossReason, lossNotes) => {
+                    setIsMarkingLost(true);
+                    try {
+                        const res = await transitionLeadStage({ leadId: lead.id, newStatus: "Closed Lost", lossReason, lossNotes });
+                        if (res.success) {
+                            toast.success("Lead marked as lost. You can reopen it later with a reason.");
+                            router.refresh();
+                        } else {
+                            toast.error(res.message || "Could not mark the lead as lost.");
+                        }
+                    } finally {
+                        setIsMarkingLost(false);
+                    }
+                }}
             />
 
             <ReopenLeadModal

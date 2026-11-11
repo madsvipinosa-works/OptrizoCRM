@@ -361,7 +361,7 @@ export async function getClientDocuments(userId: string) {
  * Steps from request to customer, in order. The last one means the client signed: the service is theirs.
  * Delivery after signing is shown by the project's own milestone progress (mockup 29), not here.
  */
-export const REQUEST_STEPS = ["Request received", "Reviewing", "Proposal sent", "Signed"] as const;
+export const REQUEST_STEPS = ["Request sent", "Reviewing", "Proposal sent", "Signed"] as const;
 
 export type RequestEvent = { at: Date; text: string };
 
