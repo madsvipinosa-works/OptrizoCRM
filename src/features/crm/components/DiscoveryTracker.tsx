@@ -45,7 +45,11 @@ export function DiscoveryTracker({
         try {
             const res = await requestProposal(leadId);
             if (res.success) {
-                toast.success("Proposal requested! All Project Managers have been notified.");
+                toast.success(
+                    "assignedPmName" in res && res.assignedPmName
+                        ? `Proposal requested! ${res.assignedPmName} has been notified.`
+                        : "Proposal requested! All Project Managers have been notified."
+                );
                 onRefresh?.();
             } else {
                 toast.error(res.message || "Failed to request proposal");

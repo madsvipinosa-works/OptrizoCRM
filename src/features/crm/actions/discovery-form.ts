@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
 import { createSystemNotification } from "@/features/notifications/send";
+import { pickLeastLoadedPm } from "@/features/proposals/pm-assignment";
 
 export interface DiscoveryFormData {
     id?: string;
@@ -186,31 +187,31 @@ export async function requestProposal(leadId: string) {
     try {
         const now = new Date();
 
-        // 1. Set proposalRequestedAt on lead
-        await db.update(leads).set({
-            proposalRequestedAt: now,
-            updatedAt: now,
-        }).where(eq(leads.id, leadId));
-
-        // 2. Notify assigned PM if active, or every PM (role: "manager") if unassigned/deactivated
-        let targetPms: Array<{ id: string }> = [];
-        if (lead.assignedPmId) {
-            const assignedPm = await db.query.users.findFirst({
+        // 1. Keep the lead's PM if still active; otherwise the system picks the least-loaded active PM.
+        const currentPm = lead.assignedPmId
+            ? await db.query.users.findFirst({
                 where: and(
                     eq(users.id, lead.assignedPmId),
                     eq(users.role, "manager"),
                     eq(users.isActive, true),
                     isNull(users.deletedAt)
                 ),
-                columns: { id: true },
-            });
-            if (assignedPm) {
-                targetPms = [assignedPm];
-            }
-        }
+                columns: { id: true, name: true },
+            })
+            : null;
+        const picked = currentPm ? null : await pickLeastLoadedPm();
+        const assignedPm = currentPm ?? picked;
 
-        if (targetPms.length === 0) {
-            targetPms = await db.query.users.findMany({
+        await db.update(leads).set({
+            proposalRequestedAt: now,
+            updatedAt: now,
+            ...(picked ? { assignedPmId: picked.id } : {}),
+        }).where(eq(leads.id, leadId));
+
+        // 2. Notify the assigned PM only; with no active PM at all, notify every PM (first to open claims it).
+        const targetPms: Array<{ id: string }> = assignedPm
+            ? [assignedPm]
+            : await db.query.users.findMany({
                 where: and(
                     eq(users.role, "manager"),
                     eq(users.isActive, true),
@@ -218,7 +219,6 @@ export async function requestProposal(leadId: string) {
                 ),
                 columns: { id: true },
             });
-        }
 
         const leadTitle = lead.businessName || lead.contactName || "lead";
         for (const pm of targetPms) {
@@ -231,20 +231,26 @@ export async function requestProposal(leadId: string) {
         }
 
         // 3. Insert System activity log
+        const pmLabel = assignedPm?.name || "Project Manager";
         await db.insert(leadActivityLogs).values({
             leadId,
             authorId: session.user.id,
             activityType: "System",
-            content: "Proposal requested · sent to Project Manager",
+            content: assignedPm ? `Proposal requested · assigned to ${pmLabel}` : "Proposal requested · sent to Project Manager",
         });
 
         // 4. Write audit row
-        await logAction("UPDATE", "Lead", `Proposal requested for lead ${leadTitle}`);
+        await logAction(
+            "UPDATE",
+            "Lead",
+            `Proposal requested for lead ${leadTitle}` +
+                (picked ? ` · auto-assigned to ${pmLabel} (open work: ${picked.load})` : "")
+        );
 
         revalidatePath("/dashboard/leads");
         revalidatePath("/dashboard/proposals");
 
-        return { success: true };
+        return { success: true, assignedPmName: assignedPm?.name ?? null };
     } catch (err) {
         console.error("Failed to request proposal:", err);
         return { success: false, message: "Failed to request proposal" };

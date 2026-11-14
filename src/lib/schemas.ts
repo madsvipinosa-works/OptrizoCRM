@@ -287,3 +287,8 @@ export const SaveProposalSchema = z.object({
     message: "Discount cannot exceed the proposal subtotal.",
     path: ["discount"],
 });
+
+export const passProposalRequestSchema = z.object({
+    leadId: z.string().min(1),
+    reason: z.string().trim().min(1, "Tell the next PM why you are passing this").max(500),
+});

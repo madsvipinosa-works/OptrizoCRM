@@ -3,7 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { claimOrAssignLeadPm, createDraftProposalForLead } from "@/features/proposals/actions";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { claimOrAssignLeadPm, createDraftProposalForLead, passProposalRequest } from "@/features/proposals/actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,6 +66,8 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
     const [selectedId, setSelectedId] = useState<string>(items[0]?.id || "");
     const selected = items.find((i) => i.id === selectedId) || items[0];
 
+    const [passOpen, setPassOpen] = useState(false);
+    const [passReason, setPassReason] = useState("");
     const draft = selected?.proposals?.find((p) => p.status === "draft");
     const latest = selected ? [...(selected.proposals ?? [])].sort((a, b) => (b.version ?? 1) - (a.version ?? 1))[0] : undefined;
 
@@ -84,6 +89,21 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
             const res = await createDraftProposalForLead(lead.id);
             if (res.success && res.proposalId) router.push(`/dashboard/proposals/builder/${res.proposalId}`);
             else toast.error(res.message || "Could not start the proposal draft.");
+        });
+    };
+
+    // Only the assigned PM, and only until a version has gone to the client.
+    const canPass = !!selected && selected.assignedPmId === currentUserId && !(selected.proposals ?? []).some((p) => p.status !== "draft");
+
+    const pass = (lead: ProposalQueueItem) => {
+        startTransition(async () => {
+            const res = await passProposalRequest(lead.id, passReason);
+            if (res.success) {
+                toast.success(`Passed to ${"assignedPmName" in res && res.assignedPmName ? res.assignedPmName : "another PM"}`);
+                setPassOpen(false);
+                setPassReason("");
+                router.refresh();
+            } else toast.error(res.message || "Could not pass this request.");
         });
     };
 
@@ -168,10 +188,37 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
                                 {isPending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
                                 {draft ? "Continue the draft" : !latest ? "Start drafting proposal" : latest.status === "changes_requested" ? "Revise the proposal" : "Open proposal"}
                             </Button>
+                            {canPass && (
+                                <Button type="button" variant="outline" onClick={() => setPassOpen(true)} disabled={isPending} className="h-11 w-full font-semibold">
+                                    Pass to another PM
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>
             )}
+
+            <Dialog open={passOpen} onOpenChange={setPassOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Pass this request</DialogTitle>
+                        <DialogDescription>
+                            The system hands it to the PM with the least open work. Any draft moves with it.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Label htmlFor="pass-reason">Reason</Label>
+                        <Textarea id="pass-reason" value={passReason} onChange={(e) => setPassReason(e.target.value)} maxLength={500} required />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setPassOpen(false)} disabled={isPending}>Cancel</Button>
+                        <Button type="button" onClick={() => selected && pass(selected)} disabled={isPending || !passReason.trim()}>
+                            {isPending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                            Pass request
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </section>
     );
 }

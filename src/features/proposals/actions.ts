@@ -9,6 +9,7 @@ import {
     users,
     discoveryForms,
     services,
+    leadActivityLogs,
 } from "@/db/schema";
 import { todayInManila } from "@/features/sprints/sprint-status";
 import { eq, and, isNull, isNotNull, ne, inArray, notInArray } from "drizzle-orm";
@@ -16,11 +17,12 @@ import { moveLeadToProposalSent, moveLeadToClosedLost } from "@/features/crm/sta
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
-import { notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
+import { createSystemNotification, notifyLeadPms, notifyLeadSales } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
 import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
 import { CUSTOM_MILESTONE_LIMITS, customMilestoneError, orderMilestones, validateMilestoneDates } from "@/features/proposals/draft-logic";
-import { ProposalLineItemSchema, SaveProposalSchema } from "@/lib/schemas";
+import { ProposalLineItemSchema, SaveProposalSchema, passProposalRequestSchema } from "@/lib/schemas";
+import { pickLeastLoadedPm } from "@/features/proposals/pm-assignment";
 
 export interface ContractSettings {
     clientAddress?: string;
@@ -592,6 +594,60 @@ export async function claimOrAssignLeadPm(leadId: string) {
     return { success: true, assignedPmId: lead.assignedPmId || session.user.id };
 }
 
+
+/** Step 9: the assigned PM hands the request to the next least-loaded PM. Only before any version is sent. */
+export async function passProposalRequest(leadId: string, reason: string) {
+    const authz = await requireRole(["manager"]);
+    if (!authz.ok) {
+        return { success: false, message: "Unauthorized: Only managers can pass proposal requests" };
+    }
+    const { session } = authz;
+
+    const parsed = passProposalRequestSchema.safeParse({ leadId, reason });
+    if (!parsed.success) {
+        return { success: false, message: parsed.error.issues[0]?.message ?? "Invalid request" };
+    }
+
+    const lead = await db.query.leads.findFirst({
+        where: eq(leads.id, leadId),
+        with: { proposals: { where: isNull(proposals.deletedAt), columns: { status: true } } },
+    });
+    if (!lead) return { success: false, message: "Lead not found" };
+    if (lead.assignedPmId !== session.user.id) {
+        return { success: false, message: "Only the assigned Project Manager can pass this request" };
+    }
+    if (lead.proposals.some((p) => p.status !== "draft")) {
+        return { success: false, message: "A proposal was already sent, so this request can no longer be passed" };
+    }
+
+    const next = await pickLeastLoadedPm(session.user.id);
+    if (!next) return { success: false, message: "No other Project Manager is available." };
+
+    // The assignedPmId guard makes a double submit a no-op.
+    const res = await db.update(leads)
+        .set({ assignedPmId: next.id, updatedAt: new Date() })
+        .where(and(eq(leads.id, leadId), eq(leads.assignedPmId, session.user.id)))
+        .returning({ id: leads.id });
+    if (res.length === 0) return { success: false, message: "This request was already reassigned" };
+
+    const leadTitle = lead.businessName || lead.contactName || "lead";
+    const from = session.user.name || session.user.id;
+    await createSystemNotification(next.id, `Proposal request for ${leadTitle} was passed to you`, "proposal", "/dashboard/proposals");
+    await db.insert(leadActivityLogs).values({
+        leadId,
+        authorId: session.user.id,
+        activityType: "System",
+        content: `Project Manager changed to ${next.name || "another PM"}`,
+    });
+    await logAction(
+        "UPDATE",
+        "Lead",
+        `Proposal request for ${leadTitle} passed from ${from} to ${next.name || next.id} (open work: ${next.load}). Reason: ${parsed.data.reason}`
+    );
+
+    revalidatePath("/dashboard/proposals");
+    return { success: true, assignedPmName: next.name };
+}
 
 export async function getProposalRequestsQueue() {
     const authz = await requireRole(["manager"]);

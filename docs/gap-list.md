@@ -75,3 +75,9 @@ Still open:
 - `reportClientError` is public by design and has no rate limit.
 - The email helpers in `src/lib/notifications.ts` are not marked `server-only`.
 - `tests/test-quality-gate.ts` is out of `test:capstone` until Step C deletes the quality gate.
+
+PM assignment (steps 8 and 9) is built; not built yet:
+
+- A PM availability or leave toggle. A PM on leave still gets requests until they Pass.
+- Reassigning after a version is sent, or mid-project.
+- Protection against a request bouncing between two PMs who both pass.
