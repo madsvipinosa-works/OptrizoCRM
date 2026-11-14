@@ -21,23 +21,31 @@ Side effects: <status changes, notifications, audit log>
 
 ### requestProposal  (step 8)
 Who can call: sales
-Input:  `{ leadId: string }`
+Input:  `{ leadId: string, choice?: { pmId: string, reason: string } }`. Leave out `choice` (or `pmId`) for automatic assignment. With `pmId`, `reason` is required (1 to 500 characters).
 Output: `{ success: true, assignedPmName: string | null }` (`null` when no active PM exists and every PM was notified)
 Errors:
 - `PROPOSAL_LOCKED`: the discovery meeting is not done or the discovery form is not submitted.
 - `FORBIDDEN`: caller is not Sales.
-Side effects: sets `proposalRequestedAt` on the lead (no separate request table); sets `assignedPmId` to the least-loaded active PM when the lead has none (or its PM is inactive); notification to that PM only, or to every PM if none is active; `system` activity row and audit row ("auto-assigned to <PM>"); request appears in the PM proposal queue (step 9).
+- A named PM without a reason, or a named PM who is not an active PM.
+Side effects: sets `proposalRequestedAt` on the lead (no separate request table). Automatic: keeps the lead's active PM, else sets `assignedPmId` to the recommended (least-loaded) PM. Named: sets `assignedPmId` to that PM. Notification to that PM only, or to every PM if none is active; `system` activity row; audit row with the choice, workload, whether the recommendation was overridden, and the reason. Request appears in the PM proposal queue (step 9).
+
+### getAssignablePms  (steps 8 and 9)
+Who can call: sales, manager
+Input:  none
+Output: `Array<{ id: string, name: string | null, load: number }>`: active PMs, recommended (least-loaded) first. `load` = open leads assigned to the PM + their projects not Completed. A manager does not see themselves.
+Errors: none; returns `[]` for other roles.
+Side effects: none.
 
 ### passProposalRequest  (step 9)
 Who can call: manager (the lead's assigned PM only)
-Input:  `{ leadId: string, reason: string }` (reason required, 1 to 500 characters)
+Input:  `{ leadId: string, reason: string, toPmId?: string }` (reason required, 1 to 500 characters; no `toPmId` means the recommended PM)
 Output: `{ success: true, assignedPmName: string | null }`
 Errors:
 - `FORBIDDEN`: caller is not a manager, or not the lead's assigned PM.
 - Reason missing or too long.
 - A proposal version was already sent (a draft is fine and moves with the lead).
-- No other active PM is available.
-Side effects: `assignedPmId` moves to the next least-loaded PM (a double submit is a no-op); notification to the new PM; `system` activity row ("Project Manager changed to ..."); audit row with the reason.
+- `toPmId` is not another active PM, or no other active PM is available.
+Side effects: `assignedPmId` moves to the chosen or recommended PM (a double submit is a no-op); notification to the new PM; notification to the lead's Sales with the reason; `system` activity row ("Project Manager changed to ..."); audit row with the workload, any override and the reason.
 
 ### claimLead  (step 2)
 Who can call: sales

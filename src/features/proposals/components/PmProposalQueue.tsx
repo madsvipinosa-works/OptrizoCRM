@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { claimOrAssignLeadPm, createDraftProposalForLead, passProposalRequest } from "@/features/proposals/actions";
+import { PmPicker, type PmChoice } from "@/features/proposals/components/PmPicker";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
 
     const [passOpen, setPassOpen] = useState(false);
     const [passReason, setPassReason] = useState("");
+    const [passTo, setPassTo] = useState<PmChoice>("auto");
     const draft = selected?.proposals?.find((p) => p.status === "draft");
     const latest = selected ? [...(selected.proposals ?? [])].sort((a, b) => (b.version ?? 1) - (a.version ?? 1))[0] : undefined;
 
@@ -97,11 +99,12 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
 
     const pass = (lead: ProposalQueueItem) => {
         startTransition(async () => {
-            const res = await passProposalRequest(lead.id, passReason);
+            const res = await passProposalRequest(lead.id, passReason, passTo === "auto" ? undefined : passTo);
             if (res.success) {
                 toast.success(`Passed to ${"assignedPmName" in res && res.assignedPmName ? res.assignedPmName : "another PM"}`);
                 setPassOpen(false);
                 setPassReason("");
+                setPassTo("auto");
                 router.refresh();
             } else toast.error(res.message || "Could not pass this request.");
         });
@@ -203,9 +206,10 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
                     <DialogHeader>
                         <DialogTitle>Pass this request</DialogTitle>
                         <DialogDescription>
-                            The system hands it to the PM with the least open work. Any draft moves with it.
+                            Pick who takes over, or let the system choose the PM with the least open work. Any draft moves with it, and Sales is told who took over and why.
                         </DialogDescription>
                     </DialogHeader>
+                    {passOpen && <PmPicker legend="Pass to" value={passTo} onChange={setPassTo} disabled={isPending} />}
                     <div className="space-y-2">
                         <Label htmlFor="pass-reason">Reason</Label>
                         <Textarea id="pass-reason" value={passReason} onChange={(e) => setPassReason(e.target.value)} maxLength={500} required />

@@ -81,3 +81,4 @@ PM assignment (steps 8 and 9) is built; not built yet:
 - A PM availability or leave toggle. A PM on leave still gets requests until they Pass.
 - Reassigning after a version is sent, or mid-project.
 - Protection against a request bouncing between two PMs who both pass.
+- A Super Admin count of manual vs automatic assignments (counts only), to show overrides are monitored.

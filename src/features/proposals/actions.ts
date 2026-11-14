@@ -22,7 +22,7 @@ import { logAction } from "@/features/audit/log";
 import { DEFAULT_PROPOSAL_MILESTONES } from "@/features/proposals/constants";
 import { CUSTOM_MILESTONE_LIMITS, customMilestoneError, orderMilestones, validateMilestoneDates } from "@/features/proposals/draft-logic";
 import { ProposalLineItemSchema, SaveProposalSchema, passProposalRequestSchema } from "@/lib/schemas";
-import { pickLeastLoadedPm } from "@/features/proposals/pm-assignment";
+import { listPmWorkloads, resolvePmChoice, type PmWorkload } from "@/features/proposals/pm-assignment";
 
 export interface ContractSettings {
     clientAddress?: string;
@@ -595,15 +595,28 @@ export async function claimOrAssignLeadPm(leadId: string) {
 }
 
 
-/** Step 9: the assigned PM hands the request to the next least-loaded PM. Only before any version is sent. */
-export async function passProposalRequest(leadId: string, reason: string) {
+/**
+ * Active PMs with their open work, recommended (least-loaded) first. Feeds the PM picker on the Sales request
+ * (step 8) and on Pass (step 9). A PM never sees themselves, since they cannot pass to themselves.
+ */
+export async function getAssignablePms(): Promise<PmWorkload[]> {
+    const authz = await requireRole(["sales", "manager"]);
+    if (!authz.ok) return [];
+    return listPmWorkloads(authz.session.user.role === "manager" ? authz.session.user.id : undefined);
+}
+
+/**
+ * Step 9: the assigned PM hands the request to another PM, always with a reason, until a version is sent.
+ * No `toPmId` means the recommended (least-loaded) PM. Sales is told who took over and why.
+ */
+export async function passProposalRequest(leadId: string, reason: string, toPmId?: string) {
     const authz = await requireRole(["manager"]);
     if (!authz.ok) {
         return { success: false, message: "Unauthorized: Only managers can pass proposal requests" };
     }
     const { session } = authz;
 
-    const parsed = passProposalRequestSchema.safeParse({ leadId, reason });
+    const parsed = passProposalRequestSchema.safeParse({ leadId, reason, toPmId });
     if (!parsed.success) {
         return { success: false, message: parsed.error.issues[0]?.message ?? "Invalid request" };
     }
@@ -620,8 +633,9 @@ export async function passProposalRequest(leadId: string, reason: string) {
         return { success: false, message: "A proposal was already sent, so this request can no longer be passed" };
     }
 
-    const next = await pickLeastLoadedPm(session.user.id);
-    if (!next) return { success: false, message: "No other Project Manager is available." };
+    const choice = resolvePmChoice(await listPmWorkloads(session.user.id), parsed.data.toPmId);
+    if (!choice.ok) return { success: false, message: choice.message };
+    const next = choice.pm;
 
     // The assignedPmId guard makes a double submit a no-op.
     const res = await db.update(leads)
@@ -631,19 +645,17 @@ export async function passProposalRequest(leadId: string, reason: string) {
     if (res.length === 0) return { success: false, message: "This request was already reassigned" };
 
     const leadTitle = lead.businessName || lead.contactName || "lead";
-    const from = session.user.name || session.user.id;
+    const from = session.user.name || "The Project Manager";
+    const to = next.name || "another PM";
     await createSystemNotification(next.id, `Proposal request for ${leadTitle} was passed to you`, "proposal", "/dashboard/proposals");
+    await notifyLeadSales(leadId, `${from} passed the proposal for ${leadTitle} to ${to}. Reason: ${parsed.data.reason}`, "proposal", "/dashboard/leads");
     await db.insert(leadActivityLogs).values({
         leadId,
         authorId: session.user.id,
         activityType: "System",
-        content: `Project Manager changed to ${next.name || "another PM"}`,
+        content: `Project Manager changed to ${to}`,
     });
-    await logAction(
-        "UPDATE",
-        "Lead",
-        `Proposal request for ${leadTitle} passed from ${from} to ${next.name || next.id} (open work: ${next.load}). Reason: ${parsed.data.reason}`
-    );
+    await logAction("UPDATE", "Lead", `Proposal request for ${leadTitle} passed by ${from}, ${choice.note}. Reason: ${parsed.data.reason}`);
 
     revalidatePath("/dashboard/proposals");
     return { success: true, assignedPmName: next.name };

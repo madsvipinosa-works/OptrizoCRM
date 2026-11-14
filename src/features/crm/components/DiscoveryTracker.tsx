@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Check, Lock, Send, FileSpreadsheet, CheckCircle2 } from "lucide-react";
 import { requestProposal, type DiscoveryFormData } from "@/features/crm/actions/discovery-form";
 import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { PmPicker, type PmChoice } from "@/features/proposals/components/PmPicker";
 
 interface DiscoveryTrackerProps {
     leadId: string;
@@ -39,11 +42,14 @@ export function DiscoveryTracker({
     hideSteps = false,
 }: DiscoveryTrackerProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [pmChoice, setPmChoice] = useState<PmChoice>("auto");
+    const [pmReason, setPmReason] = useState("");
+    const namedPm = pmChoice !== "auto";
 
     const handleRequestProposal = async () => {
         setIsSubmitting(true);
         try {
-            const res = await requestProposal(leadId);
+            const res = await requestProposal(leadId, namedPm ? { pmId: pmChoice, reason: pmReason } : {});
             if (res.success) {
                 toast.success(
                     "assignedPmName" in res && res.assignedPmName
@@ -172,10 +178,25 @@ export function DiscoveryTracker({
                             </p>
                         </div>
                     ) : (
-                        <div className="pt-2 border-t border-border">
+                        <div className="space-y-3 pt-2 border-t border-border">
+                            <PmPicker legend="Project Manager" value={pmChoice} onChange={setPmChoice} disabled={isSubmitting} />
+                            {namedPm && (
+                                <div className="space-y-1.5">
+                                    <Label htmlFor={`pm-reason-${leadId}`}>Why this Project Manager?</Label>
+                                    <Textarea
+                                        id={`pm-reason-${leadId}`}
+                                        value={pmReason}
+                                        onChange={(e) => setPmReason(e.target.value)}
+                                        maxLength={500}
+                                        required
+                                        placeholder="e.g. Repeat client, Ana built their last site"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Your choice and reason are recorded in the audit log.</p>
+                                </div>
+                            )}
                             <Button
                                 onClick={handleRequestProposal}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || (namedPm && !pmReason.trim())}
                                 className="w-full h-10 gap-1.5 font-semibold active:scale-[0.98]"
                             >
                                 <Send className="h-3.5 w-3.5" />

@@ -7,7 +7,8 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/authz";
 import { logAction } from "@/features/audit/log";
 import { createSystemNotification } from "@/features/notifications/send";
-import { pickLeastLoadedPm } from "@/features/proposals/pm-assignment";
+import { listPmWorkloads, resolvePmChoice } from "@/features/proposals/pm-assignment";
+import { requestProposalChoiceSchema } from "@/lib/schemas";
 
 export interface DiscoveryFormData {
     id?: string;
@@ -142,13 +143,22 @@ export async function getDiscoveryForm(leadId: string): Promise<DiscoveryFormDat
     };
 }
 
-export async function requestProposal(leadId: string) {
+/**
+ * Step 8. With no `choice` the system keeps the lead's active PM or assigns the least-loaded one.
+ * With `choice.pmId` Sales names the PM and must give a reason; both are audited.
+ */
+export async function requestProposal(leadId: string, choice: { pmId?: string; reason?: string } = {}) {
     const authz = await requireRole(["sales"]);
     if (!authz.ok) {
         return { success: false, message: "Only sales can request a proposal" };
     }
 
     const { session } = authz;
+    const parsedChoice = requestProposalChoiceSchema.safeParse(choice);
+    if (!parsedChoice.success) {
+        return { success: false, message: parsedChoice.error.issues[0]?.message ?? "Invalid Project Manager choice" };
+    }
+
     const lead = await db.query.leads.findFirst({
         where: eq(leads.id, leadId),
     });
@@ -187,25 +197,40 @@ export async function requestProposal(leadId: string) {
     try {
         const now = new Date();
 
-        // 1. Keep the lead's PM if still active; otherwise the system picks the least-loaded active PM.
-        const currentPm = lead.assignedPmId
-            ? await db.query.users.findFirst({
-                where: and(
-                    eq(users.id, lead.assignedPmId),
-                    eq(users.role, "manager"),
-                    eq(users.isActive, true),
-                    isNull(users.deletedAt)
-                ),
-                columns: { id: true, name: true },
-            })
-            : null;
-        const picked = currentPm ? null : await pickLeastLoadedPm();
-        const assignedPm = currentPm ?? picked;
+        // 1. Sales' named PM, else the lead's active PM, else the least-loaded active PM.
+        let assignedPm: { id: string; name: string | null } | null = null;
+        let assignNote = "";
+        if (parsedChoice.data.pmId) {
+            const chosen = resolvePmChoice(await listPmWorkloads(), parsedChoice.data.pmId);
+            if (!chosen.ok) return { success: false, message: chosen.message };
+            assignedPm = chosen.pm;
+            assignNote = ` · Sales ${chosen.note}. Reason: ${"reason" in parsedChoice.data ? parsedChoice.data.reason : ""}`;
+        } else {
+            assignedPm = lead.assignedPmId
+                ? (await db.query.users.findFirst({
+                    where: and(
+                        eq(users.id, lead.assignedPmId),
+                        eq(users.role, "manager"),
+                        eq(users.isActive, true),
+                        isNull(users.deletedAt)
+                    ),
+                    columns: { id: true, name: true },
+                })) ?? null
+                : null;
+            if (!assignedPm) {
+                const auto = resolvePmChoice(await listPmWorkloads());
+                if (auto.ok) {
+                    assignedPm = auto.pm;
+                    assignNote = ` · ${auto.note}`;
+                }
+            }
+        }
+        const changesPm = !!assignedPm && assignedPm.id !== lead.assignedPmId;
 
         await db.update(leads).set({
             proposalRequestedAt: now,
             updatedAt: now,
-            ...(picked ? { assignedPmId: picked.id } : {}),
+            ...(changesPm && assignedPm ? { assignedPmId: assignedPm.id } : {}),
         }).where(eq(leads.id, leadId));
 
         // 2. Notify the assigned PM only; with no active PM at all, notify every PM (first to open claims it).
@@ -240,12 +265,7 @@ export async function requestProposal(leadId: string) {
         });
 
         // 4. Write audit row
-        await logAction(
-            "UPDATE",
-            "Lead",
-            `Proposal requested for lead ${leadTitle}` +
-                (picked ? ` · auto-assigned to ${pmLabel} (open work: ${picked.load})` : "")
-        );
+        await logAction("UPDATE", "Lead", `Proposal requested for lead ${leadTitle}${assignNote}`);
 
         revalidatePath("/dashboard/leads");
         revalidatePath("/dashboard/proposals");

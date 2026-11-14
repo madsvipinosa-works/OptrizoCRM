@@ -288,7 +288,17 @@ export const SaveProposalSchema = z.object({
     path: ["discount"],
 });
 
+const pmReason = z.string().trim().min(1, "A reason is required").max(500);
+
+/** Step 8: Sales leaves the PM to the system, or names one with a reason. */
+export const requestProposalChoiceSchema = z.union([
+    z.object({ pmId: z.undefined().optional() }),
+    z.object({ pmId: z.string().min(1), reason: pmReason }),
+]);
+
+/** Step 9: the assigned PM passes, always with a reason; no `toPmId` means the recommended PM. */
 export const passProposalRequestSchema = z.object({
     leadId: z.string().min(1),
-    reason: z.string().trim().min(1, "Tell the next PM why you are passing this").max(500),
+    reason: pmReason,
+    toPmId: z.string().min(1).optional(),
 });
