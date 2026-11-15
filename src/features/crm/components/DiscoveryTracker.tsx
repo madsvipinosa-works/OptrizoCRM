@@ -182,16 +182,17 @@ export function DiscoveryTracker({
                             <PmPicker legend="Project Manager" value={pmChoice} onChange={setPmChoice} disabled={isSubmitting} />
                             {namedPm && (
                                 <div className="space-y-1.5">
-                                    <Label htmlFor={`pm-reason-${leadId}`}>Why this Project Manager?</Label>
+                                    <Label htmlFor={`pm-reason-${leadId}`}>Why this Project Manager? <span className="text-destructive" aria-hidden="true">*</span></Label>
                                     <Textarea
                                         id={`pm-reason-${leadId}`}
                                         value={pmReason}
                                         onChange={(e) => setPmReason(e.target.value)}
                                         maxLength={500}
                                         required
-                                        placeholder="e.g. Repeat client, Ana built their last site"
+                                        aria-required="true"
+                                        placeholder="Required. e.g. Repeat client, Ana built their last site"
                                     />
-                                    <p className="text-xs text-muted-foreground">Your choice and reason are recorded in the audit log.</p>
+                                    <p className="text-xs text-muted-foreground"><span className="text-destructive">Required</span> when you pick a specific Project Manager. Your choice and reason are recorded in the audit log.</p>
                                 </div>
                             )}
                             <Button
