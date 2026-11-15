@@ -1,25 +1,19 @@
 import Link from "next/link";
 import { desc, and, eq } from "drizzle-orm";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/datetime";
 import { redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
 import { auditLogs } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { generateReport } from "@/features/reports/generate-action";
-import { COMPARE_OPTIONS, REPORT_TYPES, isReportType, parsePeriod, periodOptions, reportLabel } from "@/features/reports/catalog";
+import { COMPARE_OPTIONS, REPORT_TYPES, isReportType, parsePeriod, periodOptions, periodRangeText, reportLabel } from "@/features/reports/catalog";
 import { FormSelect } from "@/components/ui/form-select";
 
 export const dynamic = "force-dynamic";
 
 const field =
     "h-10 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring";
-
-function rangeText(from: Date, to: Date) {
-    return from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()
-        ? `${format(from, "MMM d")} – ${format(to, "d")}`
-        : `${format(from, "MMM d")} – ${format(to, "MMM d")}`;
-}
 
 /** Super Admin reports (mockup 110): pick a type and a period, generate, and open past reports. Totals only. */
 export default async function ReportsPage() {
@@ -76,7 +70,7 @@ export default async function ReportsPage() {
                 <div className="mt-5 flex flex-wrap items-end gap-4">
                     <label className="grid gap-1.5 text-sm font-medium text-foreground">
                         Period
-                        <FormSelect name="period" defaultValue={periods[0].items[1]?.value ?? periods[0].items[0].value} className={`${field} min-w-48`} variant="plain">
+                        <FormSelect name="period" defaultValue={periods[0].items[0].value} className={`${field} min-w-48`} variant="plain">
                             {periods.map((g) => (
                                 <optgroup key={g.group} label={g.group}>
                                     {g.items.map((o) => (
@@ -117,20 +111,21 @@ export default async function ReportsPage() {
                                 <tr className="border-y border-border bg-muted/40 text-left text-muted-foreground">
                                     <th scope="col" className="px-5 py-2.5 font-medium">Report</th>
                                     <th scope="col" className="hidden px-3 py-2.5 font-medium sm:table-cell">Period</th>
-                                    <th scope="col" className="hidden px-3 py-2.5 font-medium md:table-cell">Generated</th>
+                                    <th scope="col" className="hidden px-3 py-2.5 font-medium md:table-cell">Generated (Manila time)</th>
                                     <th scope="col" className="hidden px-3 py-2.5 font-medium md:table-cell">By</th>
                                     <th scope="col" className="px-5 py-2.5 text-right font-medium"><span className="sr-only">Actions</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {generated.map((g) => {
-                                    const href = `/dashboard/reports/view?type=${g.type}&period=${encodeURIComponent(g.period.value)}&compare=${g.compare}`;
+                                    const query = `type=${g.type}&period=${encodeURIComponent(g.period.value)}&compare=${g.compare}`;
+                                    const href = `/dashboard/reports/view?${query}`;
                                     const name = `${reportLabel(g.type)} · ${g.period.label}`;
                                     return (
                                         <tr key={g.id} className="border-b border-border last:border-b-0">
                                             <td className="px-5 py-3 text-base font-medium text-foreground">{name}</td>
-                                            <td className="hidden px-3 py-3 text-muted-foreground sm:table-cell">{rangeText(g.period.from, g.period.to)}</td>
-                                            <td className="hidden px-3 py-3 tabular-nums text-muted-foreground md:table-cell">{format(g.at, "MMM d")}</td>
+                                            <td className="hidden px-3 py-3 text-muted-foreground sm:table-cell">{periodRangeText(g.period)}</td>
+                                            <td className="hidden px-3 py-3 tabular-nums text-muted-foreground md:table-cell">{formatDateTime(g.at)}</td>
                                             <td className="hidden px-3 py-3 text-muted-foreground md:table-cell">{g.by}</td>
                                             <td className="px-5 py-3">
                                                 <div className="flex justify-end gap-2">
@@ -138,7 +133,10 @@ export default async function ReportsPage() {
                                                         <Link href={href}>Open<span className="sr-only"> {name}</span></Link>
                                                     </Button>
                                                     <Button asChild variant="outline" size="sm">
-                                                        <Link href={`${href}&print=1`}>PDF<span className="sr-only"> for {name}</span></Link>
+                                                        <a href={`/api/reports/export?format=pdf&${query}`} download>PDF<span className="sr-only"> for {name}</span></a>
+                                                    </Button>
+                                                    <Button asChild variant="outline" size="sm">
+                                                        <a href={`/api/reports/export?format=csv&${query}`} download>CSV<span className="sr-only"> for {name}</span></a>
                                                     </Button>
                                                 </div>
                                             </td>

@@ -3,25 +3,39 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Radix items cannot have an empty value, so "" travels as this and is turned back before anyone sees it.
 const EMPTY = "__empty__"
 
-type Option = { value: string; label: React.ReactNode; disabled?: boolean }
+// `group` is the label of the <optgroup> the option sits in, if any.
+type Option = { value: string; label: React.ReactNode; disabled?: boolean; group?: string }
 
-function readOptions(children: React.ReactNode): Option[] {
+export function readOptions(children: React.ReactNode, group?: string): Option[] {
   const out: Option[] = []
   React.Children.forEach(children, (child) => {
     if (!React.isValidElement(child)) return
-    const props = child.props as { value?: string | number; children?: React.ReactNode; disabled?: boolean }
+    const props = child.props as { value?: string | number; children?: React.ReactNode; disabled?: boolean; label?: string }
     if (child.type === React.Fragment) {
-      out.push(...readOptions(props.children))
+      out.push(...readOptions(props.children, group))
+    } else if (child.type === "optgroup") {
+      out.push(...readOptions(props.children, props.label))
     } else if (child.type === "option") {
       const label = props.children
-      out.push({ value: String(props.value ?? (typeof label === "string" ? label : "")), label, disabled: props.disabled })
+      out.push({ value: String(props.value ?? (typeof label === "string" ? label : "")), label, disabled: props.disabled, group })
     }
   })
+  return out
+}
+
+/** Runs of options that share an <optgroup> label stay together, in order. */
+export function groupOptions(options: Option[]): { group: string | undefined; items: Option[] }[] {
+  const out: { group: string | undefined; items: Option[] }[] = []
+  for (const o of options) {
+    const last = out[out.length - 1]
+    if (last && last.group === o.group) last.items.push(o)
+    else out.push({ group: o.group, items: [o] })
+  }
   return out
 }
 
@@ -64,11 +78,21 @@ function FormSelect({ name, value, defaultValue, onChange, required, disabled, i
           <SelectValue placeholder={emptyLabel} />
         </SelectTrigger>
         <SelectContent>
-          {options.map((o) => (
-            <SelectItem key={o.value || EMPTY} value={o.value === "" ? EMPTY : o.value} disabled={o.disabled}>
-              {o.label}
-            </SelectItem>
-          ))}
+          {groupOptions(options).map(({ group, items }) => {
+            const rendered = items.map((o) => (
+              <SelectItem key={o.value || EMPTY} value={o.value === "" ? EMPTY : o.value} disabled={o.disabled}>
+                {o.label}
+              </SelectItem>
+            ))
+            return group === undefined ? (
+              <React.Fragment key="ungrouped">{rendered}</React.Fragment>
+            ) : (
+              <SelectGroup key={group}>
+                <SelectLabel>{group}</SelectLabel>
+                {rendered}
+              </SelectGroup>
+            )
+          })}
         </SelectContent>
       </Select>
     </>

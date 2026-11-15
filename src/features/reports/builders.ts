@@ -1,35 +1,53 @@
 import "server-only";
 
 import { eq, isNull } from "drizzle-orm";
-import { addDays, differenceInCalendarDays, endOfDay, format, startOfWeek } from "date-fns";
+import { addDays, differenceInCalendarDays } from "date-fns";
 import { db } from "@/db";
 import { agencyProjects, auditLogs, leads, milestones, payments, proposals, systemErrorLogs, users } from "@/db/schema";
-import type { Period, ReportDoc, ReportType } from "./catalog";
+import { manilaToDate } from "@/lib/datetime";
+import { MONTH_SHORT, formatPeso, type Period, type ReportDoc, type ReportKpi, type ReportType } from "./catalog";
 
 /**
  * Report content for Super Admin. Totals only: no client names, no record links (spec §6).
  * A report is built from the live data for its period, so a past period always gives the same document.
+ * Periods are Manila calendar months and quarters (see catalog.ts).
  */
 
 const inRange = (d: Date | null | undefined, from: Date, to: Date) => !!d && d >= from && d <= to;
 const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : "No data");
-const peso = (n: number) => `₱${n.toLocaleString("en-PH")}`;
 
-/** Weeks inside a period, as "Oct 1 – 7" style labels. The first and last week are cut to the period. */
-function weeksOf(period: Period) {
+const count = (label: string, n: number, extra: Partial<ReportKpi> = {}): ReportKpi => ({ label, value: String(n), raw: n, unit: "count", ...extra });
+const money = (label: string, n: number, extra: Partial<ReportKpi> = {}): ReportKpi => ({ label, value: formatPeso(n), raw: n, unit: "money", ...extra });
+/** A percentage; "No data" (and nothing to compare) when there is nothing to divide by. */
+const rate = (label: string, n: number, d: number, extra: Partial<ReportKpi> = {}): ReportKpi => ({
+    label,
+    value: pct(n, d),
+    raw: d > 0 ? Math.round((n / d) * 100) : null,
+    unit: "percent",
+    ...extra,
+});
+
+/** Weeks (Monday to Sunday) inside a period, as "Oct 1 – 7" labels. The first and last week are cut to the period. */
+export function weeksOf(period: Period) {
+    const DAY = 86_400_000;
+    const ymd = (t: number) => new Date(t).toISOString().slice(0, 10);
     const out: { label: string; from: Date; to: Date }[] = [];
-    let cursor = period.from;
-    while (cursor <= period.to) {
-        const weekEnd = endOfDay(addDays(startOfWeek(cursor, { weekStartsOn: 1 }), 6));
-        const to = weekEnd > period.to ? period.to : weekEnd;
-        const sameMonth = cursor.getMonth() === to.getMonth();
+    let cursor = Date.parse(`${period.fromYmd}T00:00:00Z`);
+    const last = Date.parse(`${period.toYmd}T00:00:00Z`);
+
+    while (cursor <= last) {
+        const mondayBased = (new Date(cursor).getUTCDay() + 6) % 7;
+        const end = Math.min(cursor + (6 - mondayBased) * DAY, last);
+        const fromYmd = ymd(cursor);
+        const toYmd = ymd(end);
+        const [, fm, fd] = fromYmd.split("-").map(Number);
+        const [, tm, td] = toYmd.split("-").map(Number);
         out.push({
-            label: `${format(cursor, "MMM d")} – ${sameMonth ? format(to, "d") : format(to, "MMM d")}`,
-            from: cursor,
-            to,
+            label: fromYmd === toYmd ? `${MONTH_SHORT[fm - 1]} ${fd}` : `${MONTH_SHORT[fm - 1]} ${fd} – ${fm === tm ? td : `${MONTH_SHORT[tm - 1]} ${td}`}`,
+            from: manilaToDate(fromYmd),
+            to: new Date(manilaToDate(toYmd, "23:59").getTime() + 59_999),
         });
-        cursor = addDays(to, 1);
-        cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+        cursor = end + DAY;
     }
     return out;
 }
@@ -47,8 +65,9 @@ const STAGE_LABEL: Record<string, string> = {
 async function salesPipeline(p: Period): Promise<ReportDoc> {
     const all = await db.select({ status: leads.status, source: leads.source, createdAt: leads.createdAt, stageChangedAt: leads.stageChangedAt, closedWonAt: leads.closedWonAt }).from(leads);
     const made = all.filter((l) => inRange(l.createdAt, p.from, p.to));
+    // Won and lost both count in the period they happened, so the win rate compares like with like.
     const won = all.filter((l) => l.status === "Closed Won" && inRange(l.closedWonAt, p.from, p.to)).length;
-    const lost = made.filter((l) => l.status === "Closed Lost").length;
+    const lost = all.filter((l) => l.status === "Closed Lost" && inRange(l.stageChangedAt ?? l.createdAt, p.from, p.to)).length;
     const open = all.filter((l) => !["Closed Won", "Closed Lost"].includes(l.status) && l.createdAt <= p.to);
 
     const stageRows = STAGES.map((s) => {
@@ -60,12 +79,12 @@ async function salesPipeline(p: Period): Promise<ReportDoc> {
     made.forEach((l) => sources.set(l.source || "Unknown", (sources.get(l.source || "Unknown") ?? 0) + 1));
 
     return {
-        headline: { label: "New leads", value: made.length },
+        events: made.length + won + lost,
         kpis: [
-            { label: "New leads", value: String(made.length), tone: "brand" },
-            { label: "Open now", value: String(open.length) },
-            { label: "Won", value: String(won), tone: "brand" },
-            { label: "Win rate", value: pct(won, won + lost), note: `${won} won, ${lost} lost` },
+            count("New leads", made.length, { tone: "brand" }),
+            count("Open now", open.length),
+            count("Won", won, { tone: "brand" }),
+            rate("Win rate", won, won + lost, { note: `${won} won, ${lost} lost` }),
         ],
         tables: [
             { title: "New leads by stage", columns: ["Stage", "Leads", "Average days in stage"], rows: stageRows, total: ["Total", made.length, ""] },
@@ -75,34 +94,50 @@ async function salesPipeline(p: Period): Promise<ReportDoc> {
 }
 
 async function proposalsReport(p: Period): Promise<ReportDoc> {
-    const all = await db.select({ status: proposals.status, version: proposals.version, sentAt: proposals.sentAt, signedAt: proposals.signedAt }).from(proposals).where(isNull(proposals.deletedAt));
-    const sent = all.filter((x) => inRange(x.sentAt, p.from, p.to));
-    const signed = sent.filter((x) => x.status === "signed").length;
-    const declined = sent.filter((x) => x.status === "declined").length;
-    const waiting = sent.filter((x) => ["sent", "pricing_meeting_requested", "changes_requested"].includes(x.status)).length;
-    const revised = sent.filter((x) => x.version > 1).length;
-    const statusLabel: Record<string, string> = { sent: "Sent, waiting", pricing_meeting_requested: "Pricing meeting requested", changes_requested: "Changes requested", signed: "Signed", declined: "Declined", replaced: "Replaced by a newer version" };
+    const all = await db.select({ leadId: proposals.leadId, status: proposals.status, version: proposals.version, sentAt: proposals.sentAt }).from(proposals).where(isNull(proposals.deletedAt));
+    const sentVersions = all.filter((x) => inRange(x.sentAt, p.from, p.to));
+
+    // One proposal per client: its newest version sent in the period. A revision is not a new proposal.
+    const latest = new Map<string, (typeof sentVersions)[number]>();
+    sentVersions.forEach((v, i) => {
+        const key = v.leadId ?? `unlinked-${i}`;
+        const current = latest.get(key);
+        if (!current || v.version > current.version) latest.set(key, v);
+    });
+    const current = [...latest.values()];
+    const signed = current.filter((x) => x.status === "signed").length;
+    const declined = current.filter((x) => x.status === "declined").length;
+    const waiting = current.filter((x) => ["sent", "pricing_meeting_requested", "changes_requested"].includes(x.status)).length;
+    const revisions = sentVersions.filter((x) => x.version > 1).length;
+    const statusLabel: Record<string, string> = {
+        sent: "Sent, waiting",
+        pricing_meeting_requested: "Pricing meeting requested",
+        changes_requested: "Changes requested",
+        signed: "Signed",
+        declined: "Declined",
+        replaced: "Replaced by a version sent later",
+    };
 
     return {
-        headline: { label: "Proposals sent", value: sent.length },
+        events: sentVersions.length,
         kpis: [
-            { label: "Sent", value: String(sent.length), tone: "brand" },
-            { label: "Signed", value: String(signed), tone: "brand" },
-            { label: "Declined", value: String(declined) },
-            { label: "Win rate", value: pct(signed, sent.length), note: `${waiting} still waiting` },
+            count("Proposals sent", current.length, { tone: "brand", note: revisions > 0 ? `${revisions} revised version${revisions === 1 ? "" : "s"} sent` : undefined }),
+            count("Signed", signed, { tone: "brand" }),
+            count("Declined", declined),
+            rate("Win rate", signed, signed + declined, { note: `${waiting} still waiting` }),
         ],
         tables: [
             {
-                title: "Sent in this period, by status",
+                title: "Proposals sent, by their latest status",
                 columns: ["Status", "Proposals"],
-                rows: Object.keys(statusLabel).map((s) => [statusLabel[s], sent.filter((x) => x.status === s).length]).filter((r) => (r[1] as number) > 0),
-                total: ["Total", sent.length],
+                rows: Object.keys(statusLabel).map((s) => [statusLabel[s], current.filter((x) => x.status === s).length]).filter((r) => (r[1] as number) > 0),
+                total: ["Total", current.length],
             },
             {
-                title: "Versions",
-                columns: ["Kind", "Proposals"],
-                rows: [["First version", sent.length - revised], ["Revised (v2 or later)", revised]],
-                total: ["Total", sent.length],
+                title: "Versions sent",
+                columns: ["Kind", "Versions"],
+                rows: [["First version", sentVersions.length - revisions], ["Revised (v2 or later)", revisions]],
+                total: ["Total", sentVersions.length],
             },
         ],
     };
@@ -121,12 +156,12 @@ async function projectStatus(p: Period): Promise<ReportDoc> {
     const active = projects.filter((x) => x.status !== "Completed").length;
 
     return {
-        headline: { label: "Milestones finished", value: done.length },
+        events: done.length + finished.length,
         kpis: [
-            { label: "Milestones finished", value: String(done.length), tone: "brand" },
-            { label: "On time", value: pct(onTime, done.length), note: `${onTime} of ${done.length}` },
-            { label: "Delayed now", value: String(delayed), tone: delayed > 0 ? "warn" : "ink", note: "Open and past their end date" },
-            { label: "Projects completed", value: String(finished.length), note: length === null ? undefined : `${length.toFixed(1)} months on average` },
+            count("Milestones finished", done.length, { tone: "brand" }),
+            rate("On time", onTime, done.length, { note: `${onTime} of ${done.length}` }),
+            count("Delayed now", delayed, { tone: delayed > 0 ? "warn" : "ink", note: "Open and past their end date" }),
+            count("Projects completed", finished.length, { note: length === null ? undefined : `${length.toFixed(1)} months on average` }),
         ],
         tables: [
             {
@@ -156,7 +191,7 @@ async function paymentsReport(p: Period): Promise<ReportDoc> {
 
     const weekRows = weeksOf(p).map((w) => {
         const inWeek = paid.filter((x) => inRange(x.receivedAt, w.from, w.to));
-        return [w.label, inWeek.length, peso(inWeek.reduce((s, x) => s + x.amount, 0))];
+        return [w.label, inWeek.length, inWeek.reduce((s, x) => s + x.amount, 0)];
     });
     const stages = new Map<string, { count: number; amount: number }>();
     paid.forEach((x) => {
@@ -166,20 +201,21 @@ async function paymentsReport(p: Period): Promise<ReportDoc> {
     });
 
     return {
-        headline: { label: "Collected", value: collected, money: true },
+        events: paid.length,
         kpis: [
-            { label: "Collected", value: peso(collected), tone: "brand" },
-            { label: "Payments received", value: String(paid.length) },
-            { label: "Overdue at period end", value: String(overdue.length), tone: overdue.length > 0 ? "warn" : "ink", note: peso(overdue.reduce((s, x) => s + x.amount, 0)) },
-            { label: "Paid on time", value: `${onTime} of ${paid.length}`, note: pct(onTime, paid.length) },
+            money("Collected", collected, { tone: "brand" }),
+            count("Payments received", paid.length),
+            count("Overdue at period end", overdue.length, { tone: overdue.length > 0 ? "warn" : "ink", note: formatPeso(overdue.reduce((s, x) => s + x.amount, 0)) }),
+            rate("Paid on time", onTime, paid.length, { value: paid.length > 0 ? `${onTime} of ${paid.length}` : "No data", note: pct(onTime, paid.length) }),
         ],
         tables: [
-            { title: "By week", columns: ["Week", "Payments", "Amount"], rows: weekRows, total: ["Total", paid.length, peso(collected)] },
+            { title: "By week", columns: ["Week", "Payments", "Amount"], rows: weekRows, total: ["Total", paid.length, collected], moneyColumns: [2] },
             {
                 title: "By payment stage",
                 columns: ["Payment stage", "Payments", "Amount"],
-                rows: [...stages.entries()].map(([k, v]) => [k, v.count, peso(v.amount)]),
-                total: ["Total", paid.length, peso(collected)],
+                rows: [...stages.entries()].map(([k, v]) => [k, v.count, v.amount]),
+                total: ["Total", paid.length, collected],
+                moneyColumns: [2],
             },
         ],
     };
@@ -202,12 +238,12 @@ async function systemUsage(p: Period): Promise<ReportDoc> {
     });
 
     return {
-        headline: { label: "People who signed in", value: people.size },
+        events: inPeriod.length + errs.length,
         kpis: [
-            { label: "People who signed in", value: String(people.size), tone: "brand", note: active ? `of ${active} active accounts` : undefined },
-            { label: "Sign-ins", value: String(inPeriod.length) },
-            { label: "Errors", value: String(errs.length), tone: errs.length > 0 ? "warn" : "ink" },
-            { label: "Accounts locked now", value: String(accounts.filter((a) => a.status === "locked").length) },
+            count("People who signed in", people.size, { tone: "brand", note: active ? `of ${active} active accounts` : undefined }),
+            count("Sign-ins", inPeriod.length),
+            count("Errors", errs.length, { tone: errs.length > 0 ? "warn" : "ink" }),
+            count("Accounts locked now", accounts.filter((a) => a.status === "locked").length),
         ],
         tables: [
             { title: "By week", columns: ["Week", "People", "Sign-ins", "Errors"], rows: weekRows, total: ["Total", people.size, inPeriod.length, errs.length] },

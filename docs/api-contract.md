@@ -100,6 +100,16 @@ Errors:
 - No note and no attachment; a link that cannot be opened; a file from another project.
 Side effects: one `taskUpdates` row (`kind: 'progress'`); audit log row. The task status does not change and nobody is notified.
 
+### GET /api/reports/export  (reports, mockup 111)
+Who can call: superadmin
+Input:  query `format=pdf|csv`, `type` (`sales_pipeline`, `proposals`, `project_status`, `payments`, `system_usage`), `period` (`m:2026-11` for November 2026, `q:2026-4` for Q4 2026), `compare` (`previous`, `year`, `none`; default `previous`)
+Output: the file (`application/pdf` or `text/csv; charset=utf-8`) as an attachment named like `payments-report-november-2026.csv`. The CSV starts with a UTF-8 byte-order mark, uses CRLF lines and writes amounts as plain numbers (headers say `(PHP)` or `(%)`).
+Errors:
+- 403: caller is not Super Admin (or signed out).
+- 400: unknown format, report type or period.
+- 500: the PDF could not be rendered.
+Side effects: none. Totals only, no client names. Periods are Manila calendar months and quarters.
+
 ### getTaskUpdates  (progress)
 Who can call: a manager, or the developer assigned to the task
 Input:  `{ taskId: string }`

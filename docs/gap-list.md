@@ -95,3 +95,10 @@ Task deliverables and progress updates are built; not built yet:
 - Task files are not shown to clients in the app, but `/api/private-file` lets anyone who can read the project open a file that belongs to it, so a client who had the exact link could open one. The same is already true of submitted files.
 - The `task_submission` table is no longer used by any code. It is left in place.
 - Migration `0024_task_deliverables_and_updates.sql` is applied by hand in the Supabase SQL editor, like 0010-0023, before the code is deployed.
+
+Reports (counting, filters, PDF and CSV) are fixed; not built yet:
+
+- Custom date ranges and scheduled or emailed reports. Periods are whole months and quarters.
+- Report snapshots: a report is rebuilt from live data each time, so the same past period can change if old records are edited.
+- Downloads are not written to the audit log (only "Generate report" is).
+- `src/features/reports/actions.ts` is an older, unused set of report queries. It is left in place.
