@@ -128,14 +128,15 @@ export async function signInWithEmail(prevState: unknown, formData: FormData): P
             redirect: false,
         });
 
-        // Audit log on login
-        await logAction("LOGIN", "User", `Email login: ${email}`);
-
-        // Lookup user role to determine smart redirect
+        // Lookup user role to determine smart redirect (and who to record the sign-in for:
+        // the session cookie is not readable yet in this request, so logAction cannot find the user itself)
         const user = await db.query.users.findFirst({
             where: eq(users.email, email),
-            columns: { role: true },
+            columns: { id: true, role: true },
         });
+
+        // Audit log on login
+        await logAction("LOGIN", "User", `Email login: ${email}`, user?.id);
 
         const defaultLanding = getLandingPageForRole(user?.role);
         const callbackUrl = (formData.get("callbackUrl") as string);

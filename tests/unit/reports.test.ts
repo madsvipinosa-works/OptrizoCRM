@@ -1,16 +1,24 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import React from "react";
 import { NextRequest } from "next/server";
 
 vi.mock("@/auth", async () => (await import("../helpers/mock-auth")).authModuleMock());
 vi.mock("@/db", async () => ({ db: (await import("../helpers/mock-db")).createMockDb() }));
 vi.mock("@/lib/pdf-generator", () => ({ getPuppeteerBrowser: vi.fn() }));
+vi.mock("@/features/audit/log", () => ({ logAction: vi.fn() }));
+vi.mock("next/navigation", () => ({
+    redirect: (url: string) => {
+        throw new Error(`REDIRECT:${url}`);
+    },
+}));
 
 import { auth } from "@/auth";
 import { db } from "@/db";
+import { logAction } from "@/features/audit/log";
 import { groupOptions, readOptions } from "@/components/ui/form-select";
 import {
     comparePeriod,
+    customPeriod,
     kpiChange,
     parsePeriod,
     periodOptions,
@@ -18,7 +26,9 @@ import {
     type ReportDoc,
     type ReportKpi,
 } from "@/features/reports/catalog";
-import { buildReport, weeksOf } from "@/features/reports/builders";
+import { buildReport, weeksOf, whoSignedIn } from "@/features/reports/builders";
+import { generateReport } from "@/features/reports/generate-action";
+import { loadReport } from "@/features/reports/load";
 import { exportFilename, reportCsv, reportHtml, type ExportInput } from "@/features/reports/export";
 import { GET } from "@/app/api/reports/export/route";
 import { ROLES, signInAs } from "../helpers/mock-auth";
@@ -29,6 +39,11 @@ const iso = (s: string) => new Date(s);
 
 beforeEach(() => {
     mockDb.resetMocks();
+    vi.clearAllMocks();
+});
+
+afterEach(() => {
+    vi.useRealTimers();
 });
 
 describe("FormSelect option groups", () => {
@@ -266,5 +281,166 @@ describe("GET /api/reports/export", () => {
         const text = await res.text();
         expect(text).toContain("Payments report");
         expect(text).toContain("No comparison");
+    });
+});
+
+describe("custom range", () => {
+    it("is two Manila days, inclusive", () => {
+        const p = parsePeriod("r:2026-11-01_2026-11-15")!;
+        expect(p.kind).toBe("custom");
+        expect(p.label).toBe("Nov 1 – 15, 2026");
+        expect(p.from.toISOString()).toBe("2026-10-31T16:00:00.000Z");
+        expect(p.to.toISOString()).toBe("2026-11-15T15:59:59.999Z");
+    });
+
+    it("can be one day, or cross New Year", () => {
+        expect(customPeriod("2026-11-05", "2026-11-05")?.label).toBe("Nov 5, 2026");
+        expect(customPeriod("2026-12-20", "2027-01-05")?.label).toBe("Dec 20, 2026 – Jan 5, 2027");
+    });
+
+    it("rejects reversed dates, dates that do not exist, bad text and more than a year", () => {
+        expect(customPeriod("2026-11-15", "2026-11-01")).toBeNull();
+        expect(customPeriod("2026-02-31", "2026-03-05")).toBeNull();
+        expect(customPeriod("tomorrow", "2026-03-05")).toBeNull();
+        expect(customPeriod("2026-01-01", "2026-12-31")).not.toBeNull();
+        expect(customPeriod("2026-01-01", "2027-01-02")).toBeNull();
+        expect(parsePeriod("r:2026-11-15_2026-11-01")).toBeNull();
+    });
+
+    it("compares with the same number of days just before it, or the same days last year", () => {
+        const p = parsePeriod("r:2026-11-01_2026-11-15")!;
+        expect(comparePeriod(p, "previous")?.value).toBe("r:2026-10-17_2026-10-31");
+        expect(comparePeriod(p, "year")?.value).toBe("r:2025-11-01_2025-11-15");
+        expect(comparePeriod(parsePeriod("r:2028-02-20_2028-02-29")!, "year")?.value).toBe("r:2027-02-20_2027-02-28");
+    });
+
+    it("is offered in the Period list as its own choice", () => {
+        const groups = periodOptions(iso("2026-11-15T17:00:00Z"));
+        expect(groups.at(-1)).toEqual({ group: "Custom", items: [{ value: "custom", label: "Custom range…" }] });
+    });
+});
+
+describe("generate report", () => {
+    const form = (fields: Record<string, string>) => {
+        const f = new FormData();
+        Object.entries(fields).forEach(([k, v]) => f.append(k, v));
+        return f;
+    };
+    const run = async (fields: Record<string, string>) => {
+        try {
+            await generateReport(form(fields));
+        } catch (e) {
+            return (e as Error).message;
+        }
+        return "no redirect";
+    };
+
+    it("opens a custom range report and records it", async () => {
+        signInAs(auth, "superadmin");
+        const out = await run({ type: "payments", period: "custom", from: "2026-11-01", to: "2026-11-15", compare: "previous" });
+        expect(out).toBe("REDIRECT:/dashboard/reports/view?type=payments&period=r%3A2026-11-01_2026-11-15&compare=previous");
+        expect(logAction).toHaveBeenCalledWith("CREATE", "Report", "type=payments;period=r:2026-11-01_2026-11-15;compare=previous");
+    });
+
+    it("sends a bad custom range back with a reason and records nothing", async () => {
+        signInAs(auth, "superadmin");
+        expect(await run({ type: "payments", period: "custom", from: "2026-11-15", to: "2026-11-01" })).toBe("REDIRECT:/dashboard/reports?problem=range");
+        expect(await run({ type: "payments", period: "custom", from: "", to: "" })).toBe("REDIRECT:/dashboard/reports?problem=range");
+        expect(logAction).not.toHaveBeenCalled();
+    });
+
+    it("still takes a month from the list, and refuses anyone but Super Admin", async () => {
+        signInAs(auth, "superadmin");
+        expect(await run({ type: "proposals", period: "m:2026-11" })).toContain("period=m%3A2026-11");
+        signInAs(auth, "manager");
+        expect(await run({ type: "proposals", period: "m:2026-11" })).toBe("REDIRECT:/dashboard");
+    });
+});
+
+describe("comparing a period that is still running", () => {
+    it("uses the same days of the other period, not all of it", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-11-16T04:00:00Z")); // 15.5 days into November, Manila
+        mockDb.setSelectRows([]);
+
+        const report = (await loadReport("payments", "m:2026-11", "previous"))!;
+
+        expect(report.against?.label).toBe("October 2026 (same days)");
+        expect(report.against?.to.toISOString()).toBe("2026-10-16T04:00:00.000Z");
+    });
+
+    it("compares a finished period with all of the other", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-11-16T04:00:00Z"));
+        mockDb.setSelectRows([]);
+
+        const report = (await loadReport("payments", "m:2026-10", "previous"))!;
+        expect(report.against?.label).toBe("September 2026");
+        expect(report.against?.to.toISOString()).toBe("2026-09-30T15:59:59.999Z");
+    });
+});
+
+describe("measures taken as of today", () => {
+    const milestone = (endDate: string) => ({ status: "Pending", endDate: iso(endDate), completedAt: null, startDate: null, createdAt: iso("2026-10-01T00:00:00Z") });
+
+    it("counts a milestone as delayed only once its end date has passed, even in a running month", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-11-16T04:00:00Z"));
+
+        mockDb.setSelectRows([milestone("2026-11-20T00:00:00Z")]);
+        const later = await buildReport("project_status", parsePeriod("m:2026-11")!);
+        expect(later.kpis.find((k) => k.label === "Delayed now")?.raw).toBe(0);
+
+        mockDb.setSelectRows([milestone("2026-11-10T00:00:00Z")]);
+        const past = await buildReport("project_status", parsePeriod("m:2026-11")!);
+        expect(past.kpis.find((k) => k.label === "Delayed now")?.raw).toBe(1);
+    });
+
+    it("measures days in a stage up to today, not to the end of the month", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-11-16T04:00:00Z"));
+        mockDb.setSelectRows([{ status: "New Lead", source: "Website Form", createdAt: iso("2026-11-10T04:00:00Z"), stageChangedAt: iso("2026-11-10T04:00:00Z"), closedWonAt: null }]);
+
+        const doc = await buildReport("sales_pipeline", parsePeriod("m:2026-11")!);
+        expect(doc.tables[0].rows[0]).toEqual(["New lead", 1, "6.0 days"]);
+    });
+});
+
+describe("who signed in", () => {
+    it("uses the user when the record has one, else the email in its details", () => {
+        expect(whoSignedIn({ userId: "u1", details: "Email login: a@b.com" })).toBe("u1");
+        expect(whoSignedIn({ userId: null, details: "Email login: PM@Optrizo.com" })).toBe("email:pm@optrizo.com");
+        expect(whoSignedIn({ userId: null, details: "Email login:  pm@optrizo.com " })).toBe("email:pm@optrizo.com");
+    });
+
+    it("skips records it cannot tell apart", () => {
+        expect(whoSignedIn({ userId: null, details: "something else" })).toBeNull();
+        expect(whoSignedIn({ userId: null, details: null })).toBeNull();
+    });
+
+    it("counts each person once in the System usage report", async () => {
+        mockDb.setSelectRows([
+            { userId: null, details: "Email login: pm@optrizo.com", createdAt: iso("2026-11-03T02:00:00Z"), status: "active", severity: "HIGH" },
+            { userId: null, details: "Email login: PM@optrizo.com", createdAt: iso("2026-11-04T02:00:00Z"), status: "active", severity: "HIGH" },
+            { userId: null, details: "Email login: sales@optrizo.com", createdAt: iso("2026-11-04T03:00:00Z"), status: "active", severity: "HIGH" },
+            { userId: "u9", details: "Email login: dev@optrizo.com", createdAt: iso("2026-11-05T02:00:00Z"), status: "active", severity: "HIGH" },
+        ]);
+        const doc = await buildReport("system_usage", parsePeriod("m:2026-11")!);
+        const byLabel = Object.fromEntries(doc.kpis.map((k) => [k.label, k]));
+        expect(byLabel["People who signed in"].raw).toBe(3);
+        expect(byLabel["Sign-ins"].raw).toBe(4);
+    });
+});
+
+describe("GET /api/reports/export with a custom range", () => {
+    it("names the file from the dates", async () => {
+        signInAs(auth, "superadmin");
+        mockDb.setSelectRows([]);
+        const res = await GET(new NextRequest("http://localhost/api/reports/export?format=csv&type=payments&period=r:2026-11-01_2026-11-15&compare=previous"));
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-disposition")).toContain("payments-report-nov-1-15-2026.csv");
+        const text = await res.text();
+        expect(text).toContain("Nov 1 – 15, 2026");
+        expect(text).toContain("Oct 17 – 31, 2026");
     });
 });

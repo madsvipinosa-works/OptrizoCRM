@@ -24,7 +24,15 @@ export async function loadReport(type: unknown, periodValue: string | null | und
     if (!isReportType(type) || !period) return null;
 
     const mode = parseCompare(compare);
-    const against = comparePeriod(period, mode);
+    let against = comparePeriod(period, mode);
+
+    // A period that is still running is compared with the same stretch of the other one, not its full length,
+    // otherwise half a month would always look worse than a whole one.
+    const now = Date.now();
+    if (against && now >= period.from.getTime() && now < period.to.getTime()) {
+        const sameDays = new Date(Math.min(against.from.getTime() + (now - period.from.getTime()), against.to.getTime()));
+        against = { ...against, to: sameDays, label: `${against.label} (same days)` };
+    }
     const [doc, before] = await Promise.all([buildReport(type, period), against ? buildReport(type, against) : null]);
 
     return { type, period, mode, against, doc, before, title: `${reportLabel(type)} report · ${period.label}`, range: periodRangeText(period) };

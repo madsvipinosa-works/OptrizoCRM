@@ -14,6 +14,8 @@ import { MONTH_SHORT, formatPeso, type Period, type ReportDoc, type ReportKpi, t
  */
 
 const inRange = (d: Date | null | undefined, from: Date, to: Date) => !!d && d >= from && d <= to;
+/** How far a "right now" measure should look: the period's end, or today when the period is still running. */
+const asOf = (p: Period) => new Date(Math.min(p.to.getTime(), Date.now()));
 const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : "No data");
 
 const count = (label: string, n: number, extra: Partial<ReportKpi> = {}): ReportKpi => ({ label, value: String(n), raw: n, unit: "count", ...extra });
@@ -72,7 +74,7 @@ async function salesPipeline(p: Period): Promise<ReportDoc> {
 
     const stageRows = STAGES.map((s) => {
         const group = made.filter((l) => l.status === s);
-        const days = group.length ? group.reduce((sum, l) => sum + differenceInCalendarDays(p.to, l.stageChangedAt ?? l.createdAt), 0) / group.length : null;
+        const days = group.length ? group.reduce((sum, l) => sum + differenceInCalendarDays(asOf(p), l.stageChangedAt ?? l.createdAt), 0) / group.length : null;
         return [STAGE_LABEL[s], group.length, days === null || s === "Closed Won" || s === "Closed Lost" ? "–" : `${days.toFixed(1)} days`];
     });
     const sources = new Map<string, number>();
@@ -82,7 +84,7 @@ async function salesPipeline(p: Period): Promise<ReportDoc> {
         events: made.length + won + lost,
         kpis: [
             count("New leads", made.length, { tone: "brand" }),
-            count("Open now", open.length),
+            count("Open now", open.length, { note: "Created by the period end, still open today" }),
             count("Won", won, { tone: "brand" }),
             rate("Win rate", won, won + lost, { note: `${won} won, ${lost} lost` }),
         ],
@@ -150,7 +152,7 @@ async function projectStatus(p: Period): Promise<ReportDoc> {
     ]);
     const done = ms.filter((m) => m.status === "Completed" && inRange(m.completedAt, p.from, p.to));
     const onTime = done.filter((m) => m.endDate && m.completedAt && m.completedAt <= addDays(m.endDate, 1)).length;
-    const delayed = ms.filter((m) => m.status !== "Completed" && m.endDate && m.endDate < p.to).length;
+    const delayed = ms.filter((m) => m.status !== "Completed" && m.endDate && m.endDate < asOf(p)).length;
     const finished = projects.filter((x) => x.status === "Completed" && inRange(x.completedAt, p.from, p.to));
     const length = finished.length ? finished.reduce((s, x) => s + differenceInCalendarDays(x.completedAt!, x.startDate ?? x.createdAt) / 30.4, 0) / finished.length : null;
     const active = projects.filter((x) => x.status !== "Completed").length;
@@ -165,13 +167,13 @@ async function projectStatus(p: Period): Promise<ReportDoc> {
         ],
         tables: [
             {
-                title: "Projects by status",
+                title: "Projects by status (today)",
                 columns: ["Status", "Projects"],
                 rows: ["Kickoff", "In Progress", "In Review", "Completed"].map((s) => [s, projects.filter((x) => x.status === s).length]),
                 total: ["Total", projects.length],
             },
             {
-                title: "Milestones by status",
+                title: "Milestones by status (today)",
                 columns: ["Status", "Milestones"],
                 rows: ["Pending", "In Progress", "Completed"].map((s) => [s, ms.filter((m) => m.status === s).length]),
                 total: ["Total", ms.length],
@@ -186,7 +188,9 @@ async function paymentsReport(p: Period): Promise<ReportDoc> {
     const php = all.filter((x) => x.currency === "PHP");
     const paid = php.filter((x) => x.status === "paid" && inRange(x.receivedAt, p.from, p.to));
     const collected = paid.reduce((s, x) => s + x.amount, 0);
-    const overdue = php.filter((x) => x.dueDate && x.dueDate <= p.to && (!x.receivedAt || x.receivedAt > p.to) && x.status !== "not_yet_due");
+    const overdue = php.filter((x) => x.dueDate && x.dueDate <= asOf(p) && (!x.receivedAt || x.receivedAt > asOf(p)) && x.status !== "not_yet_due");
+    // Pesos only. A payment in another currency is not converted, so it is named instead of silently left out.
+    const usd = all.filter((x) => x.currency === "USD" && x.status === "paid" && inRange(x.receivedAt, p.from, p.to)).reduce((s, x) => s + x.amount, 0);
     const onTime = paid.filter((x) => !x.dueDate || (x.receivedAt && x.receivedAt <= addDays(x.dueDate, 1))).length;
 
     const weekRows = weeksOf(p).map((w) => {
@@ -203,9 +207,9 @@ async function paymentsReport(p: Period): Promise<ReportDoc> {
     return {
         events: paid.length,
         kpis: [
-            money("Collected", collected, { tone: "brand" }),
+            money("Collected", collected, { tone: "brand", note: usd > 0 ? `Pesos only. Another $${usd.toLocaleString("en-US")} was paid in USD` : undefined }),
             count("Payments received", paid.length),
-            count("Overdue at period end", overdue.length, { tone: overdue.length > 0 ? "warn" : "ink", note: formatPeso(overdue.reduce((s, x) => s + x.amount, 0)) }),
+            count("Overdue", overdue.length, { tone: overdue.length > 0 ? "warn" : "ink", note: `${formatPeso(overdue.reduce((s, x) => s + x.amount, 0))} unpaid and past due` }),
             rate("Paid on time", onTime, paid.length, { value: paid.length > 0 ? `${onTime} of ${paid.length}` : "No data", note: pct(onTime, paid.length) }),
         ],
         tables: [
@@ -221,27 +225,37 @@ async function paymentsReport(p: Period): Promise<ReportDoc> {
     };
 }
 
+/**
+ * Who a sign-in record belongs to. Older records were written before the session existed, so they have no user:
+ * those are told apart by the email in their details ("Email login: someone@example.com"), which is only counted, never shown.
+ */
+export function whoSignedIn(l: { userId: string | null; details?: string | null }): string | null {
+    if (l.userId) return l.userId;
+    const email = /^Email login:\s*(.+)$/i.exec((l.details ?? "").trim())?.[1];
+    return email ? `email:${email.trim().toLowerCase()}` : null;
+}
+
 async function systemUsage(p: Period): Promise<ReportDoc> {
     const [logins, errors, accounts] = await Promise.all([
-        db.select({ userId: auditLogs.userId, createdAt: auditLogs.createdAt }).from(auditLogs).where(eq(auditLogs.action, "LOGIN")),
+        db.select({ userId: auditLogs.userId, details: auditLogs.details, createdAt: auditLogs.createdAt }).from(auditLogs).where(eq(auditLogs.action, "LOGIN")),
         db.select({ createdAt: systemErrorLogs.createdAt, severity: systemErrorLogs.severity }).from(systemErrorLogs),
         db.select({ status: users.status }).from(users).where(isNull(users.deletedAt)),
     ]);
     const inPeriod = logins.filter((l) => inRange(l.createdAt, p.from, p.to));
-    const people = new Set(inPeriod.map((l) => l.userId).filter(Boolean));
+    const people = new Set(inPeriod.map(whoSignedIn).filter(Boolean));
     const errs = errors.filter((e) => inRange(e.createdAt, p.from, p.to));
     const active = accounts.filter((a) => a.status === "active").length;
 
     const weekRows = weeksOf(p).map((w) => {
         const rows = inPeriod.filter((l) => inRange(l.createdAt, w.from, w.to));
-        return [w.label, new Set(rows.map((l) => l.userId).filter(Boolean)).size, rows.length, errs.filter((e) => inRange(e.createdAt, w.from, w.to)).length];
+        return [w.label, new Set(rows.map(whoSignedIn).filter(Boolean)).size, rows.length, errs.filter((e) => inRange(e.createdAt, w.from, w.to)).length];
     });
 
     return {
         events: inPeriod.length + errs.length,
         kpis: [
             count("People who signed in", people.size, { tone: "brand", note: active ? `of ${active} active accounts` : undefined }),
-            count("Sign-ins", inPeriod.length),
+            count("Sign-ins", inPeriod.length, { note: "Email and password only; Google sign-ins are not recorded" }),
             count("Errors", errs.length, { tone: errs.length > 0 ? "warn" : "ink" }),
             count("Accounts locked now", accounts.filter((a) => a.status === "locked").length),
         ],

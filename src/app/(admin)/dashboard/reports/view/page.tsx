@@ -9,7 +9,7 @@ import { FormSelect } from "@/components/ui/form-select";
 import { generateReport } from "@/features/reports/generate-action";
 import { loadReport } from "@/features/reports/load";
 import { ReportActions } from "@/features/reports/components/ReportActions";
-import { COMPARE_OPTIONS, REPORT_TYPES, formatCell, kpiChange, periodOptions } from "@/features/reports/catalog";
+import { COMPARE_OPTIONS, CUSTOM_PERIOD, REPORT_TYPES, formatCell, kpiChange, periodOptions } from "@/features/reports/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,8 @@ export default async function ReportView({ searchParams }: { searchParams?: Prom
 
     // The period list, with this report's own period added when it is older than the list.
     const groups = periodOptions();
-    const known = groups.some((g) => g.items.some((o) => o.value === period.value));
+    const isCustom = period.kind === "custom";
+    const known = isCustom || groups.some((g) => g.items.some((o) => o.value === period.value));
     const periodGroups = known ? groups : [{ group: "This report", items: [{ value: period.value, label: period.label }] }, ...groups];
     const thisMonth = groups[0].items[0];
     const isRunningMonth = period.value === thisMonth.value;
@@ -53,7 +54,7 @@ export default async function ReportView({ searchParams }: { searchParams?: Prom
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-foreground">
                     Period
-                    <FormSelect name="period" defaultValue={period.value} className={`${field} min-w-52`} variant="plain">
+                    <FormSelect name="period" defaultValue={isCustom ? CUSTOM_PERIOD : period.value} className={`${field} min-w-52`} variant="plain">
                         {periodGroups.map((g) => (
                             <optgroup key={g.group} label={g.group}>
                                 {g.items.map((o) => (
@@ -64,6 +65,14 @@ export default async function ReportView({ searchParams }: { searchParams?: Prom
                             </optgroup>
                         ))}
                     </FormSelect>
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                    From
+                    <input type="date" name="from" defaultValue={isCustom ? period.fromYmd : ""} className={`${field} w-40`} />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                    To
+                    <input type="date" name="to" defaultValue={isCustom ? period.toYmd : ""} className={`${field} w-40`} />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-foreground">
                     Compare with

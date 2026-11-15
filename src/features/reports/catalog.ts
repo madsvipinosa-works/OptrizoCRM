@@ -2,7 +2,7 @@ import { manilaToDate } from "@/lib/datetime";
 
 /**
  * The five report types and the period maths. No server code here, so the form, the view and the exports can all import it.
- * Periods are whole calendar months or quarters in Manila time (APP_TZ, UTC+8, no daylight saving), whatever the server's clock says.
+ * Periods are whole calendar months or quarters, or a custom range of days, in Manila time (APP_TZ, UTC+8, no daylight saving), whatever the server's clock says.
  */
 
 export type ReportType = "sales_pipeline" | "proposals" | "project_status" | "payments" | "system_usage";
@@ -17,6 +17,9 @@ export const REPORT_TYPES: { id: ReportType; label: string; blurb: string }[] = 
 
 export const reportLabel = (type: string) => REPORT_TYPES.find((t) => t.id === type)?.label ?? "Report";
 export const isReportType = (v: unknown): v is ReportType => REPORT_TYPES.some((t) => t.id === v);
+
+/** The Period dropdown's value for "use the From and To dates instead". */
+export const CUSTOM_PERIOD = "custom";
 
 export type CompareMode = "previous" | "year" | "none";
 export const COMPARE_OPTIONS: { value: CompareMode; label: string }[] = [
@@ -33,9 +36,9 @@ export interface Period {
     label: string;
     from: Date;
     to: Date;
-    kind: "month" | "quarter";
+    kind: "month" | "quarter" | "custom";
     year: number;
-    /** Month 1-12, or quarter 1-4. */
+    /** Month 1-12, or quarter 1-4. 0 for a custom range. */
     index: number;
     /** First and last day as Manila "YYYY-MM-DD". */
     fromYmd: string;
@@ -66,7 +69,51 @@ function build(kind: "month" | "quarter", year: number, index: number): Period {
     };
 }
 
-/** "m:2026-10" is October 2026; "q:2026-3" is the third quarter of 2026. */
+export const MAX_CUSTOM_DAYS = 366;
+const DAY = 86_400_000;
+const ymdTime = (ymd: string) => Date.parse(`${ymd}T00:00:00Z`);
+const timeYmd = (t: number) => new Date(t).toISOString().slice(0, 10);
+/** True for a real calendar day written as YYYY-MM-DD ("2026-02-31" is not one). */
+export const isYmd = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(ymdTime(v)) && timeYmd(ymdTime(v)) === v;
+
+/** "Nov 1 – 30, 2026", "Oct 1 – Dec 31, 2026", or with both years when the range crosses New Year. */
+export function rangeFromYmds(fromYmd: string, toYmd: string): string {
+    const [fy, fm, fd] = fromYmd.split("-").map(Number);
+    const [ty, tm, td] = toYmd.split("-").map(Number);
+    if (fy !== ty) return `${MONTH_SHORT[fm - 1]} ${fd}, ${fy} – ${MONTH_SHORT[tm - 1]} ${td}, ${ty}`;
+    if (fromYmd === toYmd) return `${MONTH_SHORT[fm - 1]} ${fd}, ${fy}`;
+    return `${MONTH_SHORT[fm - 1]} ${fd} – ${fm === tm ? td : `${MONTH_SHORT[tm - 1]} ${td}`}, ${ty}`;
+}
+
+function buildCustom(fromYmd: string, toYmd: string): Period {
+    return {
+        value: `r:${fromYmd}_${toYmd}`,
+        label: rangeFromYmds(fromYmd, toYmd),
+        from: startOfDay(fromYmd),
+        to: endOfDay(toYmd),
+        kind: "custom",
+        year: Number(fromYmd.slice(0, 4)),
+        index: 0,
+        fromYmd,
+        toYmd,
+    };
+}
+
+/** A custom range value, or null when it is not two real days in order and at most a year long. */
+export function customPeriod(fromYmd: string, toYmd: string): Period | null {
+    if (!isYmd(fromYmd) || !isYmd(toYmd)) return null;
+    const span = (ymdTime(toYmd) - ymdTime(fromYmd)) / DAY + 1;
+    return span >= 1 && span <= MAX_CUSTOM_DAYS ? buildCustom(fromYmd, toYmd) : null;
+}
+
+/** The same day one year earlier ("2028-02-29" becomes "2027-02-28"). */
+function yearBefore(ymd: string): string {
+    const [y, m, d] = ymd.split("-").map(Number);
+    const last = lastDayOf(y - 1, m);
+    return `${y - 1}-${pad(m)}-${pad(Math.min(d, last))}`;
+}
+
+/** "m:2026-10" is October 2026; "q:2026-3" is the third quarter of 2026; "r:2026-11-01_2026-11-15" is a custom range of days. */
 export function parsePeriod(value: string | undefined | null): Period | null {
     const m = /^m:(\d{4})-(\d{1,2})$/.exec(value ?? "");
     if (m) {
@@ -74,7 +121,9 @@ export function parsePeriod(value: string | undefined | null): Period | null {
         return month >= 1 && month <= 12 ? build("month", Number(m[1]), month) : null;
     }
     const q = /^q:(\d{4})-([1-4])$/.exec(value ?? "");
-    return q ? build("quarter", Number(q[1]), Number(q[2])) : null;
+    if (q) return build("quarter", Number(q[1]), Number(q[2]));
+    const r = /^r:(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/.exec(value ?? "");
+    return r ? customPeriod(r[1], r[2]) : null;
 }
 
 /** Today's calendar year and month in Manila. */
@@ -102,12 +151,20 @@ export function periodOptions(now = new Date()): { group: string; items: { value
     return [
         { group: "Months", items: months },
         { group: "Quarters", items: quarters },
+        { group: "Custom", items: [{ value: CUSTOM_PERIOD, label: "Custom range…" }] },
     ];
 }
 
 /** The period to compare against, or null for no comparison. */
 export function comparePeriod(period: Period, mode: CompareMode): Period | null {
     if (mode === "none") return null;
+    if (period.kind === "custom") {
+        if (mode === "year") return customPeriod(yearBefore(period.fromYmd), yearBefore(period.toYmd));
+        // The same number of days, straight before this range.
+        const days = (ymdTime(period.toYmd) - ymdTime(period.fromYmd)) / DAY + 1;
+        const to = timeYmd(ymdTime(period.fromYmd) - DAY);
+        return customPeriod(timeYmd(ymdTime(to) - (days - 1) * DAY), to);
+    }
     if (mode === "year") return build(period.kind, period.year - 1, period.index);
 
     const perYear = period.kind === "month" ? 12 : 4;
@@ -116,12 +173,7 @@ export function comparePeriod(period: Period, mode: CompareMode): Period | null 
 }
 
 /** "Nov 1 – 30, 2026" or "Oct 1 – Dec 31, 2026". */
-export function periodRangeText(p: Period): string {
-    const [, fm, fd] = p.fromYmd.split("-").map(Number);
-    const [ty, tm, td] = p.toYmd.split("-").map(Number);
-    const to = fm === tm ? `${td}` : `${MONTH_SHORT[tm - 1]} ${td}`;
-    return `${MONTH_SHORT[fm - 1]} ${fd} – ${to}, ${ty}`;
-}
+export const periodRangeText = (p: Period): string => rangeFromYmds(p.fromYmd, p.toYmd);
 
 export type KpiUnit = "count" | "money" | "percent";
 

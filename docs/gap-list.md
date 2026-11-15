@@ -98,7 +98,9 @@ Task deliverables and progress updates are built; not built yet:
 
 Reports (counting, filters, PDF and CSV) are fixed; not built yet:
 
-- Custom date ranges and scheduled or emailed reports. Periods are whole months and quarters.
+- Scheduled or emailed reports.
 - Report snapshots: a report is rebuilt from live data each time, so the same past period can change if old records are edited.
 - Downloads are not written to the audit log (only "Generate report" is).
 - `src/features/reports/actions.ts` is an older, unused set of report queries. It is left in place.
+- Google sign-ins are not written to the audit log (only email and password sign-ins are), so the System usage report cannot count them.
+- "Open now", "Projects by status" and "Milestones by status" are the situation today. The data has no history of past states, so a past period shows today's status of what it contained.

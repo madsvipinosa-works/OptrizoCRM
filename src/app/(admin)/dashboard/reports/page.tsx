@@ -16,10 +16,11 @@ const field =
     "h-10 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Super Admin reports (mockup 110): pick a type and a period, generate, and open past reports. Totals only. */
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams?: Promise<{ problem?: string }> }) {
     const session = await auth();
     if (!hasRole(session, ["superadmin"])) redirect("/dashboard");
 
+    const problem = (await searchParams)?.problem;
     const periods = periodOptions();
     const rows = await db.query.auditLogs.findMany({
         where: and(eq(auditLogs.entity, "Report"), eq(auditLogs.action, "CREATE")),
@@ -83,6 +84,14 @@ export default async function ReportsPage() {
                         </FormSelect>
                     </label>
                     <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                        From
+                        <input type="date" name="from" defaultValue={""} className={`${field} w-40`} />
+                    </label>
+                    <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                        To
+                        <input type="date" name="to" defaultValue={""} className={`${field} w-40`} />
+                    </label>
+                    <label className="grid gap-1.5 text-sm font-medium text-foreground">
                         Compare with
                         <FormSelect name="compare" defaultValue="previous" className={`${field} min-w-48`} variant="plain">
                             {COMPARE_OPTIONS.map((o) => (
@@ -96,6 +105,16 @@ export default async function ReportsPage() {
                         Generate report
                     </Button>
                 </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                    For your own dates, choose “Custom range…” in Period and fill in From and To. A range can be up to one year.
+                </p>
+                {problem && (
+                    <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-foreground">
+                        {problem === "range"
+                            ? "Choose a From and a To date. To cannot be before From, and the range can be at most one year."
+                            : "That period is not valid. Pick one from the list."}
+                    </p>
+                )}
             </form>
 
             <section aria-labelledby="generated-heading" className="overflow-hidden rounded-xl border border-border bg-card">

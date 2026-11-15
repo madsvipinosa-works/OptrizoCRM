@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { auth, hasRole } from "@/auth";
 import { logAction } from "@/features/audit/log";
-import { COMPARE_OPTIONS, isReportType, parsePeriod } from "./catalog";
+import { COMPARE_OPTIONS, CUSTOM_PERIOD, customPeriod, isReportType, parsePeriod } from "./catalog";
 
 /**
  * Generate report: checks the role on the server, writes one audit row (this is also what the
@@ -14,10 +14,15 @@ export async function generateReport(formData: FormData) {
     if (!hasRole(session, ["superadmin"])) redirect("/dashboard");
 
     const type = String(formData.get("type") ?? "");
-    const period = String(formData.get("period") ?? "");
     const compare = String(formData.get("compare") ?? "previous");
 
-    if (!isReportType(type) || !parsePeriod(period)) redirect("/dashboard/reports");
+    // "Custom range" uses the From and To dates; anything else is a month or quarter from the list.
+    const picked = String(formData.get("period") ?? "");
+    const period =
+        picked === CUSTOM_PERIOD ? customPeriod(String(formData.get("from") ?? ""), String(formData.get("to") ?? ""))?.value ?? "" : picked;
+
+    if (!isReportType(type)) redirect("/dashboard/reports");
+    if (!parsePeriod(period)) redirect(`/dashboard/reports?problem=${picked === CUSTOM_PERIOD ? "range" : "period"}`);
     const mode = COMPARE_OPTIONS.some((o) => o.value === compare) ? compare : "previous";
 
     await logAction("CREATE", "Report", `type=${type};period=${period};compare=${mode}`);
