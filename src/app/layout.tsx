@@ -18,10 +18,14 @@ import { getPublishedPage } from "@/features/cms/content/public-queries";
 import type { HomeFields } from "@/features/cms/content/schemas";
 
 export async function generateMetadata(): Promise<Metadata> {
+  // A database blip must not take every page down: fall back to the default title and description below.
   const [settings, homePage] = await Promise.all([
     getSiteSettings(),
     getPublishedPage("home"),
-  ]);
+  ]).catch((error) => {
+    console.warn("[layout] Site metadata unavailable, using defaults:", error instanceof Error ? error.message : error);
+    return [null, null] as const;
+  });
   const homeFields = homePage?.fields as HomeFields | undefined;
   const siteTitle = homeFields?.heading || "Optrizo | Digital Transformation Agency";
   const siteDescription = homeFields?.intro || "Optrizo is a premium software development agency crafting high-performance websites, complex web apps, and scalable digital solutions.";
