@@ -41,7 +41,8 @@ export function AdminShell({
     // Ctrl/Cmd+B, as in Linear, Vercel and VS Code. Left alone while typing: in a text field it means bold.
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key.toLowerCase() !== "b" || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+            // Autofill and some extensions fire key events with no `key`.
+            if (e.key?.toLowerCase() !== "b" || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
             const target = e.target as HTMLElement | null;
             if (target?.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])")) return;
             e.preventDefault();
