@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     // A glob, not a literal path: [id] would be read as a character class.
     '/api/proposals/**': ['./node_modules/@sparticuz/chromium/bin/**'],
+    '/api/reports/**': ['./node_modules/@sparticuz/chromium/bin/**'],
   },
   turbopack: {
     root: __dirname,
