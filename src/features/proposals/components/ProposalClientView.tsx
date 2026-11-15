@@ -35,6 +35,7 @@ import {
     ProposalDocumentData,
     PricingLineItem,
 } from "@/features/proposals/components/ProposalDocumentSheet";
+import { proposalParties } from "@/features/proposals/parties";
 import { AcceptProposalDialog } from "@/features/proposals/components/AcceptProposalDialog";
 import { orderMilestones } from "@/features/proposals/draft-logic";
 import { RequestChangesDialog } from "@/features/proposals/components/RequestChangesDialog";
@@ -87,6 +88,14 @@ interface Props {
         contractSettings?: Record<string, unknown> | null;
         lead?: {
             businessName?: string | null;
+            contactName?: string | null;
+            contactEmail?: string | null;
+            contactPhone?: string | null;
+            roleInCompany?: string | null;
+            industry?: string | null;
+            otherServiceText?: string | null;
+            service?: { title: string | null } | null;
+            assignedPm?: { name: string | null; email: string } | null;
             client?: {
                 name: string | null;
                 email: string;
@@ -225,6 +234,7 @@ export function ProposalClientView({
         proposalCode: proposal.proposalCode || `OPT-${proposal.id.split("-")[0].toUpperCase()}`,
         businessName: proposal.lead?.businessName || proposal.lead?.client?.name || "Valued Client",
         clientEmail: proposal.lead?.client?.email,
+        parties: proposalParties(proposal.lead, proposal.contractSettings as ProposalDocumentData["contractSettings"]),
         projectName: proposal.projectName,
         exclusions: proposal.exclusions,
         scope: proposal.scope,

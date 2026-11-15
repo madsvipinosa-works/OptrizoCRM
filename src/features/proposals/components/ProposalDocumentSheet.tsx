@@ -10,6 +10,7 @@
 
 import React from "react";
 import type { ContractSettings } from "@/features/proposals/actions";
+import type { ProposalParties } from "@/features/proposals/parties";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/datetime";
 import { STANDARD_SECTIONS } from "@/features/proposals/standard-sections";
@@ -31,6 +32,8 @@ export interface ProposalDocumentData {
     version?: number | null;
     businessName?: string | null;
     clientEmail?: string | null;
+    /** Client, PM, service and industry details (see proposalParties); each line is shown only when present. */
+    parties?: ProposalParties | null;
     /** Name of the project: the document title. */
     projectName?: string | null;
     scope?: string | null;
@@ -163,6 +166,7 @@ export function ProposalDocumentSheet({
 }: ProposalDocumentSheetProps) {
     const cs = data.contractSettings || {};
     const logo = agencyLogoUrl || data.agencyLogoUrl || null;
+    const parties = data.parties ?? null;
     const business = data.businessName || "the client";
     const project = data.projectName?.trim() || "Software project";
 
@@ -229,15 +233,37 @@ export function ProposalDocumentSheet({
                     <div className="min-w-0">
                         <dt className="text-xs text-muted-foreground">Prepared for</dt>
                         <dd className="break-words font-semibold text-foreground">{data.businessName || "Client"}</dd>
-                        {(cs.clientContactPerson || data.clientEmail) && (
-                            <dd className="break-words text-muted-foreground">{cs.clientContactPerson || data.clientEmail}</dd>
+                        {parties ? (
+                            <>
+                                {parties.clientName && (
+                                    <dd className="break-words text-foreground">
+                                        {parties.clientName}
+                                        {parties.clientRole ? `, ${parties.clientRole}` : ""}
+                                    </dd>
+                                )}
+                                {parties.clientEmail && <dd className="break-words text-muted-foreground">{parties.clientEmail}</dd>}
+                                {parties.clientPhone && <dd className="break-words text-muted-foreground">{parties.clientPhone}</dd>}
+                            </>
+                        ) : (
+                            (cs.clientContactPerson || data.clientEmail) && (
+                                <dd className="break-words text-muted-foreground">{cs.clientContactPerson || data.clientEmail}</dd>
+                            )
                         )}
                     </div>
                     <div className="min-w-0">
                         <dt className="text-xs text-muted-foreground">Prepared by</dt>
                         <dd className="font-semibold text-foreground">{agencyName}</dd>
-                        <dd className="text-muted-foreground">Project Manager</dd>
+                        <dd className="text-foreground">{parties?.pmName ? `${parties.pmName}, Project Manager` : "Project Manager"}</dd>
+                        {parties?.pmEmail && <dd className="break-words text-muted-foreground">{parties.pmEmail}</dd>}
                     </div>
+                    {(parties?.serviceName || parties?.industry) && (
+                        <div className="min-w-0 sm:col-span-2">
+                            <dt className="text-xs text-muted-foreground">Project</dt>
+                            <dd className="break-words text-foreground">
+                                {[parties.serviceName && `Service: ${parties.serviceName}`, parties.industry && `Industry: ${parties.industry}`].filter(Boolean).join(" · ")}
+                            </dd>
+                        </div>
+                    )}
                 </dl>
             </header>
 
@@ -477,7 +503,7 @@ export function ProposalDocumentSheet({
                                 ) : null}
                             </div>
                             <p className="text-sm text-foreground">
-                                {signed ? data.acceptedByName || "Client" : "Name"}
+                                {signed ? data.acceptedByName || "Client" : parties?.clientName || "Name"}
                                 {signed && data.acceptedByTitle ? `, ${data.acceptedByTitle}` : ""}
                             </p>
                             <p className="text-xs text-muted-foreground" suppressHydrationWarning>
@@ -487,7 +513,7 @@ export function ProposalDocumentSheet({
                         <div className="space-y-2">
                             <p className="text-xs text-muted-foreground">For {agencyName}</p>
                             <div className="h-14 border-b border-foreground/40" />
-                            <p className="text-sm text-foreground">Project Manager</p>
+                            <p className="text-sm text-foreground">{parties?.pmName || "Project Manager"}</p>
                             <p className="text-xs text-muted-foreground">Date: ________________</p>
                         </div>
                     </div>

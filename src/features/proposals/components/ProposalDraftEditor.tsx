@@ -45,6 +45,7 @@ import {
     TermsDialog,
 } from "./draft-dialogs";
 import { ProposalDocumentSheet, type PricingLineItem, type ProposalDocumentData } from "./ProposalDocumentSheet";
+import type { ProposalParties } from "@/features/proposals/parties";
 import { FormSelect } from "@/components/ui/form-select";
 
 export type ProposalDraftEditorData = {
@@ -55,6 +56,8 @@ export type ProposalDraftEditorData = {
     proposalCode: string;
     businessName: string;
     clientName: string;
+    /** Client, PM, service and industry lines for the document preview. */
+    parties: ProposalParties;
     clientType: "local" | "international" | null;
     fields: DraftFields;
     milestones: MilestoneDraft[];
@@ -197,6 +200,7 @@ export function ProposalDraftEditor({ data }: { data: ProposalDraftEditorData })
     const previewData: ProposalDocumentData = {
         proposalCode: data.proposalCode,
         businessName: data.businessName,
+        parties: data.parties,
         projectName: fields.projectName,
         exclusions: fields.exclusions,
         scope: fields.overview,

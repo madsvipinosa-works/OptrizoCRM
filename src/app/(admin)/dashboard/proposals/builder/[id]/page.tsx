@@ -8,6 +8,7 @@ import { todayInManila } from "@/features/sprints/sprint-status";
 import { orderMilestones, toDateInput, type MilestoneDraft, type ScheduleDraftItem } from "@/features/proposals/draft-logic";
 import { ProposalDraftEditor, type ProposalDraftEditorData } from "@/features/proposals/components/ProposalDraftEditor";
 import type { ContractSettings } from "@/features/proposals/actions";
+import { proposalParties } from "@/features/proposals/parties";
 import type { PricingLineItem } from "@/features/proposals/components/ProposalDocumentSheet";
 
 export const metadata = {
@@ -69,6 +70,8 @@ export default async function ProposalBuilderPage({ params }: { params: Promise<
             lead: {
                 with: {
                     client: true,
+                    service: { columns: { title: true } },
+                    assignedPm: { columns: { name: true, email: true } },
                     discoveryForms: {
                         orderBy: (df, { desc }) => [desc(df.submittedAt)],
                         limit: 1,
@@ -87,6 +90,8 @@ export default async function ProposalBuilderPage({ params }: { params: Promise<
             lead: {
                 with: {
                     client: true,
+                    service: { columns: { title: true } },
+                    assignedPm: { columns: { name: true, email: true } },
                     discoveryForms: {
                         orderBy: (df, { desc }) => [desc(df.submittedAt)],
                         limit: 1,
@@ -127,6 +132,7 @@ export default async function ProposalBuilderPage({ params }: { params: Promise<
         proposalCode: proposal.proposalCode || `OPT-${proposal.id.slice(0, 8)}`,
         businessName: lead?.businessName || lead?.contactName || "Client",
         clientName: lead?.contactName || lead?.client?.name || "",
+        parties: proposalParties(lead, proposal.contractSettings as ContractSettings | null),
         clientType: discovery?.clientType ?? lead?.clientType ?? null,
         fields: {
             projectName: proposal.projectName ?? "",

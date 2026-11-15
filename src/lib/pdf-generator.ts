@@ -1,6 +1,7 @@
 import puppeteer, { Browser } from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import fs from "fs";
+import type { ProposalParties } from "@/features/proposals/parties";
 
 export async function getPuppeteerBrowser(): Promise<Browser> {
     const isWindows = process.platform === "win32";
@@ -59,6 +60,8 @@ export function generateSOWHtml(data: {
     proposalCode: string;
     businessName: string;
     clientEmail?: string | null;
+    /** Client, PM, service and industry details (see proposalParties); each line is shown only when present. */
+    parties?: ProposalParties | null;
     scope?: string | null;
     /** What is not included in the scope. */
     exclusions?: string | null;
@@ -119,7 +122,16 @@ export function generateSOWHtml(data: {
     const cs = data.contractSettings || {};
     const safeProposalCode = escapeHtml(data.proposalCode);
     const safeBusinessName = escapeHtml(data.businessName);
-    const safeClientEmail = data.clientEmail ? escapeHtml(data.clientEmail) : null;
+    const parties = data.parties ?? null;
+    const clientEmail = parties ? parties.clientEmail : data.clientEmail;
+    const safeClientEmail = clientEmail ? escapeHtml(clientEmail) : null;
+    const attn = parties?.clientName ?? cs.clientContactPerson ?? null;
+    const safeAttn = attn ? escapeHtml(parties?.clientRole ? `${attn}, ${parties.clientRole}` : attn) : null;
+    const safeClientPhone = (parties?.clientPhone ?? cs.clientPhone) ? escapeHtml((parties?.clientPhone ?? cs.clientPhone) as string) : null;
+    const safePm = parties?.pmName ? escapeHtml([parties.pmName, parties.pmEmail].filter(Boolean).join(" • ")) : null;
+    const safeProjectLine = parties && (parties.serviceName || parties.industry)
+        ? escapeHtml([parties.serviceName && `Service: ${parties.serviceName}`, parties.industry && `Industry: ${parties.industry}`].filter(Boolean).join(" • "))
+        : null;
     const safeScope = escapeHtml(data.scope || "Detailed scope parameters and technical deliverables.");
     const safeTechnicalApproach = data.technicalApproach ? escapeHtml(data.technicalApproach) : null;
     const safeTimeline = data.timeline ? escapeHtml(data.timeline) : null;
@@ -623,6 +635,7 @@ export function generateSOWHtml(data: {
             <div class="sub-header">Commercial Engagement Agreement</div>
             <div class="doc-title">Project Proposal &amp; Statement of Work</div>
             ${data.businessName ? `<div class="prepared-for">Prepared exclusively for: <strong style="color: #0f172a;">${safeBusinessName}</strong></div>` : ""}
+            ${safeProjectLine ? `<div class="prepared-for">${safeProjectLine}</div>` : ""}
 
             <div class="parties-grid">
                 <div class="party-col">
@@ -632,13 +645,14 @@ export function generateSOWHtml(data: {
                     <div class="party-meta">Phone: ${safeAgencyPhone}</div>
                     <div class="party-meta">${safeAgencyAddress}</div>
                     <div class="party-meta" style="font-family: monospace; font-size: 7pt; margin-top: 2px;">Company Reg. / SEC No: <strong>${safeAgencyReg}</strong></div>
+                    ${safePm ? `<div class="party-meta">Project Manager: ${safePm}</div>` : ""}
                 </div>
                 <div class="party-col" style="border-left: 1px solid #e2e8f0; padding-left: 12px;">
                     <strong>Client / Principal</strong>
                     <div class="party-name">${safeBusinessName}</div>
-                    ${cs.clientContactPerson ? `<div class="party-meta">Attn: ${escapeHtml(cs.clientContactPerson)}</div>` : ""}
+                    ${safeAttn ? `<div class="party-meta">Attn: ${safeAttn}</div>` : ""}
                     <div class="party-meta">${safeClientEmail || "Authorized Representative"}</div>
-                    ${cs.clientPhone ? `<div class="party-meta">Phone: ${escapeHtml(cs.clientPhone)}</div>` : ""}
+                    ${safeClientPhone ? `<div class="party-meta">Phone: ${safeClientPhone}</div>` : ""}
                     <div class="party-meta">${cs.clientAddress ? escapeHtml(cs.clientAddress) : "Address: To be furnished upon registration"}</div>
                 </div>
             </div>

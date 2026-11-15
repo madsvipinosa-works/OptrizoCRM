@@ -5,6 +5,8 @@ import { proposals } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { getPuppeteerBrowser, generateSOWHtml, escapeHtml } from "@/lib/pdf-generator";
 import { orderMilestones } from "@/features/proposals/draft-logic";
+import { proposalParties } from "@/features/proposals/parties";
+import type { ContractSettings } from "@/features/proposals/actions";
 import { getSiteSettings } from "@/features/cms/actions";
 import fs from "fs";
 import path from "path";
@@ -53,6 +55,8 @@ export async function GET(
                     with: {
                         client: true,
                         assignees: true,
+                        service: { columns: { title: true } },
+                        assignedPm: { columns: { name: true, email: true } },
                     },
                 },
             },
@@ -126,6 +130,7 @@ export async function GET(
             proposalCode,
             businessName,
             clientEmail: proposal.lead?.client?.email,
+            parties: proposalParties(proposal.lead, proposal.contractSettings as ContractSettings | null),
             scope: proposal.scope,
             exclusions: proposal.exclusions,
             technicalApproach: proposal.technicalApproach,

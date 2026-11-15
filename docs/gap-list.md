@@ -82,3 +82,8 @@ PM assignment (steps 8 and 9) is built; not built yet:
 - Reassigning after a version is sent, or mid-project.
 - Protection against a request bouncing between two PMs who both pass.
 - A Super Admin count of manual vs automatic assignments (counts only), to show overrides are monitored.
+
+Proposal details (client name, role, contact, PM, service, industry) are built:
+
+- The details are read live from the lead, so a signed proposal shows later edits to the lead (the business name already worked this way). There is no snapshot at signing time.
+- The `/proposal/[id]` client page used to send the client's whole user row to the browser. It now sends only id, name and email. Other pages still load `client: true` on the server (admin pages, PDF route); they do not hand it to the browser.

@@ -42,7 +42,9 @@ export default async function ProposalPage({
             paymentScheduleItems: true,
             lead: {
                 with: {
-                    client: true,
+                    client: { columns: { id: true, name: true, email: true } },
+                    service: { columns: { title: true } },
+                    assignedPm: { columns: { name: true, email: true } },
                 },
             },
         },
