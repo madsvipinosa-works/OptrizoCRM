@@ -85,13 +85,15 @@ export default function ClientAppointmentsPage() {
         loadAppointments();
     }, []);
 
-    // Past invites cannot be answered any more (the server refuses them too).
-    const pendingInvite = appointments.find((m) => m.status === "awaiting_client" && new Date(m.startsAt).getTime() > Date.now());
+    // Every open invite needs a reply. Past invites cannot be answered any more (the server refuses them too),
+    // so they move to Past as "Missed" instead of disappearing.
+    const isOpenInvite = (m: MeetingItem) => m.status === "awaiting_client" && new Date(m.startsAt).getTime() > Date.now();
+    const pendingInvites = appointments.filter(isOpenInvite);
     const upcomingList = appointments.filter((m) =>
         ["confirmed", "reschedule_requested"].includes(m.status)
     );
     const pastList = appointments.filter((m) =>
-        ["done", "cancelled"].includes(m.status)
+        ["done", "cancelled"].includes(m.status) || (m.status === "awaiting_client" && !isOpenInvite(m))
     );
 
     const handleConfirm = async (meetingId: string) => {
@@ -194,8 +196,8 @@ export default function ClientAppointmentsPage() {
             </div>
 
             {/* Top Banner: New invitation · needs your reply (Mockup 076-4c) */}
-            {pendingInvite && (
-                <div className="p-5 rounded-2xl border-2 border-primary bg-card shadow-sm space-y-4">
+            {pendingInvites.map((pendingInvite) => (
+                <div key={pendingInvite.id} className="p-5 rounded-2xl border-2 border-primary bg-card shadow-sm space-y-4">
                     <div className="text-base font-semibold text-foreground flex items-center gap-2">
                         <CalendarCheck className="h-5 w-5 text-brand-deep" />
                         New invitation · needs your reply
@@ -257,7 +259,7 @@ export default function ClientAppointmentsPage() {
                         </div>
                     </div>
                 </div>
-            )}
+            ))}
 
             {/* Upcoming & Past Sections (Mockup 076-4c) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -308,16 +310,21 @@ export default function ClientAppointmentsPage() {
                                         <div className="text-muted-foreground">
                                             {formatWithZone(m.startsAt, tz)} · {meetingFormatLabel(m.format)}
                                         </div>
+                                        {m.status === "awaiting_client" && (
+                                            <div className="text-muted-foreground">The time passed before a reply. Contact us to set a new time.</div>
+                                        )}
                                     </div>
                                     <Badge
                                         variant="outline"
                                         className={`shrink-0 text-xs font-semibold ${
  m.status === "done"
                                                 ? "bg-muted text-muted-foreground border-border"
-                                                : "bg-destructive/10 text-destructive border-destructive/30"
+                                                : m.status === "awaiting_client"
+                                                    ? "bg-stage-negotiation/15 text-foreground border-border"
+                                                    : "bg-destructive/10 text-destructive border-destructive/30"
                                         }`}
                                     >
-                                        {m.status === "done" ? "Done" : "Cancelled"}
+                                        {m.status === "done" ? "Done" : m.status === "cancelled" ? "Cancelled" : "Missed"}
                                     </Badge>
                                 </div>
                             ))}
