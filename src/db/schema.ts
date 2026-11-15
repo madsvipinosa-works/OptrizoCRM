@@ -1046,6 +1046,9 @@ export const sprints = pgTable("sprint", {
 ]);
 
 // Note: composite FK task_sprint_same_project_fk (sprint_id, "projectId") -> sprint(id, project_id) and partial index idx_task_sprint are defined in src/db/migrations/0015_session8_sprints.sql
+/** A file or link attached to a task: the PM's deliverables, or what a developer posts in an update. */
+export type TaskAttachment = { kind: "file" | "link"; label: string; url: string };
+
 export const tasks = pgTable("task", {
     id: text("id")
         .primaryKey()
@@ -1067,6 +1070,8 @@ export const tasks = pgTable("task", {
     estimatedHours: integer("estimated_hours"),
     proofLinks: jsonb("proof_links").$type<{ label: string; url: string }[]>().default([]),
     proofNotes: text("proof_notes"),
+    /** Deliverables the PM attaches to the task (expected output, reference files). */
+    attachments: jsonb("attachments").$type<TaskAttachment[]>().default([]).notNull(),
     requiresProof: boolean("requires_proof").default(true).notNull(),
     isBlockedByClient: boolean("is_blocked_by_client").default(false).notNull(),
     blockedReason: text("blocked_reason"),
@@ -1096,6 +1101,24 @@ export const taskAssignees = pgTable("task_assignee", {
         .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
 }, (t) => ({ pk: primaryKey({ columns: [t.taskId, t.userId] }) }));
+
+/** What happened on a task, in order: progress notes, submissions, change requests, approvals. Never changes the task status. */
+export const taskUpdates = pgTable("task_update", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    taskId: text("taskId")
+        .notNull()
+        .references(() => tasks.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+        .references(() => users.id, { onDelete: "set null" }),
+    kind: text("kind", { enum: ["progress", "submission", "changes_requested", "approved"] }).notNull(),
+    note: text("note"),
+    attachments: jsonb("attachments").$type<TaskAttachment[]>().default([]).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+    idxTaskUpdateTaskCreated: index("idx_task_update_task_created").on(t.taskId, t.createdAt),
+}));
 
 export const taskSubmissions = pgTable("task_submission", {
     id: text("id")
@@ -1346,6 +1369,7 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
         references: [sprints.id],
     }),
     assignees: many(taskAssignees),
+    updates: many(taskUpdates),
     dependsOn: one(tasks, {
         fields: [tasks.dependsOnTaskId],
         references: [tasks.id],
@@ -1449,6 +1473,17 @@ export const pageVersionsRelations = relations(pageVersions, ({ one }) => ({
     }),
     author: one(users, {
         fields: [pageVersions.createdBy],
+        references: [users.id],
+    }),
+}));
+
+export const taskUpdatesRelations = relations(taskUpdates, ({ one }) => ({
+    task: one(tasks, {
+        fields: [taskUpdates.taskId],
+        references: [tasks.id],
+    }),
+    author: one(users, {
+        fields: [taskUpdates.authorId],
         references: [users.id],
     }),
 }));

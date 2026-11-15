@@ -87,3 +87,11 @@ Proposal details (client name, role, contact, PM, service, industry) are built:
 
 - The details are read live from the lead, so a signed proposal shows later edits to the lead (the business name already worked this way). There is no snapshot at signing time.
 - The `/proposal/[id]` client page used to send the client's whole user row to the browser. It now sends only id, name and email. Other pages still load `client: true` on the server (admin pages, PDF route); they do not hand it to the browser.
+
+Task deliverables and progress updates are built; not built yet:
+
+- A project-wide document repository (one page per project listing every uploaded file). Files are found per task. Recommended in the paper.
+- Chat, a Slack integration, file versioning and search. Recommended in the paper.
+- Task files are not shown to clients in the app, but `/api/private-file` lets anyone who can read the project open a file that belongs to it, so a client who had the exact link could open one. The same is already true of submitted files.
+- The `task_submission` table is no longer used by any code. It is left in place.
+- Migration `0024_task_deliverables_and_updates.sql` is applied by hand in the Supabase SQL editor, like 0010-0023, before the code is deployed.

@@ -4,7 +4,7 @@ import type { Session } from "next-auth";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { auth, hasRole } from "@/auth";
 import { db } from "@/db";
-import { agencyProjects, leads, projectStakeholders, projectTeamMembers, taskAssignees, tasks, payments, document, proposals } from "@/db/schema";
+import { agencyProjects, leads, projectStakeholders, projectTeamMembers, taskAssignees, tasks, taskUpdates, payments, document, proposals } from "@/db/schema";
 
 /**
  * Shared access checks for server actions and route handlers (spec §1).
@@ -140,7 +140,7 @@ function referencesFile(stored: string | null | undefined, fileRef: string): boo
  * Ties a file to a project, so access to one project does not unlock files from another.
  * Accepts:
  * - project.documents (JSON array items)
- * - tasks.proofLinks
+ * - tasks.proofLinks, tasks.attachments (the PM's deliverables) and task_update.attachments (progress updates)
  * - agency_project.signOffFileUrl
  * - payment.proofFileUrl
  * - document.fileUrl (handover files)
@@ -166,9 +166,17 @@ export async function fileBelongsToProject(projectId: string, fileRef: string): 
 
     const taskRows = await db.query.tasks.findMany({
         where: and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)),
-        columns: { proofLinks: true },
+        columns: { proofLinks: true, attachments: true },
     });
     if (taskRows.some((task) => (task.proofLinks ?? []).some((link) => referencesFile(link.url, fileRef)))) return true;
+    if (taskRows.some((task) => (task.attachments ?? []).some((a) => referencesFile(a.url, fileRef)))) return true;
+
+    const updateRows = await db
+        .select({ attachments: taskUpdates.attachments })
+        .from(taskUpdates)
+        .innerJoin(tasks, eq(taskUpdates.taskId, tasks.id))
+        .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)));
+    if (updateRows.some((u) => (u.attachments ?? []).some((a) => referencesFile(a.url, fileRef)))) return true;
 
     const paymentRows = await db.query.payments.findMany({
         where: eq(payments.projectId, projectId),

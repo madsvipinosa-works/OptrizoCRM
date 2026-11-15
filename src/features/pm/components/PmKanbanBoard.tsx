@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { isBacklogTask, isTaskCarriedOver } from "@/features/sprints/task-filters";
+import type { TaskAttachment } from "@/db/schema";
 
 export type PmTaskStatus =
     | "Todo"
@@ -46,6 +47,8 @@ export interface PmTask {
     requiresProof?: boolean;
     proofLinks?: { label: string; url: string }[] | null;
     proofNotes?: string | null;
+    /** Deliverables the PM attached to the task. */
+    attachments?: TaskAttachment[] | null;
     assignees: {
         user: {
             id: string;

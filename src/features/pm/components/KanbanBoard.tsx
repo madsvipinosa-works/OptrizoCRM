@@ -36,6 +36,7 @@ import {
 import { TaskProofValidationModal } from "./TaskProofValidationModal";
 import { TaskDeleteConfirmModal } from "./TaskDeleteConfirmModal";
 import { TaskDetailsDrawer } from "./TaskDetailsDrawer";
+import type { TaskAttachment } from "@/db/schema";
 import type { SprintWithCounts } from "@/features/sprints/queries";
 import { FormSelect } from "@/components/ui/form-select";
 import {
@@ -428,6 +429,7 @@ export function KanbanBoard({
             weight?: number;
             estimatedHours?: number | null;
             dependsOnTaskId?: string | null;
+            attachments?: TaskAttachment[];
         }
     ): Promise<boolean> => {
         try {
@@ -439,6 +441,7 @@ export function KanbanBoard({
                 weight: data.weight,
                 estimatedHours: data.estimatedHours,
                 dependsOnTaskId: data.dependsOnTaskId,
+                attachments: data.attachments,
             });
 
             if (res.success) {
@@ -454,6 +457,7 @@ export function KanbanBoard({
                             ...(data.weight !== undefined ? { weight: data.weight } : {}),
                             ...(data.estimatedHours !== undefined ? { estimatedHours: data.estimatedHours } : {}),
                             ...(data.dependsOnTaskId !== undefined ? { dependsOnTaskId: data.dependsOnTaskId } : {}),
+                            ...(data.attachments !== undefined ? { attachments: data.attachments } : {}),
                             ...(data.assigneeIds !== undefined
                                 ? {
                                       assignees: data.assigneeIds.map((id) => {
@@ -703,6 +707,7 @@ export function KanbanBoard({
             {/* Task Details Drawer */}
             <TaskDetailsDrawer
                 task={currentViewingTask}
+                projectId={project.id}
                 isOpen={!!viewingTaskDetails}
                 onClose={() => setViewingTaskDetails(null)}
                 teamMembers={teamMembers}
@@ -728,6 +733,7 @@ export function KanbanBoard({
                 onOpenChange={(open) => !open && setProofingTask(null)}
                 task={proofingTask}
                 targetStatus="In Review"
+                projectId={project.id}
                 onConfirm={handleSubmitWorkConfirm}
             />
 

@@ -2,13 +2,14 @@
 
 import { db } from "@/db";
 import { normalizeProofUrl } from "@/lib/proof-url";
-import { agencyProjects, milestones, tasks, sprints, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
+import { agencyProjects, milestones, tasks, taskUpdates, sprints, projectStakeholders, projectTeamMembers, taskAssignees, users, payments, type ProjectDocumentItem } from "@/db/schema";
 import { auth, hasRole } from "@/auth";
-import { eq, and, isNull, ne, inArray } from "drizzle-orm";
+import { eq, and, isNull, ne, inArray, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createSystemNotification } from "@/features/notifications/send";
 import { logAction } from "@/features/audit/log";
-import { authorizeProject, requireRole, requireRoles } from "@/lib/authz";
+import { authorizeProject, authorizeTask, requireRole, requireRoles } from "@/lib/authz";
+import { cleanTaskAttachments, cleanUpdateNote, fileNameFromUrl } from "@/features/pm/task-attachments";
 import { closeMilestoneAndAdvance } from "@/features/pm/milestone-flow";
 import { applyEndedSprints } from "@/features/sprints/sprint-end";
 import { deriveSprintStatus, todayInManila } from "@/features/sprints/sprint-status";
@@ -560,6 +561,19 @@ export async function submitTask(input: {
                     updatedAt: new Date(),
                 })
                 .where(eq(tasks.id, input.taskId));
+
+            // Keep every round: tasks.proofLinks only holds the latest submission.
+            await tx.insert(taskUpdates).values({
+                taskId: input.taskId,
+                authorId: session.user.id,
+                kind: "submission",
+                note: cleanUpdateNote(input.note),
+                attachments: combinedProofLinks.map((p) =>
+                    p.label === "File"
+                        ? { kind: "file" as const, label: fileNameFromUrl(p.url), url: p.url }
+                        : { kind: "link" as const, label: p.url, url: p.url }
+                ),
+            });
         });
     } catch (err: unknown) {
         if (err instanceof Error && (err.message === "TASK_NOT_FOUND" || err.message === "INVALID_STATUS")) {
@@ -604,6 +618,8 @@ export async function updateTaskDetails(
         weight?: number;
         estimatedHours?: number | null;
         dependsOnTaskId?: string | null;
+        /** Deliverables: files uploaded for this project and links the PM attaches to the task. */
+        attachments?: Array<{ kind: "file" | "link"; label: string; url: string }>;
     }
 ): Promise<ActionState> {
     const session = await auth();
@@ -641,6 +657,11 @@ export async function updateTaskDetails(
         if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
         if (data.weight !== undefined) updateData.weight = data.weight;
         if (data.estimatedHours !== undefined) updateData.estimatedHours = data.estimatedHours;
+        if (data.attachments !== undefined) {
+            const cleaned = cleanTaskAttachments(data.attachments, existingTask.projectId);
+            if (!cleaned.ok) return { success: false, message: cleaned.error };
+            updateData.attachments = cleaned.attachments;
+        }
         if (data.dependsOnTaskId !== undefined) {
             if (data.dependsOnTaskId === taskId) {
                 return { success: false, message: "A task cannot depend on itself." };
@@ -678,7 +699,9 @@ export async function updateTaskDetails(
         await logAction(
             "UPDATE",
             "Task",
-            `Task ${taskId} details updated`,
+            data.attachments !== undefined
+                ? `Task ${taskId} details updated (deliverables: ${(updateData.attachments as unknown[]).length})`
+                : `Task ${taskId} details updated`,
             session?.user?.id,
             existingTask.projectId
         );
@@ -1038,6 +1061,8 @@ export async function approveTask(
                 })
                 .where(eq(tasks.id, taskId));
 
+            await tx.insert(taskUpdates).values({ taskId, authorId: authz.session.user.id, kind: "approved" });
+
             let closeResult = null;
             if (task.milestoneId) {
                 const remainingTasks = await tx
@@ -1214,6 +1239,8 @@ export async function requestTaskChanges(
                     updatedAt: new Date(),
                 })
                 .where(eq(tasks.id, taskId));
+
+            await tx.insert(taskUpdates).values({ taskId, authorId: authz.session.user.id, kind: "changes_requested", note: safeComment });
 
             const assignees = await tx
                 .select({ userId: taskAssignees.userId })
@@ -1405,4 +1432,88 @@ export async function markEmptyMilestoneDone(input: {
             message: error instanceof Error ? error.message : "Failed to mark empty milestone done",
         };
     }
+}
+
+/**
+ * A progress update on a task: a short note, with optional files or links. The assigned developer posts while the
+ * task is in progress or sent back for changes; the PM can post on any task that is not done. Never changes the status.
+ */
+export async function postTaskUpdate(input: {
+    taskId: string;
+    note?: string;
+    attachments?: Array<{ kind: "file" | "link"; label: string; url: string }>;
+}): Promise<{ success: boolean; message?: string }> {
+    const authz = await authorizeTask(input.taskId);
+    if (!authz.ok) return { success: false, message: "Unauthorized" };
+    const { session } = authz;
+    const isManager = session.user.role === "manager";
+
+    const task = await db.query.tasks.findFirst({
+        where: and(eq(tasks.id, input.taskId), isNull(tasks.deletedAt)),
+        columns: { id: true, title: true, projectId: true, status: true },
+    });
+    if (!task) return { success: false, message: "Task not found" };
+    if (task.status === "done") return { success: false, message: "This task is done, so it cannot take new updates." };
+    if (!isManager && task.status !== "in_progress" && task.status !== "changes_requested") {
+        return { success: false, message: "You can post updates while the task is in progress." };
+    }
+
+    const note = cleanUpdateNote(input.note);
+    const cleaned = cleanTaskAttachments(input.attachments, task.projectId);
+    if (!cleaned.ok) return { success: false, message: cleaned.error };
+    if (!note && cleaned.attachments.length === 0) {
+        return { success: false, message: "Write a note or attach a file or link." };
+    }
+
+    try {
+        await db.insert(taskUpdates).values({
+            taskId: task.id,
+            authorId: session.user.id,
+            kind: "progress",
+            note,
+            attachments: cleaned.attachments,
+        });
+        await logAction(
+            "CREATE",
+            "TaskUpdate",
+            `${session.user.name || session.user.id} posted a progress update on "${task.title}" (${task.id})`,
+            session.user.id,
+            task.projectId
+        );
+        revalidatePath(`/dashboard/pm/${task.projectId}`);
+        revalidatePath("/dashboard/my-tasks");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to post task update:", error);
+        return { success: false, message: "Could not save the update." };
+    }
+}
+
+export interface TaskUpdateItem {
+    id: string;
+    kind: "progress" | "submission" | "changes_requested" | "approved";
+    note: string | null;
+    attachments: Array<{ kind: "file" | "link"; label: string; url: string }>;
+    createdAt: Date;
+    authorName: string | null;
+}
+
+/** The task's timeline, newest first. The PM and the developers assigned to the task can read it. */
+export async function getTaskUpdates(taskId: string): Promise<TaskUpdateItem[]> {
+    const authz = await authorizeTask(taskId);
+    if (!authz.ok) return [];
+
+    const rows = await db.query.taskUpdates.findMany({
+        where: eq(taskUpdates.taskId, taskId),
+        orderBy: [desc(taskUpdates.createdAt)],
+        with: { author: { columns: { name: true } } },
+    });
+    return rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        note: r.note,
+        attachments: r.attachments ?? [],
+        createdAt: r.createdAt,
+        authorName: r.author?.name ?? null,
+    }));
 }

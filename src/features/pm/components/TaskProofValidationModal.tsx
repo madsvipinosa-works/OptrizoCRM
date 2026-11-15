@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { uploadImage } from "@/features/upload/actions";
+import { fileNameFromUrl } from "@/features/pm/task-attachments";
 import { normalizeProofUrl } from "@/lib/proof-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -43,6 +46,8 @@ interface TaskProofValidationModalProps {
     isViewOnly?: boolean;
     initialTab?: "proofs";
     onRequestChanges?: () => Promise<void>;
+    /** Files are uploaded for this project. */
+    projectId: string;
 }
 
 export function TaskProofValidationModal({
@@ -54,10 +59,12 @@ export function TaskProofValidationModal({
     mode = "transition",
     isViewOnly = false,
     onRequestChanges,
+    projectId,
 }: TaskProofValidationModalProps) {
     const [proofLinks, setProofLinks] = useState<{ label: string; url: string }[]>([{ label: "", url: "" }]);
     const [proofFiles, setProofFiles] = useState<string[]>([]);
-    const [newFileUrl, setNewFileUrl] = useState("");
+    const fileInput = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
     const [proofNotes, setProofNotes] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -76,7 +83,6 @@ export function TaskProofValidationModal({
             setProofLinks(existingLinks.length > 0 ? existingLinks : [{ label: "", url: "" }]);
             setProofNotes(task.proofNotes || "");
             setError(null);
-            setNewFileUrl("");
             setIsEditing(mode === "transition");
         }
     }, [task, open, mode]);
@@ -89,10 +95,18 @@ export function TaskProofValidationModal({
         setProofLinks(newLinks);
     };
 
-    const addFile = () => {
-        if (!newFileUrl.trim()) return;
-        setProofFiles([...proofFiles, newFileUrl.trim()]);
-        setNewFileUrl("");
+    const uploadFile = async (file: File) => {
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("projectId", projectId);
+        const res = await uploadImage(formData);
+        setUploading(false);
+        if (res.success && res.url) {
+            setProofFiles((files) => [...files, res.url as string]);
+        } else {
+            toast.error(res.message || "Upload failed");
+        }
     };
 
     const removeFile = (index: number) => {
@@ -127,9 +141,6 @@ export function TaskProofValidationModal({
             });
 
         const typedFiles = proofFiles.filter((f) => f.trim().length > 0);
-        if (newFileUrl.trim()) {
-            typedFiles.push(newFileUrl.trim());
-        }
         const badFile = typedFiles.find((f) => !normalizeProofUrl(f));
         if (badFile) {
             setError(`"${badFile}" is not a link that can be opened. Paste the full link, e.g. https://drive.google.com/...`);
@@ -260,29 +271,30 @@ export function TaskProofValidationModal({
                                 </Label>
 
                                 {isEditing && (
-                                    <div className="flex gap-2 items-center">
-                                        <Input
-                                            type="text"
-                                            placeholder="File URL or upload path (e.g. /uploads/... or storage link)"
-                                            value={newFileUrl}
-                                            onChange={(e) => setNewFileUrl(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    addFile();
-                                                }
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <input
+                                            ref={fileInput}
+                                            type="file"
+                                            accept=".pdf,.doc,.docx,.zip,.png,.jpg,.jpeg,.webp,.gif,.svg"
+                                            className="sr-only"
+                                            tabIndex={-1}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                e.target.value = "";
+                                                if (file) void uploadFile(file);
                                             }}
-                                            className="bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground h-8 text-xs tabular-nums"
                                         />
                                         <Button
                                             type="button"
                                             size="sm"
-                                            onClick={addFile}
-                                            disabled={!newFileUrl.trim()}
+                                            onClick={() => fileInput.current?.click()}
+                                            disabled={uploading}
                                             className="h-8 text-xs px-3 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 gap-1"
                                         >
-                                            <Plus className="w-3 h-3" /> Add File
+                                            {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                            {uploading ? "Uploading..." : "Upload file"}
                                         </Button>
+                                        <span className="text-xs text-muted-foreground">PDF, Word, ZIP or images, up to 15 MB each</span>
                                     </div>
                                 )}
 
@@ -296,12 +308,12 @@ export function TaskProofValidationModal({
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <Paperclip className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                                                     <a
-                                                        href={file.startsWith("http") ? file : `https://${file}`}
+                                                        href={file.startsWith("http") || file.startsWith("/") ? file : `https://${file}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="tabular-nums text-brand-deep underline truncate hover:text-brand-deep"
                                                     >
-                                                        {file}
+                                                        {file.startsWith("/api/private-file") ? fileNameFromUrl(file) : file}
                                                     </a>
                                                 </div>
                                                 {isEditing && (

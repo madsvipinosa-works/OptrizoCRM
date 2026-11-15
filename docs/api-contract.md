@@ -79,7 +79,32 @@ Errors:
 - `NEED_FILE_OR_LINK`: no file and no link.
 - `FORBIDDEN`: caller is not the assigned developer.
 - `INVALID_STATUS`: task is not `in_progress` or `changes_requested`.
-Side effects: task → `in_review`; PM notification; audit log row. There is no automated or AI review. The PM's Approve or Request changes is the only review.
+Files are URLs returned by the upload action (`/api/private-file?...`): the form uploads a real file and passes that URL.
+Side effects: task → `in_review`; `proofLinks` keeps the latest submission; a `submission` row is added to the task timeline; PM notification; audit log row. There is no automated or AI review. The PM's Approve or Request changes is the only review.
+
+### updateTaskDetails  (deliverables, steps 22-25)
+Who can call: manager
+Input:  `{ taskId, ...existing fields, attachments?: { kind: 'file' | 'link', label: string, url: string }[] }`. Sending `attachments` replaces the task's deliverables.
+Errors:
+- `FORBIDDEN`: caller is not a manager.
+- More than 10 attachments, a link that cannot be opened, or a file that was not uploaded for this task's project.
+Side effects: `tasks.attachments` updated; audit log row (with the number of deliverables).
+
+### postTaskUpdate  (progress, steps 24-25)
+Who can call: the developer assigned to the task (while it is `in_progress` or `changes_requested`); a manager (any task that is not `done`)
+Input:  `{ taskId: string, note?: string, attachments?: { kind: 'file' | 'link', label: string, url: string }[] }` (note up to 2000 characters, up to 10 attachments)
+Output: `{ success: boolean, message?: string }`
+Errors:
+- `FORBIDDEN`: not the assigned developer or a manager.
+- Task is `done`, or a developer posts outside `in_progress` or `changes_requested`.
+- No note and no attachment; a link that cannot be opened; a file from another project.
+Side effects: one `taskUpdates` row (`kind: 'progress'`); audit log row. The task status does not change and nobody is notified.
+
+### getTaskUpdates  (progress)
+Who can call: a manager, or the developer assigned to the task
+Input:  `{ taskId: string }`
+Output: `{ id, kind, note, attachments[], createdAt, authorName }[]`, newest first. Other callers get an empty list.
+Side effects: none.
 
 ### confirmPayment  (step 29b)
 Who can call: manager

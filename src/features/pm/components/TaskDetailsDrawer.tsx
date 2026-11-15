@@ -13,9 +13,15 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import type { PmTask } from "./PmKanbanBoard";
 import { AssigneeCombobox, type TeamMemberItem } from "./AssigneeCombobox";
+import { AttachmentEditor, AttachmentList } from "./TaskAttachments";
+import { TaskProgress } from "./TaskProgress";
+import { fileNameFromUrl } from "@/features/pm/task-attachments";
+import type { TaskAttachment } from "@/db/schema";
 
 interface TaskDetailsDrawerProps {
     task: PmTask | null;
+    /** The project the task belongs to: files are uploaded for it. */
+    projectId: string;
     isOpen: boolean;
     onClose: () => void;
     milestones: { id: string; title: string; order: number; status: string }[];
@@ -29,7 +35,7 @@ interface TaskDetailsDrawerProps {
     /** PM edit (user asked 2026-11-08; not in the mockups): name, assignee, due date, description. */
     onUpdateTaskDetails?: (
         taskId: string,
-        data: { title?: string; description?: string; assigneeIds?: string[]; dueDate?: Date | null }
+        data: { title?: string; description?: string; assigneeIds?: string[]; dueDate?: Date | null; attachments?: TaskAttachment[] }
     ) => Promise<boolean>;
     teamMembers?: TeamMemberItem[];
     // Kept so callers do not break.
@@ -74,6 +80,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  */
 export function TaskDetailsDrawer({
     task,
+    projectId,
     isOpen,
     onClose,
     milestones,
@@ -89,7 +96,7 @@ export function TaskDetailsDrawer({
     const [comment, setComment] = useState("");
     const [saving, setSaving] = useState(false);
     const [editing, setEditing] = useState(false);
-    const [draft, setDraft] = useState({ title: "", description: "", assigneeIds: [] as string[], due: "" });
+    const [draft, setDraft] = useState({ title: "", description: "", assigneeIds: [] as string[], due: "", attachments: [] as TaskAttachment[] });
     useEffect(() => {
         setComment("");
         setEditing(false);
@@ -121,6 +128,7 @@ export function TaskDetailsDrawer({
             description: task.description || "",
             assigneeIds: task.assignees?.map((a) => a.user.id) ?? [],
             due: due ? format(due, "yyyy-MM-dd") : "",
+            attachments: task.attachments ?? [],
         });
         setEditing(true);
     };
@@ -133,6 +141,7 @@ export function TaskDetailsDrawer({
             description: draft.description.trim(),
             assigneeIds: draft.assigneeIds,
             dueDate: draft.due ? new Date(draft.due) : null,
+            attachments: draft.attachments,
         });
         setSaving(false);
         if (ok) setEditing(false);
@@ -216,6 +225,15 @@ export function TaskDetailsDrawer({
                                     className="resize-y bg-card text-sm"
                                 />
                             </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-sm text-muted-foreground">Deliverables</Label>
+                                <AttachmentEditor
+                                    value={draft.attachments}
+                                    onChange={(attachments) => setDraft((d) => ({ ...d, attachments }))}
+                                    projectId={projectId}
+                                    disabled={saving}
+                                />
+                            </div>
                         </>
                     ) : (
                         <>
@@ -284,6 +302,16 @@ export function TaskDetailsDrawer({
                                 </p>
                             </Section>
 
+                            {((task.attachments?.length ?? 0) > 0 || canEdit) && (
+                                <Section title="Deliverables">
+                                    {(task.attachments?.length ?? 0) > 0 ? (
+                                        <AttachmentList items={task.attachments ?? []} />
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">None yet. Edit the task to attach files or links.</p>
+                                    )}
+                                </Section>
+                            )}
+
                             {(task.proofLinks?.length || task.proofNotes) && (
                                 <Section title="Submitted work">
                                     {task.proofLinks && task.proofLinks.length > 0 && (
@@ -291,7 +319,7 @@ export function TaskDetailsDrawer({
                                             {task.proofLinks.map((link, i) => (
                                                 <li key={`${link.url}-${i}`} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
                                                     <div className="min-w-0">
-                                                        <p className="truncate text-base text-foreground">{link.label || link.url}</p>
+                                                        <p className="truncate text-base text-foreground">{link.label === "File" ? fileNameFromUrl(link.url) : link.label || link.url}</p>
                                                         <p className="truncate text-sm text-muted-foreground">
                                                             {normalizeProofUrl(link.url) ? `Submitted by ${firstName(devName)}` : `"${link.url}" is not a full link. Ask ${firstName(devName)} to resubmit.`}
                                                         </p>
@@ -320,23 +348,15 @@ export function TaskDetailsDrawer({
                                 </Section>
                             )}
 
-                            {isManager && history.length > 0 && (
-                                <Section title="History">
-                                    <ol className="relative ml-1 space-y-4 border-l border-border pl-5">
-                                        {history.map((h, i) => (
-                                            <li key={h.what} className="relative">
-                                                <span
-                                                    aria-hidden="true"
-                                                    className={cn(
-                                                        "absolute -left-[25px] top-1.5 size-2.5 rounded-full ring-4 ring-background",
-                                                        i === history.length - 1 ? "bg-brand-deep" : "bg-muted-foreground/40"
-                                                    )}
-                                                />
-                                                <p className="text-base text-foreground">{h.what}</p>
-                                                <p className="text-sm text-muted-foreground">{h.when}</p>
-                                            </li>
-                                        ))}
-                                    </ol>
+                            {(isManager || (isDeveloper && isMine)) && (
+                                <Section title="Progress">
+                                    <TaskProgress
+                                        key={task.id}
+                                        taskId={task.id}
+                                        projectId={projectId}
+                                        canPost={isManager ? status !== "done" : status === "in_progress" || status === "changes_requested"}
+                                        fallback={history}
+                                    />
                                 </Section>
                             )}
 
