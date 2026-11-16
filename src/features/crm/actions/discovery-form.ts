@@ -200,11 +200,16 @@ export async function requestProposal(leadId: string, choice: { pmId?: string; r
         // 1. Sales' named PM, else the lead's active PM, else the least-loaded active PM.
         let assignedPm: { id: string; name: string | null } | null = null;
         let assignNote = "";
+        // How the PM was chosen, in words the PM and the team read (lead activity, the PM's request and notification).
+        let how: "named" | "auto" | "kept" = "kept";
+        const salesName = session.user.name || "Sales";
+        const reason = "reason" in parsedChoice.data ? parsedChoice.data.reason : "";
         if (parsedChoice.data.pmId) {
             const chosen = resolvePmChoice(await listPmWorkloads(), parsedChoice.data.pmId);
             if (!chosen.ok) return { success: false, message: chosen.message };
             assignedPm = chosen.pm;
-            assignNote = ` · Sales ${chosen.note}. Reason: ${"reason" in parsedChoice.data ? parsedChoice.data.reason : ""}`;
+            how = "named";
+            assignNote = ` · Sales ${chosen.note}. Reason: ${reason}`;
         } else {
             assignedPm = lead.assignedPmId
                 ? (await db.query.users.findFirst({
@@ -221,6 +226,7 @@ export async function requestProposal(leadId: string, choice: { pmId?: string; r
                 const auto = resolvePmChoice(await listPmWorkloads());
                 if (auto.ok) {
                     assignedPm = auto.pm;
+                    how = "auto";
                     assignNote = ` · ${auto.note}`;
                 }
             }
@@ -246,22 +252,34 @@ export async function requestProposal(leadId: string, choice: { pmId?: string; r
             });
 
         const leadTitle = lead.businessName || lead.contactName || "lead";
+        const pmLabel = assignedPm?.name || "Project Manager";
+        const pmMessage =
+            how === "named"
+                ? `${salesName} assigned you the proposal for ${leadTitle}. Reason: ${reason}`
+                : how === "auto"
+                  ? `Proposal requested for ${leadTitle}. You were assigned automatically (least open work).`
+                  : `Proposal requested for ${leadTitle}`;
         for (const pm of targetPms) {
             await createSystemNotification(
                 pm.id,
-                `Proposal requested for ${leadTitle}`,
+                assignedPm ? pmMessage : `Proposal requested for ${leadTitle}`,
                 "proposal",
                 "/dashboard/proposals"
             );
         }
 
-        // 3. Insert System activity log
-        const pmLabel = assignedPm?.name || "Project Manager";
+        // 3. Insert System activity log (the PM's request shows the latest of these as "How it was assigned")
+        const assignedText =
+            how === "named"
+                ? `${salesName} assigned it to ${pmLabel}. Reason: ${reason}`
+                : how === "auto"
+                  ? `assigned automatically to ${pmLabel} (least open work)`
+                  : `assigned to ${pmLabel}`;
         await db.insert(leadActivityLogs).values({
             leadId,
             authorId: session.user.id,
             activityType: "System",
-            content: assignedPm ? `Proposal requested · assigned to ${pmLabel}` : "Proposal requested · sent to Project Manager",
+            content: assignedPm ? `Proposal requested · ${assignedText}` : "Proposal requested · sent to Project Manager",
         });
 
         // 4. Write audit row

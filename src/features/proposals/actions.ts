@@ -12,7 +12,7 @@ import {
     leadActivityLogs,
 } from "@/db/schema";
 import { todayInManila } from "@/features/sprints/sprint-status";
-import { eq, and, isNull, isNotNull, ne, inArray, notInArray } from "drizzle-orm";
+import { eq, and, or, like, isNull, isNotNull, ne, inArray, notInArray } from "drizzle-orm";
 import { moveLeadToProposalSent, moveLeadToClosedLost } from "@/features/crm/stage-rules";
 import { auth, hasRole } from "@/auth";
 import { requireRole } from "@/lib/authz";
@@ -647,13 +647,13 @@ export async function passProposalRequest(leadId: string, reason: string, toPmId
     const leadTitle = lead.businessName || lead.contactName || "lead";
     const from = session.user.name || "The Project Manager";
     const to = next.name || "another PM";
-    await createSystemNotification(next.id, `Proposal request for ${leadTitle} was passed to you`, "proposal", "/dashboard/proposals");
+    await createSystemNotification(next.id, `${from} passed you the proposal request for ${leadTitle}. Reason: ${parsed.data.reason}`, "proposal", "/dashboard/proposals");
     await notifyLeadSales(leadId, `${from} passed the proposal for ${leadTitle} to ${to}. Reason: ${parsed.data.reason}`, "proposal", "/dashboard/leads");
     await db.insert(leadActivityLogs).values({
         leadId,
         authorId: session.user.id,
         activityType: "System",
-        content: `Project Manager changed to ${to}`,
+        content: `${from} passed the proposal request to ${to}. Reason: ${parsed.data.reason}`,
     });
     await logAction("UPDATE", "Lead", `Proposal request for ${leadTitle} passed by ${from}, ${choice.note}. Reason: ${parsed.data.reason}`);
 
@@ -685,6 +685,16 @@ export async function getProposalRequestsQueue() {
                 where: isNull(proposals.deletedAt),
                 orderBy: (p, { desc }) => [desc(p.updatedAt)],
             },
+            // The latest assignment entry: who chose this PM and why (written by requestProposal and passProposalRequest).
+            activityLogs: {
+                where: and(
+                    eq(leadActivityLogs.activityType, "System"),
+                    or(like(leadActivityLogs.content, "Proposal requested%"), like(leadActivityLogs.content, "% passed the proposal request to %"))
+                ),
+                orderBy: (a, { desc }) => [desc(a.createdAt)],
+                limit: 1,
+                columns: { content: true, createdAt: true },
+            },
         },
         orderBy: (l, { desc }) => [desc(l.proposalRequestedAt)],
     });
@@ -698,6 +708,7 @@ export async function getProposalRequestsQueue() {
         urgency: req.urgency,
         proposalRequestedAt: req.proposalRequestedAt,
         assignedPmId: req.assignedPmId,
+        assignment: req.activityLogs?.[0] ? { text: req.activityLogs[0].content, at: req.activityLogs[0].createdAt } : null,
         assignedPm: req.assignedPm ? {
             id: req.assignedPm.id,
             name: req.assignedPm.name,

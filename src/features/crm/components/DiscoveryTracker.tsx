@@ -192,7 +192,7 @@ export function DiscoveryTracker({
                                         aria-required="true"
                                         placeholder="Required. e.g. Repeat client, Ana built their last site"
                                     />
-                                    <p className="text-xs text-muted-foreground"><span className="text-destructive">Required</span> when you pick a specific Project Manager. Your choice and reason are recorded in the audit log.</p>
+                                    <p className="text-xs text-muted-foreground"><span className="text-destructive">Required</span> when you pick a specific Project Manager. The PM and your team will see this reason; it is also kept in the audit log.</p>
                                 </div>
                             )}
                             <Button

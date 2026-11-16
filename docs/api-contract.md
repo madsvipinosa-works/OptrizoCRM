@@ -45,7 +45,7 @@ Errors:
 - Reason missing or too long.
 - A proposal version was already sent (a draft is fine and moves with the lead).
 - `toPmId` is not another active PM, or no other active PM is available.
-Side effects: `assignedPmId` moves to the chosen or recommended PM (a double submit is a no-op); notification to the new PM; notification to the lead's Sales with the reason; `system` activity row ("Project Manager changed to ..."); audit row with the workload, any override and the reason.
+Side effects: `assignedPmId` moves to the chosen or recommended PM (a double submit is a no-op); notification to the new PM; notification to the lead's Sales with the reason; `system` activity row ("<PM> passed the proposal request to <PM>. Reason: ..."); the new PM's notification includes the reason; audit row with the workload, any override and the reason.
 
 ### claimLead  (step 2)
 Who can call: sales

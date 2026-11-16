@@ -23,6 +23,8 @@ export interface ProposalQueueItem {
     proposalRequestedAt: Date | string | null;
     assignedPmId: string | null;
     assignedPm?: { id: string; name: string | null; email: string } | null;
+    /** The latest assignment entry from the lead's activity: who chose the PM and why. */
+    assignment?: { text: string; at: Date | string } | null;
     discoveryForm?: {
         goals: string;
         requiredFeatures: string;
@@ -44,6 +46,12 @@ export interface ProposalQueueItem {
 type QueueState = { label: string; tone: string; note: string };
 
 const date = (d: Date | string | null | undefined) => (d ? formatDateTime(d) : "");
+
+/** "Proposal requested · assigned automatically to Ana" reads as "Assigned automatically to Ana". */
+const assignmentText = (text: string) => {
+    const rest = text.replace(/^Proposal requested · /, "");
+    return rest.charAt(0).toUpperCase() + rest.slice(1);
+};
 
 /** Row state from the latest version (mockup step 9): New request, Draft, Sent, Needs revision. */
 function stateOf(lead: ProposalQueueItem): QueueState {
@@ -159,6 +167,12 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
                             <h3 className="break-words text-base font-semibold text-foreground">
                                 Business name: {selected.businessName || "Not given"} · Client name: {selected.contactName || "Not given"}
                             </h3>
+                            {selected.assignment && (
+                                <div className="rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                                    <p className="text-muted-foreground">How it was assigned · {date(selected.assignment.at)}</p>
+                                    <p className="mt-0.5 whitespace-pre-wrap break-words text-base text-foreground">{assignmentText(selected.assignment.text)}</p>
+                                </div>
+                            )}
                             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
                                 <div className="col-span-2">
                                     <dt className="text-muted-foreground">Goals</dt>
@@ -206,7 +220,7 @@ export function PmProposalQueue({ items, currentUserId }: { items: ProposalQueue
                     <DialogHeader>
                         <DialogTitle>Pass this request</DialogTitle>
                         <DialogDescription>
-                            Pick who takes over, or let the system choose the PM with the least open work. Any draft moves with it, and Sales is told who took over and why.
+                            Pick who takes over, or let the system choose the PM with the least open work. Any draft moves with it. The next PM, Sales and the lead&apos;s activity show who took over and your reason.
                         </DialogDescription>
                     </DialogHeader>
                     {passOpen && <PmPicker legend="Pass to" value={passTo} onChange={setPassTo} disabled={isPending} />}

@@ -227,7 +227,7 @@ describe("passProposalRequest", () => {
 
         expect(res).toMatchObject({ success: true, assignedPmName: "Ben" });
         expect(sets[0]).toMatchObject({ assignedPmId: "pm-b" });
-        expect(createSystemNotification).toHaveBeenCalledWith("pm-b", expect.stringContaining("passed to you"), "proposal", "/dashboard/proposals");
+        expect(createSystemNotification).toHaveBeenCalledWith("pm-b", expect.stringContaining("passed you the proposal request"), "proposal", "/dashboard/proposals");
         expect(notifyLeadSales).toHaveBeenCalledWith("lead-1", expect.stringContaining("Reason: On leave next week"), "proposal", "/dashboard/leads");
         expect(logAction).toHaveBeenCalledWith("UPDATE", "Lead", expect.stringContaining("Reason: On leave next week"));
     });
@@ -251,5 +251,58 @@ describe("passProposalRequest", () => {
         const res = await passProposalRequest("lead-1", "busy");
         expect(res.success).toBe(false);
         expect(createSystemNotification).not.toHaveBeenCalled();
+    });
+});
+
+describe("who can see why a PM was chosen", () => {
+    /** Captures `db.insert(...).values(row)`. */
+    function captureInserts() {
+        const rows: Record<string, unknown>[] = [];
+        mockDb.insert.mockImplementation(() => ({
+            values: (row: Record<string, unknown>) => {
+                rows.push(row);
+                return Promise.resolve();
+            },
+        }));
+        return rows;
+    }
+
+    it("puts Sales' reason in the PM's notification and the lead's activity", async () => {
+        signInAs(auth, "sales", "maria");
+        readyLead();
+        workloads.mockResolvedValue(BOTH);
+        captureUpdates();
+        const rows = captureInserts();
+
+        await requestProposal("lead-1", { pmId: "pm-a", reason: "Repeat client" });
+
+        expect(createSystemNotification).toHaveBeenCalledWith("pm-a", "maria assigned you the proposal for Acme. Reason: Repeat client", "proposal", "/dashboard/proposals");
+        expect(rows).toContainEqual(expect.objectContaining({ activityType: "System", content: "Proposal requested · maria assigned it to Ana. Reason: Repeat client" }));
+    });
+
+    it("says when the system chose the PM", async () => {
+        signInAs(auth, "sales", "maria");
+        readyLead();
+        workloads.mockResolvedValue(BOTH);
+        captureUpdates();
+        const rows = captureInserts();
+
+        await requestProposal("lead-1");
+
+        expect(createSystemNotification).toHaveBeenCalledWith("pm-b", expect.stringContaining("assigned automatically"), "proposal", "/dashboard/proposals");
+        expect(rows).toContainEqual(expect.objectContaining({ content: "Proposal requested · assigned automatically to Ben (least open work)" }));
+    });
+
+    it("puts the passing PM's reason in the next PM's notification and the lead's activity", async () => {
+        signInAs(auth, "manager", "pm-a");
+        mockDb.query.leads.findFirst.mockResolvedValue({ id: "lead-1", businessName: "Acme", assignedPmId: "pm-a", proposals: [{ status: "draft" }] });
+        workloads.mockResolvedValue([{ ...B, load: 0 }]);
+        captureUpdates();
+        const rows = captureInserts();
+
+        await passProposalRequest("lead-1", "On leave next week");
+
+        expect(createSystemNotification).toHaveBeenCalledWith("pm-b", "pm-a passed you the proposal request for Acme. Reason: On leave next week", "proposal", "/dashboard/proposals");
+        expect(rows).toContainEqual(expect.objectContaining({ content: "pm-a passed the proposal request to Ben. Reason: On leave next week" }));
     });
 });
